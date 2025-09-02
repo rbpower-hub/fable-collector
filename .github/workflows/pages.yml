@@ -1,6 +1,7 @@
 name: Build & Deploy Pages (fable-collector)
 
 on:
+  # Lancement manuel avec options
   workflow_dispatch:
     inputs:
       tz:
@@ -22,11 +23,16 @@ on:
       only_sites:
         description: "Optionnel: restreindre à certains sites (CSV: noms/ids)"
         required: false
+      reader_home:
+        description: "Nom du fichier JSON du port d’attache pour le reader"
+        default: "gammarth-port.json"
 
+  # Planifié : 4×/jour + garde-fou horaire
   schedule:
-    - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis
-    - cron: "0 * * * *"            # garde-fou horaire
+    - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis (UTC+1)
+    - cron: "0 * * * *"
 
+  # Rebuild si ces fichiers changent
   push:
     paths:
       - ".github/workflows/pages.yml"
@@ -51,11 +57,12 @@ jobs:
       should_run: ${{ steps.gate.outputs.should_run }}
       reason: ${{ steps.gate.outputs.reason }}
       tz_effective: ${{ steps.gate.outputs.tz_effective }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- Gate local hour / TZ ---
+      # ---- Filtre heure locale / TZ ----
       - name: Gate on local hour (or force)
         id: gate
         env:
@@ -100,6 +107,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # ---- Collecte JSON (avec petit retry réseau) ----
       - name: Generate JSON (window, tz, targeting)
         if: steps.gate.outputs.should_run == 'true'
         env:
@@ -108,24 +116,24 @@ jobs:
           FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
           FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
         run: |
+          set -e
           echo "Using FABLE_TZ=$FABLE_TZ"
           echo "Using FABLE_WINDOW_HOURS=$FABLE_WINDOW_HOURS"
-          if [ -n "$FABLE_START_ISO" ]; then echo "Using FABLE_START_ISO=$FABLE_START_ISO"; fi
-          if [ -n "$FABLE_ONLY_SITES" ]; then echo "Using FABLE_ONLY_SITES=$FABLE_ONLY_SITES"; fi
-          python main.py
+          [ -n "$FABLE_START_ISO" ] && echo "Using FABLE_START_ISO=$FABLE_START_ISO"
+          [ -n "$FABLE_ONLY_SITES" ] && echo "Using FABLE_ONLY_SITES=$FABLE_ONLY_SITES"
 
-      - name: Run FABLE reader (detect Family GO)
-        if: steps.gate.outputs.should_run == 'true'
-        run: |
-          python reader.py --from-dir public --out public
+          python main.py || (echo "Collector failed once, retrying in 6s..." && sleep 6 && python main.py)
 
+      # ---- Construire index.json AVANT le reader ----
       - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
         run: |
+          set -e
           mkdir -p public
           echo '{ "generated_at": "'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)"'", "files": [' > public/index.json
           first=1
-          for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' | sort); do
+          # Exclure l'index lui-même et windows.json (métadonnées)
+          for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' ! -name 'windows.json' | sort); do
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
             mtime=$(date -r "$f" -Iseconds 2>/dev/null || stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S%z" "$f")
             [ $first -eq 1 ] || echo ',' >> public/index.json
@@ -133,8 +141,53 @@ jobs:
             first=0
           done
           echo '] }' >> public/index.json
-          echo "index.json built:"
+          echo "Built public/index.json:"
           cat public/index.json
+
+      # ---- (facultatif) Dump rapide pour debug ----
+      - name: Show one site JSON (debug)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          echo "==== public listing ===="
+          ls -lah public || true
+          echo "==== head of ${{ github.event.inputs.reader_home || 'gammarth-port.json' }} ===="
+          head -c 1500 "public/${{ github.event.inputs.reader_home || 'gammarth-port.json' }}" || true
+          echo
+
+      # ---- Reader FABLE : détecte les fenêtres Family GO et produit windows.json ----
+      - name: Run FABLE reader (detect Family GO)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          set -e
+          python reader.py \
+            --from-dir public \
+            --out public \
+            --home "${{ github.event_name == 'workflow_dispatch' && inputs.reader_home || 'gammarth-port.json' }}"
+
+      # ---- Résumé dans l’onglet Summary (facultatif mais utile) ----
+      - name: Job summary (windows)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          if [ -f public/windows.json ]; then
+            {
+              echo "## FABLE — fenêtres Family GO"
+              echo
+              python - <<'PY'
+import json
+d=json.load(open('public/windows.json','r',encoding='utf-8'))
+wins=d.get('windows',[])
+if not wins:
+    print("- Aucune fenêtre Family GO détectée.")
+else:
+    for w in wins:
+        print(f"- **{w.get('dest_name','?')}** ({w.get('dest_slug','?')}):")
+        for seg in w.get('windows',[]):
+            print(f"  - {seg['start']} → {seg['end']} ({seg['hours']} h)")
+PY
+              echo
+              echo "_Fichier généré_: \`public/windows.json\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: List public artifacts
         if: steps.gate.outputs.should_run == 'true'
@@ -143,6 +196,7 @@ jobs:
           ls -lah public || true
           echo "==============="
 
+      # ---- Publication Pages ----
       - name: Setup Pages
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/configure-pages@v5

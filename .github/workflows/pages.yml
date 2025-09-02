@@ -125,20 +125,57 @@ jobs:
         run: |
           set -e
           mkdir -p public
-          echo '{ "generated_at": "'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)"'", "files": [' > public/index.json
+          echo '{ "generated_at": '"'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)'"'", "files": [' > public/index.json
           first=1
           for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' ! -name 'windows.json' | sort); do
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
             mtime=$(date -r "$f" -Iseconds 2>/dev/null || stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S%z" "$f")
             [ $first -eq 1 ] || echo ',' >> public/index.json
-            echo '  { "path": "'$(basename "$f")'", "size": '"$size"', "modified": "'"$mtime"'" }' >> public/index.json
+            echo '  { "path": '"'"$(basename "$f")'"'", "size": '$size', "modified": '"'"$mtime'"'" }' >> public/index.json
             first=0
           done
           echo '] }' >> public/index.json
           echo "Built public/index.json:"
           cat public/index.json
 
-      # --- (debug) apercu d’un JSON ---
+      # --- Sanity check pré-reader (fail-fast) ---
+      - name: Sanity check: index & fichiers listés
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        env:
+          READER_HOME: ${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}
+        run: |
+          import json, os, sys, pathlib
+          pub = pathlib.Path('public')
+          idx = pub / 'index.json'
+          if not idx.exists():
+            print('❌ public/index.json manquant')
+            sys.exit(1)
+          try:
+            data = json.loads(idx.read_text(encoding='utf-8'))
+          except Exception as e:
+            print('❌ index.json illisible:', e)
+            sys.exit(1)
+          files = data.get('files', [])
+          if not files:
+            print('❌ index.json ne référence aucun fichier JSON de spot')
+            sys.exit(1)
+          missing = []
+          for f in files:
+            p = pub / f.get('path','')
+            if not p.exists() or p.stat().st_size == 0:
+              missing.append(str(p))
+          if missing:
+            print('❌ Fichiers référencés manquants/vides:', missing)
+            sys.exit(1)
+          # Vérifier que le home pour le reader est bien présent
+          home = pub / os.environ.get('READER_HOME','gammarth-port.json')
+          if not home.exists():
+            print('❌ reader_home introuvable:', home)
+            sys.exit(1)
+          print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
+
+      # --- (debug) aperçu d’un JSON ---
       - name: Show one site JSON (debug)
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -158,27 +195,86 @@ jobs:
             --out public \
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
-      # --- Résumé Markdown sans quoting piège (shell: python) ---
+      # --- Vérifier windows.json (fail-fast) ---
+      - name: Sanity check: windows.json
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        run: |
+          import json, pathlib, sys
+          p = pathlib.Path('public/windows.json')
+          if not p.exists():
+            print('❌ public/windows.json manquant')
+            sys.exit(1)
+          try:
+            d = json.loads(p.read_text(encoding='utf-8'))
+          except Exception as e:
+            print('❌ windows.json illisible:', e)
+            sys.exit(1)
+          if 'windows' not in d:
+            print('❌ windows.json ne contient pas la clé "windows"')
+            sys.exit(1)
+          print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
+
+      # --- Générer windows.md (lisible humain) ---
+      - name: Create windows.md from windows.json
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        env:
+          TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
+        run: |
+          import os, json, pathlib, datetime
+          pub = pathlib.Path('public')
+          d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
+          ts = datetime.datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')
+          lines = [
+            '# FABLE — Fenêtres Family GO',
+            '',
+            f"Horodatage: {ts} ({os.getenv('TZ_EFFECTIVE','Africa/Tunis')})",
+            ''
+          ]
+          wins = d.get('windows', [])
+          if not wins:
+            lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
+          else:
+            for w in wins:
+              lines.append(f"## {w.get('dest_name','?')} ({w.get('dest_slug','?')})")
+              for seg in w.get('windows', []):
+                lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
+              lines.append('')
+          (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
+          print('✅ public/windows.md généré')
+
+      # --- Résumé Markdown dans le Job Summary ---
       - name: Job summary (windows)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
-          import os, json, pathlib, sys
-          p = pathlib.Path("public/windows.json")
+          import os, json, pathlib
+          p = pathlib.Path('public/windows.json')
           if not p.exists():
-              sys.exit(0)
-          d = json.loads(p.read_text(encoding="utf-8"))
-          wins = d.get("windows", [])
+            sys.exit(0)
+          d = json.loads(p.read_text(encoding='utf-8'))
+          wins = d.get('windows', [])
           out = ["## FABLE — fenêtres Family GO", ""]
           if not wins:
-              out.append("- Aucune fenêtre Family GO détectée.")
+            out.append("- Aucune fenêtre Family GO détectée.")
           else:
-              for w in wins:
-                  out.append(f"- **{w.get('dest_name','?')}** ({w.get('dest_slug','?')}):")
-                  for seg in w.get('windows', []):
-                      out.append(f"  - {seg['start']} → {seg['end']} ({seg['hours']} h)")
+            for w in wins:
+              out.append(f"- **{w.get('dest_name','?')}** ({w.get('dest_slug','?')}):")
+              for seg in w.get('windows', []):
+                out.append(f"  - {seg['start']} → {seg['end']} ({seg['hours']} h)")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
-              fh.write("\n".join(out) + "\n")
+            fh.write("\n".join(out) + "\n")
+
+      # --- Vérification finale des sorties à publier (fail-fast) ---
+      - name: Final outputs check
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          set -e
+          test -s public/index.json || (echo 'index.json manquant ou vide' && exit 1)
+          test -s public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
+          test -s public/windows.md  || (echo 'windows.md manquant ou vide' && exit 1)
+          echo '✅ Sorties prêtes à publier.'
 
       - name: List public artifacts
         if: steps.gate.outputs.should_run == 'true'

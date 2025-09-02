@@ -213,7 +213,7 @@ jobs:
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
       # --- Vérifier windows.json ---
-      - name: Sanity check: windows.json
+      - name: "Sanity check: windows.json"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
@@ -230,7 +230,7 @@ jobs:
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
       # --- Générer windows.md (lisible humain) ---
-      - name: Create windows.md from windows.json
+      - name: "Create windows.md from windows.json"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -287,7 +287,7 @@ jobs:
           (pub/'index.html').write_text(html_txt, encoding='utf-8')
 
       # --- Résumé Markdown dans le Job Summary ---
-      - name: Job summary (windows)
+      - name: "Job summary (windows)"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |

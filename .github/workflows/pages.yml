@@ -143,7 +143,7 @@ jobs:
           print(f"Built index.json with {len(files)} item(s)")
 
       # --- Sanity check: index & existence des fichiers listés ---
-      - name: Sanity check: index & fichiers listés
+      - name: "Sanity check: index & fichiers listés"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -174,7 +174,7 @@ jobs:
           print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
 
       # --- Sanity check: fraîcheur des spots (<= 10 min d'écart) ---
-      - name: Sanity check: fraîcheur des JSON de spots
+      - name: "Sanity check: fraîcheur des JSON de spots"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
@@ -215,7 +215,7 @@ jobs:
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
       # --- Vérifier windows.json ---
-      - name: Sanity check: windows.json
+      - name: "Sanity check: windows.json"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |

@@ -37,6 +37,7 @@ on:
       - ".github/workflows/pages.yml"
       - "requirements.txt"
       - "main.py"
+      - "reader.py"        # <— ajouté
       - "sites.yaml"
 
 permissions:
@@ -106,8 +107,6 @@ jobs:
           pip install -r requirements.txt
 
       # --- Paramètres passés à main.py pour "runs ciblés" ---
-      # NOTE: si ton main.py lit déjà ces variables (os.getenv),
-      #       il les utilisera. Sinon, il les ignorera sans casser.
       - name: Generate JSON (window, tz, targeting)
         if: steps.gate.outputs.should_run == 'true'
         env:
@@ -125,14 +124,20 @@ jobs:
           # et adapter la collecte/fenêtre/corridor/shelter bonus en conséquence.
           python main.py
 
-      # --- Construire l'index des JSON publiés ---
+      # --- Reader FABLE : détecte les fenêtres Family GO à partir des JSON générés ---
+      - name: Run FABLE reader (detect Family GO)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          python reader.py --from-dir public --out public
+
+      # --- Construire l'index après le reader pour inclure windows.json ---
       - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
         run: |
           mkdir -p public
           echo '{ "generated_at": "'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)"'", "files": [' > public/index.json
           first=1
-          # Inclure tous les json de public/ (sauf index)
+          # Inclure tous les json de public/ (sauf index lui-même)
           for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' | sort); do
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
             mtime=$(date -r "$f" -Iseconds 2>/dev/null || stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S%z" "$f")
@@ -144,7 +149,7 @@ jobs:
           echo "index.json built:"
           cat public/index.json
 
-      # --- (facultatif) lister le contenu publié pour debug ---
+      # --- (facultatif) aperçu du contenu publié pour debug ---
       - name: List public artifacts
         if: steps.gate.outputs.should_run == 'true'
         run: |

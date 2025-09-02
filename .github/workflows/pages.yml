@@ -1,7 +1,6 @@
 name: Build & Deploy Pages (fable-collector)
 
 on:
-  # Lancement manuel avec options (cibler un run précis)
   workflow_dispatch:
     inputs:
       tz:
@@ -24,20 +23,16 @@ on:
         description: "Optionnel: restreindre à certains sites (CSV: noms/ids)"
         required: false
 
-  # Tâches planifiées: 4 fois par jour (UTC) + garde-fou heure locale
   schedule:
-    # Correspond approximativement à 00:00/06:00/12:00/18:00 Africa/Tunis (UTC+1)
-    - cron: "0 23,5,11,17 * * *"
-    # Et en secours, toutes les heures (le garde local filtrera)
-    - cron: "0 * * * *"
+    - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis
+    - cron: "0 * * * *"            # garde-fou horaire
 
-  # Reconstruire si ces fichiers changent
   push:
     paths:
       - ".github/workflows/pages.yml"
       - "requirements.txt"
       - "main.py"
-      - "reader.py"        # <— ajouté
+      - "reader.py"
       - "sites.yaml"
 
 permissions:
@@ -52,23 +47,24 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+      reason: ${{ steps.gate.outputs.reason }}
+      tz_effective: ${{ steps.gate.outputs.tz_effective }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- FILTRE HEURE LOCALE / TZ (exécution conditionnelle) ---
+      # --- Gate local hour / TZ ---
       - name: Gate on local hour (or force)
         id: gate
         env:
-          # Valeurs par défaut si run planifié (event != dispatch)
           DEFAULT_TZ: "Africa/Tunis"
           DEFAULT_LOCAL_HOURS: "00,06,12,18"
-          # Valeurs saisies si run manuel
           INPUT_TZ: ${{ github.event_name == 'workflow_dispatch' && inputs.tz || '' }}
           INPUT_HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.local_hours_csv || '' }}
           INPUT_FORCE: ${{ github.event_name == 'workflow_dispatch' && (inputs.force && 'true' || 'false') || 'false' }}
         run: |
-          # Choisir la TZ/Heures actives (inputs si dispatch ; sinon défauts)
           TZ_INPUT="${INPUT_TZ:-$DEFAULT_TZ}"
           HOURS_CSV="${INPUT_HOURS:-$DEFAULT_LOCAL_HOURS}"
           FORCE="${INPUT_FORCE}"
@@ -78,7 +74,6 @@ jobs:
             echo "reason=forced" >> $GITHUB_OUTPUT
           else
             hour=$(TZ=$TZ_INPUT date +%H)
-            # Normaliser la liste "00,06,12,18" en lignes
             if echo "$HOURS_CSV" | tr ',' '\n' | grep -qx "$hour"; then
               echo "should_run=true" >> $GITHUB_OUTPUT
               echo "reason=matched_local_hour_$hour" >> $GITHUB_OUTPUT
@@ -91,9 +86,8 @@ jobs:
 
       - name: Show gate decision
         run: |
-          echo "Gate decision: ${{ steps.gate.outputs.should_run }} (${{ steps.gate.outputs.reason }}) TZ=${{ steps.gate.outputs.tz_effective }}"
+          echo "Gate: ${{ steps.gate.outputs.should_run }} (${{ steps.gate.outputs.reason }}) TZ=${{ steps.gate.outputs.tz_effective }}"
 
-      # --- Installer Python uniquement si on doit vraiment exécuter ---
       - name: Setup Python
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/setup-python@v5
@@ -106,7 +100,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # --- Paramètres passés à main.py pour "runs ciblés" ---
       - name: Generate JSON (window, tz, targeting)
         if: steps.gate.outputs.should_run == 'true'
         env:
@@ -119,25 +112,19 @@ jobs:
           echo "Using FABLE_WINDOW_HOURS=$FABLE_WINDOW_HOURS"
           if [ -n "$FABLE_START_ISO" ]; then echo "Using FABLE_START_ISO=$FABLE_START_ISO"; fi
           if [ -n "$FABLE_ONLY_SITES" ]; then echo "Using FABLE_ONLY_SITES=$FABLE_ONLY_SITES"; fi
-
-          # Ton script peut lire ces variables avec os.getenv(...)
-          # et adapter la collecte/fenêtre/corridor/shelter bonus en conséquence.
           python main.py
 
-      # --- Reader FABLE : détecte les fenêtres Family GO à partir des JSON générés ---
       - name: Run FABLE reader (detect Family GO)
         if: steps.gate.outputs.should_run == 'true'
         run: |
           python reader.py --from-dir public --out public
 
-      # --- Construire l'index après le reader pour inclure windows.json ---
       - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
         run: |
           mkdir -p public
           echo '{ "generated_at": "'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)"'", "files": [' > public/index.json
           first=1
-          # Inclure tous les json de public/ (sauf index lui-même)
           for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' | sort); do
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
             mtime=$(date -r "$f" -Iseconds 2>/dev/null || stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S%z" "$f")
@@ -149,7 +136,6 @@ jobs:
           echo "index.json built:"
           cat public/index.json
 
-      # --- (facultatif) aperçu du contenu publié pour debug ---
       - name: List public artifacts
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -157,7 +143,6 @@ jobs:
           ls -lah public || true
           echo "==============="
 
-      # --- GitHub Pages ---
       - name: Setup Pages
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/configure-pages@v5
@@ -170,6 +155,7 @@ jobs:
 
   deploy:
     needs: build
+    if: needs.build.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

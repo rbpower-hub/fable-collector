@@ -1,9 +1,37 @@
 name: Build & Deploy Pages (fable-collector)
 
 on:
-  workflow_dispatch: {}
+  # Lancement manuel avec options (cibler un run précis)
+  workflow_dispatch:
+    inputs:
+      tz:
+        description: "IANA timezone pour le filtre local (ex: Africa/Tunis)"
+        default: "Africa/Tunis"
+      local_hours_csv:
+        description: "Heures locales autorisées (HH séparées par des virgules)"
+        default: "00,06,12,18"
+      force:
+        description: "Ignorer le filtre d'heure locale et exécuter maintenant"
+        type: boolean
+        default: false
+      window_hours:
+        description: "Horizon de prévision en heures"
+        default: "48"
+      start_iso:
+        description: "Optionnel: début ISO (YYYY-MM-DDTHH:MM) pour cibler la fenêtre"
+        required: false
+      only_sites:
+        description: "Optionnel: restreindre à certains sites (CSV: noms/ids)"
+        required: false
+
+  # Tâches planifiées: 4 fois par jour (UTC) + garde-fou heure locale
   schedule:
-    - cron: "0 */6 * * *"   # exécute toutes les 6h (UTC)
+    # Correspond approximativement à 00:00/06:00/12:00/18:00 Africa/Tunis (UTC+1)
+    - cron: "0 23,5,11,17 * * *"
+    # Et en secours, toutes les heures (le garde local filtrera)
+    - cron: "0 * * * *"
+
+  # Reconstruire si ces fichiers changent
   push:
     paths:
       - ".github/workflows/pages.yml"
@@ -27,24 +55,110 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --- FILTRE HEURE LOCALE / TZ (exécution conditionnelle) ---
+      - name: Gate on local hour (or force)
+        id: gate
+        env:
+          # Valeurs par défaut si run planifié (event != dispatch)
+          DEFAULT_TZ: "Africa/Tunis"
+          DEFAULT_LOCAL_HOURS: "00,06,12,18"
+          # Valeurs saisies si run manuel
+          INPUT_TZ: ${{ github.event_name == 'workflow_dispatch' && inputs.tz || '' }}
+          INPUT_HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.local_hours_csv || '' }}
+          INPUT_FORCE: ${{ github.event_name == 'workflow_dispatch' && (inputs.force && 'true' || 'false') || 'false' }}
+        run: |
+          # Choisir la TZ/Heures actives (inputs si dispatch ; sinon défauts)
+          TZ_INPUT="${INPUT_TZ:-$DEFAULT_TZ}"
+          HOURS_CSV="${INPUT_HOURS:-$DEFAULT_LOCAL_HOURS}"
+          FORCE="${INPUT_FORCE}"
+
+          if [ "$FORCE" = "true" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "reason=forced" >> $GITHUB_OUTPUT
+          else
+            hour=$(TZ=$TZ_INPUT date +%H)
+            # Normaliser la liste "00,06,12,18" en lignes
+            if echo "$HOURS_CSV" | tr ',' '\n' | grep -qx "$hour"; then
+              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "reason=matched_local_hour_$hour" >> $GITHUB_OUTPUT
+            else
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "reason=skipped_local_hour_$hour" >> $GITHUB_OUTPUT
+            fi
+          fi
+          echo "tz_effective=$TZ_INPUT" >> $GITHUB_OUTPUT
+
+      - name: Show gate decision
+        run: |
+          echo "Gate decision: ${{ steps.gate.outputs.should_run }} (${{ steps.gate.outputs.reason }}) TZ=${{ steps.gate.outputs.tz_effective }}"
+
+      # --- Installer Python uniquement si on doit vraiment exécuter ---
       - name: Setup Python
+        if: steps.gate.outputs.should_run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install deps
+        if: steps.gate.outputs.should_run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate JSON (48h)
+      # --- Paramètres passés à main.py pour "runs ciblés" ---
+      # NOTE: si ton main.py lit déjà ces variables (os.getenv),
+      #       il les utilisera. Sinon, il les ignorera sans casser.
+      - name: Generate JSON (window, tz, targeting)
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          FABLE_TZ: ${{ github.event_name == 'workflow_dispatch' && inputs.tz || steps.gate.outputs.tz_effective }}
+          FABLE_WINDOW_HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.window_hours || '48' }}
+          FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
+          FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
         run: |
+          echo "Using FABLE_TZ=$FABLE_TZ"
+          echo "Using FABLE_WINDOW_HOURS=$FABLE_WINDOW_HOURS"
+          if [ -n "$FABLE_START_ISO" ]; then echo "Using FABLE_START_ISO=$FABLE_START_ISO"; fi
+          if [ -n "$FABLE_ONLY_SITES" ]; then echo "Using FABLE_ONLY_SITES=$FABLE_ONLY_SITES"; fi
+
+          # Ton script peut lire ces variables avec os.getenv(...)
+          # et adapter la collecte/fenêtre/corridor/shelter bonus en conséquence.
           python main.py
 
+      # --- Construire l'index des JSON publiés ---
+      - name: Build index.json (catalogue)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          mkdir -p public
+          echo '{ "generated_at": "'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)"'", "files": [' > public/index.json
+          first=1
+          # Inclure tous les json de public/ (sauf index)
+          for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' | sort); do
+            size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
+            mtime=$(date -r "$f" -Iseconds 2>/dev/null || stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S%z" "$f")
+            [ $first -eq 1 ] || echo ',' >> public/index.json
+            echo '  { "path": "'$(basename "$f")'", "size": '"$size"', "modified": "'"$mtime"'" }' >> public/index.json
+            first=0
+          done
+          echo '] }' >> public/index.json
+          echo "index.json built:"
+          cat public/index.json
+
+      # --- (facultatif) lister le contenu publié pour debug ---
+      - name: List public artifacts
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          echo "==== public ===="
+          ls -lah public || true
+          echo "==============="
+
+      # --- GitHub Pages ---
       - name: Setup Pages
+        if: steps.gate.outputs.should_run == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
+        if: steps.gate.outputs.should_run == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: public

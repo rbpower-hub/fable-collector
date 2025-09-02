@@ -28,7 +28,7 @@ on:
 
   schedule:
     - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis (UTC+1)
-    - cron: "0 * * * *"            # secours horaire
+    - cron: "0 * * * *"            # garde-fou horaire
 
   push:
     paths:
@@ -50,7 +50,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     outputs:
       should_run: ${{ steps.gate.outputs.should_run }}
       reason: ${{ steps.gate.outputs.reason }}
@@ -139,8 +138,8 @@ jobs:
           echo "Built public/index.json:"
           cat public/index.json
 
-      # --- Sanity check pré-reader (fail-fast) ---
-      - name: "Sanity check: index & fichiers listés"
+      # --- Sanity check: index & existence des fichiers listés ---
+      - name: Sanity check: index & fichiers listés
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -150,30 +149,48 @@ jobs:
           pub = pathlib.Path('public')
           idx = pub / 'index.json'
           if not idx.exists():
-            print('❌ public/index.json manquant')
-            sys.exit(1)
+              print('❌ public/index.json manquant'); sys.exit(1)
           try:
-            data = json.loads(idx.read_text(encoding='utf-8'))
+              data = json.loads(idx.read_text(encoding='utf-8'))
           except Exception as e:
-            print('❌ index.json illisible:', e)
-            sys.exit(1)
+              print('❌ index.json illisible:', e); sys.exit(1)
           files = data.get('files', [])
           if not files:
-            print('❌ index.json ne référence aucun fichier JSON de spot')
-            sys.exit(1)
+              print('❌ index.json ne référence aucun fichier JSON de spot'); sys.exit(1)
           missing = []
           for f in files:
-            p = pub / f.get('path','')
-            if not p.exists() or p.stat().st_size == 0:
-              missing.append(str(p))
+              p = pub / f.get('path','')
+              if not p.exists() or p.stat().st_size == 0:
+                  missing.append(str(p))
           if missing:
-            print('❌ Fichiers référencés manquants/vides:', missing)
-            sys.exit(1)
+              print('❌ Fichiers référencés manquants/vides:', missing); sys.exit(1)
+          # Home du reader
           home = pub / os.environ.get('READER_HOME','gammarth-port.json')
           if not home.exists():
-            print('❌ reader_home introuvable:', home)
-            sys.exit(1)
+              print('❌ reader_home introuvable:', home); sys.exit(1)
           print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
+
+      # --- Sanity check: fraîcheur des spots (<= 10 min d'écart) ---
+      - name: Sanity check: fraîcheur des JSON de spots
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        run: |
+          import json, pathlib, sys, datetime
+          pub = pathlib.Path('public')
+          idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
+          files = [pub/f['path'] for f in idx.get('files',[])]
+          # On travaille sur les mtimes locaux (fiables à la minute près)
+          mtimes = [(f.name, datetime.datetime.fromtimestamp(f.stat().st_mtime)) for f in files]
+          mtimes.sort(key=lambda x: x[1])
+          if not mtimes:
+              print('❌ Aucun spot détecté'); sys.exit(1)
+          oldest, newest = mtimes[0][1], mtimes[-1][1]
+          skew = (newest - oldest).total_seconds()/60.0
+          print('⏱️  Écart mtime min/max = %.1f min' % skew)
+          if skew > 10:
+              print('❌ Trop de décalage entre les JSON de spots (>10 min). Exemple:',
+                    mtimes[0][0], oldest.isoformat(), 'vs', mtimes[-1][0], newest.isoformat())
+              sys.exit(1)
 
       # --- (debug) aperçu d’un JSON ---
       - name: Show one site JSON (debug)
@@ -195,28 +212,25 @@ jobs:
             --out public \
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
-      # --- Vérifier windows.json (fail-fast) ---
-      - name: "Sanity check: windows.json"
+      # --- Vérifier windows.json ---
+      - name: Sanity check: windows.json
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
           import json, pathlib, sys
           p = pathlib.Path('public/windows.json')
           if not p.exists():
-            print('❌ public/windows.json manquant')
-            sys.exit(1)
+              print('❌ public/windows.json manquant'); sys.exit(1)
           try:
-            d = json.loads(p.read_text(encoding='utf-8'))
+              d = json.loads(p.read_text(encoding='utf-8'))
           except Exception as e:
-            print('❌ windows.json illisible:', e)
-            sys.exit(1)
+              print('❌ windows.json illisible:', e); sys.exit(1)
           if 'windows' not in d:
-            print('❌ windows.json ne contient pas la clé \"windows\"')
-            sys.exit(1)
+              print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
       # --- Générer windows.md (lisible humain) ---
-      - name: "Create windows.md from windows.json"
+      - name: Create windows.md from windows.json
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -244,15 +258,43 @@ jobs:
           (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
           print('✅ public/windows.md généré')
 
+      # --- Forcer la livraison statique & petit tableau de bord HTML ---
+      - name: Add .nojekyll and dashboard index.html
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        run: |
+          import json, pathlib, html
+          pub = pathlib.Path('public')
+          (pub/'.nojekyll').write_text('', encoding='utf-8')
+          # Charger l'index
+          idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
+          rows = []
+          for f in idx.get('files', []):
+            rows.append(f"<tr><td>{html.escape(f['path'])}</td><td>{f.get('size','')}</td><td>{html.escape(f.get('modified',''))}</td></tr>")
+          rows_html = "\n".join(rows)
+          html_txt = f"""<!doctype html>
+          <meta charset="utf-8">
+          <title>fable-collector — dashboard</title>
+          <h1>fable-collector</h1>
+          <p><a href="index.json">index.json</a> · <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a></p>
+          <table border="1" cellpadding="6" cellspacing="0">
+            <thead><tr><th>Spot JSON</th><th>Taille</th><th>Modifié</th></tr></thead>
+            <tbody>
+              {rows_html}
+            </tbody>
+          </table>
+          """
+          (pub/'index.html').write_text(html_txt, encoding='utf-8')
+
       # --- Résumé Markdown dans le Job Summary ---
-      - name: "Job summary (windows)"
+      - name: Job summary (windows)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
           import os, json, pathlib
           p = pathlib.Path('public/windows.json')
           if not p.exists():
-            sys.exit(0)
+            raise SystemExit(0)
           d = json.loads(p.read_text(encoding='utf-8'))
           wins = d.get('windows', [])
           out = ["## FABLE — fenêtres Family GO", ""]
@@ -266,14 +308,15 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
             fh.write("\n".join(out) + "\n")
 
-      # --- Vérification finale des sorties à publier (fail-fast) ---
+      # --- Vérification finale des sorties à publier ---
       - name: Final outputs check
         if: steps.gate.outputs.should_run == 'true'
         run: |
           set -e
-          test -s public/index.json || (echo 'index.json manquant ou vide' && exit 1)
+          test -s public/index.json  || (echo 'index.json manquant ou vide' && exit 1)
           test -s public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
           test -s public/windows.md  || (echo 'windows.md manquant ou vide' && exit 1)
+          test -s public/index.html  || (echo 'index.html manquant ou vide' && exit 1)
           echo '✅ Sorties prêtes à publier.'
 
       - name: List public artifacts

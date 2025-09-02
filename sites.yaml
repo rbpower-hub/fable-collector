@@ -1,0 +1,22 @@
+# Spots FABLE (v4.3 Shelter Bonus global)
+spots:
+  - name: "Gammarth (port)"
+    lat: 36.9203
+    lon: 10.2846
+    shelter_bonus_radius_km: 3
+  - name: "Sidi Bou Saïd"
+    lat: 38.8565
+    lon: 10.3326
+    shelter_bonus_radius_km: 3
+  - name: "Ghar el Melh"
+    lat: 37.1811
+    lon: 10.2736
+    shelter_bonus_radius_km: 3
+  - name: "RasFartass"
+    lat: 36.8774
+    lon: 10.6032
+    shelter_bonus_radius_km: 3
+  - name: "Houaria"
+    lat: 37.0859
+    lon: 11.0303
+    shelter_bonus_radius_km: 3

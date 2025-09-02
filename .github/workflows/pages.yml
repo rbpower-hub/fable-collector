@@ -27,10 +27,8 @@ on:
         default: "gammarth-port.json"
 
   schedule:
-    # ~00/06/12/18 Africa/Tunis (UTC+1)
-    - cron: "0 23,5,11,17 * * *"
-    # garde-fou horaire
-    - cron: "0 * * * *"
+    - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis (UTC+1)
+    - cron: "0 * * * *"            # garde-fou horaire
 
   push:
     paths:
@@ -105,50 +103,47 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # --- Collecte JSON (robuste, sans &&/|| dans env) ---
+      # --- Collecte JSON (avec retry simple) ---
       - name: Generate JSON (window, tz, targeting)
         if: steps.gate.outputs.should_run == 'true'
         env:
-          FABLE_TZ: ${{ steps.gate.outputs.tz_effective }}
-          INPUT_WINDOW_HOURS: ${{ github.event.inputs.window_hours }}
-          INPUT_START_ISO:    ${{ github.event.inputs.start_iso }}
-          INPUT_ONLY_SITES:   ${{ github.event.inputs.only_sites }}
+          FABLE_TZ: ${{ github.event_name == 'workflow_dispatch' && inputs.tz || steps.gate.outputs.tz_effective }}
+          FABLE_WINDOW_HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.window_hours || '48' }}
+          FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
+          FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
         run: |
           set -e
-          # Défauts si non-dispatch
-          FABLE_WINDOW_HOURS="${INPUT_WINDOW_HOURS:-48}"
-          FABLE_START_ISO="${INPUT_START_ISO:-}"
-          FABLE_ONLY_SITES="${INPUT_ONLY_SITES:-}"
-
           echo "Using FABLE_TZ=$FABLE_TZ"
           echo "Using FABLE_WINDOW_HOURS=$FABLE_WINDOW_HOURS"
-          [ -n "$FABLE_START_ISO" ]  && echo "Using FABLE_START_ISO=$FABLE_START_ISO"
+          [ -n "$FABLE_START_ISO" ] && echo "Using FABLE_START_ISO=$FABLE_START_ISO"
           [ -n "$FABLE_ONLY_SITES" ] && echo "Using FABLE_ONLY_SITES=$FABLE_ONLY_SITES"
-
-          export FABLE_TZ FABLE_WINDOW_HOURS FABLE_START_ISO FABLE_ONLY_SITES
           python main.py || (echo "Collector failed once, retrying in 6s..." && sleep 6 && python main.py)
 
       # --- Construire l'index des JSON (avant reader) ---
       - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
+        env:
+          TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import json, pathlib, datetime
-          pub = pathlib.Path("public")
-          pub.mkdir(exist_ok=True)
+          import json, pathlib, datetime, os
+          from zoneinfo import ZoneInfo
+          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
+          tz = ZoneInfo(os.getenv("TZ_EFFECTIVE", "Africa/Tunis"))
           files = []
           for p in sorted(pub.glob("*.json")):
               if p.name in ("index.json", "windows.json"):
                   continue
               st = p.stat()
-              mtime = datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()
-              files.append({"path": p.name, "size": st.st_size, "modified": mtime})
-          idx = {"generated_at": datetime.datetime.now().astimezone().isoformat(), "files": files}
-          (pub / "index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+              # mtime converti en Africa/Tunis
+              mdt = datetime.datetime.fromtimestamp(st.st_mtime, tz=datetime.timezone.utc).astimezone(tz)
+              files.append({"path": p.name, "size": st.st_size, "modified": mdt.isoformat()})
+          idx = {"generated_at": datetime.datetime.now(tz).isoformat(), "files": files}
+          (pub/"index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
           print(f"Built index.json with {len(files)} item(s)")
 
       # --- Sanity check: index & existence des fichiers listés ---
-      - name: "Sanity check: index & fichiers listés"
+      - name: Sanity check: index & fichiers listés
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -179,7 +174,7 @@ jobs:
           print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
 
       # --- Sanity check: fraîcheur des spots (<= 10 min d'écart) ---
-      - name: "Sanity check: fraîcheur des JSON de spots"
+      - name: Sanity check: fraîcheur des JSON de spots
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
@@ -220,7 +215,7 @@ jobs:
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
       # --- Vérifier windows.json ---
-      - name: "Sanity check: windows.json"
+      - name: Sanity check: windows.json
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
@@ -233,24 +228,26 @@ jobs:
           except Exception as e:
               print('❌ windows.json illisible:', e); sys.exit(1)
           if 'windows' not in d:
-              print('❌ windows.json ne contient pas la clé \"windows\"'); sys.exit(1)
+              print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
       # --- Générer windows.md (lisible humain) ---
-      - name: "Create windows.md from windows.json"
+      - name: Create windows.md from windows.json
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
           TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
           import os, json, pathlib, datetime
+          from zoneinfo import ZoneInfo
           pub = pathlib.Path('public')
           d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
-          ts = datetime.datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')
+          tz = ZoneInfo(os.getenv('TZ_EFFECTIVE','Africa/Tunis'))
+          ts = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M %Z')
           lines = [
             '# FABLE — Fenêtres Family GO',
             '',
-            f"Horodatage: {ts} ({os.getenv('TZ_EFFECTIVE','Africa/Tunis')})",
+            f'Horodatage: {ts} ({os.getenv("TZ_EFFECTIVE","Africa/Tunis")})',
             ''
           ]
           wins = d.get('windows', [])
@@ -265,7 +262,7 @@ jobs:
           (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
           print('✅ public/windows.md généré')
 
-      # --- Forcer la livraison statique & petit dashboard HTML ---
+      # --- Forcer la livraison statique & dashboard HTML (avec liens cliquables) ---
       - name: Add .nojekyll and dashboard index.html
         if: steps.gate.outputs.should_run == 'true'
         shell: python
@@ -276,7 +273,10 @@ jobs:
           idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
           rows = []
           for f in idx.get('files', []):
-            rows.append(f"<tr><td>{html.escape(f['path'])}</td><td>{f.get('size','')}</td><td>{html.escape(f.get('modified',''))}</td></tr>")
+            path = html.escape(f['path'])
+            size = f.get('size','')
+            mod  = html.escape(f.get('modified',''))
+            rows.append(f"<tr><td><a href='{path}'>{path}</a></td><td>{size}</td><td>{mod}</td></tr>")
           rows_html = "\n".join(rows)
           html_txt = f"""<!doctype html>
           <meta charset="utf-8">
@@ -293,7 +293,7 @@ jobs:
           (pub/'index.html').write_text(html_txt, encoding='utf-8')
 
       # --- Résumé Markdown dans le Job Summary ---
-      - name: "Job summary (windows)"
+      - name: Job summary (windows)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
@@ -319,10 +319,10 @@ jobs:
         if: steps.gate.outputs.should_run == 'true'
         run: |
           set -e
-          test -s public/index.json   || (echo 'index.json manquant ou vide' && exit 1)
+          test -s public/index.json  || (echo 'index.json manquant ou vide' && exit 1)
           test -s public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
-          test -s public/windows.md   || (echo 'windows.md manquant ou vide' && exit 1)
-          test -s public/index.html   || (echo 'index.html manquant ou vide' && exit 1)
+          test -s public/windows.md  || (echo 'windows.md manquant ou vide' && exit 1)
+          test -s public/index.html  || (echo 'index.html manquant ou vide' && exit 1)
           echo '✅ Sorties prêtes à publier.'
 
       - name: List public artifacts

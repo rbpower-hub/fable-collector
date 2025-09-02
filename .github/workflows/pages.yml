@@ -139,7 +139,7 @@ jobs:
           cat public/index.json
 
       # --- Sanity check: index & existence des fichiers listés ---
-      - name: Sanity check: index & fichiers listés
+      - name: "Sanity check: index & fichiers listés"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:

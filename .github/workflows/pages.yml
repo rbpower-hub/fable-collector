@@ -171,7 +171,7 @@ jobs:
           print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
 
       # --- Sanity check: fraîcheur des spots (<= 10 min d'écart) ---
-      - name: Sanity check: fraîcheur des JSON de spots
+      - name: "Sanity check: fraîcheur des JSON de spots"
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |

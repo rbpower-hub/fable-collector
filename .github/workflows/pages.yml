@@ -1,7 +1,6 @@
 name: Build & Deploy Pages (fable-collector)
 
 on:
-  # Lancement manuel avec options
   workflow_dispatch:
     inputs:
       tz:
@@ -24,15 +23,13 @@ on:
         description: "Optionnel: restreindre à certains sites (CSV: noms/ids)"
         required: false
       reader_home:
-        description: "Fichier JSON du port d’attache à utiliser par le reader"
+        description: "JSON du port d’attache à utiliser par le reader"
         default: "gammarth-port.json"
 
-  # Planifié : 4×/jour + garde-fou horaire
   schedule:
     - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis (UTC+1)
-    - cron: "0 * * * *"            # secours : toutes les heures
+    - cron: "0 * * * *"            # secours horaire
 
-  # Reconstruire si ces fichiers changent
   push:
     paths:
       - ".github/workflows/pages.yml"
@@ -62,7 +59,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---- Filtre heure locale / TZ ----
+      # --- Gate heure locale / TZ ---
       - name: Gate on local hour (or force)
         id: gate
         env:
@@ -75,7 +72,6 @@ jobs:
           TZ_INPUT="${INPUT_TZ:-$DEFAULT_TZ}"
           HOURS_CSV="${INPUT_HOURS:-$DEFAULT_LOCAL_HOURS}"
           FORCE="${INPUT_FORCE}"
-
           if [ "$FORCE" = "true" ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
             echo "reason=forced" >> $GITHUB_OUTPUT
@@ -107,7 +103,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ---- Collecte JSON (avec petit retry réseau) ----
+      # --- Collecte JSON (avec retry simple) ---
       - name: Generate JSON (window, tz, targeting)
         if: steps.gate.outputs.should_run == 'true'
         env:
@@ -121,10 +117,9 @@ jobs:
           echo "Using FABLE_WINDOW_HOURS=$FABLE_WINDOW_HOURS"
           [ -n "$FABLE_START_ISO" ] && echo "Using FABLE_START_ISO=$FABLE_START_ISO"
           [ -n "$FABLE_ONLY_SITES" ] && echo "Using FABLE_ONLY_SITES=$FABLE_ONLY_SITES"
-
           python main.py || (echo "Collector failed once, retrying in 6s..." && sleep 6 && python main.py)
 
-      # ---- Construire index.json AVANT le reader ----
+      # --- Construire l'index des JSON (avant reader) ---
       - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -132,7 +127,6 @@ jobs:
           mkdir -p public
           echo '{ "generated_at": "'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)"'", "files": [' > public/index.json
           first=1
-          # Exclure l'index lui-même et windows.json (métadonnées)
           for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' ! -name 'windows.json' | sort); do
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
             mtime=$(date -r "$f" -Iseconds 2>/dev/null || stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S%z" "$f")
@@ -144,17 +138,17 @@ jobs:
           echo "Built public/index.json:"
           cat public/index.json
 
-      # ---- (facultatif) petit dump debug ----
+      # --- (debug) apercu d’un JSON ---
       - name: Show one site JSON (debug)
         if: steps.gate.outputs.should_run == 'true'
         run: |
           echo "==== public listing ===="
           ls -lah public || true
-          echo "==== head of ${{ github.event.inputs.reader_home || 'gammarth-port.json' }} ===="
-          head -c 1500 "public/${{ github.event.inputs.reader_home || 'gammarth-port.json' }}" || true
+          echo "==== head of ${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }} ===="
+          head -c 1500 "public/${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}" || true
           echo
 
-      # ---- Reader FABLE : détecte les fenêtres Family GO et produit windows.json ----
+      # --- Reader FABLE -> produit public/windows.json ---
       - name: Run FABLE reader (detect Family GO)
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -162,32 +156,29 @@ jobs:
           python reader.py \
             --from-dir public \
             --out public \
-            --home "${{ github.event_name == 'workflow_dispatch' && inputs.reader_home || 'gammarth-port.json' }}"
+            --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
-      # ---- Résumé Markdown (sans heredoc / compatible YAML) ----
+      # --- Résumé Markdown sans quoting piège (shell: python) ---
       - name: Job summary (windows)
         if: steps.gate.outputs.should_run == 'true'
+        shell: python
         run: |
-          if [ -f public/windows.json ]; then
-            {
-              echo "## FABLE — fenêtres Family GO"
-              echo
-              python -c 'import json
-d=json.load(open("public/windows.json","r",encoding="utf-8"))
-wins=d.get("windows",[])
-out=[]
-if not wins:
-    out.append("- Aucune fenêtre Family GO détectée.")
-else:
-    for w in wins:
-        out.append(f"- **{w.get(\"dest_name\",\"?\")}** ({w.get(\"dest_slug\",\"?\")}):")
-        for seg in w.get("windows",[]):
-            out.append(f"  - {seg[\"start\"]} → {seg[\"end\"]} ({seg[\"hours\"]} h)")
-print("\n".join(out))'
-              echo
-              echo "_Fichier généré_: \`public/windows.json\`"
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          import os, json, pathlib, sys
+          p = pathlib.Path("public/windows.json")
+          if not p.exists():
+              sys.exit(0)
+          d = json.loads(p.read_text(encoding="utf-8"))
+          wins = d.get("windows", [])
+          out = ["## FABLE — fenêtres Family GO", ""]
+          if not wins:
+              out.append("- Aucune fenêtre Family GO détectée.")
+          else:
+              for w in wins:
+                  out.append(f"- **{w.get('dest_name','?')}** ({w.get('dest_slug','?')}):")
+                  for seg in w.get('windows', []):
+                      out.append(f"  - {seg['start']} → {seg['end']} ({seg['hours']} h)")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("\n".join(out) + "\n")
 
       - name: List public artifacts
         if: steps.gate.outputs.should_run == 'true'
@@ -196,7 +187,7 @@ print("\n".join(out))'
           ls -lah public || true
           echo "==============="
 
-      # ---- Publication Pages ----
+      # --- Publication Pages ---
       - name: Setup Pages
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/configure-pages@v5

@@ -24,15 +24,15 @@ on:
         description: "Optionnel: restreindre à certains sites (CSV: noms/ids)"
         required: false
       reader_home:
-        description: "Nom du fichier JSON du port d’attache pour le reader"
+        description: "Fichier JSON du port d’attache à utiliser par le reader"
         default: "gammarth-port.json"
 
   # Planifié : 4×/jour + garde-fou horaire
   schedule:
     - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis (UTC+1)
-    - cron: "0 * * * *"
+    - cron: "0 * * * *"            # secours : toutes les heures
 
-  # Rebuild si ces fichiers changent
+  # Reconstruire si ces fichiers changent
   push:
     paths:
       - ".github/workflows/pages.yml"
@@ -144,7 +144,7 @@ jobs:
           echo "Built public/index.json:"
           cat public/index.json
 
-      # ---- (facultatif) Dump rapide pour debug ----
+      # ---- (facultatif) petit dump debug ----
       - name: Show one site JSON (debug)
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -164,7 +164,7 @@ jobs:
             --out public \
             --home "${{ github.event_name == 'workflow_dispatch' && inputs.reader_home || 'gammarth-port.json' }}"
 
-      # ---- Résumé dans l’onglet Summary (facultatif mais utile) ----
+      # ---- Résumé Markdown (sans heredoc / compatible YAML) ----
       - name: Job summary (windows)
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -172,18 +172,18 @@ jobs:
             {
               echo "## FABLE — fenêtres Family GO"
               echo
-              python - <<'PY'
-import json
-d=json.load(open('public/windows.json','r',encoding='utf-8'))
-wins=d.get('windows',[])
+              python -c 'import json
+d=json.load(open("public/windows.json","r",encoding="utf-8"))
+wins=d.get("windows",[])
+out=[]
 if not wins:
-    print("- Aucune fenêtre Family GO détectée.")
+    out.append("- Aucune fenêtre Family GO détectée.")
 else:
     for w in wins:
-        print(f"- **{w.get('dest_name','?')}** ({w.get('dest_slug','?')}):")
-        for seg in w.get('windows',[]):
-            print(f"  - {seg['start']} → {seg['end']} ({seg['hours']} h)")
-PY
+        out.append(f"- **{w.get(\"dest_name\",\"?\")}** ({w.get(\"dest_slug\",\"?\")}):")
+        for seg in w.get("windows",[]):
+            out.append(f"  - {seg[\"start\"]} → {seg[\"end\"]} ({seg[\"hours\"]} h)")
+print("\n".join(out))'
               echo
               echo "_Fichier généré_: \`public/windows.json\`"
             } >> "$GITHUB_STEP_SUMMARY"

@@ -120,23 +120,30 @@ jobs:
           python main.py || (echo "Collector failed once, retrying in 6s..." && sleep 6 && python main.py)
 
       # --- Construire l'index des JSON (avant reader) ---
-      - name: Build index.json (catalogue)
+            - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
+        shell: python
         run: |
-          set -e
-          mkdir -p public
-          echo '{ "generated_at": '"'"$(TZ=${{ steps.gate.outputs.tz_effective }} date -Iseconds)'"'", "files": [' > public/index.json
-          first=1
-          for f in $(find public -maxdepth 1 -type f -name '*.json' ! -name 'index.json' ! -name 'windows.json' | sort); do
-            size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
-            mtime=$(date -r "$f" -Iseconds 2>/dev/null || stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S%z" "$f")
-            [ $first -eq 1 ] || echo ',' >> public/index.json
-            echo '  { "path": '"'"$(basename "$f")'"'", "size": '$size', "modified": '"'"$mtime'"'" }' >> public/index.json
-            first=0
-          done
-          echo '] }' >> public/index.json
-          echo "Built public/index.json:"
-          cat public/index.json
+          import json, pathlib, datetime, os
+          pub = pathlib.Path("public")
+          pub.mkdir(exist_ok=True)
+
+          files = []
+          # On indexe les JSON de spots uniquement (on exclut index.json et windows.json)
+          for p in sorted(pub.glob("*.json")):
+              if p.name in ("index.json", "windows.json"):
+                  continue
+              st = p.stat()
+              # mtime en ISO 8601 avec fuseau (local du runner)
+              mtime = datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()
+              files.append({"path": p.name, "size": st.st_size, "modified": mtime})
+
+          idx = {
+              "generated_at": datetime.datetime.now().astimezone().isoformat(),
+              "files": files,
+          }
+          (pub / "index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+          print(f"Built index.json with {len(files)} item(s)")
 
       # --- Sanity check: index & existence des fichiers listés ---
       - name: "Sanity check: index & fichiers listés"

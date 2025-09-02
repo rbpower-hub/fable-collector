@@ -1,205 +1,193 @@
 #!/usr/bin/env python3
-# reader.py — lit public/index.json + *.json et détecte les fenêtres Family GO (4–6 h)
-from __future__ import annotations
-from pathlib import Path
+import os, json, argparse
+from glob import glob
 from datetime import datetime, timezone
-import json, math, argparse
 
-# --- Paramètres réglables ---
-SHELTER_HS_BONUS = 0.10      # +0.10 m tolérance Hs en mouillage
-SHELTER_WIND_BONUS = 3       # +3 km/h tolérance vent onshore en mouillage
-HYST_HS = 0.05               # hysteresis Hs
-HYST_WIND = 1                # hysteresis vent
-TH_STORM = {95,96,99}        # weather_code orage
-HOME_SLUG = "gammarth-port"  # doit correspondre au nom de fichier du port
+THUNDER_WMO = {95, 96, 99}
 
-def load_json(p: Path) -> dict:
-    return json.loads(p.read_text(encoding="utf-8"))
+WANTED_KEYS = {
+    "time", "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m",
+    "wave_height", "hs", "wave_period", "tp", "weather_code", "visibility"
+}
 
-def parse_iso(s: str) -> datetime:
-    # accepte ISO avec 'Z' ou offset
-    return datetime.fromisoformat(s.replace("Z","+00:00"))
+def is_list(x): return isinstance(x, list)
 
-def is_onshore(wdir: int, coast_bearing: int|None) -> bool:
-    if coast_bearing is None: return False  # si inconnu, on ne dégrade pas
-    # onshore si le vent souffle vers la côte (±90° autour de la normale à la côte côté mer)
-    # convention: coast_bearing = azimut du rivage (sens littoral). Normale mer->terre = coast_bearing - 90°
-    n = (coast_bearing - 90) % 360
-    ang = abs(((wdir - n + 180) % 360) - 180)
-    return ang <= 90
+def load_site(path):
+    # Ouvre un "site" ; renvoie None si format inattendu
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
 
-def classify_hour(h: dict, coast_bearing: int|None, phase: str) -> str:
-    """Retourne 'FAMILY','EXP','NO' selon les règles FABLE + Shelter Bonus au mouillage."""
-    w = h.get("wind_speed_10m"); g = h.get("wind_gusts_10m"); d = h.get("wind_direction_10m")
-    hs = h.get("wave_height"); tp = h.get("wave_period"); code = h.get("weather_code")
-    vis = h.get("visibility")  # km si dispo, sinon None
+    # Si le collecteur écrit un marqueur d'erreur
+    if d.get("status", "ok") != "ok":
+        return None
 
-    # Overriding NO-GO
-    if code in TH_STORM: return "NO"
-    if g is not None and g >= 30 - HYST_WIND: return "NO"  # rafales ≥30 km/h
+    h = d.get("hourly")
+    if not isinstance(h, dict):  # pas de bloc hourly => pas un site
+        return None
 
-    # Squalls ≥ +15 km/h
-    if w is not None and g is not None and (g - w) >= 15: return "NO"
+    # On ne garde que les clés utiles et de type "liste"
+    hourly = {k: v for k, v in h.items() if k in WANTED_KEYS and is_list(v)}
+    T = hourly.get("time")
+    if not is_list(T) or len(T) == 0:
+        return None
 
-    level = "FAMILY"
+    # Longueur commune minimale entre toutes les listes présentes
+    lens = [len(T)] + [len(v) for k, v in hourly.items() if k != "time"]
+    N = min(lens) if lens else 0
+    if N == 0:
+        return None
 
-    # Vent soutenu
-    if w is not None:
-        if w >= 25 - HYST_WIND: return "NO"
-        if w >= 20 - HYST_WIND: level = "EXP"
+    rows = []
+    for i in range(N):
+        row = {"t": T[i]}
+        if "wind_speed_10m" in hourly:   row["w"]   = hourly["wind_speed_10m"][i]
+        if "wind_gusts_10m" in hourly:   row["g"]   = hourly["wind_gusts_10m"][i]
+        if "wind_direction_10m" in hourly: row["dir"] = hourly["wind_direction_10m"][i]
+        # Hs/Tp : accepte "wave_height"/"wave_period" ou alias "hs"/"tp"
+        if "wave_height" in hourly:      row["hs"]  = hourly["wave_height"][i]
+        elif "hs" in hourly:             row["hs"]  = hourly["hs"][i]
+        if "wave_period" in hourly:      row["tp"]  = hourly["wave_period"][i]
+        elif "tp" in hourly:             row["tp"]  = hourly["tp"][i]
+        if "weather_code" in hourly:     row["wc"]  = hourly["weather_code"][i]
+        if "visibility" in hourly:       row["vis"] = hourly["visibility"][i]
+        rows.append(row)
 
-    # Hs
-    if hs is not None:
-        if hs > 0.8 + HYST_HS: return "NO"
-        if hs >= 0.5 - HYST_HS: level = "EXP"
+    meta = d.get("site", {})
+    meta["slug"] = meta.get("slug") or os.path.basename(path)
+    meta["name"] = meta.get("name") or meta["slug"]
 
-    # Tp dynamique
-    if tp is not None and hs is not None:
-        if hs < 0.4 - HYST_HS:
-            if tp < 4.0: level = "EXP" if level == "FAMILY" else level
-        elif hs <= 0.5 + HYST_HS:
-            if tp < 4.5: level = "EXP" if level == "FAMILY" else level
-        else:
-            level = "EXP" if level == "FAMILY" else level  # Hs ≥ 0.5 => pas Family
+    return {"meta": meta, "rows": rows}
 
-    # Combined clauses (short/steep)
-    if hs is not None and tp is not None:
-        if hs >= 0.6 - HYST_HS and tp <= 5.0 + 1e-9: return "NO"
-        if hs >= 0.5 - HYST_HS and tp <= 6.0 + 1e-9:
-            level = "EXP" if level == "FAMILY" else level
+def hard_nogo(seg):
+    # 1) orage
+    if any((r.get("wc") in THUNDER_WMO) for r in seg):
+        return True
+    # 2) rafales >= 30
+    gvals = [r.get("g") for r in seg if r.get("g") is not None]
+    if gvals and max(gvals) >= 30.0:
+        return True
+    # 3) squalls = rafales - soutenu >= 15
+    for r in seg:
+        if r.get("g") is not None and r.get("w") is not None and (r["g"] - r["w"] >= 15.0):
+            return True
+    return False
 
-    # Onshore > 20 km/h
-    if d is not None and w is not None and is_onshore(d, coast_bearing):
-        if w > 20 - HYST_WIND:
-            level = "EXP" if level == "FAMILY" else level
+def primary_rules(seg):
+    # Règles Hs/Tp/vent (si info absente => refuse prudemment)
+    w = [r.get("w") for r in seg if r.get("w") is not None]
+    hs = [r.get("hs") for r in seg if r.get("hs") is not None]
+    tp = [r.get("tp") for r in seg if r.get("tp") is not None]
+    if not w or not hs or not tp:
+        return False
+    wmax = max(w)
+    hsmax = max(hs)
+    tpmin = min(tp)
+    if wmax >= 25.0 or hsmax > 0.8:
+        return False
+    if hsmax < 0.4:
+        return tpmin >= 4.0
+    elif hsmax <= 0.5:
+        return tpmin >= 4.5
+    else:
+        return False
 
-    # Visibilité < 5 km
-    if vis is not None and vis < 5.0:
-        level = "EXP" if level == "FAMILY" else level
-
-    # Shelter Bonus (uniquement pendant le mouillage)
-    if phase == "MOUILLAGE" and hs is not None:
-        # bonus sur la limite Family (tolérance)
-        if level == "EXP" and hs <= 0.5 + SHELTER_HS_BONUS:
-            level = "FAMILY"
-        if d is not None and w is not None and is_onshore(d, coast_bearing):
-            if level == "EXP" and w <= 20 + SHELTER_WIND_BONUS:
-                level = "FAMILY"
-
-    return level
-
-def best_windows(spot: dict, coast_bearing: int|None, home_series: list[dict]) -> list[dict]:
-    """Détecte des fenêtres 4–6 h Family GO en validant départ/retour Gammarth et corridor (approche prudente)."""
-    series = spot["series"]               # liste d'heures dict alignées sur 'time'
-    times = [parse_iso(h["time"]) for h in series]
-
+def windows_family(rows, min_h=4, max_h=6):
     wins = []
-    for i in range(0, len(series) - 4 + 1):
-        for dur in (4,5,6):
-            j = i + dur - 1
-            if j >= len(series): break
-            window = series[i:j+1]
-            # Transit (1er et dernier créneau), Mouillage (milieu)
-            phases = ["TRANSIT"] + ["MOUILLAGE"]*(dur-2) + ["TRANSIT"]
-            ratings = [classify_hour(h, coast_bearing, phases[k]) for k, h in enumerate(window)]
-            if "NO" in ratings: continue
-            if any(r != "FAMILY" for r in ratings): continue  # need full FAMILY
-
-            # Port check: Gammarth doit être FAMILY au départ et au retour
-            t0, t1 = window[0]["time"], window[-1]["time"]
-            try:
-                gh0 = next(h for h in home_series if h["time"] == t0)
-                gh1 = next(h for h in home_series if h["time"] == t1)
-            except StopIteration:
+    n = len(rows)
+    for s in range(0, n - min_h + 1):
+        for L in range(min_h, max_h + 1):
+            e = s + L
+            if e > n: break
+            seg = rows[s:e]
+            if hard_nogo(seg): 
                 continue
-            if classify_hour(gh0, None, "TRANSIT") != "FAMILY": continue
-            if classify_hour(gh1, None, "TRANSIT") != "FAMILY": continue
-
-            # Corridor (approximation prudente) : on exige FAMILY au spot et à Gammarth pour toutes les heures
-            ok_corr = True
-            for hh in window:
-                try: ght = next(h for h in home_series if h["time"] == hh["time"])
-                except StopIteration: ok_corr = False; break
-                if classify_hour(ght, None, "TRANSIT") != "FAMILY": ok_corr = False; break
-            if not ok_corr: continue
-
-            wins.append({
-                "start": times[i].isoformat(),
-                "end":   times[j].isoformat(),
-                "duration_h": dur
-            })
+            if not primary_rules(seg):
+                continue
+            wins.append((seg[0]["t"], seg[-1]["t"], L))
     return wins
-
-def load_series(file_path: Path) -> list[dict]:
-    raw = load_json(file_path)
-    # On attend un bloc 'hourly' façon Open-Meteo; on fusionne les colonnes par index
-    H = raw.get("hourly", {})
-    keys = [k for k in H.keys() if k != "time"]
-    out = []
-    for idx, t in enumerate(H.get("time", [])):
-        row = {"time": t}
-        for k in keys:
-            vlist = H.get(k)
-            if vlist is not None and idx < len(vlist):
-                row[k] = vlist[idx]
-        out.append(row)
-    return out
-
-def coast_bearing_for(slug: str) -> int|None:
-    # Option: renseigne tes azimuts de côte ici (ou charge depuis sites.yaml)
-    table = {
-        "gammarth-port": 40,      # ~NE–SW (exemple)
-        "sidi-bou-said": 60,
-        "ghar-el-melh": 45,
-        "rasfartass": 80,
-        "houaria": 95,
-    }
-    return table.get(slug)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--from-dir", default="public", help="répertoire contenant index.json et les fichiers spot")
-    ap.add_argument("--out", default="public", help="répertoire de sortie (windows.json, report.md)")
+    ap.add_argument("--from-dir", required=True)
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--home", default="gammarth-port.json")
     args = ap.parse_args()
 
-    base = Path(args.from_dir)
-    outdir = Path(args.out); outdir.mkdir(parents=True, exist_ok=True)
+    os.makedirs(args.out, exist_ok=True)
 
-    index = load_json(base/"index.json")
-    files = [f["path"] for f in index["files"] if f["path"].endswith(".json") and "index.json" not in f["path"]]
-
-    # charge Gammarth d'abord
-    home_file = next((Path(base)/p for p in files if p.startswith(HOME_SLUG)), None)
-    if not home_file: raise SystemExit("Gammarth introuvable dans index.json")
-    home_series = load_series(home_file)
-
-    all_windows = []
-    for p in files:
-        slug = p.replace(".json","")
-        spot_series = load_series(Path(base)/p)
-        wins = best_windows({"series": spot_series}, coast_bearing_for(slug), home_series)
-        if wins:
-            all_windows.append({"spot": slug, "windows": wins})
-
-    # écrit résultats
-    windows_path = outdir/"windows.json"
-    windows_path.write_text(json.dumps({
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00","Z"),
-        "home": HOME_SLUG,
-        "windows": all_windows
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    # petit rapport texte (lisible vite)
-    lines = ["# FABLE — Fenêtres Family GO détectées", ""]
-    if not all_windows:
-        lines.append("_Aucune fenêtre Family GO dans l’horizon analysé._")
+    # Liste des fichiers de sites
+    idx_path = os.path.join(args.from_dir, "index.json")
+    if os.path.exists(idx_path):
+        with open(idx_path, encoding="utf-8") as f:
+            idx = json.load(f)
+        files = [os.path.join(args.from_dir, it["path"]) for it in idx.get("files", [])]
     else:
-        for blk in all_windows:
-            lines.append(f"## {blk['spot']}")
-            for w in blk["windows"]:
-                lines.append(f"- {w['start']} → {w['end']}  ({w['duration_h']} h)")
-            lines.append("")
-    (outdir/"windows.md").write_text("\n".join(lines), encoding="utf-8")
+        files = sorted(glob(os.path.join(args.from_dir, "*.json")))
+        files = [p for p in files if os.path.basename(p) not in ("index.json","windows.json")]
+
+    # Home (Gammarth)
+    home_file = None
+    for p in files:
+        if os.path.basename(p) == args.home:
+            home_file = p
+            break
+    if not home_file:
+        for p in files:
+            if "gammarth" in os.path.basename(p).lower():
+                home_file = p
+                break
+
+    home = load_site(home_file) if home_file else None
+    home_by_time = {}
+    if home:
+        for r in home["rows"]:
+            home_by_time[r["t"]] = r
+
+    results = []
+    for p in files:
+        if home_file and os.path.samefile(p, home_file):
+            continue
+        site = load_site(p)
+        if not site:
+            continue
+
+        # Recalage sur les timestamps disponibles des deux côtés
+        rows = site["rows"]
+        if home_by_time:
+            rows = [r for r in rows if r["t"] in home_by_time]
+
+        wins = windows_family(rows, 4, 6)
+
+        good = []
+        for (t0, t1, L) in wins:
+            s_idx = next((i for i, r in enumerate(rows) if r["t"] == t0), None)
+            if s_idx is None: 
+                continue
+            seg = rows[s_idx:s_idx+L]
+            # même segment côté port (si dispo, sinon on accepte par défaut)
+            if home_by_time:
+                try:
+                    hseg = [home_by_time[r["t"]] for r in seg]
+                except KeyError:
+                    continue  # manque une heure côté port -> rejeter
+                if hard_nogo(hseg) or not primary_rules(hseg):
+                    continue
+            good.append({"start": t0, "end": t1, "hours": L})
+
+        if good:
+            results.append({
+                "dest_slug": os.path.basename(p),
+                "dest_name": site["meta"]["name"],
+                "windows": good
+            })
+
+    out = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "home_slug": os.path.basename(home_file) if home_file else None,
+        "windows": results
+    }
+    with open(os.path.join(args.out, "windows.json"), "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
     main()

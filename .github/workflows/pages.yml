@@ -106,24 +106,41 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # --- Sanity check: sites.yaml (évite les erreurs "mal formé ou vide") ---
       - name: Sanity check — sites.yaml
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
-          import sys, yaml, pathlib
+          import sys, pathlib
+          try:
+              import yaml  # PyYAML doit figurer dans requirements.txt
+          except Exception as e:
+              print("❌ PyYAML manquant. Ajoute 'PyYAML' dans requirements.txt")
+              sys.exit(1)
+
           p = pathlib.Path("sites.yaml")
           if not p.exists():
-              print("❌ sites.yaml absent à la racine"); sys.exit(1)
+              print("❌ sites.yaml absent à la racine")
+              sys.exit(1)
           try:
               data = yaml.safe_load(p.read_text(encoding="utf-8"))
           except Exception as e:
-              print("❌ sites.yaml illisible:", e); sys.exit(1)
-           if not isinstance(data, list) or not data:
-              print("❌ sites.yaml doit être une LISTE non vide (entrées préfixées par '-')"); sys.exit(1)
-           for i, s in enumerate(data, 1):
-               for k in ("name","lat","lon"):
-                   if k not in s:
-                      print(f"❌ entrée #{i} sans clé '{k}'"); sys.exit(1)
+              print("❌ sites.yaml illisible:", e)
+              sys.exit(1)
+
+          if not isinstance(data, list) or not data:
+              print("❌ sites.yaml doit être une LISTE non vide (entrées préfixées par '-')")
+              sys.exit(1)
+
+          required = ("name","lat","lon")
+          for i, s in enumerate(data, 1):
+              if not isinstance(s, dict):
+                  print(f"❌ entrée #{i} n'est pas un objet clé/valeur")
+                  sys.exit(1)
+              for k in required:
+                  if k not in s:
+                      print(f"❌ entrée #{i} sans clé '{k}'")
+                      sys.exit(1)
           print(f"✅ sites.yaml OK — {len(data)} site(s)")
 
       # --- Collecte JSON (avec retry simple) ---
@@ -152,11 +169,11 @@ jobs:
           pub.mkdir(exist_ok=True)
           files = []
           for p in sorted(pub.glob("*.json")):
-            if p.name in ("index.json", "windows.json"):
-              continue
-            st = p.stat()
-            mtime = datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()
-            files.append({"path": p.name, "size": st.st_size, "modified": mtime})
+              if p.name in ("index.json", "windows.json"):
+                  continue
+              st = p.stat()
+              mtime = datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()
+              files.append({"path": p.name, "size": st.st_size, "modified": mtime})
           idx = {"generated_at": datetime.datetime.now().astimezone().isoformat(), "files": files}
           (pub / "index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
           print(f"Built index.json with {len(files)} item(s)")
@@ -172,24 +189,24 @@ jobs:
           pub = pathlib.Path('public')
           idx = pub / 'index.json'
           if not idx.exists():
-            print('❌ public/index.json manquant'); sys.exit(1)
+              print('❌ public/index.json manquant'); sys.exit(1)
           try:
-            data = json.loads(idx.read_text(encoding='utf-8'))
+              data = json.loads(idx.read_text(encoding='utf-8'))
           except Exception as e:
-            print('❌ index.json illisible:', e); sys.exit(1)
+              print('❌ index.json illisible:', e); sys.exit(1)
           files = data.get('files', [])
           if not files:
-            print('❌ index.json ne référence aucun fichier JSON de spot'); sys.exit(1)
+              print('❌ index.json ne référence aucun fichier JSON de spot'); sys.exit(1)
           missing = []
           for f in files:
-            p = pub / f.get('path','')
-            if not p.exists() or p.stat().st_size == 0:
-              missing.append(str(p))
+              p = pub / f.get('path','')
+              if not p.exists() or p.stat().st_size == 0:
+                  missing.append(str(p))
           if missing:
-            print('❌ Fichiers référencés manquants/vides:', missing); sys.exit(1)
+              print('❌ Fichiers référencés manquants/vides:', missing); sys.exit(1)
           home = pub / os.environ.get('READER_HOME','gammarth-port.json')
           if not home.exists():
-            print('❌ reader_home introuvable:', home); sys.exit(1)
+              print('❌ reader_home introuvable:', home); sys.exit(1)
           print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
 
       # --- Sanity check: fraîcheur (<= 10 min d'écart) ---
@@ -201,17 +218,17 @@ jobs:
           pub = pathlib.Path('public')
           idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
           files = [pub/f['path'] for f in idx.get('files',[])]
+          if not files:
+              print('❌ Aucun spot détecté'); sys.exit(1)
           mtimes = [(f.name, datetime.datetime.fromtimestamp(f.stat().st_mtime)) for f in files]
           mtimes.sort(key=lambda x: x[1])
-          if not mtimes:
-            print('❌ Aucun spot détecté'); sys.exit(1)
           oldest, newest = mtimes[0][1], mtimes[-1][1]
           skew = (newest - oldest).total_seconds()/60.0
           print('⏱️  Écart mtime min/max = %.1f min' % skew)
           if skew > 10:
-            print('❌ Trop de décalage entre les JSON de spots (>10 min).',
-                  mtimes[0][0], oldest.isoformat(), 'vs', mtimes[-1][0], newest.isoformat())
-            sys.exit(1)
+              print('❌ Trop de décalage entre les JSON de spots (>10 min).',
+                    mtimes[0][0], oldest.isoformat(), 'vs', mtimes[-1][0], newest.isoformat())
+              sys.exit(1)
 
       # --- (debug) aperçu d’un JSON ---
       - name: Show one site JSON (debug)
@@ -241,13 +258,13 @@ jobs:
           import json, pathlib, sys
           p = pathlib.Path('public/windows.json')
           if not p.exists():
-            print('❌ public/windows.json manquant'); sys.exit(1)
+              print('❌ public/windows.json manquant'); sys.exit(1)
           try:
-            d = json.loads(p.read_text(encoding='utf-8'))
+              d = json.loads(p.read_text(encoding='utf-8'))
           except Exception as e:
-            print('❌ windows.json illisible:', e); sys.exit(1)
+              print('❌ windows.json illisible:', e); sys.exit(1)
           if 'windows' not in d:
-            print('❌ windows.json ne contient pas la clé \"windows\"'); sys.exit(1)
+              print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
       # --- Générer windows.md lisible ---
@@ -262,20 +279,20 @@ jobs:
           d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
           ts = datetime.datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')
           lines = [
-            '# FABLE — Fenêtres Family GO',
-            '',
-            f"Horodatage: {ts} ({os.getenv('TZ_EFFECTIVE','Africa/Tunis')})",
-            ''
+              '# FABLE — Fenêtres Family GO',
+              '',
+              f"Horodatage: {ts} ({os.getenv('TZ_EFFECTIVE','Africa/Tunis')})",
+              ''
           ]
           wins = d.get('windows', [])
           if not wins:
-            lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
+              lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
           else:
-            for w in wins:
-              lines.append(f"## {w.get('dest_name','?')} ({w.get('dest_slug','?')})")
-              for seg in w.get('windows', []):
-                lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
-              lines.append('')
+              for w in wins:
+                  lines.append(f"## {w.get('dest_name','?')} ({w.get('dest_slug','?')})")
+                  for seg in w.get('windows', []):
+                      lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
+                  lines.append('')
           (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
           print('✅ public/windows.md généré')
 
@@ -290,11 +307,11 @@ jobs:
           idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
           rows = []
           for f in idx.get('files', []):
-            path = html.escape(f['path'])
-            rows.append(
-              f"<tr><td><a href='{path}'>{path}</a></td>"
-              f"<td>{f.get('size','')}</td><td>{html.escape(f.get('modified',''))}</td></tr>"
-            )
+              path = html.escape(f['path'])
+              rows.append(
+                  f"<tr><td><a href='{path}'>{path}</a></td>"
+                  f"<td>{f.get('size','')}</td><td>{html.escape(f.get('modified',''))}</td></tr>"
+              )
           html_txt = f"""<!doctype html>
           <meta charset="utf-8">
           <title>fable-collector — dashboard</title>
@@ -318,19 +335,19 @@ jobs:
           import os, json, pathlib
           p = pathlib.Path('public/windows.json')
           if not p.exists():
-            raise SystemExit(0)
+              raise SystemExit(0)
           d = json.loads(p.read_text(encoding='utf-8'))
           wins = d.get('windows', [])
           out = ["## FABLE — fenêtres Family GO", ""]
           if not wins:
-            out.append("- Aucune fenêtre Family GO détectée.")
+              out.append("- Aucune fenêtre Family GO détectée.")
           else:
-            for w in wins:
-              out.append(f"- **{w.get('dest_name','?')}** ({w.get('dest_slug','?')}):")
-              for seg in w.get('windows', []):
-                out.append(f"  - {seg['start']} → {seg['end']} ({seg['hours']} h)")
+              for w in wins:
+                  out.append(f"- **{w.get('dest_name','?')}** ({w.get('dest_slug','?')}):")
+                  for seg in w.get('windows', []):
+                      out.append(f"  - {seg['start']} → {seg['end']} ({seg['hours']} h)")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
-            fh.write("\n".join(out) + "\n")
+              fh.write("\n".join(out) + "\n")
 
       # --- Vérification finale des sorties à publier ---
       - name: Final outputs check

@@ -27,8 +27,9 @@ on:
         default: "gammarth-port.json"
 
   schedule:
-    - cron: "0 23,5,11,17 * * *"   # ~00/06/12/18 Africa/Tunis (UTC+1)
-    - cron: "0 * * * *"            # garde-fou horaire
+    # Approche 00:00/06:00/12:00/18:00 Africa/Tunis (UTC+1) + garde-fou horaire
+    - cron: "0 23,5,11,17 * * *"
+    - cron: "0 * * * *"
 
   push:
     paths:
@@ -50,6 +51,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       should_run: ${{ steps.gate.outputs.should_run }}
       reason: ${{ steps.gate.outputs.reason }}
@@ -72,6 +74,7 @@ jobs:
           TZ_INPUT="${INPUT_TZ:-$DEFAULT_TZ}"
           HOURS_CSV="${INPUT_HOURS:-$DEFAULT_LOCAL_HOURS}"
           FORCE="${INPUT_FORCE}"
+
           if [ "$FORCE" = "true" ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
             echo "reason=forced" >> $GITHUB_OUTPUT
@@ -123,27 +126,23 @@ jobs:
       - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
-        env:
-          TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import json, pathlib, datetime, os
-          from zoneinfo import ZoneInfo
-          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
-          tz = ZoneInfo(os.getenv("TZ_EFFECTIVE", "Africa/Tunis"))
+          import json, pathlib, datetime
+          pub = pathlib.Path("public")
+          pub.mkdir(exist_ok=True)
           files = []
           for p in sorted(pub.glob("*.json")):
-              if p.name in ("index.json", "windows.json"):
-                  continue
-              st = p.stat()
-              # mtime converti en Africa/Tunis
-              mdt = datetime.datetime.fromtimestamp(st.st_mtime, tz=datetime.timezone.utc).astimezone(tz)
-              files.append({"path": p.name, "size": st.st_size, "modified": mdt.isoformat()})
-          idx = {"generated_at": datetime.datetime.now(tz).isoformat(), "files": files}
-          (pub/"index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+            if p.name in ("index.json", "windows.json"):
+              continue
+            st = p.stat()
+            mtime = datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()
+            files.append({"path": p.name, "size": st.st_size, "modified": mtime})
+          idx = {"generated_at": datetime.datetime.now().astimezone().isoformat(), "files": files}
+          (pub / "index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
           print(f"Built index.json with {len(files)} item(s)")
 
       # --- Sanity check: index & existence des fichiers listés ---
-      - name: "Sanity check: index & fichiers listés"
+      - name: Sanity check — index & fichiers listés
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -153,28 +152,28 @@ jobs:
           pub = pathlib.Path('public')
           idx = pub / 'index.json'
           if not idx.exists():
-              print('❌ public/index.json manquant'); sys.exit(1)
+            print('❌ public/index.json manquant'); sys.exit(1)
           try:
-              data = json.loads(idx.read_text(encoding='utf-8'))
+            data = json.loads(idx.read_text(encoding='utf-8'))
           except Exception as e:
-              print('❌ index.json illisible:', e); sys.exit(1)
+            print('❌ index.json illisible:', e); sys.exit(1)
           files = data.get('files', [])
           if not files:
-              print('❌ index.json ne référence aucun fichier JSON de spot'); sys.exit(1)
+            print('❌ index.json ne référence aucun fichier JSON de spot'); sys.exit(1)
           missing = []
           for f in files:
-              p = pub / f.get('path','')
-              if not p.exists() or p.stat().st_size == 0:
-                  missing.append(str(p))
+            p = pub / f.get('path','')
+            if not p.exists() or p.stat().st_size == 0:
+              missing.append(str(p))
           if missing:
-              print('❌ Fichiers référencés manquants/vides:', missing); sys.exit(1)
+            print('❌ Fichiers référencés manquants/vides:', missing); sys.exit(1)
           home = pub / os.environ.get('READER_HOME','gammarth-port.json')
           if not home.exists():
-              print('❌ reader_home introuvable:', home); sys.exit(1)
+            print('❌ reader_home introuvable:', home); sys.exit(1)
           print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
 
-      # --- Sanity check: fraîcheur des spots (<= 10 min d'écart) ---
-      - name: "Sanity check: fraîcheur des JSON de spots"
+      # --- Sanity check: fraîcheur (<= 10 min d'écart) ---
+      - name: Sanity check — fraîcheur des JSON de spots
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
@@ -185,14 +184,14 @@ jobs:
           mtimes = [(f.name, datetime.datetime.fromtimestamp(f.stat().st_mtime)) for f in files]
           mtimes.sort(key=lambda x: x[1])
           if not mtimes:
-              print('❌ Aucun spot détecté'); sys.exit(1)
+            print('❌ Aucun spot détecté'); sys.exit(1)
           oldest, newest = mtimes[0][1], mtimes[-1][1]
           skew = (newest - oldest).total_seconds()/60.0
           print('⏱️  Écart mtime min/max = %.1f min' % skew)
           if skew > 10:
-              print('❌ Trop de décalage entre les JSON de spots (>10 min). Exemple:',
-                    mtimes[0][0], oldest.isoformat(), 'vs', mtimes[-1][0], newest.isoformat())
-              sys.exit(1)
+            print('❌ Trop de décalage entre les JSON de spots (>10 min).',
+                  mtimes[0][0], oldest.isoformat(), 'vs', mtimes[-1][0], newest.isoformat())
+            sys.exit(1)
 
       # --- (debug) aperçu d’un JSON ---
       - name: Show one site JSON (debug)
@@ -204,7 +203,7 @@ jobs:
           head -c 1500 "public/${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}" || true
           echo
 
-      # --- Reader FABLE -> produit public/windows.json ---
+      # --- Reader FABLE -> public/windows.json ---
       - name: Run FABLE reader (detect Family GO)
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -215,23 +214,23 @@ jobs:
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
       # --- Vérifier windows.json ---
-      - name: "Sanity check: windows.json"
+      - name: Sanity check — windows.json
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
           import json, pathlib, sys
           p = pathlib.Path('public/windows.json')
           if not p.exists():
-              print('❌ public/windows.json manquant'); sys.exit(1)
+            print('❌ public/windows.json manquant'); sys.exit(1)
           try:
-              d = json.loads(p.read_text(encoding='utf-8'))
+            d = json.loads(p.read_text(encoding='utf-8'))
           except Exception as e:
-              print('❌ windows.json illisible:', e); sys.exit(1)
+            print('❌ windows.json illisible:', e); sys.exit(1)
           if 'windows' not in d:
-              print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
+            print('❌ windows.json ne contient pas la clé \"windows\"'); sys.exit(1)
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
-      # --- Générer windows.md (lisible humain) ---
+      # --- Générer windows.md lisible ---
       - name: Create windows.md from windows.json
         if: steps.gate.outputs.should_run == 'true'
         shell: python
@@ -239,15 +238,13 @@ jobs:
           TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
           import os, json, pathlib, datetime
-          from zoneinfo import ZoneInfo
           pub = pathlib.Path('public')
           d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
-          tz = ZoneInfo(os.getenv('TZ_EFFECTIVE','Africa/Tunis'))
-          ts = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M %Z')
+          ts = datetime.datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')
           lines = [
             '# FABLE — Fenêtres Family GO',
             '',
-            f'Horodatage: {ts} ({os.getenv("TZ_EFFECTIVE","Africa/Tunis")})',
+            f"Horodatage: {ts} ({os.getenv('TZ_EFFECTIVE','Africa/Tunis')})",
             ''
           ]
           wins = d.get('windows', [])
@@ -262,7 +259,7 @@ jobs:
           (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
           print('✅ public/windows.md généré')
 
-      # --- Forcer la livraison statique & dashboard HTML (avec liens cliquables) ---
+      # --- Tableau de bord statique + .nojekyll ---
       - name: Add .nojekyll and dashboard index.html
         if: steps.gate.outputs.should_run == 'true'
         shell: python
@@ -274,10 +271,10 @@ jobs:
           rows = []
           for f in idx.get('files', []):
             path = html.escape(f['path'])
-            size = f.get('size','')
-            mod  = html.escape(f.get('modified',''))
-            rows.append(f"<tr><td><a href='{path}'>{path}</a></td><td>{size}</td><td>{mod}</td></tr>")
-          rows_html = "\n".join(rows)
+            rows.append(
+              f"<tr><td><a href='{path}'>{path}</a></td>"
+              f"<td>{f.get('size','')}</td><td>{html.escape(f.get('modified',''))}</td></tr>"
+            )
           html_txt = f"""<!doctype html>
           <meta charset="utf-8">
           <title>fable-collector — dashboard</title>
@@ -286,13 +283,14 @@ jobs:
           <table border="1" cellpadding="6" cellspacing="0">
             <thead><tr><th>Spot JSON</th><th>Taille</th><th>Modifié</th></tr></thead>
             <tbody>
-              {rows_html}
+              {''.join(rows)}
             </tbody>
           </table>
           """
           (pub/'index.html').write_text(html_txt, encoding='utf-8')
+          print('✅ public/index.html généré')
 
-      # --- Résumé Markdown dans le Job Summary ---
+      # --- Résumé dans le Job Summary ---
       - name: Job summary (windows)
         if: steps.gate.outputs.should_run == 'true'
         shell: python

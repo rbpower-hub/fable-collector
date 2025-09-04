@@ -19,10 +19,7 @@ import os
 import sys
 import json
 import time
-import math
 import yaml
-import html
-import shutil
 import random
 import logging
 import datetime as dt
@@ -32,7 +29,6 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import urllib.request
-import urllib.error
 
 # -----------------------
 # Config logging simple
@@ -55,7 +51,7 @@ def slugify(name: str) -> str:
     s = re.sub(r"-{2,}", "-", s)
     return s
 
-def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]:
+def http_get_json(url: str, retry: int = 2, timeout: int = 30) -> Dict[str, Any]:
     last_err = None
     for attempt in range(retry + 1):
         try:
@@ -70,7 +66,6 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
                 return json.loads(data.decode("utf-8"))
         except Exception as e:
             last_err = e
-            # backoff léger
             sleep_s = 1.2 + attempt * 1.5 + random.random()
             log.warning("GET failed (%s). retry in %.1fs ...", e, sleep_s)
             time.sleep(sleep_s)
@@ -79,25 +74,40 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
 def ensure_dir(p: Path):
     p.mkdir(parents=True, exist_ok=True)
 
-def to_iso_z(dt_obj: dt.datetime) -> str:
-    return dt_obj.astimezone(ZoneInfo("UTC")).isoformat()
+def _as_local_aware(x: dt.datetime, tz: ZoneInfo) -> dt.datetime:
+    """Force un datetime à être tz-aware dans `tz` (ou le convertir)."""
+    if x.tzinfo is None:
+        return x.replace(tzinfo=tz)
+    return x.astimezone(tz)
 
 def parse_iso_local(s: str, tz: ZoneInfo) -> dt.datetime:
-    # Open-Meteo renvoie ISO local (avec offset); on parse avec fromisoformat.
-    return dt.datetime.fromisoformat(s)
+    """
+    Open-Meteo renvoie souvent 'YYYY-MM-DDTHH:00' (sans offset).
+    Traite comme heure locale `tz`. Si un offset est présent, convertit vers `tz`.
+    """
+    try:
+        d = dt.datetime.fromisoformat(s)  # gère YYYY-MM-DDTHH:MM[:SS][±HH:MM]
+    except ValueError:
+        # Cas rare: chaîne sans minutes (YYYY-MM-DDTHH)
+        if len(s) == 13 and "T" in s:
+            d = dt.datetime.fromisoformat(s + ":00")
+        else:
+            raise
+    if d.tzinfo is None:
+        return d.replace(tzinfo=tz)
+    return d.astimezone(tz)
 
 def within_window(t_iso: str, start: dt.datetime, end: dt.datetime) -> bool:
-    try:
-        t = dt.datetime.fromisoformat(t_iso)
-    except ValueError:
-        # fallback si pas d’offset (rare)
-        t = dt.datetime.fromisoformat(t_iso + ":00")
-    return (t >= start) and (t < end)
+    """Comparaison tz-aware en Africa/Tunis."""
+    t = parse_iso_local(t_iso, TZ)
+    s = _as_local_aware(start, TZ)
+    e = _as_local_aware(end, TZ)
+    return (t >= s) and (t < e)
 
 def csv_to_set(s: str) -> Optional[set]:
     if not s:
         return None
-    return set([slugify(x.strip()) for x in s.split(",") if x.strip()])
+    return {slugify(x.strip()) for x in s.split(",") if x.strip()}
 
 # -----------------------
 # Fenêtre & paramètres
@@ -114,7 +124,6 @@ if START_ISO:
     try:
         start_local = dt.datetime.fromisoformat(START_ISO)
         if start_local.tzinfo is None:
-            # On suppose heure locale FABLE_TZ si offset non fourni
             start_local = start_local.replace(tzinfo=TZ)
         else:
             start_local = start_local.astimezone(TZ)
@@ -125,6 +134,9 @@ else:
     start_local = now_local
 
 end_local = start_local + dt.timedelta(hours=WINDOW_H)
+# Normalisation défensive (déjà aware mais on verrouille)
+start_local = _as_local_aware(start_local, TZ)
+end_local   = _as_local_aware(end_local, TZ)
 
 # Open-Meteo préfère start_date/end_date (jour). On filtrera ensuite heure par heure.
 start_date = start_local.date()
@@ -159,7 +171,6 @@ for s in sites:
     slug = slugify(name)
     if ONLY and slug not in ONLY and slugify(name) not in ONLY:
         continue
-    # Normalisation minimale
     try:
         lat = float(s["lat"])
         lon = float(s["lon"])
@@ -182,7 +193,6 @@ if not selected_sites:
 # URLs Open-Meteo
 # -----------------------
 def build_ecmwf_url(lat: float, lon: float) -> str:
-    # ECMWF (meteo) horaire
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
@@ -196,13 +206,11 @@ def build_ecmwf_url(lat: float, lon: float) -> str:
         "timezone": TZ_NAME,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
-        # Si l'API refuse "models", on retombe sur défaut (géré plus bas)
         "models": "ecmwf_ifs04",
     }
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
 
 def build_marine_url(lat: float, lon: float) -> str:
-    # Marine (vagues) horaire
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
@@ -221,9 +229,8 @@ def build_marine_url(lat: float, lon: float) -> str:
 def fetch_ecmwf(lat: float, lon: float) -> Dict[str, Any]:
     url = build_ecmwf_url(lat, lon)
     try:
-        return http_get_json(url, retry=2, timeout=25)
+        return http_get_json(url, retry=2, timeout=30)
     except Exception as e:
-        # Fallback sans "models"
         log.warning("ECMWF avec 'models' a échoué (%s). On retente sans param models.", e)
         base = "https://api.open-meteo.com/v1/forecast?"
         params = {
@@ -234,10 +241,10 @@ def fetch_ecmwf(lat: float, lon: float) -> Dict[str, Any]:
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
         }
-        return http_get_json(base + urlencode(params), retry=2, timeout=25)
+        return http_get_json(base + urlencode(params), retry=2, timeout=30)
 
 def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
-    return http_get_json(build_marine_url(lat, lon), retry=2, timeout=25)
+    return http_get_json(build_marine_url(lat, lon), retry=2, timeout=30)
 
 def slice_hourly(payload: Dict[str, Any],
                  keys: List[str],
@@ -247,13 +254,11 @@ def slice_hourly(payload: Dict[str, Any],
     h = payload.get("hourly", {})
     times = h.get("time", [])
     out: Dict[str, Any] = {"time": []}
-    # Préparer conteneurs pour chaque clé demandée
     for k in keys:
         out[k] = []
     if not times:
         return out
 
-    # On parcourt tous les index et on embarque ceux dans la fenêtre
     for i, t_iso in enumerate(times):
         if within_window(t_iso, window_start, window_end):
             out["time"].append(t_iso)
@@ -265,6 +270,7 @@ def slice_hourly(payload: Dict[str, Any],
 # -----------------------
 # Collecte
 # -----------------------
+ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 ensure_dir(PUBLIC)
 
@@ -285,7 +291,6 @@ for site in selected_sites:
         log.error("Échec de collecte pour %s: %s", name, e)
         continue
 
-    # Définir les clés à extraire
     ecmwf_keys = [
         "wind_speed_10m",
         "wind_gusts_10m",
@@ -304,7 +309,6 @@ for site in selected_sites:
     ecmwf_hourly = slice_hourly(wx, ecmwf_keys, start_local, end_local)
     marine_hourly = slice_hourly(sea, marine_keys, start_local, end_local)
 
-    # Méta / unités
     e_units = wx.get("hourly_units", {})
     m_units = sea.get("hourly_units", {})
 

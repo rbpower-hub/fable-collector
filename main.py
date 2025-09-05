@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 """
-fable-collector — main.py (compat Reader, TZ-safe)
+fable-collector — main.py (compat Reader, TZ-safe, model fallback)
 - Lit sites.yaml (name, lat, lon, shelter_bonus_radius_km)
 - Fenêtre contrôlée par env:
     FABLE_TZ, FABLE_WINDOW_HOURS, FABLE_START_ISO, FABLE_ONLY_SITES
 - Sources:
-    Open-Meteo (ECMWF): vent/rafales/direction/weather_code/visibility (horaire)
+    Open-Meteo (ECMWF/ICON/GFS avec fallback): vent/rafales/direction/weather_code/visibility (horaire)
     Open-Meteo Marine : wave_height / wave_period (+ swell) (horaire)
 - Écrit: public/<slug>.json
   * keys: meta, ecmwf, marine, hourly (APLATI pour reader)
@@ -44,7 +44,7 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
     for attempt in range(retry + 1):
         try:
             req = urllib.request.Request(
-                url, headers={"User-Agent": "fable-collector/1.0 (+github actions)"}
+                url, headers={"User-Agent": "fable-collector/1.1 (+github actions)"}
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 if resp.status != 200:
@@ -65,16 +65,12 @@ def csv_to_set(s: str) -> Optional[set]:
 
 # ——— TZ-safe parsing ———
 def parse_time_local(t_iso: str, tz: ZoneInfo) -> dt.datetime:
-    """
-    Parse ISO provenant d'Open-Meteo.
-    Si l'offset est absent (naive), on l'interprète en timezone `tz`.
-    """
+    """Parse ISO; si offset absent, interprète en timezone `tz`."""
     try:
         t = dt.datetime.fromisoformat(t_iso)
     except ValueError:
-        # parfois il manque les secondes
-        t = dt.datetime.fromisoformat(t_iso + ":00")
-    if t.tzinfo is None:  # naive -> interprété en local tz
+        t = dt.datetime.fromisoformat(t_iso + ":00")  # parfois il manque les secondes
+    if t.tzinfo is None:
         t = t.replace(tzinfo=tz)
     return t
 
@@ -151,44 +147,59 @@ if not selected_sites:
 # -----------------------
 # URLs Open-Meteo
 # -----------------------
-def build_ecmwf_url(lat: float, lon: float) -> str:
+ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
+MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
+
+def _forecast_url(lat: float, lon: float, model: Optional[str]) -> str:
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly": "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility",
+        "hourly": ",".join(ECMWF_KEYS),
         "timezone": TZ_NAME,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
-        "models": "ecmwf_ifs04",
     }
+    if model:
+        params["models"] = model
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
 
 def build_marine_url(lat: float, lon: float) -> str:
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly": "wave_height,wave_period,swell_wave_height,swell_wave_period",
+        "hourly": ",".join(MARINE_KEYS),
         "timezone": TZ_NAME,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
     }
     return "https://marine-api.open-meteo.com/v1/marine?" + urlencode(params)
 
+def _has_wind_arrays(payload: Dict[str, Any]) -> bool:
+    h = payload.get("hourly", {})
+    return bool(h.get("wind_speed_10m")) and bool(h.get("wind_gusts_10m"))
+
 def fetch_ecmwf(lat: float, lon: float) -> Dict[str, Any]:
-    try:
-        return http_get_json(build_ecmwf_url(lat, lon), retry=2, timeout=25)
-    except Exception as e:
-        log.warning("ECMWF avec 'models' a échoué (%s). Retente sans 'models'.", e)
-        params = {
-            "latitude": f"{lat:.5f}",
-            "longitude": f"{lon:.5f}",
-            "hourly": "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility",
-            "timezone": TZ_NAME,
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-        }
-        return http_get_json("https://api.open-meteo.com/v1/forecast?" + urlencode(params),
-                             retry=2, timeout=25)
+    """
+    Essaie successivement: ECMWF -> ICON -> GFS -> défaut (sans models).
+    Ajoute un champ interne `_model_used` pour debug.
+    """
+    for model in ["ecmwf_ifs04", "icon_seamless", "gfs_seamless", None]:
+        url = _forecast_url(lat, lon, model)
+        try:
+            p = http_get_json(url, retry=2, timeout=25)
+            if _has_wind_arrays(p):
+                p["_model_used"] = model or "default"
+                if model:
+                    log.info("  ✔ forecast model used: %s", model)
+                else:
+                    log.info("  ✔ forecast model: default (best match)")
+                return p
+            else:
+                log.warning("  ⚠ model %s returned empty wind arrays, trying next...", model or "default")
+        except Exception as e:
+            log.warning("  ⚠ request failed for model %s: %s", model or "default", e)
+    # Dernier recours: renvoyer le dernier payload vide (reader restera prudent)
+    return {"_model_used": "unknown", "hourly": {}}
 
 def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
     return http_get_json(build_marine_url(lat, lon), retry=2, timeout=25)
@@ -196,7 +207,7 @@ def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
 def slice_hourly(payload: Dict[str, Any], keys: List[str],
                  window_start: dt.datetime, window_end: dt.datetime) -> Dict[str, Any]:
     h = payload.get("hourly", {})
-    times = h.get("time", [])
+    times = h.get("time", []) or []
     out: Dict[str, Any] = {"time": []}
     for k in keys: out[k] = []
     if not times: return out
@@ -204,7 +215,7 @@ def slice_hourly(payload: Dict[str, Any], keys: List[str],
         if within_window(t_iso, window_start, window_end, TZ):
             out["time"].append(t_iso)
             for k in keys:
-                arr = h.get(k, [])
+                arr = h.get(k, []) or []
                 out[k].append(arr[i] if i < len(arr) else None)
     return out
 
@@ -246,8 +257,8 @@ for site in selected_sites:
     except Exception as e:
         log.error("Échec de collecte pour %s: %s", name, e); continue
 
-    ecmwf_keys  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
-    marine_keys = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
+    ecmwf_keys  = ECMWF_KEYS
+    marine_keys = MARINE_KEYS
 
     ecmwf_hourly  = slice_hourly(wx,  ecmwf_keys,  start_local, end_local)
     marine_hourly = slice_hourly(sea, marine_keys, start_local, end_local)
@@ -269,6 +280,7 @@ for site in selected_sites:
                 "ecmwf_open_meteo": {
                     "endpoint": "https://api.open-meteo.com/v1/forecast",
                     "model_hint": "ecmwf_ifs04 (horaire)",
+                    "model_used": wx.get("_model_used", "unknown"),
                     "units": e_units,
                 },
                 "marine_open_meteo": {

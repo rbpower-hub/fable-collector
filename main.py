@@ -306,6 +306,20 @@ for site in selected_sites:
     e_units = wx.get("hourly_units", {})
     m_units = sea.get("hourly_units", {})
 
+    wx = fetch_ecmwf(lat, lon)
+    sea = fetch_marine(lat, lon)
+
+    # --- DEBUG: dump bruts pour diagnostic ---
+    if os.getenv("FABLE_DEBUG_DUMP", "1") == "1":
+        (PUBLIC / f"_debug-forecast-{slug}.json").write_text(
+            json.dumps(wx, ensure_ascii=False, indent=2), encoding="utf-8"
+         )
+         (PUBLIC / f"_debug-marine-{slug}.json").write_text(
+             json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8"
+         )
+# -----------------------------------------
+
+    
     # Debug meta: clés présentes avant/après normalisation & compte non-nulls
     wx_keys_raw = sorted(list((wx.get("hourly") or {}).keys()))
     sea_keys_raw = sorted(list((sea.get("hourly") or {}).keys()))

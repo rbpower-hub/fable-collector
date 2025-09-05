@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "site_name": "El Haouaria",
+    "slug": "el-haouaria",
+    "lat": 36.950,
+    "lon": 11.100,
+    "tz": "Africa/Tunis",
+    "generated_at": "2025-09-05T14:10:00+01:00",
+    "window": {
+      "start_local": "2025-09-05T15:00:00+01:00",
+      "end_local": "2025-09-05T21:00:00+01:00",
+      "hours": 6
+    },
+    "sources": {
+      "ecmwf_open_meteo": {
+        "endpoint": "https://api.open-meteo.com/v1/forecast",
+        "model_hint": "ecmwf_ifs04 (horaire)",
+        "units": {
+          "wind_speed_10m": "km/h",
+          "wind_gusts_10m": "km/h",
+          "wind_direction_10m": "°",
+          "weather_code": "wmo code",
+          "visibility": "m"
+        }
+      },
+      "marine_open_meteo": {
+        "endpoint": "https://marine-api.open-meteo.com/v1/marine",
+        "units": {
+          "wave_height": "m",
+          "wave_period": "s",
+          "swell_wave_height": "m",
+          "swell_wave_period": "s"
+        }
+      }
+    },
+    "shelter_bonus_radius_km": 0.0
+  },
+  "hourly": {
+    "ecmwf": {
+      "time": [
+        "2025-09-05T15:00:00+01:00",
+        "2025-09-05T16:00:00+01:00",
+        "2025-09-05T17:00:00+01:00",
+        "2025-09-05T18:00:00+01:00",
+        "2025-09-05T19:00:00+01:00"
+      ],
+      "wind_speed_10m": [10, 12, 13, 11, 9],
+      "wind_gusts_10m": [16, 18, 19, 17, 15],
+      "wind_direction_10m": [300, 310, 305, 300, 295],
+      "weather_code": [0, 0, 0, 0, 0],
+      "visibility": [40000, 40000, 40000, 40000, 40000]
+    },
+    "marine": {
+      "time": [
+        "2025-09-05T15:00:00+01:00",
+        "2025-09-05T16:00:00+01:00",
+        "2025-09-05T17:00:00+01:00",
+        "2025-09-05T18:00:00+01:00",
+        "2025-09-05T19:00:00+01:00"
+      ],
+      "wave_height": [0.35, 0.38, 0.40, 0.42, 0.40],
+      "wave_period": [5.0, 5.2, 5.3, 5.5, 5.2],
+      "swell_wave_height": [0.20, 0.22, 0.22, 0.23, 0.22],
+      "swell_wave_period": [6.0, 6.2, 6.0, 6.3, 6.1]
+    }
+  },
+  "ecmwf": {
+    "time": [
+      "2025-09-05T15:00:00+01:00",
+      "2025-09-05T16:00:00+01:00",
+      "2025-09-05T17:00:00+01:00",
+      "2025-09-05T18:00:00+01:00",
+      "2025-09-05T19:00:00+01:00"
+    ],
+    "wind_speed_10m": [10, 12, 13, 11, 9],
+    "wind_gusts_10m": [16, 18, 19, 17, 15],
+    "wind_direction_10m": [300, 310, 305, 300, 295],
+    "weather_code": [0, 0, 0, 0, 0],
+    "visibility": [40000, 40000, 40000, 40000, 40000]
+  },
+  "marine": {
+    "time": [
+      "2025-09-05T15:00:00+01:00",
+      "2025-09-05T16:00:00+01:00",
+      "2025-09-05T17:00:00+01:00",
+      "2025-09-05T18:00:00+01:00",
+      "2025-09-05T19:00:00+01:00"
+    ],
+    "wave_height": [0.35, 0.38, 0.40, 0.42, 0.40],
+    "wave_period": [5.0, 5.2, 5.3, 5.5, 5.2],
+    "swell_wave_height": [0.20, 0.22, 0.22, 0.23, 0.22],
+    "swell_wave_period": [6.0, 6.2, 6.0, 6.3, 6.1]
+  }
+}

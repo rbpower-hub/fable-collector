@@ -9,12 +9,12 @@ FABLE reader — détecteur de fenêtres Family GO (4–6 h)
            couplage Hs/Tp, NO-GO rafales>=30 ou orages, port check T0/T0+durée.
 - Confiance : High/Medium/Low (capée à Medium si une seule source de houle).
 
-Exemples :
+Exemple :
     python reader.py --from-dir public --out public \
                      --home gammarth-port.json --min-hours 4 --max-hours 6
 
 Notes :
-- Les heures fournies par le collector sont interprétées dans `meta.timezone`
+- Les heures fournies par le collector sont interprétées avec `meta.tz`
   (ex: Africa/Tunis) via zoneinfo. Les ISO émis dans windows.json sont TZ-aware.
 - Le script est robuste aux champs absents/None ; il préfère “rater une fenêtre”
   plutôt que proposer une fenêtre douteuse.
@@ -24,14 +24,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 import datetime as dt
-
 
 # =========================
 # Paramètres FABLE (seuils)
@@ -47,7 +45,7 @@ TP_MIN_AT_LT04  = 4.0         # s     -> si Hs < 0.4, Tp >= 4.0
 TP_MIN_AT_04_05 = 4.5         # s     -> si 0.4 <= Hs < 0.5, Tp >= 4.5
 
 # Clauses combinées (mers courtes / raides)
-SHORT_STEEP_1_HS = 0.5  # downgrade si Hs >= 0.5 et Tp <= 6 s (ici Family GO devient faux)
+SHORT_STEEP_1_HS = 0.5  # downgrade si Hs >= 0.5 et Tp <= 6 s
 SHORT_STEEP_1_TP = 6.0
 SHORT_STEEP_2_HS = 0.6  # NO-GO dur si Hs >= 0.6 et Tp <= 5 s
 SHORT_STEEP_2_TP = 5.0
@@ -106,15 +104,40 @@ def _angle_in_ranges(angle: float, ranges: Sequence[Tuple[int, int]]) -> bool:
 
 
 def _onshore_sectors(slug: str) -> List[Tuple[int, int]]:
-    s = slug.replace(".json", "")
-    # Orientation approximée des côtes locales (gulf de Tunis & Cap Bon)
-    if s in {"gammarth-port", "sidi-bou-said", "korbous"}:
+    """
+    Secteurs onshore (de la mer vers la côte) par spot.
+    Gère les alias et les slugs réels émis par le collector.
+    """
+    s = slug.replace(".json", "").lower()
+
+    if s in {"gammarth-port", "gammarth"}:
+        # Baie de Tunis NW–SE → onshore ≈ 30–150°
         return [(30, 150)]
-    if s in {"ghar-el-melh"}:
+
+    if s in {"sidi-bou-said", "sidibousaid", "sidi-bou"}:
+        # Même exposition que Gammarth
+        return [(30, 150)]
+
+    if s in {"ghar-el-melh", "ghar el melh", "gharemelh", "ghar-elmelh"}:
+        # Côte plus NNE–SSE
         return [(10, 130)]
-    if s in {"rasfartass", "houaria", "kelibia"}:
+
+    if s in {"el-haouaria", "haouaria", "el haouaria"}:
+        # Cap Bon Est/NE
         return [(330, 360), (0, 70)]
-    return [(20, 160)]  # fallback prudent
+
+    if s in {"ras-fartass", "rasfartass", "ras fartass"}:
+        # Façade NE également
+        return [(330, 360), (0, 70)]
+
+    # Spots retirés (laissés pour compat, inoffensifs)
+    if s in {"korbous"}:
+        return [(30, 150)]
+    if s in {"kelibia", "kélibia"}:
+        return [(330, 360), (0, 70)]
+
+    # Fallback prudent (baie de Tunis)
+    return [(20, 160)]
 
 
 def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
@@ -126,34 +149,72 @@ def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
 # =========================
 def load_site(path: Path) -> Site:
     d = json.loads(path.read_text(encoding="utf-8"))
-    meta = d.get("meta", {})
-    tzname = meta.get("timezone", "UTC")
+    meta = d.get("meta", {}) or {}
+
+    # ✅ Fuseau : préférer meta.tz (écrit par le collector)
+    tzname = meta.get("tz") or meta.get("timezone") or "Africa/Tunis"
     try:
         tz = ZoneInfo(tzname)
     except Exception:
         tz = ZoneInfo("UTC")
 
-    times = []
-    for t in d["hourly"]["time"]:
-        # Les timestamps du collector sont naïfs locaux -> on les localise
+    hourly = d.get("hourly", {}) or {}
+
+    # Axe temps : le collector émet des ISO locaux SANS tz → on attache tz
+    raw_time = hourly.get("time") or []
+    times: List[dt.datetime] = []
+    for t in raw_time:
         tt = dt.datetime.fromisoformat(t)
         tt = tt.replace(tzinfo=tz) if tt.tzinfo is None else tt.astimezone(tz)
         times.append(tt)
 
+    # Visibilité : Open-Meteo renvoie souvent en mètres → convertir en km si besoin
+    vis = hourly.get("visibility")
+    vis_km: Optional[List[Optional[float]]] = None
+    if isinstance(vis, list):
+        if any(v is not None and isinstance(v, (int, float)) and v > 50 for v in vis):
+            vis_km = [(v / 1000.0) if isinstance(v, (int, float)) else None for v in vis]
+        else:
+            vis_km = [float(v) if v is not None else None for v in vis]
+
+    # ❗️Mapper la sortie aplatie du collector vers la structure interne attendue
+    wind_models = {
+        "om": {
+            "wind_speed_10m":     hourly.get("wind_speed_10m"),
+            "wind_gusts_10m":     hourly.get("wind_gusts_10m"),
+            "wind_direction_10m": hourly.get("wind_direction_10m"),
+            "weather_code":       hourly.get("weather_code"),
+            "visibility_km":      vis_km,
+        }
+    }
+    waves = {
+        # le collector expose aussi 'hs'/'tp' → on les privilégie
+        "significant_wave_height": hourly.get("hs") or hourly.get("wave_height"),
+        "wave_period":             hourly.get("tp") or hourly.get("wave_period"),
+    }
+
     return Site(
-        name=meta.get("name", path.stem),
+        name=meta.get("name", meta.get("site_name", path.stem)),
         slug=meta.get("slug", path.name),
         tz=tz,
         times=times,
-        wind_models=d["hourly"].get("wind", {}),
-        waves=d["hourly"].get("waves", {}),
+        wind_models=wind_models,
+        waves=waves,
         path=path,
     )
 
 
+# =========================
+# Évaluation horaire
+# =========================
 def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
-    speeds, gusts, dirs, vis, codes = [], [], [], [], []
+    speeds: List[float] = []
+    gusts: List[float] = []
+    dirs: List[float] = []
+    vis: List[float] = []
+    codes: List[int] = []
     n_models = 0
+
     for _, arrs in site.wind_models.items():
         sp = arrs.get("wind_speed_10m")
         gu = arrs.get("wind_gusts_10m")
@@ -170,14 +231,15 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
         if vc and idx < len(vc) and vc[idx] is not None:
             vis.append(vc[idx])
         if wc and idx < len(wc) and wc[idx] is not None:
-            codes.append(int(wc[idx]))
-        if arrs.get("wind_speed_10m"):
+            try:
+                codes.append(int(wc[idx]))
+            except Exception:
+                pass
+        if sp:
             n_models += 1
 
-    waves = site.waves
-    hs_arr = waves.get("significant_wave_height") or waves.get("wave_height")
-    tp_arr = waves.get("wave_period")
-
+    hs_arr = site.waves.get("significant_wave_height") or site.waves.get("wave_height")
+    tp_arr = site.waves.get("wave_period")
     hs = _safe_get(hs_arr, idx)
     tp = _safe_get(tp_arr, idx)
 
@@ -186,7 +248,7 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
         min_speed=min(speeds) if speeds else None,
         max_gust=max(gusts) if gusts else None,
         spread_speed=(max(speeds) - min(speeds)) if len(speeds) >= 2 else None,
-        any_dir=dirs[0] if dirs else None,  # direction représentative
+        any_dir=dirs[0] if dirs else None,
         min_vis=min(vis) if vis else None,
         codes=codes,
         hs=hs,
@@ -252,7 +314,7 @@ def hour_is_family_ok(site: Site, idx: int) -> Tuple[bool, Dict[str, Any]]:
 
 def compute_confidence(site: Site, i0: int, i1: int) -> str:
     """Capée à Medium si une seule source de houle ; Low si <2 modèles vent."""
-    spreads = []
+    spreads: List[float] = []
     n_models = 0
     for i in range(i0, i1 + 1):
         m = worst_metrics_at_hour(site, i)

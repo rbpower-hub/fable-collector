@@ -44,7 +44,7 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
     for attempt in range(retry + 1):
         try:
             req = urllib.request.Request(
-                url, headers={"User-Agent": "fable-collector/1.2 (+github actions)"}
+                url, headers={"User-Agent": "fable-collector/1.3 (+github actions)"}
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 if resp.status != 200:
@@ -57,12 +57,10 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
             time.sleep(sleep_s)
     raise RuntimeError(f"GET failed after retries: {last_err}")
 
-def ensure_dir(p: Path):
-    p.mkdir(parents=True, exist_ok=True)
+def ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
 
 def csv_to_set(s: str) -> Optional[set]:
-    if not s:
-        return None
+    if not s: return None
     return {slugify(x.strip()) for x in s.split(",") if x.strip()}
 
 # ——— TZ-safe parsing ———
@@ -135,8 +133,7 @@ selected_sites = []
 for s in sites:
     name = s.get("name") or "Site"
     slug = slugify(name)
-    if ONLY and slug not in ONLY:
-        continue
+    if ONLY and slug not in ONLY: continue
     try:
         lat = float(s["lat"]); lon = float(s["lon"])
     except Exception:
@@ -215,12 +212,15 @@ def marine_url(lat: float, lon: float) -> str:
     }
     return "https://marine-api.open-meteo.com/v1/marine?" + urlencode(params)
 
+def _has_non_null(arr: List) -> bool:
+    return isinstance(arr, list) and any(v is not None for v in arr)
+
 def has_wind_arrays(payload: Dict[str, Any]) -> bool:
     h = payload.get("hourly") or {}
-    return bool(first_series(h, "wind_speed_10m")) and bool(first_series(h, "wind_gusts_10m"))
+    return _has_non_null(first_series(h, "wind_speed_10m")) and _has_non_null(first_series(h, "wind_gusts_10m"))
 
 def fetch_forecast(lat: float, lon: float) -> Dict[str, Any]:
-    """Essaie successivement: ECMWF -> ICON -> GFS -> défaut (sans models)."""
+    """Essaie successivement: ECMWF -> ICON -> GFS -> défaut (sans models), en refusant les séries tout-NULL."""
     for model in ["ecmwf_ifs04", "icon_seamless", "gfs_seamless", None]:
         url = forecast_url(lat, lon, model)
         try:
@@ -231,7 +231,7 @@ def fetch_forecast(lat: float, lon: float) -> Dict[str, Any]:
                 log.info("  ✔ forecast model used: %s", p["_model_used"])
                 return p
             else:
-                log.warning("  ⚠ model %s returned empty wind arrays, trying next...", model or "default")
+                log.warning("  ⚠ model %s returned only NULL series, trying next...", model or "default")
         except Exception as e:
             log.warning("  ⚠ request failed for model %s: %s", model or "default", e)
     return {"_model_used": "unknown", "hourly": {}}
@@ -240,7 +240,8 @@ def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
     p = http_get_json(marine_url(lat, lon), retry=2, timeout=25)
     return normalize_hourly_keys(p)
 
-def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[int]) -> Dict[str, Any]:
+def slice_by_indices(payload: Dict[str, Any], keys: List[str],
+                     keep_idx: List[int]) -> Dict[str, Any]:
     h = payload.get("hourly") or {}
     times = h.get("time") or []
     out: Dict[str, Any] = {}
@@ -288,13 +289,13 @@ for site in selected_sites:
     log.info("▶ Collecte: %s (%.5f, %.5f)", name, lat, lon)
 
     try:
-        wx = fetch_forecast(lat, lon)
+        wx = fetch_forecast(lat, lon)   # <— Fallback ECMWF→ICON→GFS
         sea = fetch_marine(lat, lon)
     except Exception as e:
         log.error("Échec de collecte pour %s: %s", name, e)
         continue
 
-    # --- DEBUG: dump bruts pour diagnostic ---
+    # --- DEBUG dumps lisibles à l’œil nu ---
     if os.getenv("FABLE_DEBUG_DUMP", "1") == "1":
         (PUBLIC / f"_debug-forecast-{slug}.json").write_text(
             json.dumps(wx, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -302,7 +303,6 @@ for site in selected_sites:
         (PUBLIC / f"_debug-marine-{slug}.json").write_text(
             json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-    # -----------------------------------------
 
     # indices dans la fenêtre
     all_times = (wx.get("hourly") or {}).get("time") or (sea.get("hourly") or {}).get("time") or []
@@ -315,8 +315,8 @@ for site in selected_sites:
     e_units = wx.get("hourly_units", {})
     m_units = sea.get("hourly_units", {})
 
-    # Debug meta: clés présentes avant/après normalisation & compte non-nulls
-    wx_keys_raw = sorted(list((wx.get("hourly") or {}).keys()))
+    # Debug meta: clés présentes + compte non-nulls
+    wx_keys_raw  = sorted(list((wx.get("hourly") or {}).keys()))
     sea_keys_raw = sorted(list((sea.get("hourly") or {}).keys()))
     nn_ecmwf = non_null_count(ecmwf_slice, ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"])
     nn_marine = non_null_count(marine_slice, ["wave_height","wave_period","swell_wave_height","swell_wave_period"])

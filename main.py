@@ -2,50 +2,39 @@
 # -*- coding: utf-8 -*-
 
 """
-fable-collector — main.py (robuste, avec fallback de modèles)
+fable-collector — main.py (compat Reader)
 - Lit sites.yaml (name, lat, lon, shelter_bonus_radius_km)
-- Fenêtre via env:
-    FABLE_TZ, FABLE_WINDOW_HOURS, FABLE_START_ISO (optionnel), FABLE_ONLY_SITES (CSV)
+- Fenêtre contrôlée par vars env:
+    FABLE_TZ            (ex: "Africa/Tunis")
+    FABLE_WINDOW_HOURS  (ex: "48")
+    FABLE_START_ISO     (optionnel; ex: "2025-09-03T06:00")
+    FABLE_ONLY_SITES    (CSV de noms/slugs à restreindre)
 - Sources:
-    Open-Meteo forecast (ECMWF/ICON/GFS/fallback) : vent/rafales/direction/weather_code/visibility (horaire)
-    Open-Meteo Marine                              : wave_height / wave_period (+ swell) (horaire)
-- Sortie: public/<slug>.json (clés "ecmwf" et "marine", + doublon sous "hourly")
+    Open-Meteo (ECMWF)  : vent/rafales/direction/weather_code/visibility (horaire)
+    Open-Meteo Marine   : wave_height / wave_period (+ swell) (horaire)
+- Écrit: public/<slug>.json
+  * keys top-level: meta, ecmwf, marine, hourly (APLATI pour reader)
 """
 
-from __future__ import annotations
-import os, sys, json, time, random, logging, datetime as dt
+import os
+import sys
+import json
+import time
+import yaml
+import random
+import logging
+import datetime as dt
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
-import urllib.request, urllib.error
-import yaml
+import urllib.request
 
-# -----------------------
-# Logging
-# -----------------------
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 log = logging.getLogger("fable-collector")
-
-# -----------------------
-# Constantes
-# -----------------------
-ECMWF_KEYS = [
-    "wind_speed_10m",
-    "wind_gusts_10m",
-    "wind_direction_10m",
-    "weather_code",
-    "visibility",
-]
-MARINE_KEYS = [
-    "wave_height",
-    "wave_period",
-    "swell_wave_height",
-    "swell_wave_period",
-]
 
 # -----------------------
 # Helpers
@@ -59,14 +48,13 @@ def slugify(name: str) -> str:
     s = re.sub(r"-{2,}", "-", s)
     return s
 
-def ensure_dir(p: Path):
-    p.mkdir(parents=True, exist_ok=True)
-
 def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]:
     last_err = None
     for attempt in range(retry + 1):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "fable-collector/1.1 (+github actions)"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "fable-collector/1.0 (+github actions)"}
+            )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 if resp.status != 200:
                     raise RuntimeError(f"HTTP {resp.status}")
@@ -74,39 +62,26 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
         except Exception as e:
             last_err = e
             sleep_s = 1.2 + attempt * 1.5 + random.random()
-            log.warning("GET %s failed (%s). Retry in %.1fs...", url.split("?")[0], e, sleep_s)
+            log.warning("GET failed (%s). retry in %.1fs ...", e, sleep_s)
             time.sleep(sleep_s)
     raise RuntimeError(f"GET failed after retries: {last_err}")
 
-def parse_iso_local_guess(s: str, tz: ZoneInfo) -> dt.datetime:
-    """Open-Meteo renvoie souvent 'YYYY-MM-DDTHH:MM' (naïf) quand timezone=... est passé.
-    On interprète alors ces timestamps comme en 'tz' (Africa/Tunis)."""
-    t = dt.datetime.fromisoformat(s)
-    if t.tzinfo is None:
-        t = t.replace(tzinfo=tz)
-    return t
-
-def within_window(t_iso: str, start: dt.datetime, end: dt.datetime, tz: ZoneInfo) -> bool:
-    t = parse_iso_local_guess(t_iso, tz)
-    return (t >= start) and (t < end)
+def ensure_dir(p: Path):
+    p.mkdir(parents=True, exist_ok=True)
 
 def csv_to_set(s: str) -> Optional[set]:
     if not s:
         return None
     return {slugify(x.strip()) for x in s.split(",") if x.strip()}
 
-def arrays_ok(hourly: Dict[str, Any], needed: List[str]) -> Tuple[bool, List[str]]:
-    """Vérifie que toutes les clés existent et que leur longueur == len(time)."""
-    times = hourly.get("time") or []
-    missing: List[str] = []
-    if not times:
-        return False, needed[:]  # rien
-    n = len(times)
-    for k in needed:
-        arr = hourly.get(k)
-        if not isinstance(arr, list) or len(arr) != n:
-            missing.append(k)
-    return len(missing) == 0, missing
+def within_window(t_iso: str, start: dt.datetime, end: dt.datetime) -> bool:
+    # Open-Meteo renvoie un ISO *avec* offset => timezone-aware
+    try:
+        t = dt.datetime.fromisoformat(t_iso)
+    except ValueError:
+        # très rare: ISO sans offset, on force ":00"
+        t = dt.datetime.fromisoformat(t_iso + ":00")
+    return (t >= start) and (t < end)
 
 # -----------------------
 # Fenêtre & paramètres
@@ -135,16 +110,18 @@ end_local = start_local + dt.timedelta(hours=WINDOW_H)
 start_date = start_local.date()
 end_date = end_local.date()
 
-log.info("Fenêtre locale %s → %s (%dh) TZ=%s",
-         start_local.isoformat(), end_local.isoformat(), WINDOW_H, TZ_NAME)
+log.info(
+    "Fenêtre locale %s → %s (%dh) TZ=%s",
+    start_local.isoformat(),
+    end_local.isoformat(),
+    WINDOW_H,
+    TZ_NAME,
+)
 
 # -----------------------
 # Charger sites.yaml
 # -----------------------
 ROOT = Path(__file__).resolve().parent
-PUBLIC = ROOT / "public"
-ensure_dir(PUBLIC)
-
 sites_yaml = ROOT / "sites.yaml"
 if not sites_yaml.exists():
     log.error("sites.yaml introuvable à la racine du repo.")
@@ -164,7 +141,7 @@ selected_sites = []
 for s in sites:
     name = s.get("name") or "Site"
     slug = slugify(name)
-    if ONLY and slug not in ONLY and slugify(name) not in ONLY:
+    if ONLY and slug not in ONLY:
         continue
     try:
         lat = float(s["lat"]); lon = float(s["lon"])
@@ -172,10 +149,7 @@ for s in sites:
         log.warning("Coordonnées invalides pour %s — ignoré.", name)
         continue
     selected_sites.append({
-        "name": name,
-        "slug": slug,
-        "lat": lat,
-        "lon": lon,
+        "name": name, "slug": slug, "lat": lat, "lon": lon,
         "shelter_bonus_radius_km": float(s.get("shelter_bonus_radius_km", 0.0)),
     })
 
@@ -184,104 +158,104 @@ if not selected_sites:
     sys.exit(1)
 
 # -----------------------
-# Constructions d'URL
+# URLs Open-Meteo
 # -----------------------
-def build_forecast_url(lat: float, lon: float, model: Optional[str]) -> str:
+def build_ecmwf_url(lat: float, lon: float) -> str:
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly": ",".join(ECMWF_KEYS),
+        "hourly": "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility",
         "timezone": TZ_NAME,
-        "timeformat": "iso8601",
-        "windspeed_unit": "kmh",
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
+        "models": "ecmwf_ifs04",
     }
-    if model:
-        params["models"] = model
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
 
 def build_marine_url(lat: float, lon: float) -> str:
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly": ",".join(MARINE_KEYS),
+        "hourly": "wave_height,wave_period,swell_wave_height,swell_wave_period",
         "timezone": TZ_NAME,
-        "timeformat": "iso8601",
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
     }
     return "https://marine-api.open-meteo.com/v1/marine?" + urlencode(params)
 
-# -----------------------
-# Fetch robustes
-# -----------------------
-FORECAST_MODEL_TRY_ORDER = [
-    "ecmwf_ifs04",
-    "icon_seamless",
-    "gfs_seamless",
-    None,  # pas de filtre "models"
-]
+def fetch_ecmwf(lat: float, lon: float) -> Dict[str, Any]:
+    try:
+        return http_get_json(build_ecmwf_url(lat, lon), retry=2, timeout=25)
+    except Exception as e:
+        log.warning("ECMWF avec 'models' a échoué (%s). Retente sans 'models'.", e)
+        params = {
+            "latitude": f"{lat:.5f}",
+            "longitude": f"{lon:.5f}",
+            "hourly": "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility",
+            "timezone": TZ_NAME,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+        }
+        return http_get_json("https://api.open-meteo.com/v1/forecast?" + urlencode(params),
+                             retry=2, timeout=25)
 
-def fetch_forecast_ok(lat: float, lon: float) -> Tuple[Dict[str, Any], str]:
-    """Essaie plusieurs modèles jusqu'à obtenir toutes les clés horaires attendues."""
-    last_payload: Dict[str, Any] | None = None
-    last_model = "unknown"
-    for model in FORECAST_MODEL_TRY_ORDER:
-        url = build_forecast_url(lat, lon, model)
-        payload = http_get_json(url, retry=2, timeout=25)
-        hourly = payload.get("hourly") or {}
-        ok, missing = arrays_ok(hourly, ECMWF_KEYS)
-        if ok:
-            return payload, (model or "auto")
-        last_payload = payload
-        last_model = model or "auto"
-        log.warning("Forecast %s: clés manquantes %s — on essaie le modèle suivant...", last_model, missing)
-    # Dernière chance: si on a au moins le vent/rafales, on accepte et on remplira les autres à vide
-    if last_payload:
-        hourly = last_payload.get("hourly") or {}
-        core_ok, missing = arrays_ok(hourly, ["wind_speed_10m", "wind_gusts_10m"])
-        if core_ok:
-            return last_payload, last_model + " (partial)"
-    raise RuntimeError("Impossible d'obtenir les tableaux horaires requis pour forecast (tous modèles testés).")
+def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
+    return http_get_json(build_marine_url(lat, lon), retry=2, timeout=25)
 
-def fetch_marine_ok(lat: float, lon: float) -> Dict[str, Any]:
-    url = build_marine_url(lat, lon)
-    payload = http_get_json(url, retry=2, timeout=25)
-    ok, missing = arrays_ok(payload.get("hourly") or {}, MARINE_KEYS)
-    if not ok:
-        raise RuntimeError(f"Marine: clés manquantes {missing}")
-    return payload
-
-# -----------------------
-# Découpage horaire
-# -----------------------
-def slice_hourly(payload: Dict[str, Any],
-                 keys: List[str],
-                 window_start: dt.datetime,
-                 window_end: dt.datetime,
-                 tz: ZoneInfo) -> Dict[str, Any]:
-    h = payload.get("hourly", {}) or {}
-    times = h.get("time", []) or []
+def slice_hourly(payload: Dict[str, Any], keys: List[str],
+                 window_start: dt.datetime, window_end: dt.datetime) -> Dict[str, Any]:
+    h = payload.get("hourly", {})
+    times = h.get("time", [])
     out: Dict[str, Any] = {"time": []}
     for k in keys:
         out[k] = []
     if not times:
         return out
     for i, t_iso in enumerate(times):
-        if within_window(t_iso, window_start, window_end, tz):
+        if within_window(t_iso, window_start, window_end):
             out["time"].append(t_iso)
             for k in keys:
-                arr = h.get(k)
-                if isinstance(arr, list) and i < len(arr):
-                    out[k].append(arr[i])
-                else:
-                    out[k].append(None)
+                arr = h.get(k, [])
+                out[k].append(arr[i] if i < len(arr) else None)
     return out
 
+def make_flat_hourly(ecmwf: Dict[str, Any], marine: Dict[str, Any]) -> Dict[str, List]:
+    """
+    Construit un bloc 'hourly' APLATI compatible reader.py
+    avec jeux de clés attendus + alias 'hs'/'tp'.
+    Tronque proprement à la longueur commune.
+    """
+    t_e = ecmwf.get("time", []) or []
+    t_m = marine.get("time", []) or []
+    # On suppose les pas horaires alignés; on tronque à la longueur commune
+    L = min(len(t_e), len(t_m)) if t_e and t_m else max(len(t_e), len(t_m))
+    time_arr = (t_e or t_m)[:L]
+
+    def pick(src, key):
+        arr = src.get(key, []) or []
+        return arr[:L] if len(arr) >= L else (arr + [None]*(L-len(arr)))
+
+    flat = {
+        "time": time_arr,
+        "wind_speed_10m": pick(ecmwf, "wind_speed_10m"),
+        "wind_gusts_10m": pick(ecmwf, "wind_gusts_10m"),
+        "wind_direction_10m": pick(ecmwf, "wind_direction_10m"),
+        "weather_code": pick(ecmwf, "weather_code"),
+        "visibility": pick(ecmwf, "visibility"),
+        "wave_height": pick(marine, "wave_height"),
+        "wave_period": pick(marine, "wave_period"),
+    }
+    # Alias pour compat reader
+    flat["hs"] = flat["wave_height"]
+    flat["tp"] = flat["wave_period"]
+    return flat
+
 # -----------------------
-# Collecte principale
+# Collecte
 # -----------------------
+PUBLIC = ROOT / "public"
+ensure_dir(PUBLIC)
+
 results = []
 
 for site in selected_sites:
@@ -289,27 +263,27 @@ for site in selected_sites:
     log.info("▶ Collecte: %s (%.5f, %.5f)", name, lat, lon)
 
     try:
-        wx_payload, model_used = fetch_forecast_ok(lat, lon)
+        wx = fetch_ecmwf(lat, lon)
+        sea = fetch_marine(lat, lon)
     except Exception as e:
-        log.error("Forecast KO pour %s: %s", name, e)
-        wx_payload, model_used = {"hourly": {"time": []}, "hourly_units": {}}, "none"
+        log.error("Échec de collecte pour %s: %s", name, e)
+        continue
 
-    try:
-        sea_payload = fetch_marine_ok(lat, lon)
-    except Exception as e:
-        log.error("Marine KO pour %s: %s", name, e)
-        sea_payload = {"hourly": {"time": []}, "hourly_units": {}}
+    ecmwf_keys = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
+    marine_keys = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
 
-    ecmwf_hourly = slice_hourly(wx_payload, ECMWF_KEYS, start_local, end_local, TZ)
-    marine_hourly = slice_hourly(sea_payload, MARINE_KEYS, start_local, end_local, TZ)
+    ecmwf_hourly = slice_hourly(wx, ecmwf_keys, start_local, end_local)
+    marine_hourly = slice_hourly(sea, marine_keys, start_local, end_local)
 
-    # Méta / unités
-    e_units = wx_payload.get("hourly_units", {}) or {}
-    m_units = sea_payload.get("hourly_units", {}) or {}
+    # Bloc APLATI attendu par reader.py
+    hourly_flat = make_flat_hourly(ecmwf_hourly, marine_hourly)
+
+    e_units = wx.get("hourly_units", {})
+    m_units = sea.get("hourly_units", {})
 
     out: Dict[str, Any] = {
         "meta": {
-            "site_name": name,
+            "name": name,
             "slug": slug,
             "lat": lat,
             "lon": lon,
@@ -321,9 +295,9 @@ for site in selected_sites:
                 "hours": int((end_local - start_local).total_seconds() // 3600),
             },
             "sources": {
-                "forecast_open_meteo": {
+                "ecmwf_open_meteo": {
                     "endpoint": "https://api.open-meteo.com/v1/forecast",
-                    "model_used": model_used,
+                    "model_hint": "ecmwf_ifs04 (horaire)",
                     "units": e_units,
                 },
                 "marine_open_meteo": {
@@ -333,29 +307,26 @@ for site in selected_sites:
             },
             "shelter_bonus_radius_km": site.get("shelter_bonus_radius_km", 0.0),
         },
+        # Détails par source (utile debug)
         "ecmwf": ecmwf_hourly,
         "marine": marine_hourly,
-        "hourly": {  # compat reader
-            "ecmwf": ecmwf_hourly,
-            "marine": marine_hourly,
-        },
+        # Bloc attendu par reader.py
+        "hourly": hourly_flat,
+        # Statut optionnel (let reader accept default "ok")
+        "status": "ok",
     }
 
-    # Écriture atomique
     tmp = PUBLIC / f".{slug}.json.tmp"
     final = PUBLIC / f"{slug}.json"
     tmp.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(final)
 
-    points = len(ecmwf_hourly.get("time", []))
-    results.append({"slug": slug, "path": str(final), "points": points, "model": model_used})
+    results.append({"slug": slug, "points": len(hourly_flat.get("time", []))})
 
-# Résumé
 ok = [r for r in results if r["points"] > 0]
-for r in results:
-    log.info(" - %s: %d h (modèle=%s)", r["slug"], r["points"], r["model"])
-log.info("Terminé: %d/%d spots écrits avec données horaires.", len(ok), len(selected_sites))
+log.info("Terminé: %d/%d spots écrits (avec données horaires dans la fenêtre).",
+         len(ok), len(selected_sites))
 
 if not ok:
-    log.error("Aucune donnée horaire dans la fenêtre — vérifier paramètres/timezone.")
+    log.error("Aucune donnée horaire dans la fenêtre demandée — vérifier paramètres/timezone.")
     sys.exit(2)

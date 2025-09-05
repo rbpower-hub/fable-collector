@@ -316,25 +316,33 @@ jobs:
       - name: Add .nojekyll and dashboard index.html
         if: steps.gate.outputs.should_run == 'true'
         shell: python
+        env:
+          TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import json, pathlib, html
+          import os, json, pathlib, html
+          from zoneinfo import ZoneInfo
+          tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
+
           pub = pathlib.Path('public')
           (pub/'.nojekyll').write_text('', encoding='utf-8')
+
           idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
           rows = []
           for f in idx.get('files', []):
-              path = html.escape(f['path'])
-              rows.append(
-                  f"<tr><td><a href='{path}'>{path}</a></td>"
-                  f"<td>{f.get('size','')}</td><td>{html.escape(f.get('modified',''))}</td></tr>"
-              )
+            path = html.escape(f['path'])
+            rows.append(
+              f"<tr><td><a href='{path}'>{path}</a></td>"
+              f"<td>{f.get('size','')}</td>"
+              f"<td>{html.escape(f.get('modified',''))}</td></tr>"
+            )
           html_txt = f"""<!doctype html>
           <meta charset="utf-8">
-          <title>fable-collector — dashboard</title>
+          <title>fable-collector — dashboard ({tz.key})</title>
           <h1>fable-collector</h1>
           <p><a href="index.json">index.json</a> · <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a></p>
+          <p><em>Horaires affichés en {tz.key}.</em></p>
           <table border="1" cellpadding="6" cellspacing="0">
-            <thead><tr><th>Spot JSON</th><th>Taille</th><th>Modifié</th></tr></thead>
+            <thead><tr><th>Spot JSON</th><th>Taille</th><th>Modifié ({tz.key})</th></tr></thead>
             <tbody>
               {''.join(rows)}
             </tbody>

@@ -287,24 +287,28 @@ jobs:
           TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
           import os, json, pathlib, datetime
+          from zoneinfo import ZoneInfo
           pub = pathlib.Path('public')
           d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
-          ts = datetime.datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')
+
+          tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
+          ts = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M %Z')
+
           lines = [
-              '# FABLE — Fenêtres Family GO',
-              '',
-              f"Horodatage: {ts} ({os.getenv('TZ_EFFECTIVE','Africa/Tunis')})",
-              ''
+            '# FABLE — Fenêtres Family GO',
+            '',
+            f'Horodatage: {ts} ({tz.key})',
+            ''
           ]
           wins = d.get('windows', [])
           if not wins:
-              lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
+            lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
           else:
-              for w in wins:
-                  lines.append(f"## {w.get('dest_name','?')} ({w.get('dest_slug','?')})")
-                  for seg in w.get('windows', []):
-                      lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
-                  lines.append('')
+            for w in wins:
+              lines.append(f"## {w.get('dest_name','?')} ({w.get('dest_slug','?')})")
+              for seg in w.get('windows', []):
+                lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
+              lines.append('')
           (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
           print('✅ public/windows.md généré')
 

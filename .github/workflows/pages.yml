@@ -163,20 +163,32 @@ jobs:
       - name: Build index.json (catalogue)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
+        env:
+          TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import json, pathlib, datetime
+          import os, json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+          tz = ZoneInfo(os.environ.get("TZ_EFFECTIVE","Africa/Tunis"))
+
           pub = pathlib.Path("public")
           pub.mkdir(exist_ok=True)
+
           files = []
           for p in sorted(pub.glob("*.json")):
-              if p.name in ("index.json", "windows.json"):
+              if p.name in ("index.json","windows.json"):
                   continue
               st = p.stat()
-              mtime = datetime.datetime.fromtimestamp(st.st_mtime).astimezone().isoformat()
+              # mtime rendu en Africa/Tunis
+              mtime = datetime.datetime.fromtimestamp(st.st_mtime, tz).isoformat()
               files.append({"path": p.name, "size": st.st_size, "modified": mtime})
-          idx = {"generated_at": datetime.datetime.now().astimezone().isoformat(), "files": files}
-          (pub / "index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
-          print(f"Built index.json with {len(files)} item(s)")
+
+          idx = {
+              "generated_at": datetime.datetime.now(tz).isoformat(),
+              "files": files,
+          }
+          (pub/"index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+          print(f"Built index.json with {len(files)} item(s) in {tz.key}")
+
 
       # --- Sanity check: index & existence des fichiers listés ---
       - name: Sanity check — index & fichiers listés

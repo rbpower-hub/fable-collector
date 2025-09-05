@@ -18,17 +18,6 @@
   lon: 10.17000
   shelter_bonus_radius_km: 0.0
 
-- name: "Korbous"
-  lat: 36.82100
-  lon: 10.56310
-  shelter_bonus_radius_km: 0.0
-
-- name: "Kélibia"
-  lat: 36.84790
-  lon: 11.09200
-  shelter_bonus_radius_km: 0.0
-
-# (facultatifs si vous les suivez)
 - name: "Ras Fartass"
   lat: 36.87740
   lon: 10.60320

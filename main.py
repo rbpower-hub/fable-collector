@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-fable-collector — main.py (compat Reader, TZ-safe, model fallback)
+fable-collector — main.py (compat Reader, TZ-safe, model fallback + key synonyms)
 - Lit sites.yaml (name, lat, lon, shelter_bonus_radius_km)
 - Fenêtre contrôlée par env:
     FABLE_TZ, FABLE_WINDOW_HOURS, FABLE_START_ISO, FABLE_ONLY_SITES
@@ -69,7 +69,7 @@ def parse_time_local(t_iso: str, tz: ZoneInfo) -> dt.datetime:
     try:
         t = dt.datetime.fromisoformat(t_iso)
     except ValueError:
-        t = dt.datetime.fromisoformat(t_iso + ":00")  # parfois il manque les secondes
+        t = dt.datetime.fromisoformat(t_iso + ":00")
     if t.tzinfo is None:
         t = t.replace(tzinfo=tz)
     return t
@@ -145,16 +145,41 @@ if not selected_sites:
     log.error("Aucun site sélectionné (filtre FABLE_ONLY_SITES ?)."); sys.exit(1)
 
 # -----------------------
-# URLs Open-Meteo
+# Open-Meteo keys + synonyms
 # -----------------------
+# Canonical keys we want in outputs:
 ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
 
+# Accept alternate names some OM deployments use:
+KEY_SYNONYMS = {
+    "wind_speed_10m":     ["wind_speed_10m", "windspeed_10m"],
+    "wind_gusts_10m":     ["wind_gusts_10m", "windgusts_10m"],
+    "wind_direction_10m": ["wind_direction_10m", "winddirection_10m"],
+    "weather_code":       ["weather_code", "weathercode"],
+    "visibility":         ["visibility"],
+    "wave_height":        ["wave_height", "significant_wave_height"],
+    "wave_period":        ["wave_period", "waveperiod"],
+    "swell_wave_height":  ["swell_wave_height"],
+    "swell_wave_period":  ["swell_wave_period"],
+}
+
+def _first_series(h: Dict[str, Any], canonical_key: str) -> List:
+    """Return the first non-empty series among synonyms for canonical_key."""
+    for cand in KEY_SYNONYMS.get(canonical_key, [canonical_key]):
+        arr = h.get(cand)
+        if isinstance(arr, list) and arr:
+            return arr
+    return []
+
+# -----------------------
+# URLs Open-Meteo
+# -----------------------
 def _forecast_url(lat: float, lon: float, model: Optional[str]) -> str:
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly": ",".join(ECMWF_KEYS),
+        "hourly": ",".join(ECMWF_KEYS),  # request canonical names; we’ll map on read
         "timezone": TZ_NAME,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
@@ -175,30 +200,23 @@ def build_marine_url(lat: float, lon: float) -> str:
     return "https://marine-api.open-meteo.com/v1/marine?" + urlencode(params)
 
 def _has_wind_arrays(payload: Dict[str, Any]) -> bool:
-    h = payload.get("hourly", {})
-    return bool(h.get("wind_speed_10m")) and bool(h.get("wind_gusts_10m"))
+    h = payload.get("hourly", {}) or {}
+    return bool(_first_series(h, "wind_speed_10m")) and bool(_first_series(h, "wind_gusts_10m"))
 
 def fetch_ecmwf(lat: float, lon: float) -> Dict[str, Any]:
-    """
-    Essaie successivement: ECMWF -> ICON -> GFS -> défaut (sans models).
-    Ajoute un champ interne `_model_used` pour debug.
-    """
+    """Essaie successivement: ECMWF -> ICON -> GFS -> défaut (sans models)."""
     for model in ["ecmwf_ifs04", "icon_seamless", "gfs_seamless", None]:
         url = _forecast_url(lat, lon, model)
         try:
             p = http_get_json(url, retry=2, timeout=25)
             if _has_wind_arrays(p):
                 p["_model_used"] = model or "default"
-                if model:
-                    log.info("  ✔ forecast model used: %s", model)
-                else:
-                    log.info("  ✔ forecast model: default (best match)")
+                log.info("  ✔ forecast model used: %s", p["_model_used"])
                 return p
             else:
                 log.warning("  ⚠ model %s returned empty wind arrays, trying next...", model or "default")
         except Exception as e:
             log.warning("  ⚠ request failed for model %s: %s", model or "default", e)
-    # Dernier recours: renvoyer le dernier payload vide (reader restera prudent)
     return {"_model_used": "unknown", "hourly": {}}
 
 def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
@@ -206,16 +224,18 @@ def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
 
 def slice_hourly(payload: Dict[str, Any], keys: List[str],
                  window_start: dt.datetime, window_end: dt.datetime) -> Dict[str, Any]:
-    h = payload.get("hourly", {})
+    h = payload.get("hourly", {}) or {}
     times = h.get("time", []) or []
     out: Dict[str, Any] = {"time": []}
     for k in keys: out[k] = []
     if not times: return out
+    # Pre-resolve all series once using synonyms
+    series_map = {k: _first_series(h, k) for k in keys}
     for i, t_iso in enumerate(times):
         if within_window(t_iso, window_start, window_end, TZ):
             out["time"].append(t_iso)
             for k in keys:
-                arr = h.get(k, []) or []
+                arr = series_map.get(k, [])
                 out[k].append(arr[i] if i < len(arr) else None)
     return out
 
@@ -229,13 +249,13 @@ def make_flat_hourly(ecmwf: Dict[str, Any], marine: Dict[str, Any]) -> Dict[str,
         return arr[:L] if len(arr) >= L else (arr + [None]*(L-len(arr)))
     flat = {
         "time": time_arr,
-        "wind_speed_10m":    pick(ecmwf, "wind_speed_10m"),
-        "wind_gusts_10m":    pick(ecmwf, "wind_gusts_10m"),
-        "wind_direction_10m":pick(ecmwf, "wind_direction_10m"),
-        "weather_code":      pick(ecmwf, "weather_code"),
-        "visibility":        pick(ecmwf, "visibility"),
-        "wave_height":       pick(marine, "wave_height"),
-        "wave_period":       pick(marine, "wave_period"),
+        "wind_speed_10m":     pick(ecmwf, "wind_speed_10m"),
+        "wind_gusts_10m":     pick(ecmwf, "wind_gusts_10m"),
+        "wind_direction_10m": pick(ecmwf, "wind_direction_10m"),
+        "weather_code":       pick(ecmwf, "weather_code"),
+        "visibility":         pick(ecmwf, "visibility"),
+        "wave_height":        pick(marine, "wave_height"),
+        "wave_period":        pick(marine, "wave_period"),
     }
     flat["hs"] = flat["wave_height"]
     flat["tp"] = flat["wave_period"]
@@ -257,11 +277,8 @@ for site in selected_sites:
     except Exception as e:
         log.error("Échec de collecte pour %s: %s", name, e); continue
 
-    ecmwf_keys  = ECMWF_KEYS
-    marine_keys = MARINE_KEYS
-
-    ecmwf_hourly  = slice_hourly(wx,  ecmwf_keys,  start_local, end_local)
-    marine_hourly = slice_hourly(sea, marine_keys, start_local, end_local)
+    ecmwf_hourly  = slice_hourly(wx,  ECMWF_KEYS,  start_local, end_local)
+    marine_hourly = slice_hourly(sea, MARINE_KEYS, start_local, end_local)
     hourly_flat   = make_flat_hourly(ecmwf_hourly, marine_hourly)
 
     e_units = wx.get("hourly_units", {})

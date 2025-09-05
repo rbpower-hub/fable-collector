@@ -57,10 +57,12 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
             time.sleep(sleep_s)
     raise RuntimeError(f"GET failed after retries: {last_err}")
 
-def ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
+def ensure_dir(p: Path):
+    p.mkdir(parents=True, exist_ok=True)
 
 def csv_to_set(s: str) -> Optional[set]:
-    if not s: return None
+    if not s:
+        return None
     return {slugify(x.strip()) for x in s.split(",") if x.strip()}
 
 # ——— TZ-safe parsing ———
@@ -133,7 +135,8 @@ selected_sites = []
 for s in sites:
     name = s.get("name") or "Site"
     slug = slugify(name)
-    if ONLY and slug not in ONLY: continue
+    if ONLY and slug not in ONLY:
+        continue
     try:
         lat = float(s["lat"]); lon = float(s["lon"])
     except Exception:
@@ -177,7 +180,6 @@ def normalize_hourly_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
     for canonical, syns in KEY_SYNONYMS.items():
         if isinstance(normalized.get(canonical), list) and normalized.get(canonical):
             continue
-        # cherche une série existante
         for cand in syns:
             arr = h.get(cand)
             if isinstance(arr, list) and arr:
@@ -238,8 +240,7 @@ def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
     p = http_get_json(marine_url(lat, lon), retry=2, timeout=25)
     return normalize_hourly_keys(p)
 
-def slice_by_indices(payload: Dict[str, Any], keys: List[str],
-                     keep_idx: List[int]) -> Dict[str, Any]:
+def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[int]) -> Dict[str, Any]:
     h = payload.get("hourly") or {}
     times = h.get("time") or []
     out: Dict[str, Any] = {}
@@ -248,11 +249,9 @@ def slice_by_indices(payload: Dict[str, Any], keys: List[str],
         series = first_series(h, k)
         if series:
             out[k] = [series[i] for i in keep_idx if i < len(series)]
-        # si la série n’existe pas ou vide, on omet la clé (au lieu de remplir de null)
     return out
 
 def flatten_hourly(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, Any]) -> Dict[str, List]:
-    # on aligne sur la colonne "time" qui existe forcément dans l’un des deux
     t = ecmwf_slice.get("time") or marine_slice.get("time") or []
     L = len(t)
     def pick(src: Dict[str, Any], key: str) -> List:
@@ -294,19 +293,17 @@ for site in selected_sites:
     except Exception as e:
         log.error("Échec de collecte pour %s: %s", name, e)
         continue
-    
-    wx = fetch_ecmwf(lat, lon)
-    sea = fetch_marine(lat, lon)
 
     # --- DEBUG: dump bruts pour diagnostic ---
     if os.getenv("FABLE_DEBUG_DUMP", "1") == "1":
         (PUBLIC / f"_debug-forecast-{slug}.json").write_text(
             json.dumps(wx, ensure_ascii=False, indent=2), encoding="utf-8"
-         )
-         (PUBLIC / f"_debug-marine-{slug}.json").write_text(
-             json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8"
-         )
-# -----------------------------------------
+        )
+        (PUBLIC / f"_debug-marine-{slug}.json").write_text(
+            json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    # -----------------------------------------
+
     # indices dans la fenêtre
     all_times = (wx.get("hourly") or {}).get("time") or (sea.get("hourly") or {}).get("time") or []
     keep = indices_in_window(all_times, start_local, end_local, TZ)
@@ -318,7 +315,6 @@ for site in selected_sites:
     e_units = wx.get("hourly_units", {})
     m_units = sea.get("hourly_units", {})
 
-    
     # Debug meta: clés présentes avant/après normalisation & compte non-nulls
     wx_keys_raw = sorted(list((wx.get("hourly") or {}).keys()))
     sea_keys_raw = sorted(list((sea.get("hourly") or {}).keys()))
@@ -373,4 +369,3 @@ log.info("Terminé: %d/%d spots écrits (avec données horaires dans la fenêtre
 if not ok:
     log.error("Aucune donnée horaire dans la fenêtre demandée — vérifier paramètres/timezone.")
     sys.exit(2)
-

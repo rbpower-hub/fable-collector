@@ -294,18 +294,7 @@ for site in selected_sites:
     except Exception as e:
         log.error("Échec de collecte pour %s: %s", name, e)
         continue
-
-    # indices dans la fenêtre
-    all_times = (wx.get("hourly") or {}).get("time") or (sea.get("hourly") or {}).get("time") or []
-    keep = indices_in_window(all_times, start_local, end_local, TZ)
-
-    ecmwf_slice  = slice_by_indices(wx,  ECMWF_KEYS,  keep)
-    marine_slice = slice_by_indices(sea, MARINE_KEYS, keep)
-    hourly_flat  = flatten_hourly(ecmwf_slice, marine_slice)
-
-    e_units = wx.get("hourly_units", {})
-    m_units = sea.get("hourly_units", {})
-
+    
     wx = fetch_ecmwf(lat, lon)
     sea = fetch_marine(lat, lon)
 
@@ -318,6 +307,16 @@ for site in selected_sites:
              json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8"
          )
 # -----------------------------------------
+    # indices dans la fenêtre
+    all_times = (wx.get("hourly") or {}).get("time") or (sea.get("hourly") or {}).get("time") or []
+    keep = indices_in_window(all_times, start_local, end_local, TZ)
+
+    ecmwf_slice  = slice_by_indices(wx,  ECMWF_KEYS,  keep)
+    marine_slice = slice_by_indices(sea, MARINE_KEYS, keep)
+    hourly_flat  = flatten_hourly(ecmwf_slice, marine_slice)
+
+    e_units = wx.get("hourly_units", {})
+    m_units = sea.get("hourly_units", {})
 
     
     # Debug meta: clés présentes avant/après normalisation & compte non-nulls

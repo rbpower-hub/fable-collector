@@ -296,7 +296,7 @@ for site in selected_sites:
         continue
 
     # --- DEBUG dumps lisibles à l’œil nu ---
-    if os.getenv("FABLE_DEBUG_DUMP", "1") == "1":
+    if os.getenv("FABLE_DEBUG_DUMP", "0") == "1":
         (PUBLIC / f"_debug-forecast-{slug}.json").write_text(
             json.dumps(wx, ensure_ascii=False, indent=2), encoding="utf-8"
         )

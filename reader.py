@@ -44,9 +44,9 @@ HS_NO_GO_MIN    = 0.8         # m     -> NO-GO si Hs > 0.8
 TP_MIN_AT_LT04  = 4.0         # s     -> si Hs < 0.4, Tp >= 4.0
 TP_MIN_AT_04_05 = 4.5         # s     -> si 0.4 <= Hs < 0.5, Tp >= 4.5
 
-# --- constantes en tête de fichier ---
-FAMILY_HOUR_START = 8   # 08:00
-FAMILY_HOUR_END   = 21  # 21:00  (exclu)
+# --- fenêtre horaire Family ---
+FAMILY_HOUR_START = 8   # 08:00 inclus
+FAMILY_HOUR_END   = 21  # 21:00 exclu
 
 # Clauses combinées (mers courtes / raides)
 SHORT_STEEP_1_HS = 0.5  # downgrade si Hs >= 0.5 et Tp <= 6 s
@@ -134,7 +134,7 @@ def _onshore_sectors(slug: str) -> List[Tuple[int, int]]:
         # Façade NE également
         return [(330, 360), (0, 70)]
 
-    # Spots retirés (laissés pour compat, inoffensifs)
+    # Spots retirés (compat)
     if s in {"korbous"}:
         return [(30, 150)]
     if s in {"kelibia", "kélibia"}:
@@ -147,19 +147,14 @@ def _onshore_sectors(slug: str) -> List[Tuple[int, int]]:
 def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
     return None if arr is None or i >= len(arr) else arr[i]
 
-def _hour_local(ts_iso: str) -> int:
-    # ts_iso = "YYYY-MM-DDTHH:MM±HH:MM" venant de main.py / Open-Meteo
-    import datetime as dt
-    t = dt.datetime.fromisoformat(ts_iso)
-    if t.tzinfo is None:
-        t = t.replace(tzinfo=TZ)
-    else:
-        t = t.astimezone(TZ)
-    return t.hour
 
-def _window_is_family_hours(times_5h: list[str]) -> bool:
-    # true si toutes les heures de la fenêtre sont dans [08,21)
-    return all(FAMILY_HOUR_START <= _hour_local(ts) < FAMILY_HOUR_END for ts in times_5h)
+def _all_in_family_hours_dts(dts: List[dt.datetime], tz: ZoneInfo) -> bool:
+    """True si toutes les heures sont dans [08:00, 21:00) en heure locale `tz`."""
+    for t in dts:
+        tt = t.astimezone(tz) if t.tzinfo else t.replace(tzinfo=tz)
+        if not (FAMILY_HOUR_START <= tt.hour < FAMILY_HOUR_END):
+            return False
+    return True
 
 
 # =========================
@@ -178,7 +173,7 @@ def load_site(path: Path) -> Site:
 
     hourly = d.get("hourly", {}) or {}
 
-    # Axe temps : le collector émet des ISO locaux SANS tz → on attache tz
+    # Axe temps : le collector émet des ISO locaux (souvent sans offset) → on attache tz
     raw_time = hourly.get("time") or []
     times: List[dt.datetime] = []
     for t in raw_time:
@@ -195,7 +190,7 @@ def load_site(path: Path) -> Site:
         else:
             vis_km = [float(v) if v is not None else None for v in vis]
 
-    # ❗️Mapper la sortie aplatie du collector vers la structure interne attendue
+    # Mapper la sortie aplatie du collector vers la structure interne attendue
     wind_models = {
         "om": {
             "wind_speed_10m":     hourly.get("wind_speed_10m"),
@@ -354,7 +349,8 @@ def compute_confidence(site: Site, i0: int, i1: int) -> str:
 
 def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[str, Any]]:
     """Fenêtres 4–6 h : toutes les heures de la fenêtre doivent être Family OK
-       sur la destination *et* port OK au départ (T0) et au retour (T0+durée)."""
+       sur la destination *et* port OK au départ (T0) et au retour (T0+durée).
+       Catégorisation : 'family' si intégralement entre 08:00 et 21:00, sinon 'off_hours'."""
     n = min(len(dest.times), len(home.times))
     windows: List[Dict[str, Any]] = []
     i = 0
@@ -378,13 +374,21 @@ def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[
             dep_ok, _ = hour_is_family_ok(home, i)
             ret_ok, _ = hour_is_family_ok(home, end - 1)
             if dep_ok and ret_ok:
+                # Catégorie horaire (08–21) sur la destination
+                window_dts = dest.times[i:end]  # end exclus
+                is_family_hours = _all_in_family_hours_dts(window_dts, dest.tz)
+                category = "family" if is_family_hours else "off_hours"
+
                 start_dt = dest.times[i]
                 end_dt = dest.times[end - 1] + dt.timedelta(hours=1)  # borne exclusive
+
                 windows.append({
                     "start": start_dt.isoformat(),
                     "end": end_dt.isoformat(),
                     "hours": length,
                     "confidence": compute_confidence(dest, i, end - 1),
+                    "category": category,
+                    "reason": "valid_FAMILY_rules" + ("" if category == "family" else "_outside_08_21"),
                 })
                 i = end
                 continue

@@ -1,0 +1,47 @@
+# Gulf of Tunis — profils par spot
+profiles:
+  gammarth:
+    depths_m: [4, 12]        # fourchette typique Family GO
+    seasons:
+      spring:
+        species: ["dorade grise", "moustelle", "pageot", "sars"]
+        rigs: ["bas de ligne fluoro 0.25–0.28, plomb 15–40 g"]
+        baits: ["ver, couteau, crevette", "lamelle calamar"]
+      summer:
+        species: ["pageot", "dorade royale (petites)", "oblade"]
+        rigs: ["carolina léger", "micro-jig 10–20 g"]
+        baits: ["ver, crevette", "leurre souple 7–10 cm"]
+      autumn:
+        species: ["sar", "pageot", "chinchard", "bonitots (tôt)"]
+        rigs: ["bottom drift 20–60 g", "petit madaï 20–40 g"]
+        baits: ["ver, couteau, calamar"]
+      winter:
+        species: ["merlan", "pageot", "poulpe (occasionnel)"]
+        rigs: ["plumes 5–15 g", "tâte-fond 20–40 g"]
+        baits: ["ver, sardine", "calamar"]
+  sidi-bou-said:
+    role: "secours"
+    depths_m: [4, 10]
+    seasons:
+      summer:
+        species: ["oblade", "petits pageots"]
+        rigs: ["micro-jig 7–15 g", "drop-shot"]
+        baits: ["crevette, ver"]
+  ghar-el-melh:
+    depths_m: [5, 15]
+    seasons:
+      spring:
+        species: ["dorade grise", "pageot", "sars"]
+        rigs: ["fond 20–50 g", "souple 8–12 cm"]
+        baits: ["ver, couteau"]
+  el-haouaria:
+    depths_m: [6, 20]
+    seasons:
+      summer:
+        species: ["oblade", "pageot", "bogue (soir)"]
+        rigs: ["souple 7–10 cm", "tirette 20–40 g"]
+        baits: ["ver, crevette"]
+      autumn:
+        species: ["pageot", "sars", "bonitots (au large)"]
+        rigs: ["bottom drift 30–60 g", "petit jig 20–40 g"]
+        baits: ["ver, calamar"]

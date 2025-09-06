@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-fable-collector — main.py (durci: timeouts/budgets, fallback modèles, clés normalisées, slicing séparé)
+fable-collector — main.py (durci: timeouts/budgets, fallback modèles, clés normalisées, slicing séparé, alignement commun & index.json)
 - Lit sites.yaml (name, lat, lon, shelter_bonus_radius_km)
 - Fenêtre contrôlée par env:
     FABLE_TZ, FABLE_WINDOW_HOURS, FABLE_START_ISO, FABLE_ONLY_SITES
@@ -10,6 +10,7 @@ fable-collector — main.py (durci: timeouts/budgets, fallback modèles, clés n
     Open-Meteo (ECMWF/ICON/GFS fallback): vent/rafales/direction/weather_code/visibility/pressure/precip (horaire)
     Open-Meteo Marine: wave_height / wave_period (+ swell) (horaire)
 - Écrit: public/<slug>.json  (keys: meta, ecmwf, marine, daily, hourly)
+- Écrit aussi: public/index.json (inventaire léger)
 """
 
 import os, sys, json, time, yaml, random, logging
@@ -28,8 +29,8 @@ HTTP_RETRIES         = int(os.getenv("FABLE_HTTP_RETRIES", "1"))
 MODEL_ORDER          = [m.strip() for m in os.getenv(
     "FABLE_MODEL_ORDER", "ecmwf_ifs04,icon_seamless,gfs_seamless,default"
 ).split(",") if m.strip()]
-SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "70"))     # budget max par spot
-HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))    # budget global max
+SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "70"))
+HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -262,23 +263,50 @@ def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[in
             out[k] = [series[i] for i in keep_idx if i < len(series)]
     return out
 
-def flatten_hourly(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, Any]) -> Dict[str, List]:
-    # Axe temps: privilégie forecast si présent, sinon marine.
-    t = ecmwf_slice.get("time") or marine_slice.get("time") or []
-    L = len(t)
-    def pick(src: Dict[str, Any], key: str) -> List:
+# ---------- NOUVEAU : alignement robuste par INTERSECTION des timestamps ----------
+def flatten_hourly_aligned(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, Any]) -> Dict[str, List]:
+    te = ecmwf_slice.get("time") or []
+    tm = marine_slice.get("time") or []
+
+    if te and tm:
+        set_tm = set(tm)
+        time_axis = [t for t in te if t in set_tm]  # préserve l’ordre du forecast
+        # si intersection vide (rare), on prend l’UNION ordonnée
+        if not time_axis:
+            union = sorted(set(te) | set(tm))
+            time_axis = union
+    else:
+        time_axis = te or tm
+
+    # maps temps -> index
+    idx_e = {t:i for i, t in enumerate(te)}
+    idx_m = {t:i for i, t in enumerate(tm)}
+
+    def pick_aligned(src: Dict[str, Any], key: str, idx_map: Dict[str, int]) -> List[Optional[float]]:
         arr = src.get(key) or []
-        return arr if len(arr) == L else (arr + [None]*(L - len(arr)))
-    flat = {"time": t}
+        out: List[Optional[float]] = []
+        for t in time_axis:
+            i = idx_map.get(t)
+            if i is None or i >= len(arr):
+                out.append(None)
+            else:
+                out.append(arr[i])
+        return out
+
+    flat: Dict[str, List] = {"time": time_axis}
+
     for k in ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]:
         if k in ecmwf_slice:
-            flat[k] = pick(ecmwf_slice, k)
+            flat[k] = pick_aligned(ecmwf_slice, k, idx_e)
+
     for k in ["wave_height","wave_period"]:
         if k in marine_slice:
-            flat[k] = pick(marine_slice, k)
+            flat[k] = pick_aligned(marine_slice, k, idx_m)
+
     if "wave_height" in flat: flat["hs"] = flat["wave_height"]
     if "wave_period" in flat: flat["tp"] = flat["wave_period"]
     return flat
+# -------------------------------------------------------------------------------
 
 def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
     out = {}
@@ -337,7 +365,9 @@ for site in selected_sites:
 
     ecmwf_slice  = slice_by_indices(wx,  ECMWF_KEYS,  keep_wx)
     marine_slice = slice_by_indices(sea, MARINE_KEYS, keep_sea)
-    hourly_flat  = flatten_hourly(ecmwf_slice, marine_slice)
+
+    # ⚠️ NOUVEAU : agrégat aligné sur intersection des heures
+    hourly_flat  = flatten_hourly_aligned(ecmwf_slice, marine_slice)
 
     # Télémétrie APRÈS slicing
     log.info("  sliced forecast: time=%d wind=%d gust=%d dir=%d vis=%d | sliced marine: time=%d hs=%d tp=%d",
@@ -411,10 +441,31 @@ for site in selected_sites:
     tmp.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(final)
 
-    results.append({"slug": slug, "points": len(hourly_flat.get("time", []))})
+    results.append({
+        "slug": slug,
+        "name": name,
+        "points": len(hourly_flat.get("time", []) or []),
+        "first_time": (hourly_flat.get("time") or [None])[0],
+        "last_time":  (hourly_flat.get("time") or [None])[-1],
+        "path": f"{slug}.json"
+    })
 
 ok = [r for r in results if r["points"] > 0]
 log.info("Terminé: %d/%d spots écrits (avec données horaires dans la fenêtre).", len(ok), len(selected_sites))
 if not ok:
     log.error("Aucune donnée horaire dans la fenêtre demandée — vérifier paramètres/timezone.")
     sys.exit(2)
+
+# ---------- NOUVEAU : index.json léger pour la page GitHub ----------
+index_payload = {
+    "generated_at": dt.datetime.now(TZ).isoformat(),
+    "tz": TZ_NAME,
+    "window": {
+        "start_local": start_local.isoformat(),
+        "end_local": end_local.isoformat(),
+        "hours": int((end_local - start_local).total_seconds() // 3600),
+    },
+    "spots": ok,  # liste déjà préparée (slug, name, points, first/last, path)
+}
+(PUBLIC / "index.json").write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+# ---------------------------------------------------------------

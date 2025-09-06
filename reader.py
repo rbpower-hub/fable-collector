@@ -143,6 +143,34 @@ def _onshore_sectors(slug: str) -> List[Tuple[int, int]]:
     # Fallback prudent (baie de Tunis)
     return [(20, 160)]
 
+# ---- AJOUTER quelque part dans la zone "Utilitaires" (après _onshore_sectors par ex.) ----
+from typing import Sequence  # si pas déjà importé
+
+def _all_in_family_hours_dts(dts: Sequence[dt.datetime], tz: ZoneInfo) -> bool:
+    """True si toutes les heures des datetimes (TZ-aware ou naïfs) sont dans [08,21)."""
+    for t in dts:
+        if t.tzinfo is None:
+            tt = t.replace(tzinfo=tz)
+        else:
+            tt = t.astimezone(tz)
+        h = tt.hour
+        if not (FAMILY_HOUR_START <= h < FAMILY_HOUR_END):
+            return False
+    return True
+
+
+def _has_wind_range(site: Site, i0: int, i1: int) -> bool:
+    """Vérifie la présence de toutes les valeurs vent/rafales/direction sur [i0..i1]."""
+    w = site.wind_models.get("om") or {}
+    sp = w.get("wind_speed_10m") or []
+    gu = w.get("wind_gusts_10m") or []
+    di = w.get("wind_direction_10m") or []
+    return all(
+        i < len(sp) and sp[i] is not None
+        and i < len(gu) and gu[i] is not None
+        and i < len(di) and di[i] is not None
+        for i in range(i0, i1 + 1)
+    )
 
 def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
     return None if arr is None or i >= len(arr) else arr[i]
@@ -346,7 +374,6 @@ def compute_confidence(site: Site, i0: int, i1: int) -> str:
         return "Low" if cap == "Medium" else "Medium"
     return "Low"
 
-
 def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[str, Any]]:
     """Fenêtres 4–6 h : toutes les heures de la fenêtre doivent être Family OK
        sur la destination *et* port OK au départ (T0) et au retour (T0+durée).
@@ -374,7 +401,12 @@ def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[
             dep_ok, _ = hour_is_family_ok(home, i)
             ret_ok, _ = hour_is_family_ok(home, end - 1)
             if dep_ok and ret_ok:
-                # Catégorie horaire (08–21) sur la destination
+                # 🚧 Vérification de présence de toutes les valeurs vent/rafales/direction
+                if not _has_wind_range(dest, i, end - 1) or not _has_wind_range(home, i, end - 1):
+                    i += 1
+                    continue
+
+                # Catégorie horaire (08–21) sur la destination (liste de datetimes)
                 window_dts = dest.times[i:end]  # end exclus
                 is_family_hours = _all_in_family_hours_dts(window_dts, dest.tz)
                 category = "family" if is_family_hours else "off_hours"
@@ -396,6 +428,7 @@ def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[
         i += 1
 
     return windows
+
 
 
 # =========================

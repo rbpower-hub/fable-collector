@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-fable-collector — main.py (durci: timeouts/budgets, fallback modèles, clés normalisées)
+fable-collector — main.py (durci: timeouts/budgets, fallback modèles, clés normalisées, slicing séparé)
 - Lit sites.yaml (name, lat, lon, shelter_bonus_radius_km)
 - Fenêtre contrôlée par env:
     FABLE_TZ, FABLE_WINDOW_HOURS, FABLE_START_ISO, FABLE_ONLY_SITES
@@ -137,7 +137,7 @@ selected_sites = []
 for s in sites:
     name = s.get("name") or "Site"
     slug = slugify(name)
-    if ONLY and slug not in ONLY: 
+    if ONLY and slug not in ONLY:
         continue
     try:
         lat = float(s["lat"]); lon = float(s["lon"])
@@ -263,6 +263,7 @@ def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[in
     return out
 
 def flatten_hourly(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, Any]) -> Dict[str, List]:
+    # Axe temps: privilégie forecast si présent, sinon marine.
     t = ecmwf_slice.get("time") or marine_slice.get("time") or []
     L = len(t)
     def pick(src: Dict[str, Any], key: str) -> List:
@@ -297,6 +298,10 @@ results = []
 t0_global = time.monotonic()
 global_deadline = t0_global + HARD_BUDGET_S
 
+def _len_series(h: Dict[str, Any], key: str) -> int:
+    arr = first_series(h or {}, key)
+    return len(arr) if isinstance(arr, list) else 0
+
 for site in selected_sites:
     if time.monotonic() > global_deadline:
         log.error("⏱️ Budget global dépassé — arrêt anticipé."); break
@@ -311,18 +316,39 @@ for site in selected_sites:
     except Exception as e:
         log.error("Échec de collecte pour %s: %s", name, e); continue
 
-    # (option) dumps lisibles
-    if os.getenv("FABLE_DEBUG_DUMP", "0") == "1":
-        (PUBLIC / f"_debug-forecast-{slug}.json").write_text(json.dumps(wx,  ensure_ascii=False, indent=2), encoding="utf-8")
-        (PUBLIC / f"_debug-marine-{slug}.json").write_text(  json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Télémétrie bruts AVANT slicing
+    h_wx  = wx.get("hourly")  or {}
+    h_sea = sea.get("hourly") or {}
+    log.info("  raw forecast: time=%d wind=%d gust=%d dir=%d vis=%d | marine: time=%d hs=%d tp=%d",
+             len(h_wx.get("time") or []),
+             _len_series(h_wx, "wind_speed_10m"),
+             _len_series(h_wx, "wind_gusts_10m"),
+             _len_series(h_wx, "wind_direction_10m"),
+             _len_series(h_wx, "visibility"),
+             len(h_sea.get("time") or []),
+             _len_series(h_sea, "wave_height"),
+             _len_series(h_sea, "wave_period"))
 
-    # indices fenêtre
-    base_times = (wx.get("hourly") or {}).get("time") or (sea.get("hourly") or {}).get("time") or []
-    keep = indices_in_window(base_times, start_local, end_local, TZ)
+    # --- indices fenêtre (séparés par source) ---
+    wx_times  = (wx.get("hourly")  or {}).get("time") or []
+    sea_times = (sea.get("hourly") or {}).get("time") or []
+    keep_wx   = indices_in_window(wx_times,  start_local, end_local, TZ)
+    keep_sea  = indices_in_window(sea_times, start_local, end_local, TZ)
 
-    ecmwf_slice  = slice_by_indices(wx,  ECMWF_KEYS,  keep)
-    marine_slice = slice_by_indices(sea, MARINE_KEYS, keep)
+    ecmwf_slice  = slice_by_indices(wx,  ECMWF_KEYS,  keep_wx)
+    marine_slice = slice_by_indices(sea, MARINE_KEYS, keep_sea)
     hourly_flat  = flatten_hourly(ecmwf_slice, marine_slice)
+
+    # Télémétrie APRÈS slicing
+    log.info("  sliced forecast: time=%d wind=%d gust=%d dir=%d vis=%d | sliced marine: time=%d hs=%d tp=%d",
+             len(ecmwf_slice.get("time") or []),
+             len(ecmwf_slice.get("wind_speed_10m") or []),
+             len(ecmwf_slice.get("wind_gusts_10m") or []),
+             len(ecmwf_slice.get("wind_direction_10m") or []),
+             len(ecmwf_slice.get("visibility") or []),
+             len(marine_slice.get("time") or []),
+             len(marine_slice.get("wave_height") or []),
+             len(marine_slice.get("wave_period") or []))
 
     e_units = wx.get("hourly_units", {}) or {}
     m_units = sea.get("hourly_units", {}) or {}
@@ -366,7 +392,10 @@ for site in selected_sites:
                 "hourly_keys_present_marine": sea_keys_raw,
                 "ecmwf_non_null_counts": nn_ecmwf,
                 "marine_non_null_counts": nn_marine,
-                "kept_indices": keep[:6] + (["..."] if len(keep) > 6 else []),
+                "kept_indices": {
+                    "forecast": keep_wx[:6] + (["..."] if len(keep_wx) > 6 else []),
+                    "marine":   keep_sea[:6] + (["..."] if len(keep_sea) > 6 else []),
+                },
                 "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S}
             },
         },

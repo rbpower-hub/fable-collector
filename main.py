@@ -2,15 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-fable-collector — main.py (durci: normalisation clés, slicing par indices, télémétrie)
+fable-collector — main.py (durci: timeouts/budgets, fallback modèles, clés normalisées)
 - Lit sites.yaml (name, lat, lon, shelter_bonus_radius_km)
 - Fenêtre contrôlée par env:
     FABLE_TZ, FABLE_WINDOW_HOURS, FABLE_START_ISO, FABLE_ONLY_SITES
 - Sources:
-    Open-Meteo (ECMWF/ICON/GFS avec fallback): vent/rafales/direction/weather_code/visibility (horaire)
-    Open-Meteo Marine : wave_height / wave_period (+ swell) (horaire)
-- Écrit: public/<slug>.json
-  * keys: meta, ecmwf, marine, hourly (aplati pour le reader)
+    Open-Meteo (ECMWF/ICON/GFS fallback): vent/rafales/direction/weather_code/visibility/pressure/precip (horaire)
+    Open-Meteo Marine: wave_height / wave_period (+ swell) (horaire)
+- Écrit: public/<slug>.json  (keys: meta, ecmwf, marine, daily, hourly)
 """
 
 import os, sys, json, time, yaml, random, logging
@@ -20,6 +19,17 @@ from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 import urllib.request
+
+# -----------------------
+# Config & budgets
+# -----------------------
+HTTP_TIMEOUT_S       = int(os.getenv("FABLE_HTTP_TIMEOUT_S", "12"))
+HTTP_RETRIES         = int(os.getenv("FABLE_HTTP_RETRIES", "1"))
+MODEL_ORDER          = [m.strip() for m in os.getenv(
+    "FABLE_MODEL_ORDER", "ecmwf_ifs04,icon_seamless,gfs_seamless,default"
+).split(",") if m.strip()]
+SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "70"))     # budget max par spot
+HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))    # budget global max
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -39,12 +49,12 @@ def slugify(name: str) -> str:
     s = re.sub(r"-{2,}", "-", s)
     return s
 
-def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]:
+def http_get_json(url: str, retry: int = HTTP_RETRIES, timeout: int = HTTP_TIMEOUT_S) -> Dict[str, Any]:
     last_err = None
     for attempt in range(retry + 1):
         try:
             req = urllib.request.Request(
-                url, headers={"User-Agent": "fable-collector/1.3 (+github actions)"}
+                url, headers={"User-Agent": "fable-collector/1.4 (+github actions)"}
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 if resp.status != 200:
@@ -52,9 +62,10 @@ def http_get_json(url: str, retry: int = 2, timeout: int = 25) -> Dict[str, Any]
                 return json.loads(resp.read().decode("utf-8"))
         except Exception as e:
             last_err = e
-            sleep_s = 1.2 + attempt * 1.5 + random.random()
-            log.warning("GET failed (%s). retry in %.1fs ...", e, sleep_s)
-            time.sleep(sleep_s)
+            if attempt < retry:
+                sleep_s = 0.8 + attempt * 1.2 + random.random() * 0.5
+                log.warning("GET failed (%s). retry in %.1fs ...", e, sleep_s)
+                time.sleep(sleep_s)
     raise RuntimeError(f"GET failed after retries: {last_err}")
 
 def ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
@@ -63,9 +74,7 @@ def csv_to_set(s: str) -> Optional[set]:
     if not s: return None
     return {slugify(x.strip()) for x in s.split(",") if x.strip()}
 
-# ——— TZ-safe parsing ———
 def parse_time_local(t_iso: str, tz: ZoneInfo) -> dt.datetime:
-    """Parse ISO; si offset absent, interprète en timezone `tz`."""
     try:
         t = dt.datetime.fromisoformat(t_iso)
     except ValueError:
@@ -85,11 +94,11 @@ def indices_in_window(times: List[str], start: dt.datetime, end: dt.datetime, tz
 # -----------------------
 # Fenêtre & paramètres
 # -----------------------
-TZ_NAME = os.getenv("FABLE_TZ", "Africa/Tunis")
-TZ = ZoneInfo(TZ_NAME)
+TZ_NAME  = os.getenv("FABLE_TZ", "Africa/Tunis")
+TZ       = ZoneInfo(TZ_NAME)
 WINDOW_H = int(os.getenv("FABLE_WINDOW_HOURS", "48"))
-START_ISO = os.getenv("FABLE_START_ISO", "").strip()
-ONLY = csv_to_set(os.getenv("FABLE_ONLY_SITES", ""))
+START_ISO= os.getenv("FABLE_START_ISO", "").strip()
+ONLY     = csv_to_set(os.getenv("FABLE_ONLY_SITES", ""))
 
 now_local = dt.datetime.now(TZ).replace(minute=0, second=0, microsecond=0)
 if START_ISO:
@@ -102,17 +111,13 @@ if START_ISO:
 else:
     start_local = now_local
 
-end_local = start_local + dt.timedelta(hours=WINDOW_H)
-start_date = start_local.date()
-end_date = end_local.date()
+end_local   = start_local + dt.timedelta(hours=WINDOW_H)
+start_date  = start_local.date()
+end_date    = end_local.date()
 
-log.info(
-    "Fenêtre locale %s → %s (%dh) TZ=%s",
-    start_local.isoformat(),
-    end_local.isoformat(),
-    WINDOW_H,
-    TZ_NAME,
-)
+log.info("Fenêtre locale %s → %s (%dh) TZ=%s | timeouts=%ss retries=%d models=%s | budgets: site=%ss, global=%ss",
+         start_local.isoformat(), end_local.isoformat(), WINDOW_H, TZ_NAME,
+         HTTP_TIMEOUT_S, HTTP_RETRIES, "/".join(MODEL_ORDER), SITE_BUDGET_S, HARD_BUDGET_S)
 
 # -----------------------
 # Charger sites.yaml
@@ -120,8 +125,7 @@ log.info(
 ROOT = Path(__file__).resolve().parent
 sites_yaml = ROOT / "sites.yaml"
 if not sites_yaml.exists():
-    log.error("sites.yaml introuvable à la racine du repo.")
-    sys.exit(1)
+    log.error("sites.yaml introuvable à la racine du repo."); sys.exit(1)
 try:
     sites = yaml.safe_load(sites_yaml.read_text(encoding="utf-8"))
 except Exception as e:
@@ -133,7 +137,8 @@ selected_sites = []
 for s in sites:
     name = s.get("name") or "Site"
     slug = slugify(name)
-    if ONLY and slug not in ONLY: continue
+    if ONLY and slug not in ONLY: 
+        continue
     try:
         lat = float(s["lat"]); lon = float(s["lon"])
     except Exception:
@@ -146,10 +151,11 @@ if not selected_sites:
     log.error("Aucun site sélectionné (filtre FABLE_ONLY_SITES ?)."); sys.exit(1)
 
 # -----------------------
-# Open-Meteo keys + synonyms
+# Clés & synonymes
 # -----------------------
 ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
+DAILY_KEYS  = ["sunrise","sunset","moon_phase","moonrise","moonset"]
 
 KEY_SYNONYMS = {
     "wind_speed_10m":     ["wind_speed_10m", "windspeed_10m"],
@@ -161,21 +167,20 @@ KEY_SYNONYMS = {
     "wave_period":        ["wave_period", "waveperiod"],
     "swell_wave_height":  ["swell_wave_height"],
     "swell_wave_period":  ["swell_wave_period"],
-    "surface_pressure": ["surface_pressure"],
-    "precipitation":    ["precipitation"]
+    "surface_pressure":   ["surface_pressure"],
+    "precipitation":      ["precipitation"],
 }
 
 def first_series(h: Dict[str, Any], canonical_key: str) -> List:
     for cand in KEY_SYNONYMS.get(canonical_key, [canonical_key]):
         arr = h.get(cand)
-        if isinstance(arr, list) and len(arr) > 0:
+        if isinstance(arr, list) and arr:
             return arr
     return []
 
 def normalize_hourly_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Copie les séries existantes sous les noms canoniques."""
     h = (payload.get("hourly") or {}).copy()
-    normalized = dict(h)  # shallow copy
+    normalized = dict(h)
     for canonical, syns in KEY_SYNONYMS.items():
         if isinstance(normalized.get(canonical), list) and normalized.get(canonical):
             continue
@@ -190,29 +195,28 @@ def normalize_hourly_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
 # -----------------------
 # URLs Open-Meteo
 # -----------------------
-DAILY_KEYS = ["sunrise","sunset","moon_phase","moonrise","moonset"]
 def forecast_url(lat: float, lon: float, model: Optional[str]) -> str:
     params = {
-        "latitude": f"{lat:.5f}",
+        "latitude":  f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly": ",".join(ECMWF_KEYS),  # on demande les canoniques
-        "daily":  ",".join(DAILY_KEYS),
-        "timezone": TZ_NAME,
-        "start_date": start_date.isoformat(),
-        "end_date": end_date.isoformat(),
+        "hourly":    ",".join(ECMWF_KEYS),
+        "daily":     ",".join(DAILY_KEYS),
+        "timezone":  TZ_NAME,
+        "start_date":start_date.isoformat(),
+        "end_date":  end_date.isoformat(),
     }
-    if model:
+    if model and model != "default":
         params["models"] = model
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
 
 def marine_url(lat: float, lon: float) -> str:
     params = {
-        "latitude": f"{lat:.5f}",
+        "latitude":  f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly": ",".join(MARINE_KEYS),
-        "timezone": TZ_NAME,
-        "start_date": start_date.isoformat(),
-        "end_date": end_date.isoformat(),
+        "hourly":    ",".join(MARINE_KEYS),
+        "timezone":  TZ_NAME,
+        "start_date":start_date.isoformat(),
+        "end_date":  end_date.isoformat(),
     }
     return "https://marine-api.open-meteo.com/v1/marine?" + urlencode(params)
 
@@ -223,29 +227,31 @@ def has_wind_arrays(payload: Dict[str, Any]) -> bool:
     h = payload.get("hourly") or {}
     return _has_non_null(first_series(h, "wind_speed_10m")) and _has_non_null(first_series(h, "wind_gusts_10m"))
 
-def fetch_forecast(lat: float, lon: float) -> Dict[str, Any]:
-    """Essaie successivement: ECMWF -> ICON -> GFS -> défaut (sans models), en refusant les séries tout-NULL."""
-    for model in ["ecmwf_ifs04", "icon_seamless", "gfs_seamless", None]:
+def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
+    for model in MODEL_ORDER:
+        if time.monotonic() > site_deadline:
+            raise TimeoutError("site budget exceeded (forecast)")
         url = forecast_url(lat, lon, model)
         try:
-            p = http_get_json(url, retry=2, timeout=25)
+            p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
             p = normalize_hourly_keys(p)
             if has_wind_arrays(p):
-                p["_model_used"] = model or "default"
-                log.info("  ✔ forecast model used: %s", p["_model_used"])
+                p["_model_used"] = model
+                log.info("  ✔ forecast model used: %s", model)
                 return p
             else:
-                log.warning("  ⚠ model %s returned only NULL series, trying next...", model or "default")
+                log.warning("  ⚠ model %s returned empty/NULL wind arrays, trying next...", model)
         except Exception as e:
-            log.warning("  ⚠ request failed for model %s: %s", model or "default", e)
+            log.warning("  ⚠ request failed for model %s: %s", model, e)
     return {"_model_used": "unknown", "hourly": {}}
 
-def fetch_marine(lat: float, lon: float) -> Dict[str, Any]:
-    p = http_get_json(marine_url(lat, lon), retry=2, timeout=25)
+def fetch_marine(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
+    if time.monotonic() > site_deadline:
+        raise TimeoutError("site budget exceeded (marine)")
+    p = http_get_json(marine_url(lat, lon), retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
     return normalize_hourly_keys(p)
 
-def slice_by_indices(payload: Dict[str, Any], keys: List[str],
-                     keep_idx: List[int]) -> Dict[str, Any]:
+def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[int]) -> Dict[str, Any]:
     h = payload.get("hourly") or {}
     times = h.get("time") or []
     out: Dict[str, Any] = {}
@@ -263,7 +269,7 @@ def flatten_hourly(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, Any]) ->
         arr = src.get(key) or []
         return arr if len(arr) == L else (arr + [None]*(L - len(arr)))
     flat = {"time": t}
-    for k in ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]:
+    for k in ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]:
         if k in ecmwf_slice:
             flat[k] = pick(ecmwf_slice, k)
     for k in ["wave_height","wave_period"]:
@@ -283,48 +289,50 @@ def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
 # -----------------------
 # Collecte
 # -----------------------
-PUBLIC = ROOT / "public"
+ROOT    = Path(__file__).resolve().parent
+PUBLIC  = ROOT / "public"
 ensure_dir(PUBLIC)
 
 results = []
+t0_global = time.monotonic()
+global_deadline = t0_global + HARD_BUDGET_S
 
 for site in selected_sites:
+    if time.monotonic() > global_deadline:
+        log.error("⏱️ Budget global dépassé — arrêt anticipé."); break
+
     name = site["name"]; slug = site["slug"]; lat = site["lat"]; lon = site["lon"]
     log.info("▶ Collecte: %s (%.5f, %.5f)", name, lat, lon)
 
+    site_deadline = time.monotonic() + SITE_BUDGET_S
     try:
-        wx = fetch_forecast(lat, lon)   # <— Fallback ECMWF→ICON→GFS
-        sea = fetch_marine(lat, lon)
+        wx  = fetch_forecast(lat, lon, site_deadline)   # fallback ECMWF→ICON→GFS→default
+        sea = fetch_marine(lat, lon, site_deadline)
     except Exception as e:
-        log.error("Échec de collecte pour %s: %s", name, e)
-        continue
+        log.error("Échec de collecte pour %s: %s", name, e); continue
 
-    # --- DEBUG dumps lisibles à l’œil nu ---
+    # (option) dumps lisibles
     if os.getenv("FABLE_DEBUG_DUMP", "0") == "1":
-        (PUBLIC / f"_debug-forecast-{slug}.json").write_text(
-            json.dumps(wx, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        (PUBLIC / f"_debug-marine-{slug}.json").write_text(
-            json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        (PUBLIC / f"_debug-forecast-{slug}.json").write_text(json.dumps(wx,  ensure_ascii=False, indent=2), encoding="utf-8")
+        (PUBLIC / f"_debug-marine-{slug}.json").write_text(  json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # indices dans la fenêtre
-    all_times = (wx.get("hourly") or {}).get("time") or (sea.get("hourly") or {}).get("time") or []
-    keep = indices_in_window(all_times, start_local, end_local, TZ)
+    # indices fenêtre
+    base_times = (wx.get("hourly") or {}).get("time") or (sea.get("hourly") or {}).get("time") or []
+    keep = indices_in_window(base_times, start_local, end_local, TZ)
 
     ecmwf_slice  = slice_by_indices(wx,  ECMWF_KEYS,  keep)
     marine_slice = slice_by_indices(sea, MARINE_KEYS, keep)
     hourly_flat  = flatten_hourly(ecmwf_slice, marine_slice)
 
-    e_units = wx.get("hourly_units", {})
-    m_units = sea.get("hourly_units", {})
-    d_units = wx.get("daily_units", {})         # 👈 NEW
-    daily   = wx.get("daily", {}) or {}         # 👈 NEW
+    e_units = wx.get("hourly_units", {}) or {}
+    m_units = sea.get("hourly_units", {}) or {}
+    d_units = wx.get("daily_units",  {}) or {}
+    daily   = wx.get("daily",        {}) or {}
 
-    # Debug meta: clés présentes + compte non-nulls
-    wx_keys_raw  = sorted(list((wx.get("hourly") or {}).keys()))
+    # Debug meta
+    wx_keys_raw  = sorted(list((wx.get("hourly")  or {}).keys()))
     sea_keys_raw = sorted(list((sea.get("hourly") or {}).keys()))
-    nn_ecmwf = non_null_count(ecmwf_slice, ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"])
+    nn_ecmwf = non_null_count(ecmwf_slice, ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"])
     nn_marine = non_null_count(marine_slice, ["wave_height","wave_period","swell_wave_height","swell_wave_period"])
 
     out: Dict[str, Any] = {
@@ -339,7 +347,7 @@ for site in selected_sites:
             "sources": {
                 "ecmwf_open_meteo": {
                     "endpoint": "https://api.open-meteo.com/v1/forecast",
-                    "model_hint": "ecmwf_ifs04/icon/gfs (horaire, fallback)",
+                    "model_order": MODEL_ORDER,
                     "model_used": wx.get("_model_used", "unknown"),
                     "units": e_units,
                 },
@@ -347,10 +355,10 @@ for site in selected_sites:
                     "endpoint": "https://marine-api.open-meteo.com/v1/marine",
                     "units": m_units,
                 },
-                "astro_daily_open_meteo": {        # 👈 NEW (unité/trace)
-                  "endpoint":"https://api.open-meteo.com/v1/forecast",
-                   "units": d_units
-                 },
+                "astro_daily_open_meteo": {
+                    "endpoint":"https://api.open-meteo.com/v1/forecast",
+                    "units": d_units
+                },
             },
             "shelter_bonus_radius_km": site.get("shelter_bonus_radius_km", 0.0),
             "debug": {
@@ -359,6 +367,7 @@ for site in selected_sites:
                 "ecmwf_non_null_counts": nn_ecmwf,
                 "marine_non_null_counts": nn_marine,
                 "kept_indices": keep[:6] + (["..."] if len(keep) > 6 else []),
+                "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S}
             },
         },
         "ecmwf": ecmwf_slice,

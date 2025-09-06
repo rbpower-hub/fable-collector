@@ -44,6 +44,10 @@ HS_NO_GO_MIN    = 0.8         # m     -> NO-GO si Hs > 0.8
 TP_MIN_AT_LT04  = 4.0         # s     -> si Hs < 0.4, Tp >= 4.0
 TP_MIN_AT_04_05 = 4.5         # s     -> si 0.4 <= Hs < 0.5, Tp >= 4.5
 
+# --- constantes en tête de fichier ---
+FAMILY_HOUR_START = 8   # 08:00
+FAMILY_HOUR_END   = 21  # 21:00  (exclu)
+
 # Clauses combinées (mers courtes / raides)
 SHORT_STEEP_1_HS = 0.5  # downgrade si Hs >= 0.5 et Tp <= 6 s
 SHORT_STEEP_1_TP = 6.0
@@ -142,6 +146,20 @@ def _onshore_sectors(slug: str) -> List[Tuple[int, int]]:
 
 def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
     return None if arr is None or i >= len(arr) else arr[i]
+
+def _hour_local(ts_iso: str) -> int:
+    # ts_iso = "YYYY-MM-DDTHH:MM±HH:MM" venant de main.py / Open-Meteo
+    import datetime as dt
+    t = dt.datetime.fromisoformat(ts_iso)
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=TZ)
+    else:
+        t = t.astimezone(TZ)
+    return t.hour
+
+def _window_is_family_hours(times_5h: list[str]) -> bool:
+    # true si toutes les heures de la fenêtre sont dans [08,21)
+    return all(FAMILY_HOUR_START <= _hour_local(ts) < FAMILY_HOUR_END for ts in times_5h)
 
 
 # =========================

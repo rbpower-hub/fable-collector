@@ -148,7 +148,7 @@ if not selected_sites:
 # -----------------------
 # Open-Meteo keys + synonyms
 # -----------------------
-ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
+ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
 
 KEY_SYNONYMS = {
@@ -161,6 +161,8 @@ KEY_SYNONYMS = {
     "wave_period":        ["wave_period", "waveperiod"],
     "swell_wave_height":  ["swell_wave_height"],
     "swell_wave_period":  ["swell_wave_period"],
+    "surface_pressure": ["surface_pressure"],
+    "precipitation":    ["precipitation"]
 }
 
 def first_series(h: Dict[str, Any], canonical_key: str) -> List:
@@ -188,11 +190,13 @@ def normalize_hourly_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
 # -----------------------
 # URLs Open-Meteo
 # -----------------------
+DAILY_KEYS = ["sunrise","sunset","moon_phase","moonrise","moonset"]
 def forecast_url(lat: float, lon: float, model: Optional[str]) -> str:
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
         "hourly": ",".join(ECMWF_KEYS),  # on demande les canoniques
+        "daily":  ",".join(DAILY_KEYS),
         "timezone": TZ_NAME,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
@@ -314,6 +318,8 @@ for site in selected_sites:
 
     e_units = wx.get("hourly_units", {})
     m_units = sea.get("hourly_units", {})
+    d_units = wx.get("daily_units", {})         # 👈 NEW
+    daily   = wx.get("daily", {}) or {}         # 👈 NEW
 
     # Debug meta: clés présentes + compte non-nulls
     wx_keys_raw  = sorted(list((wx.get("hourly") or {}).keys()))
@@ -341,6 +347,10 @@ for site in selected_sites:
                     "endpoint": "https://marine-api.open-meteo.com/v1/marine",
                     "units": m_units,
                 },
+                "astro_daily_open_meteo": {        # 👈 NEW (unité/trace)
+                  "endpoint":"https://api.open-meteo.com/v1/forecast",
+                   "units": d_units
+                 },
             },
             "shelter_bonus_radius_km": site.get("shelter_bonus_radius_km", 0.0),
             "debug": {
@@ -353,6 +363,7 @@ for site in selected_sites:
         },
         "ecmwf": ecmwf_slice,
         "marine": marine_slice,
+        "daily": daily,
         "hourly": hourly_flat,
         "status": "ok",
     }

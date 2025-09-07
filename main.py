@@ -39,7 +39,7 @@ logging.basicConfig(
 log = logging.getLogger("fable-collector")
 
 # ➕ Debug dumps activables
-DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "0") == "1"
+DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "1") == "1"
 
 # -----------------------
 # Helpers

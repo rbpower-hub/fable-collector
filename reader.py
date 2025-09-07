@@ -143,8 +143,6 @@ def _onshore_sectors(slug: str) -> List[Tuple[int, int]]:
     # Fallback prudent (baie de Tunis)
     return [(20, 160)]
 
-# ---- AJOUTER quelque part dans la zone "Utilitaires" (après _onshore_sectors par ex.) ----
-from typing import Sequence  # si pas déjà importé
 
 def _all_in_family_hours_dts(dts: Sequence[dt.datetime], tz: ZoneInfo) -> bool:
     """True si toutes les heures des datetimes (TZ-aware ou naïfs) sont dans [08,21)."""
@@ -172,17 +170,9 @@ def _has_wind_range(site: Site, i0: int, i1: int) -> bool:
         for i in range(i0, i1 + 1)
     )
 
+
 def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
     return None if arr is None or i >= len(arr) else arr[i]
-
-
-def _all_in_family_hours_dts(dts: List[dt.datetime], tz: ZoneInfo) -> bool:
-    """True si toutes les heures sont dans [08:00, 21:00) en heure locale `tz`."""
-    for t in dts:
-        tt = t.astimezone(tz) if t.tzinfo else t.replace(tzinfo=tz)
-        if not (FAMILY_HOUR_START <= tt.hour < FAMILY_HOUR_END):
-            return False
-    return True
 
 
 # =========================
@@ -374,6 +364,7 @@ def compute_confidence(site: Site, i0: int, i1: int) -> str:
         return "Low" if cap == "Medium" else "Medium"
     return "Low"
 
+
 def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[str, Any]]:
     """Fenêtres 4–6 h : toutes les heures de la fenêtre doivent être Family OK
        sur la destination *et* port OK au départ (T0) et au retour (T0+durée).
@@ -428,7 +419,6 @@ def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[
         i += 1
 
     return windows
-
 
 
 # =========================

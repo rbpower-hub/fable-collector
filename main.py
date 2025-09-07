@@ -38,6 +38,9 @@ logging.basicConfig(
 )
 log = logging.getLogger("fable-collector")
 
+# ➕ Debug dumps activables
+DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "0") == "1"
+
 # -----------------------
 # Helpers
 # -----------------------
@@ -134,10 +137,16 @@ except Exception as e:
 if not isinstance(sites, list) or not sites:
     log.error("sites.yaml mal formé ou vide."); sys.exit(1)
 
+# ➕ Exclusion définitive (politique FABLE)
+EXCLUDE_SLUGS = {"korbous", "kelibia", "kélibia"}
+
 selected_sites = []
 for s in sites:
     name = s.get("name") or "Site"
     slug = slugify(name)
+    if slug in EXCLUDE_SLUGS:
+        log.info("Exclu par politique: %s", name)
+        continue
     if ONLY and slug not in ONLY:
         continue
     try:
@@ -271,7 +280,7 @@ def flatten_hourly_aligned(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, 
     if te and tm:
         set_tm = set(tm)
         time_axis = [t for t in te if t in set_tm]  # préserve l’ordre du forecast
-        # si intersection vide (rare), on prend l’UNION ordonnée
+        # si intersection vide, on prend l’UNION ordonnée
         if not time_axis:
             union = sorted(set(te) | set(tm))
             time_axis = union
@@ -344,6 +353,11 @@ for site in selected_sites:
     except Exception as e:
         log.error("Échec de collecte pour %s: %s", name, e); continue
 
+    # ➕ Dumps bruts optionnels (avant slicing)
+    if DEBUG_DUMP:
+        (PUBLIC / f"_debug-forecast-{slug}.json").write_text(json.dumps(wx,  ensure_ascii=False, indent=2), encoding="utf-8")
+        (PUBLIC / f"_debug-marine-{slug}.json").write_text(  json.dumps(sea, ensure_ascii=False, indent=2), encoding="utf-8")
+
     # Télémétrie bruts AVANT slicing
     h_wx  = wx.get("hourly")  or {}
     h_sea = sea.get("hourly") or {}
@@ -369,7 +383,7 @@ for site in selected_sites:
     # ⚠️ NOUVEAU : agrégat aligné sur intersection des heures
     hourly_flat  = flatten_hourly_aligned(ecmwf_slice, marine_slice)
 
-    # Télémétrie APRÈS slicing
+    # Télémétrie APRÈS slicing + alignement
     log.info("  sliced forecast: time=%d wind=%d gust=%d dir=%d vis=%d | sliced marine: time=%d hs=%d tp=%d",
              len(ecmwf_slice.get("time") or []),
              len(ecmwf_slice.get("wind_speed_10m") or []),
@@ -379,6 +393,10 @@ for site in selected_sites:
              len(marine_slice.get("time") or []),
              len(marine_slice.get("wave_height") or []),
              len(marine_slice.get("wave_period") or []))
+    log.info("  aligned axis: %d hours | first=%s | last=%s",
+             len(hourly_flat.get("time") or []),
+             (hourly_flat.get("time") or [None])[0],
+             (hourly_flat.get("time") or [None])[-1])
 
     e_units = wx.get("hourly_units", {}) or {}
     m_units = sea.get("hourly_units", {}) or {}

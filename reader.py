@@ -86,6 +86,7 @@ class HourMetrics:
     max_gust: Optional[float]
     spread_speed: Optional[float]
     any_dir: Optional[float]
+    any_onshore: Optional[bool]   # ← True si au moins une direction modèle est onshore
     min_vis: Optional[float]
     codes: List[int]
     hs: Optional[float]
@@ -274,12 +275,19 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
     hs = _safe_get(hs_arr, idx)
     tp = _safe_get(tp_arr, idx)
 
+    # ← fail-safe : onshore si AU MOINS une direction est dans le secteur onshore du spot
+    onshore_ranges = _onshore_sectors(site.slug)
+    any_onshore = None
+    if dirs:
+         any_onshore = any(_angle_in_ranges(d, onshore_ranges) for d in dirs)
+
     return HourMetrics(
         max_speed=max(speeds) if speeds else None,
         min_speed=min(speeds) if speeds else None,
         max_gust=max(gusts) if gusts else None,
         spread_speed=(max(speeds) - min(speeds)) if len(speeds) >= 2 else None,
         any_dir=dirs[0] if dirs else None,
+        any_onshore=any_onshore,
         min_vis=min(vis) if vis else None,
         codes=codes,
         hs=hs,
@@ -327,9 +335,10 @@ def hour_is_family_ok(site: Site, idx: int) -> Tuple[bool, Dict[str, Any]]:
         if (m.max_gust - m.min_speed) >= SQUALL_DELTA:
             ok = False; reasons.append("squalls")
 
-    # Onshore > 20
-    if m.max_speed is not None and m.any_dir is not None:
-        if m.max_speed > ONSHORE_MAX_OK and _angle_in_ranges(m.any_dir, _onshore_sectors(site.slug)):
+    # Onshore > 20 (fail-safe : si au moins un modèle signale un flux onshore, on applique avec la
+    # valeur de vent la plus défavorable "max_speed")
+    if m.max_speed is not None and m.any_onshore is not None:
+        if m.max_speed > ONSHORE_MAX_OK and m.any_onshore:
             ok = False; reasons.append("onshore>20")
 
     # Visibilité
@@ -344,17 +353,43 @@ def hour_is_family_ok(site: Site, idx: int) -> Tuple[bool, Dict[str, Any]]:
 
 
 def compute_confidence(site: Site, i0: int, i1: int) -> str:
-    """Capée à Medium si une seule source de houle ; Low si <2 modèles vent."""
-    spreads: List[float] = []
+    """Conforme Master Spec :
+       - High si spread vent < 5 km/h ET spread Hs < 0.2 m
+       - Medium si désaccord mineur (< 8 km/h) sinon Low
+       - Cap à Medium (une seule source houle)
+       - Low si < 2 modèles vent
+    """
+    wind_spreads: List[float] = []
+    hs_values: List[float] = []
     n_models = 0
+
     for i in range(i0, i1 + 1):
         m = worst_metrics_at_hour(site, i)
         if m.spread_speed is not None:
-            spreads.append(m.spread_speed)
+            wind_spreads.append(m.spread_speed)
+        if m.hs is not None:
+            hs_values.append(m.hs)
         n_models = max(n_models, m.n_models)
 
+    # Besoin d'au moins 2 modèles vent pour monter au-dessus de Low
     if n_models < 2:
         return "Low"
+
+    avg_wind_spread = statistics.mean(wind_spreads) if wind_spreads else None
+    hs_spread = (max(hs_values) - min(hs_values)) if len(hs_values) >= 2 else None
+
+    # Détermination brute
+    if (avg_wind_spread is not None and avg_wind_spread < 5) and (hs_spread is not None and hs_spread < 0.2):
+        result = "High"
+    elif avg_wind_spread is not None and avg_wind_spread < 8:
+        result = "Medium"
+    else:
+        result = "Low"
+
+    # Cap à Medium (une seule source houle)
+    if result == "High":
+        return "Medium"
+    return result
 
     avg_spread = statistics.mean(spreads) if spreads else None
     cap = "Medium"  # pas de 2ème modèle houle => on ne dépasse pas Medium

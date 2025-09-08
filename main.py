@@ -165,7 +165,7 @@ if not selected_sites:
 # -----------------------
 ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
-DAILY_KEYS  = ["sunrise","sunset","moon_phase","moonrise","moonset"]
+DAILY_KEYS  = ["sunrise","sunset"]
 
 KEY_SYNONYMS = {
     "wind_speed_10m":     ["wind_speed_10m", "windspeed_10m"],
@@ -213,7 +213,7 @@ def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Opti
         "hourly":        ",".join(hourly_keys or ECMWF_KEYS),
         "timezone":      TZ_NAME,
         "timeformat":    "iso8601",
-        "windspeed_unit":"kmh",
+        "wind_speed_unit":"kmh",
         "start_date":    start_date.isoformat(),
         "end_date":      end_date.isoformat(),
     }
@@ -287,6 +287,7 @@ SAFE_HOURLY = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_c
 def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
     # 1) Essais avec jeu complet (ECMWF_KEYS) + alias de modèles
     for model in expand_models(MODEL_ORDER):
+        log.debug("  trying model=%s", model or "default")
         if time.monotonic() > site_deadline:
             log.warning("⏱️ site budget presque dépassé → on saute aux fallbacks (sans 'models').")
             break

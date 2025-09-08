@@ -25,7 +25,7 @@ import urllib.request
 # Config & budgets
 # -----------------------
 HTTP_TIMEOUT_S       = int(os.getenv("FABLE_HTTP_TIMEOUT_S", "12"))
-HTTP_RETRIES         = int(os.getenv("FABLE_HTTP_RETRIES", "1"))
+HTTP_RETRIES         = int(os.getenv("FABLE_HTTP_RETRIES", "2"))
 MODEL_ORDER          = [m.strip() for m in os.getenv(
     "FABLE_MODEL_ORDER", "ecmwf_ifs04,icon_seamless,gfs_seamless,default"
 ).split(",") if m.strip()]
@@ -102,7 +102,7 @@ TZ_NAME  = os.getenv("FABLE_TZ", "Africa/Tunis")
 TZ       = ZoneInfo(TZ_NAME)
 WINDOW_H = int(os.getenv("FABLE_WINDOW_HOURS", "48"))
 START_ISO= os.getenv("FABLE_START_ISO", "").strip()
-ONLY     = csv_to_set(os.getenv("FABLE_ONLY_SITES", ""))
+ONLY     = csv_to_set(os.getenv("FABLE_ONLY_SITES", "gammarth-port"))
 
 now_local = dt.datetime.now(TZ).replace(minute=0, second=0, microsecond=0)
 if START_ISO:

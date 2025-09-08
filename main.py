@@ -205,11 +205,11 @@ def normalize_hourly_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
 # -----------------------
 # URLs Open-Meteo
 # -----------------------
-def forecast_url(lat: float, lon: float, model: Optional[str]) -> str:
+def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Optional[List[str]] = None) -> str:
     params = {
         "latitude":  f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
-        "hourly":    ",".join(ECMWF_KEYS),
+        "hourly":    ",".join(hourly_keys or ECMWF_KEYS),  # <— accepte override
         "daily":     ",".join(DAILY_KEYS),
         "timezone":  TZ_NAME,
         "start_date":start_date.isoformat(),
@@ -218,7 +218,7 @@ def forecast_url(lat: float, lon: float, model: Optional[str]) -> str:
     if model and model != "default":
         params["models"] = model
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
-
+    
 def marine_url(lat: float, lon: float) -> str:
     params = {
         "latitude":  f"{lat:.5f}",
@@ -236,6 +236,23 @@ def _has_non_null(arr: List) -> bool:
 def has_wind_arrays(payload: Dict[str, Any]) -> bool:
     h = payload.get("hourly") or {}
     return _has_non_null(first_series(h, "wind_speed_10m")) and _has_non_null(first_series(h, "wind_gusts_10m"))
+    
+def payload_has_error(p: Dict[str, Any]) -> bool:
+    # Erreur explicite ou structure invalide
+    if not isinstance(p, dict):
+        return True
+    if p.get("error"):
+        return True
+    h = p.get("hourly")
+    if not isinstance(h, dict):
+        return True
+    # Il faut au minimum un axe temps non vide
+    t = h.get("time")
+    if not isinstance(t, list) or len(t) == 0:
+        return True
+    return False
+
+SAFE_HOURLY = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
 
 def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
     for model in MODEL_ORDER:

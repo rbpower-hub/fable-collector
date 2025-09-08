@@ -27,7 +27,7 @@ import urllib.request
 HTTP_TIMEOUT_S       = int(os.getenv("FABLE_HTTP_TIMEOUT_S", "10"))
 HTTP_RETRIES         = int(os.getenv("FABLE_HTTP_RETRIES", "1"))
 MODEL_ORDER          = [m.strip() for m in os.getenv(
-    "FABLE_MODEL_ORDER", "ecmwf_ifs04,icon_seamless,gfs_seamless,default"
+    "FABLE_MODEL_ORDER", "icon_seamless,gfs_seamless,default,ecmwf_ifs04"
 ).split(",") if m.strip()]
 SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "70"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
@@ -163,7 +163,7 @@ if not selected_sites:
 # -----------------------
 # Clés & synonymes
 # -----------------------
-ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]
+ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
 DAILY_KEYS  = ["sunrise","sunset","moon_phase","moonrise","moonset"]
 

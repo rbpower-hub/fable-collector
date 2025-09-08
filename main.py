@@ -205,28 +205,34 @@ def normalize_hourly_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
 # -----------------------
 # URLs Open-Meteo
 # -----------------------
-def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Optional[List[str]] = None) -> str:
+def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Optional[List[str]] = None,
+                 include_daily: bool = True) -> str:
     params = {
-        "latitude":  f"{lat:.5f}",
-        "longitude": f"{lon:.5f}",
-        "hourly":    ",".join(hourly_keys or ECMWF_KEYS),  # <— accepte override
-        "daily":     ",".join(DAILY_KEYS),
-        "timezone":  TZ_NAME,
-        "start_date":start_date.isoformat(),
-        "end_date":  end_date.isoformat(),
+        "latitude":      f"{lat:.5f}",
+        "longitude":     f"{lon:.5f}",
+        "hourly":        ",".join(hourly_keys or ECMWF_KEYS),
+        "timezone":      TZ_NAME,
+        "timeformat":    "iso8601",
+        "windspeed_unit":"kmh",
+        "start_date":    start_date.isoformat(),
+        "end_date":      end_date.isoformat(),
     }
+    if include_daily:
+        params["daily"] = ",".join(DAILY_KEYS)
     if model and model != "default":
         params["models"] = model
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
-    
+
 def marine_url(lat: float, lon: float) -> str:
     params = {
-        "latitude":  f"{lat:.5f}",
-        "longitude": f"{lon:.5f}",
-        "hourly":    ",".join(MARINE_KEYS),
-        "timezone":  TZ_NAME,
-        "start_date":start_date.isoformat(),
-        "end_date":  end_date.isoformat(),
+        "latitude":        f"{lat:.5f}",
+        "longitude":       f"{lon:.5f}",
+        "hourly":          ",".join(MARINE_KEYS),
+        "timezone":        TZ_NAME,
+        "timeformat":      "iso8601",
+        "wave_height_unit":"m",
+        "start_date":      start_date.isoformat(),
+        "end_date":        end_date.isoformat(),
     }
     return "https://marine-api.open-meteo.com/v1/marine?" + urlencode(params)
 
@@ -238,7 +244,6 @@ def has_wind_arrays(payload: Dict[str, Any]) -> bool:
     return _has_non_null(first_series(h, "wind_speed_10m")) and _has_non_null(first_series(h, "wind_gusts_10m"))
     
 def payload_has_error(p: Dict[str, Any]) -> bool:
-    # Erreur explicite ou structure invalide
     if not isinstance(p, dict):
         return True
     if p.get("error"):
@@ -246,69 +251,90 @@ def payload_has_error(p: Dict[str, Any]) -> bool:
     h = p.get("hourly")
     if not isinstance(h, dict):
         return True
-    # Il faut au minimum un axe temps non vide
     t = h.get("time")
     if not isinstance(t, list) or len(t) == 0:
         return True
     return False
 
+def api_reason(p: Dict[str, Any]) -> str:
+    if isinstance(p, dict):
+        return str(p.get("reason") or p.get("error_message") or "hourly/time missing")
+    return "invalid json"
+
+# Alias de modèles (au cas où “*_seamless” n’est pas accepté par l’API)
+MODEL_ALIASES = {
+    "ecmwf_ifs04": ["ecmwf_ifs04"],
+    "icon_seamless": ["icon_seamless", "icon_global", "icon_eu", "icon_d2"],
+    "gfs_seamless": ["gfs_seamless", "gfs"],
+    "default": ["default", None],
+}
+def expand_models(order: List[str]) -> List[Optional[str]]:
+    out: List[Optional[str]] = []
+    for m in order:
+        out.extend(MODEL_ALIASES.get(m, [m]))
+    # supprime doublons en conservant l’ordre
+    seen=set(); dedup=[]
+    for m in out:
+        key = m or "default"
+        if key in seen: 
+            continue
+        seen.add(key); dedup.append(m)
+    return dedup
+
 SAFE_HOURLY = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
 
 def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
-    # 1) Essais avec la liste horaire complète (ECMWF_KEYS)
-    for model in MODEL_ORDER:
+    # 1) Essais avec jeu complet (ECMWF_KEYS) + alias de modèles
+    for model in expand_models(MODEL_ORDER):
         if time.monotonic() > site_deadline:
             raise TimeoutError("site budget exceeded (forecast)")
-        url = forecast_url(lat, lon, model, hourly_keys=ECMWF_KEYS)
+        url = forecast_url(lat, lon, model, hourly_keys=ECMWF_KEYS, include_daily=True)
         try:
             p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
             if payload_has_error(p):
-                reason = p.get("reason", "hourly/time missing")
-                log.warning("  ⚠ model %s invalid payload: %s", model, reason)
+                log.warning("  ⚠ model %s invalid payload: %s", model or "default", api_reason(p))
                 continue
             p = normalize_hourly_keys(p)
             if has_wind_arrays(p):
-                p["_model_used"] = model
-                log.info("  ✔ forecast model used: %s", model)
+                p["_model_used"] = model or "default"
+                log.info("  ✔ forecast model used: %s", p["_model_used"])
                 return p
             else:
-                log.warning("  ⚠ model %s has empty wind arrays, trying next...", model)
+                log.warning("  ⚠ model %s has empty wind arrays, trying next...", model or "default")
         except Exception as e:
-            log.warning("  ⚠ request failed for model %s: %s", model, e)
+            log.warning("  ⚠ request failed for model %s: %s", model or "default", e)
 
-    # 2) Dernier recours : rejouer avec un set “SAFE” minimal (sans pressure/precip)
-    log.warning("  ↩︎ All models failed with ECMWF_KEYS, retrying with SAFE_HOURLY set...")
+    # 2) Fallback SAFE (sans daily + variables minimales)
+    log.warning("  ↩︎ All models failed; retry SAFE set (no daily, SAFE_HOURLY).")
     try:
-        url = forecast_url(lat, lon, "default", hourly_keys=SAFE_HOURLY)
+        url = forecast_url(lat, lon, None, hourly_keys=SAFE_HOURLY, include_daily=False)
         p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
         if not payload_has_error(p):
             p = normalize_hourly_keys(p)
             if has_wind_arrays(p):
                 p["_model_used"] = "safe_default"
-                log.info("  ✔ forecast model used in SAFE mode.")
+                log.info("  ✔ forecast SAFE mode used.")
                 return p
             else:
                 log.warning("  ⚠ SAFE mode: wind arrays still empty.")
         else:
-            log.warning("  ⚠ SAFE mode payload invalid: %s", p.get("reason","hourly/time missing"))
+            log.warning("  ⚠ SAFE mode invalid payload: %s", api_reason(p))
     except Exception as e:
         log.warning("  ⚠ SAFE mode request failed: %s", e)
 
     # 3) Échec complet
     return {"_model_used": "unknown", "hourly": {}}
 
+
 def fetch_marine(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
     if time.monotonic() > site_deadline:
         raise TimeoutError("site budget exceeded (marine)")
     p = http_get_json(marine_url(lat, lon), retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
     if payload_has_error(p):
-        # Marin: exige time et au moins une série non vide (Hs ou wave_height)
-        h = p.get("hourly") or {}
-        hs = h.get("wave_height") or h.get("significant_wave_height") or []
-        tp = h.get("wave_period") or []
-        if not isinstance(hs, list) and not isinstance(tp, list):
-            raise RuntimeError(f"marine payload invalid: {p.get('reason','hourly missing')}")
+        log.warning("  ⚠ marine payload invalid: %s", api_reason(p))
+        # on laisse normalize pour tenter de récupérer les clés canoniques
     return normalize_hourly_keys(p)
+
 
 def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[int]) -> Dict[str, Any]:
     h = payload.get("hourly") or {}
@@ -394,6 +420,9 @@ for site in selected_sites:
 
     name = site["name"]; slug = site["slug"]; lat = site["lat"]; lon = site["lon"]
     log.info("▶ Collecte: %s (%.5f, %.5f)", name, lat, lon)
+    log.debug("  forecast URL (model order=%s) will be built per-attempt", "/".join(MODEL_ORDER))
+    log.debug("  marine   URL: %s", marine_url(lat, lon))
+ 
 
     site_deadline = time.monotonic() + SITE_BUDGET_S
     try:

@@ -255,27 +255,59 @@ def payload_has_error(p: Dict[str, Any]) -> bool:
 SAFE_HOURLY = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
 
 def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
+    # 1) Essais avec la liste horaire complète (ECMWF_KEYS)
     for model in MODEL_ORDER:
         if time.monotonic() > site_deadline:
             raise TimeoutError("site budget exceeded (forecast)")
-        url = forecast_url(lat, lon, model)
+        url = forecast_url(lat, lon, model, hourly_keys=ECMWF_KEYS)
         try:
             p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+            if payload_has_error(p):
+                reason = p.get("reason", "hourly/time missing")
+                log.warning("  ⚠ model %s invalid payload: %s", model, reason)
+                continue
             p = normalize_hourly_keys(p)
             if has_wind_arrays(p):
                 p["_model_used"] = model
                 log.info("  ✔ forecast model used: %s", model)
                 return p
             else:
-                log.warning("  ⚠ model %s returned empty/NULL wind arrays, trying next...", model)
+                log.warning("  ⚠ model %s has empty wind arrays, trying next...", model)
         except Exception as e:
             log.warning("  ⚠ request failed for model %s: %s", model, e)
+
+    # 2) Dernier recours : rejouer avec un set “SAFE” minimal (sans pressure/precip)
+    log.warning("  ↩︎ All models failed with ECMWF_KEYS, retrying with SAFE_HOURLY set...")
+    try:
+        url = forecast_url(lat, lon, "default", hourly_keys=SAFE_HOURLY)
+        p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+        if not payload_has_error(p):
+            p = normalize_hourly_keys(p)
+            if has_wind_arrays(p):
+                p["_model_used"] = "safe_default"
+                log.info("  ✔ forecast model used in SAFE mode.")
+                return p
+            else:
+                log.warning("  ⚠ SAFE mode: wind arrays still empty.")
+        else:
+            log.warning("  ⚠ SAFE mode payload invalid: %s", p.get("reason","hourly/time missing"))
+    except Exception as e:
+        log.warning("  ⚠ SAFE mode request failed: %s", e)
+
+    # 3) Échec complet
     return {"_model_used": "unknown", "hourly": {}}
 
 def fetch_marine(lat: float, lon: float, site_deadline: float) -> Dict[str, Any]:
     if time.monotonic() > site_deadline:
         raise TimeoutError("site budget exceeded (marine)")
     p = http_get_json(marine_url(lat, lon), retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+    if payload_has_error(p):
+        # Marin: exige time et au moins une série non vide (Hs ou wave_height)
+        h = p.get("hourly") or {}
+        hs = h.get("wave_height") or h.get("significant_wave_height") or []
+        tp = h.get("wave_period") or []
+        if not isinstance(hs, list) and not isinstance(tp, list):
+            raise RuntimeError(f"marine payload invalid: {p.get('reason','hourly missing')}")
     return normalize_hourly_keys(p)
 
 def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[int]) -> Dict[str, Any]:

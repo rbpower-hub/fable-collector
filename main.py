@@ -263,10 +263,11 @@ def api_reason(p: Dict[str, Any]) -> str:
 
 # Alias de modèles (au cas où “*_seamless” n’est pas accepté par l’API)
 MODEL_ALIASES = {
+    # Modèles officiellement acceptés par Open-Meteo
     "ecmwf_ifs04": ["ecmwf_ifs04"],
-    "icon_seamless": ["icon_seamless", "icon_global", "icon_eu", "icon_d2"],
-    "gfs_seamless": ["gfs_seamless", "gfs"],
-    "default": ["default", None],
+    "icon_seamless": ["icon_seamless"],
+    "gfs_seamless": ["gfs_seamless"],
+    "default": ["default", None],  # None => pas de param ?models= (laisser l’API choisir)
 }
 def expand_models(order: List[str]) -> List[Optional[str]]:
     out: List[Optional[str]] = []
@@ -287,7 +288,8 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
     # 1) Essais avec jeu complet (ECMWF_KEYS) + alias de modèles
     for model in expand_models(MODEL_ORDER):
         if time.monotonic() > site_deadline:
-            raise TimeoutError("site budget exceeded (forecast)")
+            log.warning("⏱️ site budget presque dépassé → on saute aux fallbacks (sans 'models').")
+            break
         url = forecast_url(lat, lon, model, hourly_keys=ECMWF_KEYS, include_daily=True)
         try:
             p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
@@ -304,8 +306,26 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
         except Exception as e:
             log.warning("  ⚠ request failed for model %s: %s", model or "default", e)
 
-    # 2) Fallback SAFE (sans daily + variables minimales)
-    log.warning("  ↩︎ All models failed; retry SAFE set (no daily, SAFE_HOURLY).")
+    # 2) Fallback n°1 : même set complet (ECMWF_KEYS) mais SANS paramètre 'models'
+    log.warning("  ↩︎ All models failed; retry WITHOUT 'models' (ECMWF_KEYS).")
+    try:
+        url = forecast_url(lat, lon, None, hourly_keys=ECMWF_KEYS, include_daily=True)  # None => pas de &models=
+        p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+        if not payload_has_error(p):
+            p = normalize_hourly_keys(p)
+            if has_wind_arrays(p):
+                p["_model_used"] = "default"
+                log.info("  ✔ forecast default (no 'models') used.")
+                return p
+            else:
+                log.warning("  ⚠ default(no 'models'): wind arrays empty.")
+        else:
+            log.warning("  ⚠ default(no 'models') invalid payload: %s", api_reason(p))
+    except Exception as e:
+        log.warning("  ⚠ default(no 'models') request failed: %s", e)
+
+    # 3) Fallback n°2 : SAFE minimal (sans daily, 5 variables)
+    log.warning("  ↩︎ Fallback SAFE set (no daily, SAFE_HOURLY).")
     try:
         url = forecast_url(lat, lon, None, hourly_keys=SAFE_HOURLY, include_daily=False)
         p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
@@ -322,7 +342,7 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
     except Exception as e:
         log.warning("  ⚠ SAFE mode request failed: %s", e)
 
-    # 3) Échec complet
+    # 4) Échec complet
     return {"_model_used": "unknown", "hourly": {}}
 
 

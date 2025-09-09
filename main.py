@@ -223,7 +223,7 @@ def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Opti
         "hourly":        ",".join(hk),
         "timezone":      TZ_NAME,
         "timeformat":    "iso8601",
-        "wind_speed_unit":"kmh",
+        "windspeed_unit":"kmh",
         "start_date":    start_date.isoformat(),
         "end_date":      end_date.isoformat(),
     }
@@ -248,8 +248,8 @@ def astronomy_url(lat: float, lon: float) -> str:
 ### PATCH 5 — helpers: détection/greffe des DAILY si manquants/incomplets
 def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
     """True si daily manque l'une des clés d'astronomie ou est vide."""
-    d = payload.get("daily") or {}
-    for k in ASTRONOMY_DAILY_KEYS:
+    d = (p.get("daily") or {})
+    for k in ASTRONOMY_DAILY_KEYS:  # ["sunrise","sunset","moonrise","moonset","moon_phase"]
         arr = d.get(k)
         if not isinstance(arr, list) or len(arr) == 0:
             return True
@@ -324,6 +324,7 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
     try:
         durl = daily_only_url(lat, lon)  # doit inclure sunrise,sunset (+ time)
         dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+        log.info("  DAILY backfill: forecast keys=%s", list((dd.get("daily") or {}).keys()))
         if isinstance(dd, dict) and dd.get("daily"):
             _merge_daily(p, dd)
         log.info("  DAILY backfill: forecast attached.")
@@ -334,6 +335,7 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
     try:
         aurl = astronomy_url(lat, lon)   # moonrise,moonset,moon_phase (+ time)
         aa   = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+        log.info("  DAILY backfill: astronomy keys=%s", list((aa.get("daily") or {}).keys()))
         if isinstance(aa, dict) and aa.get("daily"):
             _merge_daily(p, aa)
         log.info("  DAILY backfill: astronomy attached.")
@@ -435,12 +437,10 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
                 continue
             p = normalize_hourly_keys(p)
             if has_wind_arrays(p):
-                p["_model_used"] = model or "default"
-                log.info("  ✔ forecast model used: %s", p["_model_used"])
-                # Daily : compléter si besoin (lune surtout)
-                if _needs_daily_backfill(p):
-                    _attach_daily_best_effort(p, lat, lon)
-                return p
+                p["_model_used"] = "safe_default"
+                log.info("  ✔ forecast SAFE mode used.")
+                _attach_daily_best_effort(p, lat, lon)  # SAFE: on backfill d’office
+                return p        
             else:
                 log.warning("  ⚠ model %s has empty wind arrays, trying next...", model or "default")
         except Exception as e:

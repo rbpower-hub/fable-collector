@@ -20,6 +20,7 @@ from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 import urllib.request
+import math
 
 # -----------------------
 # Config & budgets
@@ -304,8 +305,8 @@ def _astral_backfill_daily(p: Dict[str, Any], lat: float, lon: float) -> None:
         except Exception:
             ms = None
         try:
-            # astral.phase retourne un angle/jour lunaire (0..29.x). Converti en fraction 0..1.
-            ph = _astral_phase(d)  # peut être float
+            # astral.phase retourne un jour lunaire (0..29.x). Converti en fraction 0..1.
+            ph = _astral_phase(d)
             ph_frac = round(float(ph) / 29.530588, 3)
         except Exception:
             ph_frac = None
@@ -314,19 +315,44 @@ def _astral_backfill_daily(p: Dict[str, Any], lat: float, lon: float) -> None:
         moonset_arr.append(ms.isoformat(timespec="minutes") if isinstance(ms, dt.datetime) else None)
         phase_arr.append(ph_frac)
 
-    # N’écrase pas des valeurs déjà présentes ; comble seulement si vides
-    def _inject_if_missing(key, arr):
-        if key not in p["daily"] or not isinstance(p["daily"][key], list) or not p["daily"][key]:
-            p["daily"][key] = arr
+    # ---- Fusion sans écraser les valeurs non-nulles déjà présentes
+    def _merge_if_empty(key: str, arr_new: list):
+        # Harmoniser arr_new à l'axe ref_dates
+        ref_len = len(ref_dates)
+        arr_new = list(arr_new)
+        if len(arr_new) < ref_len:
+            arr_new += [None] * (ref_len - len(arr_new))
+        elif len(arr_new) > ref_len:
+            arr_new = arr_new[:ref_len]
 
-    _inject_if_missing("moonrise", moonrise_arr)
-    _inject_if_missing("moonset", moonset_arr)
-    _inject_if_missing("moon_phase", phase_arr)
+        cur = p["daily"].get(key)
+        if not isinstance(cur, list) or len(cur) == 0:
+            p["daily"][key] = arr_new
+            return
 
-    p["daily_units"].setdefault("moonrise", "iso8601")
-    p["daily_units"].setdefault("moonset", "iso8601")
-    p["daily_units"].setdefault("moon_phase", "fraction")
+        cur = list(cur)
+        if len(cur) < ref_len:
+            cur += [None] * (ref_len - len(cur))
+        elif len(cur) > ref_len:
+            cur = cur[:ref_len]
+
+        # Compléter uniquement les trous
+        for i in range(ref_len):
+            if cur[i] is None and arr_new[i] is not None:
+                cur[i] = arr_new[i]
+        p["daily"][key] = cur
+
+    _merge_if_empty("moonrise",  moonrise_arr)
+    _merge_if_empty("moonset",   moonset_arr)
+    _merge_if_empty("moon_phase", phase_arr)
+
+    # Unités garanties
+    p["daily_units"].setdefault("moonrise",  "iso8601")
+    p["daily_units"].setdefault("moonset",   "iso8601")
+    p["daily_units"].setdefault("moon_phase","fraction")
+
     log.info("  DAILY backfill: astronomy (astral) attached.")
+
 
 
 # PATCH astro/daily — fusion robuste + alignement par dates

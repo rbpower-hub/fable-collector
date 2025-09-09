@@ -40,6 +40,10 @@ log = logging.getLogger("fable-collector")
 
 # ➕ Debug dumps activables
 DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "1") == "1"
+# Extras optionnels (activables sans impacter la logique)
+INCLUDE_EXTRAS = os.getenv("FABLE_INCLUDE_EXTRAS", "1") == "1"
+EXTRA_HOURLY   = ["relative_humidity_2m", "cloud_cover"]  # variables largement supportées
+
 
 # -----------------------
 # Helpers
@@ -163,7 +167,7 @@ if not selected_sites:
 # -----------------------
 # Clés & synonymes
 # -----------------------
-ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]
+ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
 DAILY_KEYS  = ["sunrise","sunset"]
 
@@ -207,10 +211,15 @@ def normalize_hourly_keys(payload: Dict[str, Any]) -> Dict[str, Any]:
 # -----------------------
 def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Optional[List[str]] = None,
                  include_daily: bool = True) -> str:
+
+    # fusionne clés de base + extras si activés
+    hk = list(hourly_keys or ECMWF_KEYS)
+    if INCLUDE_EXTRAS:
+        hk = hk + [k for k in EXTRA_HOURLY if k not in hk]
     params = {
         "latitude":      f"{lat:.5f}",
         "longitude":     f"{lon:.5f}",
-        "hourly":        ",".join(hourly_keys or ECMWF_KEYS),
+        "hourly":        ",".join(hk),
         "timezone":      TZ_NAME,
         "timeformat":    "iso8601",
         "wind_speed_unit":"kmh",
@@ -235,6 +244,19 @@ def marine_url(lat: float, lon: float) -> str:
         "end_date":        end_date.isoformat(),
     }
     return "https://marine-api.open-meteo.com/v1/marine?" + urlencode(params)
+    
+# PATCH 4 — helper: fetch only daily astro even in SAFE mode
+def daily_only_url(lat: float, lon: float) -> str:
+    params = {
+        "latitude":  f"{lat:.5f}",
+        "longitude": f"{lon:.5f}",
+        "daily":     ",".join(DAILY_KEYS),
+        "timezone":  TZ_NAME,
+        "timeformat":"iso8601",
+        "start_date":start_date.isoformat(),
+        "end_date":  end_date.isoformat(),
+    }
+    return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
 
 def _has_non_null(arr: List) -> bool:
     return isinstance(arr, list) and any(v is not None for v in arr)
@@ -335,6 +357,17 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
             if has_wind_arrays(p):
                 p["_model_used"] = "safe_default"
                 log.info("  ✔ forecast SAFE mode used.")
+                return p
+                # PATCH 4 — enrich SAFE with daily astro if available (best effort)
+                try:
+                    durl = daily_only_url(lat, lon)
+                    dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+                    if isinstance(dd, dict):
+                        p["daily"]       = dd.get("daily") or {}
+                        p["daily_units"] = dd.get("daily_units") or {}
+                        log.debug("  SAFE: daily astro attached.")
+                except Exception as _e:
+                    log.debug("  SAFE: daily astro not attached (%s).", _e)
                 return p
             else:
                 log.warning("  ⚠ SAFE mode: wind arrays still empty.")

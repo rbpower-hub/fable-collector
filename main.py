@@ -255,67 +255,96 @@ def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
             return True
     return False
 
+# PATCH astro/daily — fusion robuste + alignement par dates
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
     """
-    Backfill DAILY : d'abord sunrise/sunset (forecast), puis moonrise/moonset/moon_phase (astronomy).
-    - Ne modifie rien d’autre dans le payload.
-    - Conserve/complète daily_units si présent.
+    Remplit/complète p['daily'] et p['daily_units'] avec:
+      - /v1/forecast (sunrise, sunset)
+      - /v1/astronomy (moonrise, moonset, moon_phase)
+    Règles:
+      - On crée les sections si absentes.
+      - On respecte l’axe temporel du forecast daily s’il existe, sinon on prend celui reçu.
+      - On n’écrase pas une clé déjà présente avec des nulls.
+      - On tronque/étend proprement pour faire correspondre les longueurs aux dates.
     """
     p.setdefault("daily", {})
     p.setdefault("daily_units", {})
 
-    # a) /v1/forecast : sunrise/sunset
-    try:
-        durl = daily_only_url(lat, lon)
-        dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-        daily_f = (dd or {}).get("daily") or {}
-        if isinstance(daily_f, dict) and daily_f.get("time"):
-            # time d'abord (si absent)
-            if not isinstance(p["daily"].get("time"), list) or not p["daily"].get("time"):
-                p["daily"]["time"] = daily_f.get("time", [])
-            # merge sunrise/sunset si absents
-            for k in ("sunrise", "sunset"):
-                arr = daily_f.get(k)
-                if isinstance(arr, list) and (k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]):
-                    p["daily"][k] = arr
-            # units
-            for uk, uv in ((dd or {}).get("daily_units") or {}).items():
-                p["daily_units"].setdefault(uk, uv)
+    def _merge_daily(dst: Dict[str, Any], src: Dict[str, Any]) -> None:
+        """Fusionne src.daily dans dst.daily en préservant valeurs existantes non-nulles."""
+        s_daily = (src.get("daily") or {})
+        if not isinstance(s_daily, dict):
+            return
+        # Axe temps de référence
+        ref_time = dst["daily"].get("time") or s_daily.get("time")
+        if not isinstance(ref_time, list) or not ref_time:
+            ref_time = s_daily.get("time") or []
+            if ref_time:
+                dst["daily"]["time"] = ref_time
 
-            log.info("  DAILY backfill: forecast (sunrise/sunset) attached.")
-        else:
-            log.debug("  DAILY backfill (forecast) returned empty/invalid payload.")
+        # Map temps -> index pour re-sampler les autres séries
+        idx_src = {t: i for i, t in enumerate(s_daily.get("time") or [])}
+
+        for k, arr in s_daily.items():
+            if k == "time":
+                continue
+            if not isinstance(arr, list):
+                continue
+            # Re-échantillonnage sur l’axe ref_time si besoin
+            if s_daily.get("time") and s_daily["time"] != ref_time:
+                new_arr: List[Optional[Any]] = []
+                for t in ref_time:
+                    i = idx_src.get(t)
+                    new_arr.append(arr[i] if i is not None and i < len(arr) else None)
+            else:
+                new_arr = list(arr)
+
+            # Injecte seulement si la clé manque ou est vide; n’écrase pas des valeurs non-nulles
+            if k not in dst["daily"] or not isinstance(dst["daily"][k], list) or not dst["daily"][k]:
+                dst["daily"][k] = new_arr
+            else:
+                # complète élément par élément si dst possède des trous (None)
+                dst_arr = dst["daily"][k]
+                # harmonise les longueurs
+                if len(dst_arr) < len(ref_time):
+                    dst_arr = dst_arr + [None] * (len(ref_time) - len(dst_arr))
+                if len(new_arr) < len(ref_time):
+                    new_arr = new_arr + [None] * (len(ref_time) - len(new_arr))
+                for i in range(min(len(dst_arr), len(new_arr))):
+                    if dst_arr[i] is None and new_arr[i] is not None:
+                        dst_arr[i] = new_arr[i]
+                dst["daily"][k] = dst_arr
+
+        # Units
+        for uk, uv in (src.get("daily_units") or {}).items():
+            if uk not in dst["daily_units"]:
+                dst["daily_units"][uk] = uv
+
+    # a) /v1/forecast : soleil
+    try:
+        durl = daily_only_url(lat, lon)  # doit inclure sunrise,sunset (+ time)
+        dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+        if isinstance(dd, dict) and dd.get("daily"):
+            _merge_daily(p, dd)
+        log.info("  DAILY backfill: forecast attached.")
     except Exception as e:
         log.debug("  DAILY backfill (forecast) failed: %s", e)
 
-    # b) /v1/astronomy : moonrise/moonset/moon_phase
+    # b) /v1/astronomy : lune
     try:
-        aurl = astronomy_url(lat, lon)
+        aurl = astronomy_url(lat, lon)   # moonrise,moonset,moon_phase (+ time)
         aa   = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-        daily_a = (aa or {}).get("daily") or {}
-        if isinstance(daily_a, dict) and daily_a.get("time"):
-            # time : si daily.time encore vide, le poser
-            if not isinstance(p["daily"].get("time"), list) or not p["daily"].get("time"):
-                p["daily"]["time"] = daily_a.get("time", [])
-            # merge moon* si absents
-            for k in ("moonrise", "moonset", "moon_phase"):
-                arr = daily_a.get(k)
-                if isinstance(arr, list) and (k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]):
-                    p["daily"][k] = arr
-            # units
-            for uk, uv in ((aa or {}).get("daily_units") or {}).items():
-                p["daily_units"].setdefault(uk, uv)
-
-            # trace source
-            p.setdefault("meta", {}).setdefault("sources", {}).setdefault("astro_daily_open_meteo", {})
-            p["meta"]["sources"]["astro_daily_open_meteo"]["endpoint"] = "https://api.open-meteo.com/v1/astronomy"
-            p["meta"]["sources"]["astro_daily_open_meteo"]["units"]    = (aa or {}).get("daily_units") or {}
-
-            log.info("  DAILY backfill: astronomy (moonrise/moonset/moon_phase) attached.")
-        else:
-            log.debug("  DAILY backfill (astronomy) returned empty/invalid payload.")
+        if isinstance(aa, dict) and aa.get("daily"):
+            _merge_daily(p, aa)
+        log.info("  DAILY backfill: astronomy attached.")
     except Exception as e:
         log.debug("  DAILY backfill (astronomy) failed: %s", e)
+
+    # c) Nettoyage : s’assurer que les 5 clés existent (même si None)
+    for k in ("sunrise", "sunset", "moonrise", "moonset", "moon_phase"):
+        p["daily"].setdefault(k, [])
+        p["daily_units"].setdefault(k, "iso8601" if k in ("sunrise", "sunset", "moonrise", "moonset") else "fraction")
+
 
 def marine_url(lat: float, lon: float) -> str:
     params = {

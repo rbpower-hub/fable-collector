@@ -53,6 +53,9 @@ try:
 except Exception:
     Observer = None
     _astral_moonrise = _astral_moonset = _astral_phase = None
+    
+log.info("Astral ready=%s", ASTRAL_FALLBACK and (Observer is not None) and (_astral_moonrise is not None))
+
 # -----------------------
 # Helpers
 # -----------------------
@@ -231,7 +234,7 @@ def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Opti
         "hourly":        ",".join(hk),
         "timezone":      TZ_NAME,
         "timeformat":    "iso8601",
-        "windspeed_unit":"kmh",
+        "wind_speed_unit":"kmh",
         "start_date":    start_date.isoformat(),
         "end_date":      end_date.isoformat(),
     }
@@ -473,8 +476,10 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
             log.debug("  DAILY backfill (astronomy, no tf) failed: %s", e2)
     # c) Fallback local (Astral) si la lune manque encore après les essais HTTP
     try:
+        def _empty_or_all_none(arr):
+            return (not isinstance(arr, list)) or (len(arr) == 0) or all(v is None for v in arr)
         need_astral = any(
-            (not isinstance(p["daily"].get(k), list)) or (len(p["daily"].get(k) or []) == 0)
+            _empty_or_all_none(p["daily"].get(k))
             for k in ("moonrise", "moonset", "moon_phase")
         )
     except Exception:
@@ -594,8 +599,8 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
                 continue
             p = normalize_hourly_keys(p)
             if has_wind_arrays(p):
-                p["_model_used"] = "safe_default"
-                log.info("  ✔ forecast SAFE mode used.")
+                p["_model_used"] = (model or "default")
+                log.info("  ✔ forecast model used: %s", p["_model_used"])
                 _attach_daily_best_effort(p, lat, lon)  # SAFE: on backfill d’office
                 return p        
             else:
@@ -829,7 +834,7 @@ for site in selected_sites:
                     "units": m_units,
                 },
                 "astro_daily_open_meteo": {
-                    "endpoint":"https://api.open-meteo.com/v1/forecast",
+                    "endpoint":"https://api.open-meteo.com/v1/astronomy",
                     "units": d_units
                 },
             },

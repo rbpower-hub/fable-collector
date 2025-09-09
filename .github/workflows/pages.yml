@@ -106,23 +106,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-       - name: Check Astral availability
-         if: steps.gate.outputs.should_run == 'true'
-         shell: bash
-         run: |
-           python - <<'PY'
-           import importlib, sys
-           try:
-               m = importlib.import_module('astral')
-               from astral import Observer
-               from astral.moon import moonrise, moonset, phase
-               print("Astral version:", getattr(m, '__version__', 'unknown'))
-               print("Observer OK:", Observer is not None)
-               print("moonrise callable:", callable(moonrise))
-           except Exception as e:
-               print("❌ Astral import failed:", e)
-               sys.exit(1)
-           PY
+      - name: Check Astral availability
+        if: steps.gate.outputs.should_run == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import importlib, sys
+          try:
+              m = importlib.import_module('astral')
+              from astral import Observer
+              from astral.moon import moonrise, moonset, phase
+              print("Astral version:", getattr(m, '__version__', 'unknown'))
+              print("Observer OK:", Observer is not None)
+              print("moonrise callable:", callable(moonrise))
+          except Exception as e:
+              print("❌ Astral import failed:", e)
+              sys.exit(1)
+          PY
 
 
       # --- Sanity check: sites.yaml ---

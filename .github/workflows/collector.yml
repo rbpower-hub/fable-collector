@@ -31,10 +31,13 @@ jobs:
       # (optionnel) Vérifier qu'Astral est bien installée
       - name: Sanity check Astral
         run: python - << 'PY'
-import importlib, sys
-m = importlib.import_module('astral')
-print("Astral version:", getattr(m, '__version__', 'unknown'))
-PY
+      - name: Sanity check Astral
+        run: |
+          python - <<'PY'
+          import importlib
+          m = importlib.import_module('astral')
+          print("Astral version:", getattr(m, '__version__', 'unknown'))
+          PY
 
       - name: Run collector
         env:

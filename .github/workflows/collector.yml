@@ -31,6 +31,7 @@ jobs:
       # (optionnel) Vérifier qu'Astral est bien installée
       - name: Sanity check Astral
         run: python - << 'PY'
+        
       - name: Sanity check Astral
         run: |
           python - <<'PY'

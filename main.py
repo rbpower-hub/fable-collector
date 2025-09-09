@@ -246,36 +246,33 @@ def astronomy_url(lat: float, lon: float) -> str:
     
 ### PATCH 5 — helpers: détection/greffe des DAILY si manquants/incomplets
 def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
-    d = p.get("daily")
-    if not isinstance(d, dict) or not d:
-        return True
-    # on exige que chaque clé daily demandée existe et contienne au moins une valeur non-nulle
-    for k in DAILY_KEYS:
+    d = (p.get("daily") or {})
+    required = ["sunrise", "sunset", "moonrise", "moonset", "moon_phase", "time"]
+    for k in required:
         arr = d.get(k)
-        if not isinstance(arr, list) or len(arr) == 0 or all(v is None for v in arr):
+        if not isinstance(arr, list) or len(arr) == 0:
             return True
     return False
 
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
+    p.setdefault("daily", {})
+    p.setdefault("daily_units", {})
+
+    # a) compléter via /v1/forecast (sunrise/sunset)
     try:
         durl = daily_only_url(lat, lon)
         dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-        if isinstance(dd, dict):
-            # 1) backfill forecast/daily (sunrise/sunset)
-            p.setdefault("daily", {})
-            p.setdefault("daily_units", {})
-            if dd.get("daily"):
-                # merge soft des valeurs daily
-                for k, arr in (dd.get("daily") or {}).items():
-                    if k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]:
-                        p["daily"][k] = arr
-                # merge units (sans écraser existants si déjà présents)
-                for uk, uv in (dd.get("daily_units") or {}).items():
-                    p["daily_units"].setdefault(uk, uv)
-            log.debug("  DAILY (forecast) backfill attached.")
-    except Exception as _e:
-        log.debug("  DAILY backfill (forecast) failed (%s).", _e)
-    # 2) compléter via Astronomy (moonrise/moonset/moon_phase)
+        if isinstance(dd, dict) and dd.get("daily"):
+            for k, arr in (dd.get("daily") or {}).items():
+                if k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]:
+                    p["daily"][k] = arr
+            for uk, uv in (dd.get("daily_units") or {}).items():
+                p["daily_units"].setdefault(uk, uv)
+        log.info("  DAILY backfill: forecast attached.")
+    except Exception as e:
+        log.debug("  DAILY backfill (forecast) failed: %s", e)
+
+    # b) compléter via /v1/astronomy (moonrise/moonset/moon_phase)
     try:
         aurl = astronomy_url(lat, lon)
         aa   = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
@@ -285,12 +282,9 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
                     p["daily"][k] = arr
             for uk, uv in (aa.get("daily_units") or {}).items():
                 p["daily_units"].setdefault(uk, uv)
-            log.debug("  DAILY (astronomy) backfill attached.")
-    except Exception as _e:
-        log.debug("  DAILY backfill (astronomy) failed (%s).", _e)
-    except Exception as _e:
-        log.debug("  DAILY backfill failed (%s).", _e)
-
+        log.info("  DAILY backfill: astronomy attached.")
+    except Exception as e:
+        log.debug("  DAILY backfill (astronomy) failed: %s", e)
 def marine_url(lat: float, lon: float) -> str:
     params = {
         "latitude":        f"{lat:.5f}",
@@ -382,6 +376,7 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
             if has_wind_arrays(p):
                 p["_model_used"] = model or "default"
                 log.info("  ✔ forecast model used: %s", p["_model_used"])
+                # Daily : compléter si besoin (lune surtout)
                 if _needs_daily_backfill(p):
                     _attach_daily_best_effort(p, lat, lon)
                 return p
@@ -390,10 +385,10 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
         except Exception as e:
             log.warning("  ⚠ request failed for model %s: %s", model or "default", e)
 
-    # 2) Fallback n°1 : même set complet (ECMWF_KEYS) mais SANS paramètre 'models'
+    # 2) Fallback n°1 : même set complet mais SANS 'models'
     log.warning("  ↩︎ All models failed; retry WITHOUT 'models' (ECMWF_KEYS).")
     try:
-        url = forecast_url(lat, lon, None, hourly_keys=ECMWF_KEYS, include_daily=True)  # None => pas de &models=
+        url = forecast_url(lat, lon, None, hourly_keys=ECMWF_KEYS, include_daily=True)  # pas de &models=
         p = http_get_json(url, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
         if not payload_has_error(p):
             p = normalize_hourly_keys(p)
@@ -410,7 +405,7 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
     except Exception as e:
         log.warning("  ⚠ default(no 'models') request failed: %s", e)
 
-    # 3) Fallback n°2 : SAFE minimal (sans daily, 5 variables)
+    # 3) Fallback n°2 : SAFE minimal (sans daily)
     log.warning("  ↩︎ Fallback SAFE set (no daily, SAFE_HOURLY).")
     try:
         url = forecast_url(lat, lon, None, hourly_keys=SAFE_HOURLY, include_daily=False)
@@ -420,8 +415,7 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
             if has_wind_arrays(p):
                 p["_model_used"] = "safe_default"
                 log.info("  ✔ forecast SAFE mode used.")
-                return p
-                # PATCH 4/5 — SAFE: attacher daily (best effort)
+                # SAFE n’a pas de daily → on backfill d’office
                 _attach_daily_best_effort(p, lat, lon)
                 return p
             else:

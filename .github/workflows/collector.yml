@@ -1,0 +1,73 @@
+name: Build FABLE collector & publish
+
+on:
+  workflow_dispatch:
+  schedule:
+    # exécution à 00:00, 06:00, 12:00, 18:00 Africa/Tunis (≈ UTC+1/UTC+2)
+    - cron: "0 23,5,11,17 * * *"  # ajuste si nécessaire selon l'heure d'hiver/été
+
+permissions:
+  contents: write      # pour pousser les JSON générés
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # (optionnel) Vérifier qu'Astral est bien installée
+      - name: Sanity check Astral
+        run: python - << 'PY'
+import importlib, sys
+m = importlib.import_module('astral')
+print("Astral version:", getattr(m, '__version__', 'unknown'))
+PY
+
+      - name: Run collector
+        env:
+          FABLE_ASTRAL_FALLBACK: "1"
+          FABLE_TZ: "Africa/Tunis"
+          FABLE_WINDOW_HOURS: "48"
+          # Tu peux ajouter d'autres env si tu les utilises (FABLE_ONLY_SITES, etc.)
+        run: |
+          python main.py
+          ls -la public
+
+      # 2 options pour publier les JSON :
+      # A) Commit dans le repo (simple si GitHub Pages sert directement le dossier /public du dépôt)
+      - name: Commit & push generated JSON
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update public/*.json"
+          file_pattern: public/*.json public/index.json
+
+      # B) (alternative) Publier sur GitHub Pages via artifact (si tu utilises Pages "from Actions")
+      # - name: Upload artifact to Pages
+      #   uses: actions/upload-pages-artifact@v3
+      #   with:
+      #     path: public
+
+  # (nécessaire seulement si tu utilises l'option B ci-dessus)
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   steps:
+  #     - name: Deploy to Pages
+  #       id: deployment
+  #       uses: actions/deploy-pages@v4

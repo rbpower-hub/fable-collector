@@ -231,6 +231,19 @@ def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Opti
     if model and model != "default":
         params["models"] = model
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
+def astronomy_url(lat: float, lon: float) -> str:
+    # L’API Astronomy fournit sunrise/sunset + moonrise/moonset/moon_phase
+    params = {
+        "latitude":  f"{lat:.5f}",
+        "longitude": f"{lon:.5f}",
+        "daily":     "sunrise,sunset,moonrise,moonset,moon_phase",
+        "timezone":  TZ_NAME,
+        "timeformat":"iso8601",
+        "start_date":start_date.isoformat(),
+        "end_date":  end_date.isoformat(),
+    }
+    return "https://api.open-meteo.com/v1/astronomy?" + urlencode(params)
+    
 ### PATCH 5 — helpers: détection/greffe des DAILY si manquants/incomplets
 def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
     d = p.get("daily")
@@ -248,9 +261,33 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
         durl = daily_only_url(lat, lon)
         dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
         if isinstance(dd, dict):
-            p["daily"]       = dd.get("daily") or {}
-            p["daily_units"] = dd.get("daily_units") or {}
-            log.debug("  DAILY backfill attached.")
+            # 1) backfill forecast/daily (sunrise/sunset)
+            p.setdefault("daily", {})
+            p.setdefault("daily_units", {})
+            if dd.get("daily"):
+                # merge soft des valeurs daily
+                for k, arr in (dd.get("daily") or {}).items():
+                    if k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]:
+                        p["daily"][k] = arr
+                # merge units (sans écraser existants si déjà présents)
+                for uk, uv in (dd.get("daily_units") or {}).items():
+                    p["daily_units"].setdefault(uk, uv)
+            log.debug("  DAILY (forecast) backfill attached.")
+    except Exception as _e:
+        log.debug("  DAILY backfill (forecast) failed (%s).", _e)
+    # 2) compléter via Astronomy (moonrise/moonset/moon_phase)
+    try:
+        aurl = astronomy_url(lat, lon)
+        aa   = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+        if isinstance(aa, dict) and aa.get("daily"):
+            for k, arr in (aa.get("daily") or {}).items():
+                if k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]:
+                    p["daily"][k] = arr
+            for uk, uv in (aa.get("daily_units") or {}).items():
+                p["daily_units"].setdefault(uk, uv)
+            log.debug("  DAILY (astronomy) backfill attached.")
+    except Exception as _e:
+        log.debug("  DAILY backfill (astronomy) failed (%s).", _e)
     except Exception as _e:
         log.debug("  DAILY backfill failed (%s).", _e)
 

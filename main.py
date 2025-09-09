@@ -170,6 +170,7 @@ if not selected_sites:
 ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
 DAILY_KEYS  = ["sunrise","sunset"]
+ASTRONOMY_DAILY_KEYS = ["sunrise", "sunset", "moonrise", "moonset", "moon_phase"]
 
 KEY_SYNONYMS = {
     "wind_speed_10m":     ["wind_speed_10m", "windspeed_10m"],
@@ -246,45 +247,76 @@ def astronomy_url(lat: float, lon: float) -> str:
     
 ### PATCH 5 — helpers: détection/greffe des DAILY si manquants/incomplets
 def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
-    d = (p.get("daily") or {})
-    required = ["sunrise", "sunset", "moonrise", "moonset", "moon_phase", "time"]
-    for k in required:
+    """True si daily manque l'une des clés d'astronomie ou est vide."""
+    d = payload.get("daily") or {}
+    for k in ASTRONOMY_DAILY_KEYS:
         arr = d.get(k)
         if not isinstance(arr, list) or len(arr) == 0:
             return True
     return False
 
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
+    """
+    Backfill DAILY : d'abord sunrise/sunset (forecast), puis moonrise/moonset/moon_phase (astronomy).
+    - Ne modifie rien d’autre dans le payload.
+    - Conserve/complète daily_units si présent.
+    """
     p.setdefault("daily", {})
     p.setdefault("daily_units", {})
 
-    # a) compléter via /v1/forecast (sunrise/sunset)
+    # a) /v1/forecast : sunrise/sunset
     try:
         durl = daily_only_url(lat, lon)
         dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-        if isinstance(dd, dict) and dd.get("daily"):
-            for k, arr in (dd.get("daily") or {}).items():
-                if k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]:
+        daily_f = (dd or {}).get("daily") or {}
+        if isinstance(daily_f, dict) and daily_f.get("time"):
+            # time d'abord (si absent)
+            if not isinstance(p["daily"].get("time"), list) or not p["daily"].get("time"):
+                p["daily"]["time"] = daily_f.get("time", [])
+            # merge sunrise/sunset si absents
+            for k in ("sunrise", "sunset"):
+                arr = daily_f.get(k)
+                if isinstance(arr, list) and (k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]):
                     p["daily"][k] = arr
-            for uk, uv in (dd.get("daily_units") or {}).items():
+            # units
+            for uk, uv in ((dd or {}).get("daily_units") or {}).items():
                 p["daily_units"].setdefault(uk, uv)
-        log.info("  DAILY backfill: forecast attached.")
+
+            log.info("  DAILY backfill: forecast (sunrise/sunset) attached.")
+        else:
+            log.debug("  DAILY backfill (forecast) returned empty/invalid payload.")
     except Exception as e:
         log.debug("  DAILY backfill (forecast) failed: %s", e)
 
-    # b) compléter via /v1/astronomy (moonrise/moonset/moon_phase)
+    # b) /v1/astronomy : moonrise/moonset/moon_phase
     try:
         aurl = astronomy_url(lat, lon)
         aa   = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-        if isinstance(aa, dict) and aa.get("daily"):
-            for k, arr in (aa.get("daily") or {}).items():
-                if k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]:
+        daily_a = (aa or {}).get("daily") or {}
+        if isinstance(daily_a, dict) and daily_a.get("time"):
+            # time : si daily.time encore vide, le poser
+            if not isinstance(p["daily"].get("time"), list) or not p["daily"].get("time"):
+                p["daily"]["time"] = daily_a.get("time", [])
+            # merge moon* si absents
+            for k in ("moonrise", "moonset", "moon_phase"):
+                arr = daily_a.get(k)
+                if isinstance(arr, list) and (k not in p["daily"] or not isinstance(p["daily"][k], list) or not p["daily"][k]):
                     p["daily"][k] = arr
-            for uk, uv in (aa.get("daily_units") or {}).items():
+            # units
+            for uk, uv in ((aa or {}).get("daily_units") or {}).items():
                 p["daily_units"].setdefault(uk, uv)
-        log.info("  DAILY backfill: astronomy attached.")
+
+            # trace source
+            p.setdefault("meta", {}).setdefault("sources", {}).setdefault("astro_daily_open_meteo", {})
+            p["meta"]["sources"]["astro_daily_open_meteo"]["endpoint"] = "https://api.open-meteo.com/v1/astronomy"
+            p["meta"]["sources"]["astro_daily_open_meteo"]["units"]    = (aa or {}).get("daily_units") or {}
+
+            log.info("  DAILY backfill: astronomy (moonrise/moonset/moon_phase) attached.")
+        else:
+            log.debug("  DAILY backfill (astronomy) returned empty/invalid payload.")
     except Exception as e:
         log.debug("  DAILY backfill (astronomy) failed: %s", e)
+
 def marine_url(lat: float, lon: float) -> str:
     params = {
         "latitude":        f"{lat:.5f}",

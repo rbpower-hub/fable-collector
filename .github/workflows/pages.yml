@@ -17,17 +17,17 @@ on:
         description: "Horizon de prévision en heures"
         default: "48"
       start_iso:
-        description: "Optionnel: début ISO (YYYY-MM-DDTHH:MM) pour cibler la fenêtre"
+        description: "Optionnel: début ISO (YYYY-MM-DDTHH:MM)"
         required: false
       only_sites:
-        description: "Optionnel: restreindre à certains sites (CSV: noms/ids)"
+        description: "Optionnel: restreindre à certains sites (CSV)"
         required: false
       reader_home:
-        description: "JSON du port d’attache à utiliser par le reader"
+        description: "JSON du port d’attache pour le reader"
         default: "gammarth-port.json"
 
   schedule:
-    # Approche 00:00/06:00/12:00/18:00 Africa/Tunis (UTC+1) + garde-fou horaire
+    # 00:00/06:00/12:00/18:00 Africa/Tunis (UTC+1) + garde-fou horaire
     - cron: "0 23,5,11,17 * * *"
     - cron: "0 * * * *"
 
@@ -106,44 +106,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # --- Sanity check: sites.yaml (évite les erreurs "mal formé ou vide") ---
+      # --- Sanity check: sites.yaml ---
       - name: Sanity check — sites.yaml
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
           import sys, pathlib
-          try:
-              import yaml  # PyYAML doit figurer dans requirements.txt
-          except Exception as e:
-              print("❌ PyYAML manquant. Ajoute 'PyYAML' dans requirements.txt")
-              sys.exit(1)
-
+          import yaml
           p = pathlib.Path("sites.yaml")
           if not p.exists():
-              print("❌ sites.yaml absent à la racine")
-              sys.exit(1)
-          try:
-              data = yaml.safe_load(p.read_text(encoding="utf-8"))
-          except Exception as e:
-              print("❌ sites.yaml illisible:", e)
-              sys.exit(1)
-
+            print("❌ sites.yaml absent"); sys.exit(1)
+          data = yaml.safe_load(p.read_text(encoding="utf-8"))
           if not isinstance(data, list) or not data:
-              print("❌ sites.yaml doit être une LISTE non vide (entrées préfixées par '-')")
-              sys.exit(1)
-
-          required = ("name","lat","lon")
+            print("❌ sites.yaml doit être une LISTE non vide"); sys.exit(1)
           for i, s in enumerate(data, 1):
-              if not isinstance(s, dict):
-                  print(f"❌ entrée #{i} n'est pas un objet clé/valeur")
-                  sys.exit(1)
-              for k in required:
-                  if k not in s:
-                      print(f"❌ entrée #{i} sans clé '{k}'")
-                      sys.exit(1)
+            if not isinstance(s, dict) or not all(k in s for k in ("name","lat","lon")):
+              print(f"❌ entrée #{i} invalide"); sys.exit(1)
           print(f"✅ sites.yaml OK — {len(data)} site(s)")
 
-      # --- Collecte JSON (avec retry simple) ---
+      # --- Sanity check: Astral installé ? ---
+      - name: Sanity check — Astral
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          python - <<'PY'
+          import importlib, sys
+          try:
+              m = importlib.import_module('astral')
+              print("Astral version:", getattr(m, '__version__', 'unknown'))
+          except Exception as e:
+              print("❌ Astral non installé:", e); sys.exit(1)
+          PY
+
+      # --- Collecte JSON ---
       - name: Generate JSON (window, tz, targeting)
         if: steps.gate.outputs.should_run == 'true'
         env:
@@ -151,6 +145,7 @@ jobs:
           FABLE_WINDOW_HOURS: ${{ github.event_name == 'workflow_dispatch' && inputs.window_hours || '48' }}
           FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
           FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
+          FABLE_ASTRAL_FALLBACK: '1'
         run: |
           set -e
           echo "Using FABLE_TZ=$FABLE_TZ"
@@ -159,8 +154,8 @@ jobs:
           [ -n "$FABLE_ONLY_SITES" ] && echo "Using FABLE_ONLY_SITES=$FABLE_ONLY_SITES"
           python main.py || (echo "Collector failed once, retrying in 6s..." && sleep 6 && python main.py)
 
-      # --- Construire l'index des JSON (avant reader) ---
-      - name: Build index.json (catalogue)
+      # --- Construire un INVENTAIRE séparé (NE PAS écraser index.json de main.py) ---
+      - name: Build catalog.json (listing fichiers)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -169,29 +164,22 @@ jobs:
           import os, json, pathlib, datetime
           from zoneinfo import ZoneInfo
           tz = ZoneInfo(os.environ.get("TZ_EFFECTIVE","Africa/Tunis"))
-
-          pub = pathlib.Path("public")
-          pub.mkdir(exist_ok=True)
-
+          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
           files = []
           for p in sorted(pub.glob("*.json")):
-              if p.name in ("index.json","windows.json"):
+              if p.name in ("catalog.json",):
                   continue
               st = p.stat()
-              # mtime rendu en Africa/Tunis
               mtime = datetime.datetime.fromtimestamp(st.st_mtime, tz).isoformat()
               files.append({"path": p.name, "size": st.st_size, "modified": mtime})
-
-          idx = {
+          (pub/"catalog.json").write_text(json.dumps({
               "generated_at": datetime.datetime.now(tz).isoformat(),
-              "files": files,
-          }
-          (pub/"index.json").write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
-          print(f"Built index.json with {len(files)} item(s) in {tz.key}")
+              "files": files
+          }, ensure_ascii=False, indent=2), encoding="utf-8")
+          print(f"Built catalog.json with {len(files)} item(s) in {tz.key}")
 
-
-      # --- Sanity check: index & existence des fichiers listés ---
-      - name: Sanity check — index & fichiers listés
+      # --- Sanity check — existence des fichiers listés ---
+      - name: Sanity check — catalog & files
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         env:
@@ -199,16 +187,13 @@ jobs:
         run: |
           import json, os, sys, pathlib
           pub = pathlib.Path('public')
-          idx = pub / 'index.json'
-          if not idx.exists():
-              print('❌ public/index.json manquant'); sys.exit(1)
-          try:
-              data = json.loads(idx.read_text(encoding='utf-8'))
-          except Exception as e:
-              print('❌ index.json illisible:', e); sys.exit(1)
+          cat = pub / 'catalog.json'
+          if not cat.exists():
+              print('❌ public/catalog.json manquant'); sys.exit(1)
+          data = json.loads(cat.read_text(encoding='utf-8'))
           files = data.get('files', [])
           if not files:
-              print('❌ index.json ne référence aucun fichier JSON de spot'); sys.exit(1)
+              print('❌ catalog.json ne référence aucun fichier'); sys.exit(1)
           missing = []
           for f in files:
               p = pub / f.get('path','')
@@ -219,17 +204,16 @@ jobs:
           home = pub / os.environ.get('READER_HOME','gammarth-port.json')
           if not home.exists():
               print('❌ reader_home introuvable:', home); sys.exit(1)
-          print('✅ Sanity pré-reader OK (', len(files), 'fichiers de spot)')
+          print('✅ Sanity OK (catalog.json + fichiers)')
 
-      # --- Sanity check: fraîcheur (<= 10 min d'écart) ---
-      - name: Sanity check — fraîcheur des JSON de spots
+      # --- Fraîcheur des JSON ---
+      - name: Sanity check — fraîcheur des JSON
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
           import json, pathlib, sys, datetime
           pub = pathlib.Path('public')
-          idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
-          files = [pub/f['path'] for f in idx.get('files',[])]
+          files = [pub/f['path'] for f in json.loads((pub/'catalog.json').read_text(encoding='utf-8')).get('files',[])]
           if not files:
               print('❌ Aucun spot détecté'); sys.exit(1)
           mtimes = [(f.name, datetime.datetime.fromtimestamp(f.stat().st_mtime)) for f in files]
@@ -271,10 +255,7 @@ jobs:
           p = pathlib.Path('public/windows.json')
           if not p.exists():
               print('❌ public/windows.json manquant'); sys.exit(1)
-          try:
-              d = json.loads(p.read_text(encoding='utf-8'))
-          except Exception as e:
-              print('❌ windows.json illisible:', e); sys.exit(1)
+          d = json.loads(p.read_text(encoding='utf-8'))
           if 'windows' not in d:
               print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
@@ -290,16 +271,9 @@ jobs:
           from zoneinfo import ZoneInfo
           pub = pathlib.Path('public')
           d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
-
           tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
           ts = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M %Z')
-
-          lines = [
-            '# FABLE — Fenêtres Family GO',
-            '',
-            f'Horodatage: {ts} ({tz.key})',
-            ''
-          ]
+          lines = ['# FABLE — Fenêtres Family GO','',f'Horodatage: {ts} ({tz.key})','']
           wins = d.get('windows', [])
           if not wins:
             lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
@@ -319,16 +293,16 @@ jobs:
         env:
           TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import os, json, pathlib, html
+          import json, pathlib, html, os
           from zoneinfo import ZoneInfo
           tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
-
           pub = pathlib.Path('public')
           (pub/'.nojekyll').write_text('', encoding='utf-8')
 
-          idx = json.loads((pub/'index.json').read_text(encoding='utf-8'))
+          # Charger catalog (listing fichiers)
+          cat = json.loads((pub/'catalog.json').read_text(encoding='utf-8'))
           rows = []
-          for f in idx.get('files', []):
+          for f in cat.get('files', []):
             path = html.escape(f['path'])
             rows.append(
               f"<tr><td><a href='{path}'>{path}</a></td>"
@@ -339,7 +313,12 @@ jobs:
           <meta charset="utf-8">
           <title>fable-collector — dashboard ({tz.key})</title>
           <h1>fable-collector</h1>
-          <p><a href="index.json">index.json</a> · <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a></p>
+          <p>
+            <a href="index.json">index.json (spots par main.py)</a> ·
+            <a href="catalog.json">catalog.json (listing fichiers)</a> ·
+            <a href="windows.json">windows.json</a> ·
+            <a href="windows.md">windows.md</a>
+          </p>
           <p><em>Horaires affichés en {tz.key}.</em></p>
           <table border="1" cellpadding="6" cellspacing="0">
             <thead><tr><th>Spot JSON</th><th>Taille</th><th>Modifié ({tz.key})</th></tr></thead>
@@ -351,7 +330,7 @@ jobs:
           (pub/'index.html').write_text(html_txt, encoding='utf-8')
           print('✅ public/index.html généré')
 
-      # --- Résumé dans le Job Summary ---
+      # --- Résumé ---
       - name: Job summary (windows)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
@@ -373,15 +352,16 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
               fh.write("\n".join(out) + "\n")
 
-      # --- Vérification finale des sorties à publier ---
+      # --- Vérification finale ---
       - name: Final outputs check
         if: steps.gate.outputs.should_run == 'true'
         run: |
           set -e
-          test -s public/index.json  || (echo 'index.json manquant ou vide' && exit 1)
+          test -s public/index.json   || (echo 'index.json manquant ou vide' && exit 1)
+          test -s public/catalog.json || (echo 'catalog.json manquant ou vide' && exit 1)
           test -s public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
-          test -s public/windows.md  || (echo 'windows.md manquant ou vide' && exit 1)
-          test -s public/index.html  || (echo 'index.html manquant ou vide' && exit 1)
+          test -s public/windows.md   || (echo 'windows.md manquant ou vide' && exit 1)
+          test -s public/index.html   || (echo 'index.html manquant ou vide' && exit 1)
           echo '✅ Sorties prêtes à publier.'
 
       - name: List public artifacts

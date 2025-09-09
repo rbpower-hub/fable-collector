@@ -40,7 +40,7 @@ logging.basicConfig(
 log = logging.getLogger("fable-collector")
 
 # ➕ Debug dumps activables
-DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "1") == "1"
+DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "0") == "1"
 # Extras optionnels (activables sans impacter la logique)
 INCLUDE_EXTRAS = os.getenv("FABLE_INCLUDE_EXTRAS", "1") == "1"
 EXTRA_HOURLY   = ["relative_humidity_2m", "cloud_cover"]  # variables largement supportées
@@ -137,6 +137,29 @@ end_date    = end_local.date()
 log.info("Fenêtre locale %s → %s (%dh) TZ=%s | timeouts=%ss retries=%d models=%s | budgets: site=%ss, global=%ss",
          start_local.isoformat(), end_local.isoformat(), WINDOW_H, TZ_NAME,
          HTTP_TIMEOUT_S, HTTP_RETRIES, "/".join(MODEL_ORDER), SITE_BUDGET_S, HARD_BUDGET_S)
+
+# --- Normalisation DAILY: forcer TZ-aware (+01:00) au format ISO minutes ---
+def _iso_min_with_tz(x: str) -> str | None:
+    if x is None or not isinstance(x, str):
+        return None
+    try:
+        t = dt.datetime.fromisoformat(x)
+    except Exception:
+        # Si format inattendu, on renvoie tel quel (évite d'effacer des valeurs)
+        return x
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=TZ)
+    else:
+        t = t.astimezone(TZ)
+    return t.isoformat(timespec="minutes")
+
+def _normalize_daily_timezones_inplace(p: Dict[str, Any]) -> None:
+    d = p.get("daily") or {}
+    for key in ("sunrise", "sunset", "moonrise", "moonset"):
+        arr = d.get(key)
+        if isinstance(arr, list) and arr:
+            d[key] = [_iso_min_with_tz(v) for v in arr]
+    p["daily"] = d
 
 # -----------------------
 # Charger sites.yaml
@@ -377,6 +400,16 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
     p.setdefault("daily", {})
     p.setdefault("daily_units", {})
 
+    # --- petits helpers locaux ---
+    def _empty_or_all_none(arr):
+        return (not isinstance(arr, list)) or (len(arr) == 0) or all(v is None for v in arr)
+
+    def _have_sun_vals(d: Dict[str, Any]) -> bool:
+        return (not _empty_or_all_none(d.get("sunrise"))) and (not _empty_or_all_none(d.get("sunset")))
+
+    def _have_moon_vals(d: Dict[str, Any]) -> bool:
+        return all(not _empty_or_all_none(d.get(k)) for k in ("moonrise", "moonset", "moon_phase"))
+
     def _merge_daily(dst: Dict[str, Any], src: Dict[str, Any]) -> None:
         s_daily = (src.get("daily") or {})
         if not isinstance(s_daily, dict):
@@ -430,58 +463,72 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
             if isinstance(s_daily.get("time"), list):
                 dst["daily"]["time"] = s_daily["time"]
 
-    # a) /v1/forecast : soleil (sunrise/sunset)
-    try:
-        durl = daily_only_url(lat, lon)
-        log.info("  DAILY backfill: forecast URL=%s", durl)
-        dd = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-        if isinstance(dd, dict) and dd.get("daily"):
-            _merge_daily(p, dd)
-            log.info("  DAILY backfill: forecast keys=%s", list((dd.get("daily") or {}).keys()))
-        else:
-            log.warning("  DAILY backfill: forecast returned no daily.")
-    except Exception as e:
-        log.debug("  DAILY backfill (forecast) failed: %s", e)
+    # --- état initial: a-t-on déjà soleil/lune ? (pour éviter des hits réseau inutiles) ---
+    d0 = p.get("daily") or {}
+    have_sun  = _have_sun_vals(d0)
+    have_moon = _have_moon_vals(d0)
 
-    # b) /v1/astronomy : lune (moonrise/moonset/moon_phase)
-    try:
-        aurl = astronomy_url(lat, lon)
-        log.info("  DAILY backfill: astronomy URL=%s", aurl)
-        aa = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-        if isinstance(aa, dict) and aa.get("daily"):
-            _merge_daily(p, aa)
-            log.info("  DAILY backfill: astronomy keys=%s", list((aa.get("daily") or {}).keys()))
-        else:
-            log.warning("  DAILY backfill: astronomy returned no daily.")
-    except Exception as e:
-        log.warning("  DAILY backfill (astronomy) failed: %s — retrying without timeformat", e)
-        # Variante sans timeformat (certains edges retournent 404)
+    # a) /v1/forecast : soleil (sunrise/sunset) — seulement si nécessaire
+    if not have_sun:
         try:
-            def astronomy_url_no_tf(lat: float, lon: float) -> str:
-                params = {
-                    "latitude":  f"{lat:.5f}",
-                    "longitude": f"{lon:.5f}",
-                    "daily":     "sunrise,sunset,moonrise,moonset,moon_phase",
-                    "timezone":  TZ_NAME,
-                    "start_date": start_date.isoformat(),
-                    "end_date":   end_date.isoformat(),
-                }
-                return "https://api.open-meteo.com/v1/astronomy?" + urlencode(params)
-
-            aurl2 = astronomy_url_no_tf(lat, lon)
-            log.info("  DAILY backfill: astronomy URL (no timeformat)=%s", aurl2)
-            aa2 = http_get_json(aurl2, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-            if isinstance(aa2, dict) and aa2.get("daily"):
-                _merge_daily(p, aa2)
-                log.info("  DAILY backfill: astronomy(keys, no tf)=%s", list((aa2.get("daily") or {}).keys()))
+            durl = daily_only_url(lat, lon)
+            log.info("  DAILY backfill: forecast URL=%s", durl)
+            dd = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+            if isinstance(dd, dict) and dd.get("daily"):
+                _merge_daily(p, dd)
+                log.info("  DAILY backfill: forecast keys=%s", list((dd.get("daily") or {}).keys()))
             else:
-                log.warning("  DAILY backfill: astronomy(no tf) returned no daily.")
-        except Exception as e2:
-            log.debug("  DAILY backfill (astronomy, no tf) failed: %s", e2)
+                log.warning("  DAILY backfill: forecast returned no daily.")
+        except Exception as e:
+            log.debug("  DAILY backfill (forecast) failed: %s", e)
+        # réévalue
+        have_sun = _have_sun_vals(p.get("daily") or {})
+    else:
+        log.debug("  DAILY backfill: forecast skipped (sun keys present).")
+
+    # b) /v1/astronomy : lune (moonrise/moonset/moon_phase) — seulement si nécessaire
+    if not have_moon:
+        try:
+            aurl = astronomy_url(lat, lon)
+            log.info("  DAILY backfill: astronomy URL=%s", aurl)
+            aa = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+            if isinstance(aa, dict) and aa.get("daily"):
+                _merge_daily(p, aa)
+                log.info("  DAILY backfill: astronomy keys=%s", list((aa.get("daily") or {}).keys()))
+            else:
+                log.warning("  DAILY backfill: astronomy returned no daily.")
+        except Exception as e:
+            log.warning("  DAILY backfill (astronomy) failed: %s — retrying without timeformat", e)
+            # Variante sans timeformat (certains edges retournent 404)
+            try:
+                def astronomy_url_no_tf(lat: float, lon: float) -> str:
+                    params = {
+                        "latitude":  f"{lat:.5f}",
+                        "longitude": f"{lon:.5f}",
+                        "daily":     "sunrise,sunset,moonrise,moonset,moon_phase",
+                        "timezone":  TZ_NAME,
+                        "start_date": start_date.isoformat(),
+                        "end_date":   end_date.isoformat(),
+                    }
+                    return "https://api.open-meteo.com/v1/astronomy?" + urlencode(params)
+
+                aurl2 = astronomy_url_no_tf(lat, lon)
+                log.info("  DAILY backfill: astronomy URL (no timeformat)=%s", aurl2)
+                aa2 = http_get_json(aurl2, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+                if isinstance(aa2, dict) and aa2.get("daily"):
+                    _merge_daily(p, aa2)
+                    log.info("  DAILY backfill: astronomy(keys, no tf)=%s", list((aa2.get("daily") or {}).keys()))
+                else:
+                    log.warning("  DAILY backfill: astronomy(no tf) returned no daily.")
+            except Exception as e2:
+                log.debug("  DAILY backfill (astronomy, no tf) failed: %s", e2)
+        # réévalue
+        have_moon = _have_moon_vals(p.get("daily") or {})
+    else:
+        log.debug("  DAILY backfill: astronomy skipped (moon keys present).")
+
     # c) Fallback local (Astral) si la lune manque encore après les essais HTTP
     try:
-        def _empty_or_all_none(arr):
-            return (not isinstance(arr, list)) or (len(arr) == 0) or all(v is None for v in arr)
         need_astral = any(
             _empty_or_all_none(p["daily"].get(k))
             for k in ("moonrise", "moonset", "moon_phase")
@@ -500,6 +547,9 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
                 log.debug("  DAILY backfill (astral) failed: %s", e3)
         else:
             log.debug("  DAILY backfill: astral helper not available in globals() — skipping.")
+
+    # c-bis) Uniformiser les timestamps daily en TZ locale (suffixe +01:00)
+    _normalize_daily_timezones_inplace(p)
 
     # d) Clés & unités garanties
     p["daily"].setdefault("time", p["daily"].get("time", []))

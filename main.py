@@ -313,7 +313,11 @@ def _astral_backfill_daily(p: Dict[str, Any], lat: float, lon: float) -> None:
             ph_frac = round(float(ph) / 29.530588, 3)
         except Exception:
             ph_frac = None
-
+            
+        def _fmt_local_naive(dt_obj):
+            # convertit en TZ locale Africa/Tunis, puis drop le tzinfo pour "YYYY-MM-DDTHH:MM"
+            return dt_obj.astimezone(TZ).replace(tzinfo=None).isoformat(timespec="minutes")
+            
         moonrise_arr.append(mr.isoformat(timespec="minutes") if isinstance(mr, dt.datetime) else None)
         moonset_arr.append(ms.isoformat(timespec="minutes") if isinstance(ms, dt.datetime) else None)
         phase_arr.append(ph_frac)
@@ -854,6 +858,7 @@ for site in selected_sites:
         "ecmwf": ecmwf_slice,
         "marine": marine_slice,
         "daily": daily,
+        "daily_units": d_units,  # ➕ expose les unités au top-level**
         "hourly": hourly_flat,
         "status": "ok",
     }

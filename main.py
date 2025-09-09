@@ -44,7 +44,14 @@ DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "1") == "1"
 INCLUDE_EXTRAS = os.getenv("FABLE_INCLUDE_EXTRAS", "1") == "1"
 EXTRA_HOURLY   = ["relative_humidity_2m", "cloud_cover"]  # variables largement supportées
 
-
+# Fallback astro local (optionnel)
+ASTRAL_FALLBACK = os.getenv("FABLE_ASTRAL_FALLBACK", "1") == "1"
+try:
+    from astral import Observer
+    from astral.moon import moonrise as _astral_moonrise, moonset as _astral_moonset, phase as _astral_phase
+except Exception:
+    Observer = None
+    _astral_moonrise = _astral_moonset = _astral_phase = None
 # -----------------------
 # Helpers
 # -----------------------
@@ -254,6 +261,73 @@ def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
         if not isinstance(arr, list) or len(arr) == 0:
             return True
     return False
+    
+def _iter_dates(d0: dt.date, d1: dt.date):
+    cur = d0
+    while cur <= d1:
+        yield cur
+        cur += dt.timedelta(days=1)
+
+def _astral_backfill_daily(p: Dict[str, Any], lat: float, lon: float) -> None:
+    """Complète moonrise/moonset/moon_phase offline via astral si l’API astronomy échoue."""
+    if not ASTRAL_FALLBACK or Observer is None or _astral_moonrise is None:
+        log.info("  DAILY backfill (astral) non disponible (lib manquante ou désactivée).")
+        return
+
+    p.setdefault("daily", {})
+    p.setdefault("daily_units", {})
+
+    # Axe de dates : on réutilise daily.time si présent, sinon start_date..end_date inclus
+    ref_dates = p["daily"].get("time")
+    if not isinstance(ref_dates, list) or not ref_dates:
+        ref_dates = [d.isoformat() for d in _iter_dates(start_date, end_date)]
+        p["daily"]["time"] = ref_dates
+
+    observer = Observer(latitude=lat, longitude=lon)
+    tz = TZ
+
+    moonrise_arr, moonset_arr, phase_arr = [], [], []
+    for ds in ref_dates:
+        try:
+            d = dt.date.fromisoformat(ds)
+        except Exception:
+            # si format inattendu, on saute ce jour
+            moonrise_arr.append(None); moonset_arr.append(None); phase_arr.append(None)
+            continue
+
+        try:
+            mr = _astral_moonrise(observer, d, tzinfo=tz)
+        except Exception:
+            mr = None
+        try:
+            ms = _astral_moonset(observer, d, tzinfo=tz)
+        except Exception:
+            ms = None
+        try:
+            # astral.phase retourne un angle/jour lunaire (0..29.x). Converti en fraction 0..1.
+            ph = _astral_phase(d)  # peut être float
+            ph_frac = round(float(ph) / 29.530588, 3)
+        except Exception:
+            ph_frac = None
+
+        moonrise_arr.append(mr.isoformat(timespec="minutes") if isinstance(mr, dt.datetime) else None)
+        moonset_arr.append(ms.isoformat(timespec="minutes") if isinstance(ms, dt.datetime) else None)
+        phase_arr.append(ph_frac)
+
+    # N’écrase pas des valeurs déjà présentes ; comble seulement si vides
+    def _inject_if_missing(key, arr):
+        if key not in p["daily"] or not isinstance(p["daily"][key], list) or not p["daily"][key]:
+            p["daily"][key] = arr
+
+    _inject_if_missing("moonrise", moonrise_arr)
+    _inject_if_missing("moonset", moonset_arr)
+    _inject_if_missing("moon_phase", phase_arr)
+
+    p["daily_units"].setdefault("moonrise", "iso8601")
+    p["daily_units"].setdefault("moonset", "iso8601")
+    p["daily_units"].setdefault("moon_phase", "fraction")
+    log.info("  DAILY backfill: astronomy (astral) attached.")
+
 
 # PATCH astro/daily — fusion robuste + alignement par dates
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
@@ -371,8 +445,28 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
                 log.warning("  DAILY backfill: astronomy(no tf) returned no daily.")
         except Exception as e2:
             log.debug("  DAILY backfill (astronomy, no tf) failed: %s", e2)
+    # c) Fallback local (Astral) si la lune manque encore après les essais HTTP
+    try:
+        need_astral = any(
+            (not isinstance(p["daily"].get(k), list)) or (len(p["daily"].get(k) or []) == 0)
+            for k in ("moonrise", "moonset", "moon_phase")
+        )
+    except Exception:
+        need_astral = True  # au moindre doute, on tente le fallback
 
-    # c) Clés & unités garanties
+    if need_astral:
+        if "_astral_backfill_daily" in globals():
+            try:
+                before = {k: len(p["daily"].get(k) or []) for k in ("moonrise", "moonset", "moon_phase")}
+                _astral_backfill_daily(p, lat, lon)
+                after  = {k: len(p["daily"].get(k) or []) for k in ("moonrise", "moonset", "moon_phase")}
+                log.info("  DAILY backfill: astronomy (astral) attached. counts=%s→%s", before, after)
+            except Exception as e3:
+                log.debug("  DAILY backfill (astral) failed: %s", e3)
+        else:
+            log.debug("  DAILY backfill: astral helper not available in globals() — skipping.")
+
+    # d) Clés & unités garanties
     p["daily"].setdefault("time", p["daily"].get("time", []))
     for k in ("sunrise", "sunset", "moonrise", "moonset", "moon_phase"):
         p["daily"].setdefault(k, [])
@@ -381,6 +475,8 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
     p["daily_units"].setdefault("moonrise", "iso8601")
     p["daily_units"].setdefault("moonset", "iso8601")
     p["daily_units"].setdefault("moon_phase", "fraction")
+    p["daily"].setdefault("time", p["daily"].get("time", []))
+
 
 
 def marine_url(lat: float, lon: float) -> str:

@@ -231,6 +231,28 @@ def forecast_url(lat: float, lon: float, model: Optional[str], hourly_keys: Opti
     if model and model != "default":
         params["models"] = model
     return "https://api.open-meteo.com/v1/forecast?" + urlencode(params)
+### PATCH 5 — helpers: détection/greffe des DAILY si manquants/incomplets
+def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
+    d = p.get("daily")
+    if not isinstance(d, dict) or not d:
+        return True
+    # on exige que chaque clé daily demandée existe et contienne au moins une valeur non-nulle
+    for k in DAILY_KEYS:
+        arr = d.get(k)
+        if not isinstance(arr, list) or len(arr) == 0 or all(v is None for v in arr):
+            return True
+    return False
+
+def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
+    try:
+        durl = daily_only_url(lat, lon)
+        dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+        if isinstance(dd, dict):
+            p["daily"]       = dd.get("daily") or {}
+            p["daily_units"] = dd.get("daily_units") or {}
+            log.debug("  DAILY backfill attached.")
+    except Exception as _e:
+        log.debug("  DAILY backfill failed (%s).", _e)
 
 def marine_url(lat: float, lon: float) -> str:
     params = {
@@ -323,6 +345,8 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
             if has_wind_arrays(p):
                 p["_model_used"] = model or "default"
                 log.info("  ✔ forecast model used: %s", p["_model_used"])
+                if _needs_daily_backfill(p):
+                    _attach_daily_best_effort(p, lat, lon)
                 return p
             else:
                 log.warning("  ⚠ model %s has empty wind arrays, trying next...", model or "default")
@@ -339,6 +363,8 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
             if has_wind_arrays(p):
                 p["_model_used"] = "default"
                 log.info("  ✔ forecast default (no 'models') used.")
+                if _needs_daily_backfill(p):
+                    _attach_daily_best_effort(p, lat, lon)
                 return p
             else:
                 log.warning("  ⚠ default(no 'models'): wind arrays empty.")
@@ -358,16 +384,8 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
                 p["_model_used"] = "safe_default"
                 log.info("  ✔ forecast SAFE mode used.")
                 return p
-                # PATCH 4 — enrich SAFE with daily astro if available (best effort)
-                try:
-                    durl = daily_only_url(lat, lon)
-                    dd   = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
-                    if isinstance(dd, dict):
-                        p["daily"]       = dd.get("daily") or {}
-                        p["daily_units"] = dd.get("daily_units") or {}
-                        log.debug("  SAFE: daily astro attached.")
-                except Exception as _e:
-                    log.debug("  SAFE: daily astro not attached (%s).", _e)
+                # PATCH 4/5 — SAFE: attacher daily (best effort)
+                _attach_daily_best_effort(p, lat, lon)
                 return p
             else:
                 log.warning("  ⚠ SAFE mode: wind arrays still empty.")

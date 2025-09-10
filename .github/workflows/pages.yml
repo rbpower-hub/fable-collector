@@ -168,7 +168,7 @@ jobs:
           FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
           FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
           FABLE_ASTRAL_FALLBACK: '1'
-          LOG_LEVEL: 'INFO'           # ↓ moins verbeux
+          LOG_LEVEL: 'WARNING'           # ↓ moins verbeux
           FABLE_DEBUG_DUMP: '0'          # ↓ n’écrit plus _debug-*.json
           FABLE_INCLUDE_EXTRAS: '0'      # ↓ enlève RH2m/cloud_cover pour accélérer
           FABLE_HTTP_RETRIES: '2'        # ↓ évite de rallonger en cas d’erreur

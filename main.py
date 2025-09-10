@@ -28,7 +28,7 @@ import math
 HTTP_TIMEOUT_S       = int(os.getenv("FABLE_HTTP_TIMEOUT_S", "10"))
 HTTP_RETRIES         = int(os.getenv("FABLE_HTTP_RETRIES", "1"))
 MODEL_ORDER          = [m.strip() for m in os.getenv(
-    "FABLE_MODEL_ORDER", "icon_seamless,gfs_seamless,default,ecmwf_ifs04"
+    "FABLE_MODEL_ORDER", "ecmwf_ifs04,icon_seamless,gfs_seamless,default"
 ).split(",") if m.strip()]
 SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "70"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
@@ -40,9 +40,9 @@ logging.basicConfig(
 log = logging.getLogger("fable-collector")
 
 # ➕ Debug dumps activables
-DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "1") == "1"
+DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "0") == "1"
 # Extras optionnels (activables sans impacter la logique)
-INCLUDE_EXTRAS = os.getenv("FABLE_INCLUDE_EXTRAS", "1") == "1"
+INCLUDE_EXTRAS = os.getenv("FABLE_INCLUDE_EXTRAS", "0") == "1"
 EXTRA_HOURLY   = ["relative_humidity_2m", "cloud_cover"]  # variables largement supportées
 
 # Fallback astro local (optionnel)
@@ -117,7 +117,7 @@ TZ_NAME  = os.getenv("FABLE_TZ", "Africa/Tunis")
 TZ       = ZoneInfo(TZ_NAME)
 WINDOW_H = int(os.getenv("FABLE_WINDOW_HOURS", "48"))
 START_ISO= os.getenv("FABLE_START_ISO", "").strip()
-ONLY     = csv_to_set(os.getenv("FABLE_ONLY_SITES", "gammarth-port"))
+ONLY     = csv_to_set(os.getenv("FABLE_ONLY_SITES", "ras-fartass"))
 
 now_local = dt.datetime.now(TZ).replace(minute=0, second=0, microsecond=0)
 if START_ISO:

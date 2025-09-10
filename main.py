@@ -40,7 +40,7 @@ logging.basicConfig(
 log = logging.getLogger("fable-collector")
 
 # ➕ Debug dumps activables
-DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "0") == "1"
+DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "1") == "1"
 # Extras optionnels (activables sans impacter la logique)
 INCLUDE_EXTRAS = os.getenv("FABLE_INCLUDE_EXTRAS", "1") == "1"
 EXTRA_HOURLY   = ["relative_humidity_2m", "cloud_cover"]  # variables largement supportées

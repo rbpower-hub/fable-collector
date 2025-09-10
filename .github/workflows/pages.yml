@@ -124,7 +124,11 @@ jobs:
               sys.exit(1)
           PY
 
-
+      - name: Clean debug artifacts (optional)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          rm -f public/_debug-* || true
+      
       # --- Sanity check: sites.yaml ---
       - name: Sanity check — sites.yaml
         if: steps.gate.outputs.should_run == 'true'
@@ -144,17 +148,17 @@ jobs:
           print(f"✅ sites.yaml OK — {len(data)} site(s)")
 
       # --- Sanity check: Astral installé ? ---
-      - name: Sanity check — Astral
-        if: steps.gate.outputs.should_run == 'true'
-        run: |
-          python - <<'PY'
-          import importlib, sys
-          try:
-              m = importlib.import_module('astral')
-              print("Astral version:", getattr(m, '__version__', 'unknown'))
-          except Exception as e:
-              print("❌ Astral non installé:", e); sys.exit(1)
-          PY
+      #- name: Sanity check — Astral
+       # if: steps.gate.outputs.should_run == 'true'
+        #run: |
+         # python - <<'PY'
+          #import importlib, sys
+          #try:
+           #   m = importlib.import_module('astral')
+            #  print("Astral version:", getattr(m, '__version__', 'unknown'))
+          #except Exception as e:
+           #   print("❌ Astral non installé:", e); sys.exit(1)
+          #PY
 
       # --- Collecte JSON ---
       - name: Generate JSON (window, tz, targeting)
@@ -165,9 +169,9 @@ jobs:
           FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
           FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
           FABLE_ASTRAL_FALLBACK: '1'
-          LOG_LEVEL: 'WARNING'           # ↓ moins verbeux
-          FABLE_DEBUG_DUMP: '1'          # ↓ n’écrit plus _debug-*.json
-          FABLE_INCLUDE_EXTRAS: '1'      # ↓ enlève RH2m/cloud_cover pour accélérer
+          LOG_LEVEL: 'INFO'           # ↓ moins verbeux
+          FABLE_DEBUG_DUMP: '0'          # ↓ n’écrit plus _debug-*.json
+          FABLE_INCLUDE_EXTRAS: '0'      # ↓ enlève RH2m/cloud_cover pour accélérer
           FABLE_HTTP_RETRIES: '1'        # ↓ évite de rallonger en cas d’erreur
           FABLE_HTTP_TIMEOUT_S: '8'      # ↓ timeouts plus courts
         run: |
@@ -387,7 +391,7 @@ jobs:
           test -s public/windows.md   || (echo 'windows.md manquant ou vide' && exit 1)
           test -s public/index.html   || (echo 'index.html manquant ou vide' && exit 1)
           echo '✅ Sorties prêtes à publier.'
-
+      
       - name: List public artifacts
         if: steps.gate.outputs.should_run == 'true'
         run: |
@@ -399,11 +403,6 @@ jobs:
       - name: Setup Pages
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/configure-pages@v5
-
-      - name: Clean debug artifacts (optional)
-        if: steps.gate.outputs.should_run == 'true'
-        run: |
-          rm -f public/_debug-* || true
 
       - name: Upload artifact
         if: steps.gate.outputs.should_run == 'true'

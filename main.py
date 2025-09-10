@@ -34,7 +34,7 @@ SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "70"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
 
 logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
+    level=os.getenv("LOG_LEVEL", "WARNING"),
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 log = logging.getLogger("fable-collector")

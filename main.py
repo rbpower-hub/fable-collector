@@ -285,7 +285,7 @@ def _needs_daily_backfill(p: Dict[str, Any]) -> bool:
     d = p.get("daily") or {}
     for k in ("sunrise", "sunset", "moonrise", "moonset", "moon_phase"):
         arr = d.get(k)
-        if not isinstance(arr, list) or len(arr) == 0:
+        if not isinstance(arr, list) or len(arr) == 0 or all(v is None for v in arr):
             return True
     return False
     
@@ -641,7 +641,8 @@ def fetch_forecast(lat: float, lon: float, site_deadline: float) -> Dict[str, An
             if has_wind_arrays(p):
                 p["_model_used"] = (model or "default")
                 log.info("  ✔ forecast model used: %s", p["_model_used"])
-                _attach_daily_best_effort(p, lat, lon)  # SAFE: on backfill d’office
+                if _needs_daily_backfill(p):
+                    _attach_daily_best_effort(p, lat, lon)
                 return p        
             else:
                 log.warning("  ⚠ model %s has empty wind arrays, trying next...", model or "default")

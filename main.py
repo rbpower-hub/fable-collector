@@ -389,8 +389,8 @@ def _astral_backfill_daily(p: Dict[str, Any], lat: float, lon: float) -> None:
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
     """
     Remplit/complète p['daily'] et p['daily_units'] avec :
-      - /v1/forecast (sunrise, sunset)
-      - /v1/astronomy (moonrise, moonset, moon_phase)
+      - /v1/forecast (sunrise, sunset) si manquants
+      - /v1/astronomy (moonrise, moonset, moon_phase) si manquants
     Règles :
       - On crée les sections si absentes.
       - On respecte l’axe temporel 'time' si déjà présent ; sinon on adopte celui reçu.
@@ -400,22 +400,16 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
     p.setdefault("daily", {})
     p.setdefault("daily_units", {})
 
-    # --- petits helpers locaux ---
-    def _empty_or_all_none(arr):
-        return (not isinstance(arr, list)) or (len(arr) == 0) or all(v is None for v in arr)
-
-    def _have_sun_vals(d: Dict[str, Any]) -> bool:
-        return (not _empty_or_all_none(d.get("sunrise"))) and (not _empty_or_all_none(d.get("sunset")))
-
-    def _have_moon_vals(d: Dict[str, Any]) -> bool:
-        return all(not _empty_or_all_none(d.get(k)) for k in ("moonrise", "moonset", "moon_phase"))
+    # ---------- utilitaires locaux ----------
+    def _non_empty(arr) -> bool:
+        return isinstance(arr, list) and any(v is not None for v in arr)
 
     def _merge_daily(dst: Dict[str, Any], src: Dict[str, Any]) -> None:
         s_daily = (src.get("daily") or {})
         if not isinstance(s_daily, dict):
             return
 
-        # Choix de l'axe temporel de référence
+        # Axe temporel de référence
         ref_time = dst["daily"].get("time") or s_daily.get("time") or []
         if ref_time and dst["daily"].get("time") != ref_time:
             dst["daily"]["time"] = ref_time
@@ -423,12 +417,11 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
         # Index source pour re-sampler
         idx_src = {t: i for i, t in enumerate(s_daily.get("time") or [])}
 
-        # Fusion clé par clé (hors 'time')
+        # Fusion
         for k, arr in s_daily.items():
             if k == "time" or not isinstance(arr, list):
                 continue
 
-            # Ré-échantillonnage si l'axe 'time' diffère
             if s_daily.get("time") and ref_time and s_daily["time"] != ref_time:
                 new_arr = []
                 for t in ref_time:
@@ -437,17 +430,14 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
             else:
                 new_arr = list(arr)
 
-            # Injection : seulement si clé absente ou vide ; sinon on comble les None
             if k not in dst["daily"] or not isinstance(dst["daily"][k], list) or not dst["daily"][k]:
                 dst["daily"][k] = new_arr
             else:
                 dst_arr = list(dst["daily"][k])
-                # Harmonise les longueurs
                 if len(dst_arr) < len(ref_time):
                     dst_arr += [None] * (len(ref_time) - len(dst_arr))
                 if len(new_arr) < len(ref_time):
                     new_arr += [None] * (len(ref_time) - len(new_arr))
-                # Comble les trous
                 for i in range(min(len(dst_arr), len(new_arr))):
                     if dst_arr[i] is None and new_arr[i] is not None:
                         dst_arr[i] = new_arr[i]
@@ -463,38 +453,35 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
             if isinstance(s_daily.get("time"), list):
                 dst["daily"]["time"] = s_daily["time"]
 
-    # --- état initial: a-t-on déjà soleil/lune ? (pour éviter des hits réseau inutiles) ---
-    d0 = p.get("daily") or {}
-    have_sun  = _have_sun_vals(d0)
-    have_moon = _have_moon_vals(d0)
+    # ---------- on ne requête que ce qui manque ----------
+    have_sun = _non_empty(p["daily"].get("sunrise")) and _non_empty(p["daily"].get("sunset"))
+    have_moon = _non_empty(p["daily"].get("moonrise")) and _non_empty(p["daily"].get("moonset")) and _non_empty(p["daily"].get("moon_phase"))
 
-    # a) /v1/forecast : soleil (sunrise/sunset) — seulement si nécessaire
+    # a) /v1/forecast : uniquement si sunrise/sunset manquants
     if not have_sun:
         try:
             durl = daily_only_url(lat, lon)
-            log.info("  DAILY backfill: forecast URL=%s", durl)
+            log.debug("  DAILY backfill: forecast URL=%s", durl)
             dd = http_get_json(durl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
             if isinstance(dd, dict) and dd.get("daily"):
                 _merge_daily(p, dd)
                 log.info("  DAILY backfill: forecast keys=%s", list((dd.get("daily") or {}).keys()))
+                have_sun = _non_empty(p["daily"].get("sunrise")) and _non_empty(p["daily"].get("sunset"))
             else:
                 log.warning("  DAILY backfill: forecast returned no daily.")
         except Exception as e:
             log.debug("  DAILY backfill (forecast) failed: %s", e)
-        # réévalue
-        have_sun = _have_sun_vals(p.get("daily") or {})
-    else:
-        log.debug("  DAILY backfill: forecast skipped (sun keys present).")
 
-    # b) /v1/astronomy : lune (moonrise/moonset/moon_phase) — seulement si nécessaire
+    # b) /v1/astronomy : uniquement si moon* manquants
     if not have_moon:
         try:
             aurl = astronomy_url(lat, lon)
-            log.info("  DAILY backfill: astronomy URL=%s", aurl)
+            log.debug("  DAILY backfill: astronomy URL=%s", aurl)
             aa = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
             if isinstance(aa, dict) and aa.get("daily"):
                 _merge_daily(p, aa)
                 log.info("  DAILY backfill: astronomy keys=%s", list((aa.get("daily") or {}).keys()))
+                have_moon = _non_empty(p["daily"].get("moonrise")) and _non_empty(p["daily"].get("moonset")) and _non_empty(p["daily"].get("moon_phase"))
             else:
                 log.warning("  DAILY backfill: astronomy returned no daily.")
         except Exception as e:
@@ -513,45 +500,45 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
                     return "https://api.open-meteo.com/v1/astronomy?" + urlencode(params)
 
                 aurl2 = astronomy_url_no_tf(lat, lon)
-                log.info("  DAILY backfill: astronomy URL (no timeformat)=%s", aurl2)
+                log.debug("  DAILY backfill: astronomy URL (no timeformat)=%s", aurl2)
                 aa2 = http_get_json(aurl2, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
                 if isinstance(aa2, dict) and aa2.get("daily"):
                     _merge_daily(p, aa2)
                     log.info("  DAILY backfill: astronomy(keys, no tf)=%s", list((aa2.get("daily") or {}).keys()))
+                    have_moon = _non_empty(p["daily"].get("moonrise")) and _non_empty(p["daily"].get("moonset")) and _non_empty(p["daily"].get("moon_phase"))
                 else:
                     log.warning("  DAILY backfill: astronomy(no tf) returned no daily.")
             except Exception as e2:
                 log.debug("  DAILY backfill (astronomy, no tf) failed: %s", e2)
-        # réévalue
-        have_moon = _have_moon_vals(p.get("daily") or {})
-    else:
-        log.debug("  DAILY backfill: astronomy skipped (moon keys present).")
 
-    # c) Fallback local (Astral) si la lune manque encore après les essais HTTP
+    # c) Fallback local (Astral) si moon* encore vides
+    if not have_moon:
+        try:
+            def _empty_or_all_none(arr):
+                return (not isinstance(arr, list)) or (len(arr) == 0) or all(v is None for v in arr)
+            need_astral = any(_empty_or_all_none(p["daily"].get(k)) for k in ("moonrise", "moonset", "moon_phase"))
+        except Exception:
+            need_astral = True
+
+        if need_astral:
+            if "_astral_backfill_daily" in globals():
+                try:
+                    before = {k: len(p["daily"].get(k) or []) for k in ("moonrise", "moonset", "moon_phase")}
+                    _astral_backfill_daily(p, lat, lon)
+                    after  = {k: len(p["daily"].get(k) or []) for k in ("moonrise", "moonset", "moon_phase")}
+                    log.info("  DAILY backfill: astronomy (astral) attached. counts=%s→%s", before, after)
+                except Exception as e3:
+                    log.debug("  DAILY backfill (astral) failed: %s", e3)
+            else:
+                log.debug("  DAILY backfill: astral helper not available in globals() — skipping.")
+
+    # d) (optionnel) uniformiser TZ dans les timestamps daily, si tu as le helper
     try:
-        need_astral = any(
-            _empty_or_all_none(p["daily"].get(k))
-            for k in ("moonrise", "moonset", "moon_phase")
-        )
+        _normalize_daily_timezones_inplace(p)
     except Exception:
-        need_astral = True  # au moindre doute, on tente le fallback
+        pass
 
-    if need_astral:
-        if "_astral_backfill_daily" in globals():
-            try:
-                before = {k: len(p["daily"].get(k) or []) for k in ("moonrise", "moonset", "moon_phase")}
-                _astral_backfill_daily(p, lat, lon)
-                after  = {k: len(p["daily"].get(k) or []) for k in ("moonrise", "moonset", "moon_phase")}
-                log.info("  DAILY backfill: astronomy (astral) attached. counts=%s→%s", before, after)
-            except Exception as e3:
-                log.debug("  DAILY backfill (astral) failed: %s", e3)
-        else:
-            log.debug("  DAILY backfill: astral helper not available in globals() — skipping.")
-
-    # c-bis) Uniformiser les timestamps daily en TZ locale (suffixe +01:00)
-    _normalize_daily_timezones_inplace(p)
-
-    # d) Clés & unités garanties
+    # e) Clés & unités garanties
     p["daily"].setdefault("time", p["daily"].get("time", []))
     for k in ("sunrise", "sunset", "moonrise", "moonset", "moon_phase"):
         p["daily"].setdefault(k, [])
@@ -560,7 +547,6 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
     p["daily_units"].setdefault("moonrise", "iso8601")
     p["daily_units"].setdefault("moonset", "iso8601")
     p["daily_units"].setdefault("moon_phase", "fraction")
-    p["daily"].setdefault("time", p["daily"].get("time", []))
 
 
 

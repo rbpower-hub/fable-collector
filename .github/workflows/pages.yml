@@ -400,6 +400,11 @@ jobs:
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/configure-pages@v5
 
+      - name: Clean debug artifacts (optional)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          rm -f public/_debug-* || true
+
       - name: Upload artifact
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/upload-pages-artifact@v3

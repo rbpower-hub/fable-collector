@@ -38,6 +38,7 @@ on:
       - "reader.py"
       - "sites.yaml"
       - "rules.yaml"
+      - "static/index.html"    # ← pour relancer le workflow si tu modifies le fichier statique
 
 permissions:
   contents: read
@@ -318,12 +319,41 @@ jobs:
           (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
           print('✅ public/windows.md généré')
 
-      # --- Tableau de bord statique + .nojekyll ---
+      
+      # --- .nojekyll pour GitHub Pages ---
       - name: Add .nojekyll (keep static index.html)
         if: steps.gate.outputs.should_run == 'true'
+        shell: bash
         run: |
+          set -e
           mkdir -p public
           : > public/.nojekyll
+          
+      # --- Fallback : copier static/index.html si public/index.html manque ---
+      - name: Fallback static index.html (if missing)
+        if: steps.gate.outputs.should_run == 'true'
+        shell: bash
+        run: |
+          set -e
+          if [ -s public/index.html ]; then
+            echo "public/index.html présent — je le conserve."
+          elif [ -s static/index.html ]; then
+            cp -f static/index.html public/index.html
+            echo "Copié static/index.html -> public/index.html"
+          else
+            echo "⚠️ static/index.html introuvable — création d'un placeholder minimal."
+            printf '<!doctype html><meta charset="utf-8"><title>fable-collector</title><p>Dashboard placeholder</p>' > public/index.html
+          fi
+          
+      # --- Copier d'autres assets statiques sans écraser les JSON ---
+      - name: Copy static assets (optional)
+        if: steps.gate.outputs.should_run == 'true'
+        shell: bash
+        run: |
+          if [ -d static ]; then
+            find static -type f ! -name 'index.html' -print0 | xargs -0 -I {} cp -f {} public/
+            echo "Assets statiques copiés depuis static/ vers public/"
+          fi
 
           cat = json.loads((pub/'catalog.json').read_text(encoding='utf-8'))
           rows = []

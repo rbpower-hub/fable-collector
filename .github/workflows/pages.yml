@@ -319,17 +319,11 @@ jobs:
           print('✅ public/windows.md généré')
 
       # --- Tableau de bord statique + .nojekyll ---
-      - name: Add .nojekyll and dashboard index.html
+      - name: Add .nojekyll (keep static index.html)
         if: steps.gate.outputs.should_run == 'true'
-        shell: python
-        env:
-          TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import json, pathlib, html, os
-          from zoneinfo import ZoneInfo
-          tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
-          pub = pathlib.Path('public')
-          (pub/'.nojekyll').write_text('', encoding='utf-8')
+          mkdir -p public
+          : > public/.nojekyll
 
           cat = json.loads((pub/'catalog.json').read_text(encoding='utf-8'))
           rows = []

@@ -149,18 +149,163 @@ jobs:
           print(f"✅ sites.yaml OK — {len(data)} site(s)")
 
       # --- Sanity check: rules.yaml (NOUVEAU) ---
-      - name: Sanity check — rules.yaml
+      - name: Sanity check — rules.yaml (flat schema + normalize)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
-          import sys, pathlib, yaml
+          import sys, json, pathlib, yaml, datetime
+          from zoneinfo import ZoneInfo
+
           p = pathlib.Path("rules.yaml")
           if not p.exists():
-            print("❌ rules.yaml absent"); sys.exit(1)
-          data = yaml.safe_load(p.read_text(encoding="utf-8"))
-          if not isinstance(data, dict) or "family" not in data:
-            print("❌ rules.yaml doit contenir au moins la clé 'family'"); sys.exit(1)
+              print("❌ rules.yaml absent"); sys.exit(1)
+
+          try:
+              raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+          except Exception as e:
+              print("❌ rules.yaml illisible:", e); sys.exit(1)
+
+          # --- vérifs minimales sur TON schéma plat ---
+          required_top = ["overrides","wind","sea","tp_matrix","hysteresis","shelter",
+                          "resolution_policy","confidence","corridor","family_hours_local"]
+          missing = [k for k in required_top if k not in raw]
+          if missing:
+              print("❌ rules.yaml: clés manquantes au niveau racine:", missing); sys.exit(1)
+
+          # sous-clés critiques
+          crit = []
+          for k in ["thunder_wmo","gusts_hard_nogo_kmh","squall_delta_kmh"]:
+              if k not in raw["overrides"]: crit.append(f"overrides.{k}")
+          for k in ["family_max_kmh","nogo_min_kmh","onshore_degrade_kmh"]:
+              if k not in raw["wind"]: crit.append(f"wind.{k}")
+          for k in ["family_max_hs_m","nogo_min_hs_m"]:
+              if k not in raw["sea"]: crit.append(f"sea.{k}")
+          for k in ["transit","anchor_sheltered"]:
+              if k not in raw["tp_matrix"]: crit.append(f"tp_matrix.{k}")
+          for k in ["start_h","end_h"]:
+              if k not in raw["family_hours_local"]: crit.append(f"family_hours_local.{k}")
+          if crit:
+              print("❌ rules.yaml: sous-clés critiques manquantes:", crit); sys.exit(1)
+
+          # --- normalisation -> structure commune attendue par le reader (et debug) ---
+          # 1) heuristiques pour min/max fenêtre (4–6 h), à partir de ton corridor
+          def _parse_leg_span(span: str, default_min: float, default_max: float):
+              # accepte "1-1.5" ou "1" -> float
+              if isinstance(span, (int,float)): return float(span), float(span)
+              s = str(span)
+              if "-" in s:
+                  a,b = s.split("-",1)
+                  try: return float(a), float(b)
+                  except: return default_min, default_max
+              try: 
+                  v = float(s); 
+                  return v, v
+              except:
+                  return default_min, default_max
+
+          leg = (raw.get("corridor",{}).get("leg_structure_hours") or {})
+          tmin,tmax = _parse_leg_span(leg.get("transit_out","1-1.5"), 1.0, 1.5)
+          bmin,bmax = _parse_leg_span(leg.get("transit_back","1-1.5"), 1.0, 1.5)
+          amin = float(leg.get("anchor_min", 2))
+          amax = float(leg.get("anchor_max", 4))
+          win_min = int(round(tmin + amin + bmin))
+          win_max = int(round(tmax + amax + bmax))
+          # garde-barrières Family (on force 4–6 si valeurs aberrantes)
+          win_min = max(4, min(win_min, 6))
+          win_max = max(win_min, min(win_max, 6))
+
+          # 2) mapping plat -> “family/thresholds/combined…”
+          normalized = {
+            "meta": {
+              "version": 1,
+              "tz_default": "Africa/Tunis",
+              "source_schema": "flat"
+            },
+            "family": {
+              "hours_local": {
+                "start": int(raw["family_hours_local"]["start_h"]),
+                "end": int(raw["family_hours_local"]["end_h"])
+              },
+              "window_hours": {
+                "min": win_min,
+                "max": win_max
+              },
+              "thresholds": {
+                "wind": {
+                  "family_max_kmh": float(raw["wind"]["family_max_kmh"]),
+                  "no_go_min_kmh":  float(raw["wind"]["nogo_min_kmh"]),
+                  "onshore_downgrade_kmh": float(raw["wind"]["onshore_degrade_kmh"]),
+                },
+                "gusts": {
+                  "no_go_min_kmh":  float(raw["overrides"]["gusts_hard_nogo_kmh"]),
+                  "squall_delta_kmh": float(raw["overrides"]["squall_delta_kmh"]),
+                },
+                "waves": {
+                  "hs_family_max_m": float(raw["sea"]["family_max_hs_m"]),
+                  "hs_no_go_min_m": float(raw["sea"]["nogo_min_hs_m"]),
+                  # transit strict depuis tp_matrix.transit
+                  "tp_min_at_hs_lt_0_4_s": float(raw["tp_matrix"]["transit"]["hs_lt_0_4_family_tp_s"]),
+                  "tp_min_at_hs_0_4_0_5_s": float(raw["tp_matrix"]["transit"]["hs_0_4_0_5_family_tp_s"]),
+                },
+                "visibility_km_min": 5.0
+              },
+              "combined": {
+                # défauts FABLE (non présents dans ton YAML) — restent sûrs
+                "short_steep": {
+                  "downgrade": {"hs_min_m": 0.5, "tp_max_s": 6.0},
+                  "hard_nogo": {"hs_min_m": 0.6, "tp_max_s": 5.0}
+                },
+                "hysteresis": {
+                  "hs_m": float(raw["hysteresis"]["hs_m"]),
+                  "wind_kmh": float(raw["hysteresis"]["wind_kmh"])
+                }
+              },
+              "shelter_bonus": {
+                "enabled": True,
+                "radius_km_default": float(raw["shelter"]["radius_km_default"]),
+                "apply_on_transit": bool(raw["shelter"].get("apply_on_transit", False)),
+                "anchor": {
+                  "gusts_allow_up_to_kmh": float(raw["shelter"]["anchor_gusts_allow_up_to_kmh"]),
+                  "sustained_allow_up_to_kmh": float(raw["shelter"]["anchor_sustained_allow_up_to_kmh"]),
+                  "squall_delta_max_kmh": float(raw["shelter"]["anchor_squall_delta_max_kmh"]),
+                  "require_lee": bool(raw["shelter"]["require_lee"]),
+                  "max_fetch_km": float(raw["shelter"]["max_fetch_km"])
+                }
+              },
+              "corridor": {
+                "check": True,
+                "buffer_km": 5,
+                "samples": int(raw["corridor"]["samples"]),
+                "validate_departure_and_return": bool(raw["corridor"].get("validate_departure_and_return", True))
+              },
+              "thunder_codes": list(map(int, raw["overrides"]["thunder_wmo"]))
+            },
+            "confidence": {
+              "high": {
+                "wind_spread_kmh": float(raw["confidence"]["high"]["wind_spread_kmh_lt"]),
+                "hs_spread_m": float(raw["confidence"]["high"]["hs_spread_m_lt"])
+              },
+              "medium_wind_spread_kmh": 8.0,  # garde réglage standard
+              "cap_high_if_single_wave_source": True,
+              "min_wind_models_for_not_low": 2
+            }
+          }
+
+          # écrire un artefact de debug (et pour les étapes suivantes si utile)
+          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
+          (pub/"rules.normalized.json").write_text(
+            json.dumps(normalized, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+          )
+
+          # log utile
+          print("ℹ️  rules.yaml (flat) chargé et normalisé → public/rules.normalized.json")
+          print("   - Family hours:", normalized["family"]["hours_local"])
+          print("   - Window hours:", normalized["family"]["window_hours"])
+          print("   - Wind thresholds:", normalized["family"]["thresholds"]["wind"])
+          print("   - Waves thresholds:", normalized["family"]["thresholds"]["waves"])
           print("✅ rules.yaml OK")
+
 
       # --- Collecte JSON ---
       - name: Generate JSON (window, tz, targeting)

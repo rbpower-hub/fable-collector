@@ -1,1 +1,151 @@
-<!-- generated at runtime by main.py -->
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>fable-collector — tableau de bord</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{--bg:#0b1020;--fg:#e8eef6;--muted:#9fb3c8;--accent:#4cc9f0;--ok:#2dd4bf;--warn:#f59e0b}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:24px;background:#0b1020;color:#e8eef6}
+    a{color:var(--accent)}
+    header{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:16px}
+    header h1{font-size:1.4rem;margin:0}
+    .pill{border:1px solid #2a3142;border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.85rem}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+    .card{border:1px solid #23304a;background:#0f172a;padding:14px;border-radius:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px 10px;border-bottom:1px solid #23304a;font-size:.92rem}
+    th{text-align:left;color:var(--muted)}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .small{font-size:.9rem;color:var(--muted)}
+    .ok{color:var(--ok)}
+    .warn{color:var(--warn)}
+    footer{margin-top:24px;color:var(--muted);font-size:.9rem}
+    .badge{display:inline-block;background:#152033;border:1px solid #23304a;border-radius:8px;padding:2px 8px;margin-left:6px}
+  </style>
+</head>
+<body>
+<header>
+  <h1>fable-collector — tableau de bord</h1>
+  <span id="tz" class="pill"></span>
+  <span id="gen" class="pill"></span>
+</header>
+
+<div class="cards">
+  <div class="card">
+    <h3>Liens rapides</h3>
+    <ul>
+      <li><a href="index.json">index.json</a> <span class="small">— inventaire produit par <span class="mono">main.py</span></span></li>
+      <li><a href="catalog.json">catalog.json</a> <span class="small">— liste des fichiers réellement présents</span></li>
+      <li><a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> <span class="small">— fenêtres Family GO détectées</span></li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Résumé fenêtres</h3>
+    <div id="wins">Chargement…</div>
+  </div>
+</div>
+
+<h3 style="margin-top:18px">Spots collectés</h3>
+<div class="card">
+  <table id="files"><thead>
+    <tr><th>Fichier</th><th>Taille</th><th>Modifié</th><th>Type</th></tr>
+  </thead><tbody></tbody></table>
+</div>
+
+<footer>
+  <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO (avec ou sans offset) et s’entendent côté collecte (souvent Africa/Tunis).</p>
+</footer>
+
+<script>
+(async function(){
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+  document.getElementById('tz').textContent = 'Affichage: ' + tz;
+  document.getElementById('tz2').textContent = tz;
+
+  function fmtBytes(n){
+    if(n==null) return '';
+    if(n<1024) return n+' B';
+    if(n<1024*1024) return (n/1024).toFixed(1)+' kB';
+    return (n/1024/1024).toFixed(1)+' MB';
+  }
+  function tryParseISO(s){ try{ return new Date(s); }catch(e){ return null; } }
+  async function loadJSON(path){
+    try{
+      const r = await fetch(path, {cache:'no-store'});
+      if(!r.ok) throw new Error(r.status+' '+r.statusText);
+      return await r.json();
+    }catch(e){ console.warn('fetch fail', path, e); return null; }
+  }
+
+  const windows = await loadJSON('windows.json');
+  const idx = await loadJSON('index.json');
+  const cat = await loadJSON('catalog.json');
+
+  const gen = (windows && windows.generated_at) || (idx && idx.generated_at) || null;
+  if(gen){
+    const d = tryParseISO(gen);
+    const local = d ? d.toLocaleString() : gen;
+    document.getElementById('gen').textContent = 'Généré: ' + local;
+  }else{
+    document.getElementById('gen').textContent = 'Généré: inconnu';
+  }
+
+  // Table fichiers (catalog.json prioritaire, sinon index.json)
+  const tbody = document.querySelector('#files tbody');
+  let files = [];
+  if(cat && Array.isArray(cat.files)) files = cat.files;
+  else if(idx && Array.isArray(idx.files)) files = idx.files;
+
+  if(files.length === 0){
+    tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun fichier listé.</td></tr>';
+  }else{
+    for(const f of files){
+      const p = f.path || f;
+      const size = fmtBytes(f.size);
+      const mod  = f.modified || '';
+      let kind = 'spot';
+      if(p === 'index.json') kind = 'index';
+      else if(p === 'catalog.json') kind = 'catalog';
+      else if(p === 'windows.json') kind = 'windows';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><a href="${encodeURIComponent(p)}">${p}</a></td>
+                      <td class="mono">${size||''}</td>
+                      <td class="mono">${mod||''}</td>
+                      <td>${kind}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // Résumé fenêtres
+  const winsDiv = document.getElementById('wins');
+  if(!windows || !Array.isArray(windows.windows)){
+    winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
+  }else if(windows.windows.length === 0){
+    winsDiv.innerHTML = '<span class="small">Aucune fenêtre Family GO détectée.</span>';
+  }else{
+    const ul = document.createElement('ul');
+    for(const dest of windows.windows){
+      const name = dest.dest_name || dest.dest_slug || '?';
+      const li = document.createElement('li');
+      const spans = [];
+      if(Array.isArray(dest.windows) && dest.windows.length){
+        for(const seg of dest.windows){
+          const start = seg.start ? new Date(seg.start).toLocaleString() : '?';
+          const end   = seg.end ? new Date(seg.end).toLocaleString() : '?';
+          const conf  = seg.confidence || '';
+          spans.push(`${start} → ${end} <span class="badge">${seg.hours} h</span> <span class="badge">${conf}</span>`);
+        }
+        li.innerHTML = `<span class="ok">${name}</span><br><span class="small">${spans.join('<br>')}</span>`;
+      }else{
+        li.innerHTML = `<span>${name}</span> <span class="small">— aucune fenêtre</span>`;
+      }
+      ul.appendChild(li);
+    }
+    winsDiv.innerHTML = '';
+    winsDiv.appendChild(ul);
+  }
+})();
+</script>
+</body>
+</html>

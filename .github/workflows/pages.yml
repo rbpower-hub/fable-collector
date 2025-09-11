@@ -491,53 +491,21 @@ jobs:
           fi
           
       # --- Copier d'autres assets statiques sans écraser les JSON ---
+
       - name: Copy static assets (optional)
-        if: steps.gate.outputs.should_run == 'true'
+        if: ${{ steps.gate.outputs.should_run == 'true' && hashFiles('static/**') != '' }}
         shell: bash
         run: |
-          if [ -d static ]; then
-            echo "Copying static assets from static/ to public/…"
-            shopt -s nullglob
-            files=(static/*)
-            for f in "${files[@]}"; do
-              base="$(basename "$f")"
-              [[ "$base" == "index.html" ]] && continue
-              cp -v "$f" public/
-            done
-          else
-            echo "No static/ directory — skipping."
-          fi
-
-
-          cat = json.loads((pub/'catalog.json').read_text(encoding='utf-8'))
-          rows = []
-          for f in cat.get('files', []):
-            path = html.escape(f['path'])
-            rows.append(
-              f"<tr><td><a href='{path}'>{path}</a></td>"
-              f"<td>{f.get('size','')}</td>"
-              f"<td>{html.escape(f.get('modified',''))}</td></tr>"
-            )
-          html_txt = f"""<!doctype html>
-          <meta charset="utf-8">
-          <title>fable-collector — dashboard ({tz.key})</title>
-          <h1>fable-collector</h1>
-          <p>
-            <a href="index.json">index.json (spots par main.py)</a> ·
-            <a href="catalog.json">catalog.json (listing fichiers)</a> ·
-            <a href="windows.json">windows.json</a> ·
-            <a href="windows.md">windows.md</a>
-          </p>
-          <p><em>Horaires affichés en {tz.key}.</em></p>
-          <table border="1" cellpadding="6" cellspacing="0">
-            <thead><tr><th>Spot JSON</th><th>Taille</th><th>Modifié ({tz.key})</th></tr></thead>
-            <tbody>
-              {''.join(rows)}
-            </tbody>
-          </table>
-          """
-          (pub/'index.html').write_text(html_txt, encoding='utf-8')
-          print('✅ public/index.html généré')
+          set -e
+          echo "Copying static assets from static/ to public/…"
+          shopt -s nullglob
+          mkdir -p public
+          files=(static/*)
+          for f in "${files[@]}"; do
+            base="$(basename "$f")"
+            [[ "$base" == "index.html" ]] && continue   # ne pas écraser public/index.html
+            cp -v "$f" public/
+          done
 
       # --- Résumé ---
       - name: Job summary (windows)

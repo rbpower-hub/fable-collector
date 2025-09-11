@@ -1,0 +1,64 @@
+overrides:
+  thunder_wmo: [95, 96, 99]          # orage = NO-GO dur
+  gusts_hard_nogo_kmh: 30            # hard NO-GO ≥30 (sauf exception mouillage)
+  squall_delta_kmh: 17               # (rafales - soutenu) ≥17 => disqualification
+
+wind:
+  family_max_kmh: 20
+  nogo_min_kmh: 25
+  onshore_degrade_kmh: 22            # >22 onshore => downgrade d’un niveau
+
+sea:
+  family_max_hs_m: 0.5
+  nogo_min_hs_m: 0.8
+
+tp_matrix:
+  # Transit (strict)
+  transit:
+    hs_lt_0_4_family_tp_s: 4.0
+    hs_0_4_0_5_family_tp_s: 4.5
+    hs_lt_0_4_expert_tp_min_s: 3.6
+    hs_0_4_0_5_expert_tp_min_s: 4.0
+  # Mouillage (abrité) – assouplissement léger si shelter OK & Hs ≤0,35 m
+  anchor_sheltered:
+    hs_le_0_35_family_tp_s: 3.8
+    hs_le_0_35_expert_tp_min_s: 3.5
+
+hysteresis:
+  wind_kmh: 1.0
+  hs_m: 0.05
+
+shelter:
+  radius_km_default: 3
+  apply_on_transit: false            # bonus jamais en transit
+  anchor_gusts_allow_up_to_kmh: 34   # tolérance rafales au mouillage protégé
+  anchor_squall_delta_max_kmh: 20    # plus strict qu’en transit
+  require_lee: true                  # vérifier sous le vent (dir vent vs côte)
+  max_fetch_km: 1.5                  # distance eau libre au vent
+
+resolution_policy:
+  family_requires_hourly: true       # Family interdit si Hs/Tp 3h-only
+  expert_allows_3h: true             # Expert-Only possible avec 3h-only
+  second_model_required_for_medium: true  # Medium si 2 modèles concordent
+
+confidence:
+  high:
+    wind_spread_kmh_lt: 5
+    hs_spread_m_lt: 0.2
+  medium:
+    same_band_minor_disagreement: true
+  low:
+    cross_band_disagreement_or_3h: true
+
+corridor:
+  samples: 9                         # points entre Gammarth et destination
+  validate_departure_and_return: true
+  leg_structure_hours:
+    transit_out: 1-1.5               # durée indicative (pour le split)
+    anchor_min: 2
+    anchor_max: 4
+    transit_back: 1-1.5
+
+family_hours_local:
+  start_h: 8
+  end_h: 21

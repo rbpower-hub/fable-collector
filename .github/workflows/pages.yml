@@ -496,9 +496,18 @@ jobs:
         shell: bash
         run: |
           if [ -d static ]; then
-            find static -type f ! -name 'index.html' -print0 | xargs -0 -I {} cp -f {} public/
-            echo "Assets statiques copiés depuis static/ vers public/"
+            echo "Copying static assets from static/ to public/…"
+            shopt -s nullglob
+            files=(static/*)
+            for f in "${files[@]}"; do
+              base="$(basename "$f")"
+              [[ "$base" == "index.html" ]] && continue
+              cp -v "$f" public/
+            done
+          else
+            echo "No static/ directory — skipping."
           fi
+
 
           cat = json.loads((pub/'catalog.json').read_text(encoding='utf-8'))
           rows = []

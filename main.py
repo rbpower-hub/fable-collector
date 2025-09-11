@@ -14,6 +14,7 @@ fable-collector — main.py (durci: timeouts/budgets, fallback modèles, clés n
 """
 
 import os, sys, json, time, yaml, random, logging
+import hashlib
 import datetime as dt
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -117,7 +118,7 @@ TZ_NAME  = os.getenv("FABLE_TZ", "Africa/Tunis")
 TZ       = ZoneInfo(TZ_NAME)
 WINDOW_H = int(os.getenv("FABLE_WINDOW_HOURS", "48"))
 START_ISO= os.getenv("FABLE_START_ISO", "").strip()
-ONLY     = csv_to_set(os.getenv("FABLE_ONLY_SITES", "ras-fartass"))
+ONLY     = csv_to_set(os.getenv("FABLE_ONLY_SITES", ""))
 
 now_local = dt.datetime.now(TZ).replace(minute=0, second=0, microsecond=0)
 if START_ISO:
@@ -383,7 +384,101 @@ def _astral_backfill_daily(p: Dict[str, Any], lat: float, lon: float) -> None:
 
     log.info("  DAILY backfill: astronomy (astral) attached.")
 
+# -----------------------
+# Règles FABLE (rules.yaml) — chargement tolérant
+# -----------------------
+def _dget(dct, path, default=None):
+    cur = dct
+    for part in path.split('.'):
+        if not isinstance(cur, dict) or part not in cur:
+            return default
+        cur = cur[part]
+    return cur
 
+def load_rules_yaml():
+    """
+    Charge rules.yaml depuis la racine du repo (ou chemin fourni par FABLE_RULES_PATH).
+    Si indisponible, retourne un petit set de défauts pour ne pas casser.
+    """
+    path = os.getenv("FABLE_RULES_PATH", "rules.yaml")
+    p = Path(path)
+    default_rules = {
+        "overrides": {"thunder_wmo": [95,96,99], "gusts_hard_nogo_kmh": 30, "squall_delta_kmh": 17},
+        "wind": {"family_max_kmh": 20, "nogo_min_kmh": 25, "onshore_degrade_kmh": 22},
+        "sea": {"family_max_hs_m": 0.5, "nogo_min_hs_m": 0.8},
+        "tp_matrix": {
+            "transit": {
+                "hs_lt_0_4_family_tp_s": 4.0,
+                "hs_0_4_0_5_family_tp_s": 4.5,
+                "hs_lt_0_4_expert_tp_min_s": 3.6,
+                "hs_0_4_0_5_expert_tp_min_s": 4.0,
+            },
+            "anchor_sheltered": {
+                "hs_le_0_35_family_tp_s": 3.8,
+                "hs_le_0_35_expert_tp_min_s": 3.5,
+            },
+        },
+        "hysteresis": {"wind_kmh": 1.0, "hs_m": 0.05},
+        "shelter": {
+            "radius_km_default": 3,
+            "apply_on_transit": False,
+            "anchor_gusts_allow_up_to_kmh": 34,
+            "anchor_squall_delta_max_kmh": 20,
+            "require_lee": True,
+            "max_fetch_km": 1.5,
+        },
+        "resolution_policy": {
+            "family_requires_hourly": True,
+            "expert_allows_3h": True,
+            "second_model_required_for_medium": True,
+        },
+        "confidence": {
+            "high": {"wind_spread_kmh_lt": 5, "hs_spread_m_lt": 0.2},
+            "medium": {"same_band_minor_disagreement": True},
+            "low": {"cross_band_disagreement_or_3h": True},
+        },
+        "corridor": {
+            "samples": 9,
+            "validate_departure_and_return": True,
+            "leg_structure_hours": {"transit_out": "1-1.5", "anchor_min": 2, "anchor_max": 4, "transit_back": "1-1.5"},
+        },
+        "family_hours_local": {"start_h": 8, "end_h": 21},
+    }
+    try:
+        if p.exists():
+            data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            # merge superficiel (on garde default si manquant)
+            def deep_merge(dst, src):
+                for k, v in src.items():
+                    if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                        deep_merge(dst[k], v)
+                    else:
+                        dst[k] = v
+                return dst
+            return deep_merge(default_rules, data)
+        else:
+            log.warning("rules.yaml introuvable (%s) — utilisation des règles par défaut.", p)
+            return default_rules
+    except Exception as e:
+        log.warning("Lecture rules.yaml échouée (%s) — utilisation des règles par défaut.", e)
+        return default_rules
+
+def rules_digest_sha(rules: dict) -> str:
+    try:
+        raw = json.dumps(rules, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()[:12]
+    except Exception:
+        return "unknown"
+
+# Charger le ruleset (exposé en meta, pas de logique collector changée)
+RULES = load_rules_yaml()
+RULES_DIGEST = rules_digest_sha(RULES)
+log.info("[rules] loaded digest=%s (squall_delta=%s, onshore=%s, family_hours=%s-%s)",
+         RULES_DIGEST,
+         _dget(RULES, "overrides.squall_delta_kmh", 17),
+         _dget(RULES, "wind.onshore_degrade_kmh", 22),
+         _dget(RULES, "family_hours_local.start_h", 8),
+         _dget(RULES, "family_hours_local.end_h", 21))
 
 # PATCH astro/daily — fusion robuste + alignement par dates
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
@@ -902,6 +997,31 @@ for site in selected_sites:
 
     tmp = PUBLIC / f".{slug}.json.tmp"
     final = PUBLIC / f"{slug}.json"
+            "meta": {
+            "name": name, "slug": slug, "lat": lat, "lon": lon, "tz": TZ_NAME,
+            "generated_at": dt.datetime.now(TZ).isoformat(),
+            "window": {
+                "start_local": start_local.isoformat(),
+                "end_local":   end_local.isoformat(),
+                "hours": int((end_local - start_local).total_seconds() // 3600),
+            },
+            "rules": {
+                "digest": RULES_DIGEST,
+                "path": os.getenv("FABLE_RULES_PATH", "rules.yaml"),
+                "overrides": RULES.get("overrides", {}),
+                "wind": RULES.get("wind", {}),
+                "sea": RULES.get("sea", {}),
+                "tp_matrix": RULES.get("tp_matrix", {}),
+                "hysteresis": RULES.get("hysteresis", {}),
+                "shelter": RULES.get("shelter", {}),
+                "resolution_policy": RULES.get("resolution_policy", {}),
+                "confidence": RULES.get("confidence", {}),
+                "corridor": RULES.get("corridor", {}),
+                "family_hours_local": RULES.get("family_hours_local", {}),
+            },
+            "sources": {
+                ...
+
     tmp.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(final)
 
@@ -931,5 +1051,12 @@ index_payload = {
     },
     "spots": ok,  # liste déjà préparée (slug, name, points, first/last, path)
 }
-(PUBLIC / "index.json").write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+index_target = PUBLIC / "index.json"
+if index_target.exists():
+    # Si pages.yml doit publier son propre index.json (catalogue), on n’écrase pas.
+    alt = PUBLIC / "index.spots.json"
+    alt.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+else:
+    index_target.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
 # ---------------------------------------------------------------

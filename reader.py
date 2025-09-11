@@ -5,19 +5,19 @@ FABLE reader — détecteur de fenêtres Family GO (4–6 h)
 ------------------------------------------------------
 - Entrée : JSON de spots produits par le collector (public/*.json)
 - Sortie : public/windows.json (liste des fenêtres par destination)
-- Règles : "worst-value-wins", squalls, onshore>20, visibilité >=5 km,
-           couplage Hs/Tp, NO-GO rafales>=30 ou orages, port check T0/T0+durée.
+- Règles : worst-value-wins, squalls (Δ rafale-soutenu), onshore>k, visibilité>=5 km,
+           couplage Hs/Tp, overrides orage / rafales, port check (T0/T0+durée).
 - Confiance : High/Medium/Low (capée à Medium si une seule source de houle).
 
-Exemple :
+NOUVEAUTÉS :
+- Lecture de rules.yaml (seuils dynamiques).
+- Fenêtres 4–6 h découpées en phases : Transit – Mouillage – Transit.
+- Shelter Bonus appliqué SEULEMENT en Mouillage, avec tolérances définies
+  dans rules.yaml (rafales, squalls, Tp assoupli si Hs faible).
+
+Usage :
     python reader.py --from-dir public --out public \
                      --home gammarth-port.json --min-hours 4 --max-hours 6
-
-Notes :
-- Les heures fournies par le collector sont interprétées avec `meta.tz`
-  (ex: Africa/Tunis) via zoneinfo. Les ISO émis dans windows.json sont TZ-aware.
-- Le script est robuste aux champs absents/None ; il préfère “rater une fenêtre”
-  plutôt que proposer une fenêtre douteuse.
 """
 
 from __future__ import annotations
@@ -30,9 +30,92 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 import datetime as dt
+import os
+
+# --- PyYAML optionnel (fallback auto si absent) ---
+try:
+    import yaml
+except Exception:
+    yaml = None
 
 # =========================
-# Paramètres FABLE (seuils)
+# Fallback règles par défaut (si rules.yaml absent)
+# =========================
+_DEFAULT_RULES = {
+    "overrides": {"thunder_wmo": [95, 96, 99], "gusts_hard_nogo_kmh": 30, "squall_delta_kmh": 17},
+    "wind": {"family_max_kmh": 20, "nogo_min_kmh": 25, "onshore_degrade_kmh": 22},
+    "sea": {"family_max_hs_m": 0.5, "nogo_min_hs_m": 0.8},
+    "tp_matrix": {
+        "transit": {
+            "hs_lt_0_4_family_tp_s": 4.0,
+            "hs_0_4_0_5_family_tp_s": 4.5,
+            "hs_lt_0_4_expert_tp_min_s": 3.6,
+            "hs_0_4_0_5_expert_tp_min_s": 4.0,
+        },
+        "anchor_sheltered": {
+            "hs_le_0_35_family_tp_s": 3.8,
+            "hs_le_0_35_expert_tp_min_s": 3.5,
+        },
+    },
+    "hysteresis": {"wind_kmh": 1.0, "hs_m": 0.05},
+    "shelter": {
+        "radius_km_default": 3,
+        "apply_on_transit": False,
+        "anchor_gusts_allow_up_to_kmh": 34,
+        "anchor_squall_delta_max_kmh": 20,
+        # tolérance soutenu au mouillage (si non défini : 30 par défaut)
+        "anchor_sustained_allow_up_to_kmh": 30,
+        "require_lee": True,
+        "max_fetch_km": 1.5,
+    },
+    "resolution_policy": {
+        "family_requires_hourly": True,
+        "expert_allows_3h": True,
+        "second_model_required_for_medium": True,
+    },
+    "confidence": {
+        "high": {"wind_spread_kmh_lt": 5, "hs_spread_m_lt": 0.2},
+        "medium": {"same_band_minor_disagreement": True},
+        "low": {"cross_band_disagreement_or_3h": True},
+    },
+    "corridor": {
+        "samples": 9,
+        "validate_departure_and_return": True,
+        "leg_structure_hours": {"transit_out": "1-1.5", "anchor_min": 2, "anchor_max": 4, "transit_back": "1-1.5"},
+    },
+    "family_hours_local": {"start_h": 8, "end_h": 21},
+}
+
+def _dget(dct: Dict[str, Any], path: str, default=None):
+    cur = dct
+    for part in path.split('.'):
+        if not isinstance(cur, dict) or part not in cur:
+            return default
+        cur = cur[part]
+    return cur
+
+def load_rules() -> Dict[str, Any]:
+    path = os.getenv("FABLE_RULES_PATH", "rules.yaml")
+    p = Path(path)
+    if yaml is None or not p.exists():
+        print(f"[reader.rules] Using defaults (yaml missing or not found at {p})")
+        return _DEFAULT_RULES
+    with p.open("r", encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+    # merge shallow
+    def deep_merge(dst, src):
+        for k, v in src.items():
+            if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                deep_merge(dst[k], v)
+            else:
+                dst[k] = v
+        return dst
+    return deep_merge(dict(_DEFAULT_RULES), data)
+
+RULES: Dict[str, Any] = load_rules()
+
+# =========================
+# Paramètres init (seront surchargés par RULES)
 # =========================
 WIND_FAMILY_MAX = 20.0        # km/h  -> Family GO si vent soutenu < 20
 WIND_NO_GO_MIN  = 25.0        # km/h  -> NO-GO si soutenu >= 25
@@ -54,19 +137,53 @@ SHORT_STEEP_1_TP = 6.0
 SHORT_STEEP_2_HS = 0.6  # NO-GO dur si Hs >= 0.6 et Tp <= 5 s
 SHORT_STEEP_2_TP = 5.0
 
-VIS_MIN_KM      = 5.0        # km    -> exigence mini
-ONSHORE_MAX_OK  = 20.0       # km/h  -> onshore > 20 => downgrade (pas Family GO)
-
-# Orages (WMO code)
+VIS_MIN_KM      = 5.0
+ONSHORE_MAX_OK  = 20.0
 THUNDER_CODES = {95, 96, 99}
+
+# Shelter (phase Mouillage)
+ANCHOR_HS_EASE_MAX = 0.35
+ANCHOR_GUST_ALLOW  = 34
+ANCHOR_SQUALL_DELTA_MAX = 20
+ANCHOR_SUSTAINED_ALLOW  = 30  # soutenu toléré au mouillage (si Hs faible + pas d’orage)
+
+def _apply_rules_globals() -> None:
+    """Surcharger les constantes ci-dessus depuis RULES (compat maximale avec le code existant)."""
+    global WIND_FAMILY_MAX, WIND_NO_GO_MIN, GUST_NO_GO_MIN, SQUALL_DELTA
+    global HS_FAMILY_MAX, HS_NO_GO_MIN, TP_MIN_AT_LT04, TP_MIN_AT_04_05
+    global FAMILY_HOUR_START, FAMILY_HOUR_END, ONSHORE_MAX_OK, THUNDER_CODES
+    global ANCHOR_HS_EASE_MAX, ANCHOR_GUST_ALLOW, ANCHOR_SQUALL_DELTA_MAX, ANCHOR_SUSTAINED_ALLOW
+
+    WIND_FAMILY_MAX = float(_dget(RULES, "wind.family_max_kmh", WIND_FAMILY_MAX))
+    WIND_NO_GO_MIN  = float(_dget(RULES, "wind.nogo_min_kmh", WIND_NO_GO_MIN))
+    ONSHORE_MAX_OK  = float(_dget(RULES, "wind.onshore_degrade_kmh", ONSHORE_MAX_OK))
+
+    GUST_NO_GO_MIN  = float(_dget(RULES, "overrides.gusts_hard_nogo_kmh", GUST_NO_GO_MIN))
+    SQUALL_DELTA    = float(_dget(RULES, "overrides.squall_delta_kmh", SQUALL_DELTA))
+    THUNDER_CODES   = set(_dget(RULES, "overrides.thunder_wmo", list(THUNDER_CODES)))
+
+    HS_FAMILY_MAX   = float(_dget(RULES, "sea.family_max_hs_m", HS_FAMILY_MAX))
+    HS_NO_GO_MIN    = float(_dget(RULES, "sea.nogo_min_hs_m", HS_NO_GO_MIN))
+
+    TP_MIN_AT_LT04  = float(_dget(RULES, "tp_matrix.transit.hs_lt_0_4_family_tp_s", TP_MIN_AT_LT04))
+    TP_MIN_AT_04_05 = float(_dget(RULES, "tp_matrix.transit.hs_0_4_0_5_family_tp_s", TP_MIN_AT_04_05))
+
+    FAMILY_HOUR_START = int(_dget(RULES, "family_hours_local.start_h", FAMILY_HOUR_START))
+    FAMILY_HOUR_END   = int(_dget(RULES, "family_hours_local.end_h", FAMILY_HOUR_END))
+
+    ANCHOR_HS_EASE_MAX      = float(_dget(RULES, "tp_matrix.anchor_sheltered.hs_le_0_35_family_tp_s", 3.8) and 0.35) or 0.35
+    ANCHOR_GUST_ALLOW       = float(_dget(RULES, "shelter.anchor_gusts_allow_up_to_kmh", ANCHOR_GUST_ALLOW))
+    ANCHOR_SQUALL_DELTA_MAX = float(_dget(RULES, "shelter.anchor_squall_delta_max_kmh", ANCHOR_SQUALL_DELTA_MAX))
+    ANCHOR_SUSTAINED_ALLOW  = float(_dget(RULES, "shelter.anchor_sustained_allow_up_to_kmh", ANCHOR_SUSTAINED_ALLOW))
+
+_apply_rules_globals()
 
 # Fenêtres
 DEFAULT_MIN_H = 4
 DEFAULT_MAX_H = 6
 
-
 # =========================
-# Petites structures utiles
+# Structures utiles
 # =========================
 @dataclass
 class Site:
@@ -78,7 +195,6 @@ class Site:
     waves: Dict[str, List[Optional[float]]]
     path: Path
 
-
 @dataclass
 class HourMetrics:
     max_speed: Optional[float]
@@ -86,13 +202,12 @@ class HourMetrics:
     max_gust: Optional[float]
     spread_speed: Optional[float]
     any_dir: Optional[float]
-    any_onshore: Optional[bool]   # ← True si au moins une direction modèle est onshore
+    any_onshore: Optional[bool]
     min_vis: Optional[float]
     codes: List[int]
     hs: Optional[float]
     tp: Optional[float]
     n_models: int
-
 
 # =========================
 # Utilitaires
@@ -107,59 +222,33 @@ def _angle_in_ranges(angle: float, ranges: Sequence[Tuple[int, int]]) -> bool:
                 return True
     return False
 
-
 def _onshore_sectors(slug: str) -> List[Tuple[int, int]]:
-    """
-    Secteurs onshore (de la mer vers la côte) par spot.
-    Gère les alias et les slugs réels émis par le collector.
-    """
     s = slug.replace(".json", "").lower()
-
     if s in {"gammarth-port", "gammarth"}:
-        # Baie de Tunis NW–SE → onshore ≈ 30–150°
         return [(30, 150)]
-
     if s in {"sidi-bou-said", "sidibousaid", "sidi-bou"}:
-        # Même exposition que Gammarth
         return [(30, 150)]
-
     if s in {"ghar-el-melh", "ghar el melh", "gharemelh", "ghar-elmelh"}:
-        # Côte plus NNE–SSE
         return [(10, 130)]
-
     if s in {"el-haouaria", "haouaria", "el haouaria"}:
-        # Cap Bon Est/NE
         return [(330, 360), (0, 70)]
-
     if s in {"ras-fartass", "rasfartass", "ras fartass"}:
-        # Façade NE également
         return [(330, 360), (0, 70)]
-
-    # Spots retirés (compat)
     if s in {"korbous"}:
         return [(30, 150)]
     if s in {"kelibia", "kélibia"}:
         return [(330, 360), (0, 70)]
-
-    # Fallback prudent (baie de Tunis)
     return [(20, 160)]
 
-
 def _all_in_family_hours_dts(dts: Sequence[dt.datetime], tz: ZoneInfo) -> bool:
-    """True si toutes les heures des datetimes (TZ-aware ou naïfs) sont dans [08,21)."""
     for t in dts:
-        if t.tzinfo is None:
-            tt = t.replace(tzinfo=tz)
-        else:
-            tt = t.astimezone(tz)
-        h = tt.hour
-        if not (FAMILY_HOUR_START <= h < FAMILY_HOUR_END):
+        tt = t if t.tzinfo else t.replace(tzinfo=tz)
+        tt = tt.astimezone(tz)
+        if not (FAMILY_HOUR_START <= tt.hour < FAMILY_HOUR_END):
             return False
     return True
 
-
 def _has_wind_range(site: Site, i0: int, i1: int) -> bool:
-    """Vérifie la présence de toutes les valeurs vent/rafales/direction sur [i0..i1]."""
     w = site.wind_models.get("om") or {}
     sp = w.get("wind_speed_10m") or []
     gu = w.get("wind_gusts_10m") or []
@@ -171,10 +260,8 @@ def _has_wind_range(site: Site, i0: int, i1: int) -> bool:
         for i in range(i0, i1 + 1)
     )
 
-
 def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
     return None if arr is None or i >= len(arr) else arr[i]
-
 
 # =========================
 # Lecture d’un site (JSON)
@@ -183,7 +270,6 @@ def load_site(path: Path) -> Site:
     d = json.loads(path.read_text(encoding="utf-8"))
     meta = d.get("meta", {}) or {}
 
-    # ✅ Fuseau : préférer meta.tz (écrit par le collector)
     tzname = meta.get("tz") or meta.get("timezone") or "Africa/Tunis"
     try:
         tz = ZoneInfo(tzname)
@@ -191,8 +277,6 @@ def load_site(path: Path) -> Site:
         tz = ZoneInfo("UTC")
 
     hourly = d.get("hourly", {}) or {}
-
-    # Axe temps : le collector émet des ISO locaux (souvent sans offset) → on attache tz
     raw_time = hourly.get("time") or []
     times: List[dt.datetime] = []
     for t in raw_time:
@@ -200,7 +284,6 @@ def load_site(path: Path) -> Site:
         tt = tt.replace(tzinfo=tz) if tt.tzinfo is None else tt.astimezone(tz)
         times.append(tt)
 
-    # Visibilité : Open-Meteo renvoie souvent en mètres → convertir en km si besoin
     vis = hourly.get("visibility")
     vis_km: Optional[List[Optional[float]]] = None
     if isinstance(vis, list):
@@ -209,7 +292,6 @@ def load_site(path: Path) -> Site:
         else:
             vis_km = [float(v) if v is not None else None for v in vis]
 
-    # Mapper la sortie aplatie du collector vers la structure interne attendue
     wind_models = {
         "om": {
             "wind_speed_10m":     hourly.get("wind_speed_10m"),
@@ -220,7 +302,6 @@ def load_site(path: Path) -> Site:
         }
     }
     waves = {
-        # le collector expose aussi 'hs'/'tp' → on les privilégie
         "significant_wave_height": hourly.get("hs") or hourly.get("wave_height"),
         "wave_period":             hourly.get("tp") or hourly.get("wave_period"),
     }
@@ -235,9 +316,8 @@ def load_site(path: Path) -> Site:
         path=path,
     )
 
-
 # =========================
-# Évaluation horaire
+# Métriques à l’heure (worst-value-wins)
 # =========================
 def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
     speeds: List[float] = []
@@ -275,11 +355,10 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
     hs = _safe_get(hs_arr, idx)
     tp = _safe_get(tp_arr, idx)
 
-    # ← fail-safe : onshore si AU MOINS une direction est dans le secteur onshore du spot
     onshore_ranges = _onshore_sectors(site.slug)
     any_onshore = None
     if dirs:
-         any_onshore = any(_angle_in_ranges(d, onshore_ranges) for d in dirs)
+        any_onshore = any(_angle_in_ranges(d, onshore_ranges) for d in dirs)
 
     return HourMetrics(
         max_speed=max(speeds) if speeds else None,
@@ -295,70 +374,104 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
         n_models=n_models,
     )
 
+# =========================
+# Évaluation Family selon PHASE
+# =========================
+def _waves_ok_transit(m: HourMetrics, reasons: List[str]) -> bool:
+    ok = True
+    if m.hs is None or m.tp is None:
+        reasons.append("vagues_inconnues"); return False
 
-def hour_is_family_ok(site: Site, idx: int) -> Tuple[bool, Dict[str, Any]]:
+    if m.hs > HS_NO_GO_MIN:
+        ok = False; reasons.append("Hs>0.8")
+    if m.hs >= HS_FAMILY_MAX:
+        ok = False; reasons.append("Hs>=0.5")
+    else:
+        if m.hs < 0.4 and m.tp < TP_MIN_AT_LT04:
+            ok = False; reasons.append("Tp<4.0@Hs<0.4")
+        if 0.4 <= m.hs < 0.5 and m.tp < TP_MIN_AT_04_05:
+            ok = False; reasons.append("Tp<4.5@Hs0.4-0.5")
+
+    if m.hs is not None and m.tp is not None:
+        if m.hs >= SHORT_STEEP_1_HS and m.tp <= SHORT_STEEP_1_TP:
+            ok = False; reasons.append("short_steep")
+        if m.hs >= SHORT_STEEP_2_HS and m.tp <= SHORT_STEEP_2_TP:
+            ok = False; reasons.append("short_steep_hard")
+    return ok
+
+def _waves_ok_anchor(m: HourMetrics, reasons: List[str]) -> bool:
+    # Bonus "mouillage abrité" si Hs ≤ 0.35 et pas d’orage : Tp assoupli (famille >= 3.8s).
+    if m.hs is None or m.tp is None:
+        reasons.append("vagues_inconnues"); return False
+    if m.hs <= 0.35:
+        # on autorise période famille >= 3.8s (seuil chargé via rules.yaml → 3.8 par défaut)
+        tp_family_anchor = float(_dget(RULES, "tp_matrix.anchor_sheltered.hs_le_0_35_family_tp_s", 3.8))
+        if m.tp < tp_family_anchor:
+            reasons.append(f"Tp<{tp_family_anchor}@Hs<=0.35"); return False
+        # short/steep non bloquant ici (Hs faible) → pas de pénalité
+        return True
+    # sinon, on retombe sur la logique "transit"
+    return _waves_ok_transit(m, reasons)
+
+def hour_ok_for_phase(site: Site, idx: int, phase: str) -> Tuple[bool, Dict[str, Any]]:
+    """Retourne (ok, details) pour une heure donnée selon phase 'transit'|'anchor'."""
     m = worst_metrics_at_hour(site, idx)
     reasons: List[str] = []
     ok = True
 
-    # Surclassement NO-GO
+    # Orages : NO-GO partout
     if any(c in THUNDER_CODES for c in m.codes):
-        ok = False; reasons.append("orages")
-    if m.max_gust is not None and m.max_gust >= GUST_NO_GO_MIN:
-        ok = False; reasons.append("rafales>=30")
-    if m.max_speed is not None and m.max_speed >= WIND_NO_GO_MIN:
-        ok = False; reasons.append("vent>=25")
-
-    # Houle + période (couplage)
-    if m.hs is None or m.tp is None:
-        reasons.append("vagues_inconnues")
-        ok = False
-    else:
-        if m.hs > HS_NO_GO_MIN:
-            ok = False; reasons.append("Hs>0.8")
-        if m.hs >= HS_FAMILY_MAX:
-            ok = False; reasons.append("Hs>=0.5")
-        else:
-            if m.hs < 0.4 and m.tp < TP_MIN_AT_LT04:
-                ok = False; reasons.append("Tp<4.0@Hs<0.4")
-            if 0.4 <= m.hs < 0.5 and m.tp < TP_MIN_AT_04_05:
-                ok = False; reasons.append("Tp<4.5@Hs0.4-0.5")
-        # mers courtes / raides
-        if m.hs is not None and m.tp is not None:
-            if m.hs >= SHORT_STEEP_1_HS and m.tp <= SHORT_STEEP_1_TP:
-                ok = False; reasons.append("short_steep")
-            if m.hs >= SHORT_STEEP_2_HS and m.tp <= SHORT_STEEP_2_TP:
-                ok = False; reasons.append("short_steep_hard")
-
-    # Squalls
-    if m.max_gust is not None and m.min_speed is not None:
-        if (m.max_gust - m.min_speed) >= SQUALL_DELTA:
-            ok = False; reasons.append("squalls")
-
-    # Onshore > 20 (fail-safe : si au moins un modèle signale un flux onshore, on applique avec la
-    # valeur de vent la plus défavorable "max_speed")
-    if m.max_speed is not None and m.any_onshore is not None:
-        if m.max_speed > ONSHORE_MAX_OK and m.any_onshore:
-            ok = False; reasons.append("onshore>20")
+        return False, {"reasons": reasons + ["orages"], "metrics": m}
 
     # Visibilité
     if m.min_vis is not None and m.min_vis < VIS_MIN_KM:
         ok = False; reasons.append("vis<5km")
 
-    # Baseline Family GO (vent)
-    if m.max_speed is not None and m.max_speed >= WIND_FAMILY_MAX:
-        ok = False; reasons.append("vent>=20")
+    # Onshore > seuil (déclassement : pas Family)
+    if m.max_speed is not None and m.any_onshore:
+        if m.max_speed > ONSHORE_MAX_OK:
+            ok = False; reasons.append(f"onshore>{int(ONSHORE_MAX_OK)}")
+
+    # Squalls (Δ gust-soutenu)
+    if m.max_gust is not None and m.min_speed is not None:
+        delta = m.max_gust - m.min_speed
+        if phase == "anchor":
+            if delta >= ANCHOR_SQUALL_DELTA_MAX:
+                ok = False; reasons.append("squalls_anchor")
+        else:
+            if delta >= SQUALL_DELTA:
+                ok = False; reasons.append("squalls")
+
+    # Rafales / Vent soutenu
+    if phase == "anchor":
+        # tolérance au mouillage (si Hs faible et pas d’orage) → gestion rafales/soutenu
+        # rafales tolérées jusqu’à ANCHOR_GUST_ALLOW
+        if m.max_gust is not None and m.max_gust >= ANCHOR_GUST_ALLOW:
+            ok = False; reasons.append(f"gusts>={int(ANCHOR_GUST_ALLOW)}@anchor")
+        # soutenu toléré jusqu’à ANCHOR_SUSTAINED_ALLOW (si les vagues restent conformes)
+        if m.max_speed is not None and m.max_speed >= ANCHOR_SUSTAINED_ALLOW:
+            ok = False; reasons.append(f"vent>={int(ANCHOR_SUSTAINED_ALLOW)}@anchor")
+        # vagues & période (version assouplie si Hs<=0.35)
+        if not _waves_ok_anchor(m, reasons):
+            ok = False
+    else:
+        # Transit : seuils stricts Family
+        if m.max_gust is not None and m.max_gust >= GUST_NO_GO_MIN:
+            ok = False; reasons.append(f"rafales>={int(GUST_NO_GO_MIN)}")
+        if m.max_speed is not None and m.max_speed >= WIND_NO_GO_MIN:
+            ok = False; reasons.append(f"vent>={int(WIND_NO_GO_MIN)}")
+        # baseline Family wind
+        if m.max_speed is not None and m.max_speed >= WIND_FAMILY_MAX:
+            ok = False; reasons.append(f"vent>={int(WIND_FAMILY_MAX)}")
+        if not _waves_ok_transit(m, reasons):
+            ok = False
 
     return ok, {"reasons": reasons, "metrics": m}
 
-
+# =========================
+# Confiance (inchangée, conservative)
+# =========================
 def compute_confidence(site: Site, i0: int, i1: int) -> str:
-    """Conforme Master Spec :
-       - High si spread vent < 5 km/h ET spread Hs < 0.2 m
-       - Medium si désaccord mineur (< 8 km/h) sinon Low
-       - Cap à Medium (une seule source houle)
-       - Low si < 2 modèles vent
-    """
     wind_spreads: List[float] = []
     hs_values: List[float] = []
     n_models = 0
@@ -371,15 +484,15 @@ def compute_confidence(site: Site, i0: int, i1: int) -> str:
             hs_values.append(m.hs)
         n_models = max(n_models, m.n_models)
 
-    # Besoin d'au moins 2 modèles vent pour monter au-dessus de Low
+    # Besoin d'au moins 2 modèles vent pour monter (collector fournit souvent 1 → Low)
     if n_models < 2:
         return "Low"
 
     avg_wind_spread = statistics.mean(wind_spreads) if wind_spreads else None
     hs_spread = (max(hs_values) - min(hs_values)) if len(hs_values) >= 2 else None
 
-    # Détermination brute
-    if (avg_wind_spread is not None and avg_wind_spread < 5) and (hs_spread is not None and hs_spread < 0.2):
+    if (avg_wind_spread is not None and avg_wind_spread < _dget(RULES,"confidence.high.wind_spread_kmh_lt",5)) \
+       and (hs_spread is not None and hs_spread < _dget(RULES,"confidence.high.hs_spread_m_lt",0.2)):
         result = "High"
     elif avg_wind_spread is not None and avg_wind_spread < 8:
         result = "Medium"
@@ -391,84 +504,117 @@ def compute_confidence(site: Site, i0: int, i1: int) -> str:
         return "Medium"
     return result
 
-    avg_spread = statistics.mean(spreads) if spreads else None
-    cap = "Medium"  # pas de 2ème modèle houle => on ne dépasse pas Medium
-    if avg_spread is not None and avg_spread < 5:
-        return cap
-    if avg_spread is not None and avg_spread < 8:
-        return "Low" if cap == "Medium" else "Medium"
-    return "Low"
+# =========================
+# Fenêtres 4–6 h avec phases
+# =========================
+def _phases_for_window(length: int) -> List[str]:
+    """Mappe offsets -> phase selon longueur 4..6:
+       L=4: [T, A, A, T]
+       L=5: [T, A, A, A, T]
+       L=6: [T, A, A, A, A, T]
+    """
+    if length < 4:
+        return ["transit"] * length
+    if length == 4:
+        return ["transit", "anchor", "anchor", "transit"]
+    if length == 5:
+        return ["transit", "anchor", "anchor", "anchor", "transit"]
+    # length >=6 (on borne à 6 en appelant cette fonction)
+    return ["transit", "anchor", "anchor", "anchor", "anchor", "transit"]
 
+def _window_ok_dest(dest: Site, i: int, end: int) -> Tuple[bool, List[str]]:
+    """Vérifie toutes les heures [i..end-1] côté destination avec phases."""
+    length = end - i
+    phases = _phases_for_window(length)
+    reasons_all: List[str] = []
+    for k, idx in enumerate(range(i, end)):
+        phase = phases[k] if k < len(phases) else "transit"
+        ok_h, det = hour_ok_for_phase(dest, idx, phase)
+        if not ok_h:
+            reasons_all.extend([f"h{idx - i}:{r}" for r in det.get("reasons", [])])
+            return False, reasons_all
+    return True, reasons_all
 
 def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[str, Any]]:
-    """Fenêtres 4–6 h : toutes les heures de la fenêtre doivent être Family OK
-       sur la destination *et* port OK au départ (T0) et au retour (T0+durée).
-       Catégorisation : 'family' si intégralement entre 08:00 et 21:00, sinon 'off_hours'."""
+    """Fenêtres 4–6 h : phases Transit–Mouillage–Transit sur la destination,
+       + port check Family au départ (T0) et retour (T0+durée) à Gammarth.
+       Catégorie : 'family' si [08–21) entièrement, sinon 'off_hours'."""
     n = min(len(dest.times), len(home.times))
     windows: List[Dict[str, Any]] = []
     i = 0
 
     while i < n:
-        dest_ok, _ = hour_is_family_ok(dest, i)
-        if not dest_ok:
+        # Petite garde : le départ doit être faisable en transit
+        dep_ok, _ = hour_ok_for_phase(home, i, "transit")
+        dep_dest_ok, _ = hour_ok_for_phase(dest, i, "transit")
+        if not (dep_ok and dep_dest_ok):
             i += 1
             continue
 
-        end = i
-        while end < n and (end - i) < max_h:
-            ok_h, _ = hour_is_family_ok(dest, end)
-            if not ok_h:
+        best_end = i
+        end = i + 1
+        # on tente d'étendre jusqu'à max_h (mais on revalide tout à chaque extension car les phases changent)
+        while end <= n and (end - i) <= max_h:
+            length = end - i
+            if length < min_h:
+                end += 1
+                continue
+            # vérif destination (phases) pour la fenêtre courante
+            ok_dest, _ = _window_ok_dest(dest, i, end)
+            if not ok_dest:
                 break
+
+            # retour port à l'heure de fin-1, en transit
+            ret_ok, _ = hour_ok_for_phase(home, end - 1, "transit")
+            if not ret_ok:
+                break
+
+            # les données vent doivent être présentes sur tout l'intervalle (dest + home)
+            if not _has_wind_range(dest, i, end - 1) or not _has_wind_range(home, i, end - 1):
+                break
+
+            best_end = end
             end += 1
 
-        length = end - i
-        if length >= min_h:
-            # Port check : départ à i, retour à end-1 (fin incluse)
-            dep_ok, _ = hour_is_family_ok(home, i)
-            ret_ok, _ = hour_is_family_ok(home, end - 1)
-            if dep_ok and ret_ok:
-                # 🚧 Vérification de présence de toutes les valeurs vent/rafales/direction
-                if not _has_wind_range(dest, i, end - 1) or not _has_wind_range(home, i, end - 1):
-                    i += 1
-                    continue
+        if best_end - i >= min_h:
+            start_dt = dest.times[i]
+            end_dt = dest.times[best_end - 1] + dt.timedelta(hours=1)  # borne exclusive
+            window_dts = dest.times[i:best_end]
+            category = "family" if _all_in_family_hours_dts(window_dts, dest.tz) else "off_hours"
 
-                # Catégorie horaire (08–21) sur la destination (liste de datetimes)
-                window_dts = dest.times[i:end]  # end exclus
-                is_family_hours = _all_in_family_hours_dts(window_dts, dest.tz)
-                category = "family" if is_family_hours else "off_hours"
-
-                start_dt = dest.times[i]
-                end_dt = dest.times[end - 1] + dt.timedelta(hours=1)  # borne exclusive
-
-                windows.append({
-                    "start": start_dt.isoformat(),
-                    "end": end_dt.isoformat(),
-                    "hours": length,
-                    "confidence": compute_confidence(dest, i, end - 1),
-                    "category": category,
-                    "reason": "valid_FAMILY_rules" + ("" if category == "family" else "_outside_08_21"),
-                })
-                i = end
-                continue
-
-        i += 1
+            windows.append({
+                "start": start_dt.isoformat(),
+                "end": end_dt.isoformat(),
+                "hours": best_end - i,
+                "confidence": compute_confidence(dest, i, best_end - 1),
+                "category": category,
+                "reason": "valid_FAMILY_rules" + ("" if category == "family" else "_outside_08_21"),
+            })
+            i = best_end
+        else:
+            i += 1
 
     return windows
-
 
 # =========================
 # Exécution principale
 # =========================
+@dataclass
+class RunResult:
+    generated_at: str
+    home_slug: str
+    windows: List[Dict[str, Any]]
+
 def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
         min_h: int, max_h: int) -> Dict[str, Any]:
 
-    # Lister les fichiers de spots
+    _apply_rules_globals()  # au cas où RULES a été modifié par l'env
+
     spots = sorted([p for p in from_dir.glob("*.json")
                     if p.name not in ("index.json", "windows.json")])
     if not spots:
         raise SystemExit(f"Aucun JSON de spot trouvé dans {from_dir}")
 
-    # Charger les sites
     sites: Dict[str, Site] = {}
     for p in spots:
         try:
@@ -480,7 +626,6 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
     if not sites:
         raise SystemExit("Aucun site valide.")
 
-    # Déterminer le port d’attache
     if not home_slug:
         candidates = [k for k in sites if "gammarth" in k]
         home_slug = candidates[0] if candidates else list(sites.keys())[0]
@@ -490,12 +635,12 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
 
     home = sites[home_slug]
 
-    # Détection
     out: Dict[str, Any] = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "home_slug": home_slug,
         "windows": []
     }
+
     for slug, dest in sites.items():
         if slug == home_slug:
             continue
@@ -506,13 +651,11 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
             "windows": wins
         })
 
-    # Écriture
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "windows.json").write_text(
         json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return out
-
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="FABLE reader – détecteur de fenêtres Family GO")
@@ -529,7 +672,6 @@ def main() -> None:
     args = ap.parse_args()
 
     run(args.from_dir, args.out, args.home, args.min_hours, args.max_hours)
-
 
 if __name__ == "__main__":
     main()

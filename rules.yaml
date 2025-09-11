@@ -35,6 +35,7 @@ shelter:
   anchor_squall_delta_max_kmh: 20    # plus strict qu’en transit
   require_lee: true                  # vérifier sous le vent (dir vent vs côte)
   max_fetch_km: 1.5                  # distance eau libre au vent
+  anchor_sustained_allow_up_to_kmh: 32
 
 resolution_policy:
   family_requires_hourly: true       # Family interdit si Hs/Tp 3h-only

@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 import urllib.request
-import math
+# import math
 
 # -----------------------
 # Config & budgets
@@ -205,7 +205,7 @@ if not selected_sites:
 ECMWF_KEYS  = ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"]
 MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_period"]
 DAILY_KEYS  = ["sunrise","sunset"]
-ASTRONOMY_DAILY_KEYS = ["sunrise", "sunset", "moonrise", "moonset", "moon_phase"]
+# ASTRONOMY_DAILY_KEYS = ["sunrise", "sunset", "moonrise", "moonset", "moon_phase"]
 
 KEY_SYNONYMS = {
     "wind_speed_10m":     ["wind_speed_10m", "windspeed_10m"],
@@ -864,7 +864,6 @@ def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
 # -----------------------
 # Collecte
 # -----------------------
-ROOT    = Path(__file__).resolve().parent
 PUBLIC  = ROOT / "public"
 ensure_dir(PUBLIC)
 
@@ -949,55 +948,9 @@ for site in selected_sites:
     nn_ecmwf = non_null_count(ecmwf_slice, ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"])
     nn_marine = non_null_count(marine_slice, ["wave_height","wave_period","swell_wave_height","swell_wave_period"])
 
+    # --- Construction du payload JSON ---
     out: Dict[str, Any] = {
         "meta": {
-            "name": name, "slug": slug, "lat": lat, "lon": lon, "tz": TZ_NAME,
-            "generated_at": dt.datetime.now(TZ).isoformat(),
-            "window": {
-                "start_local": start_local.isoformat(),
-                "end_local":   end_local.isoformat(),
-                "hours": int((end_local - start_local).total_seconds() // 3600),
-            },
-            "sources": {
-                "ecmwf_open_meteo": {
-                    "endpoint": "https://api.open-meteo.com/v1/forecast",
-                    "model_order": MODEL_ORDER,
-                    "model_used": wx.get("_model_used", "unknown"),
-                    "units": e_units,
-                },
-                "marine_open_meteo": {
-                    "endpoint": "https://marine-api.open-meteo.com/v1/marine",
-                    "units": m_units,
-                },
-                "astro_daily_open_meteo": {
-                    "endpoint":"https://api.open-meteo.com/v1/astronomy",
-                    "units": d_units
-                },
-            },
-            "shelter_bonus_radius_km": site.get("shelter_bonus_radius_km", 0.0),
-            "debug": {
-                "hourly_keys_present_forecast": wx_keys_raw,
-                "hourly_keys_present_marine": sea_keys_raw,
-                "ecmwf_non_null_counts": nn_ecmwf,
-                "marine_non_null_counts": nn_marine,
-                "kept_indices": {
-                    "forecast": keep_wx[:6] + (["..."] if len(keep_wx) > 6 else []),
-                    "marine":   keep_sea[:6] + (["..."] if len(keep_sea) > 6 else []),
-                },
-                "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S}
-            },
-        },
-        "ecmwf": ecmwf_slice,
-        "marine": marine_slice,
-        "daily": daily,
-        "daily_units": d_units,  # ➕ expose les unités au top-level**
-        "hourly": hourly_flat,
-        "status": "ok",
-    }
-
-    tmp = PUBLIC / f".{slug}.json.tmp"
-    final = PUBLIC / f"{slug}.json"
-            "meta": {
             "name": name, "slug": slug, "lat": lat, "lon": lon, "tz": TZ_NAME,
             "generated_at": dt.datetime.now(TZ).isoformat(),
             "window": {
@@ -1020,11 +973,48 @@ for site in selected_sites:
                 "family_hours_local": RULES.get("family_hours_local", {}),
             },
             "sources": {
-                ...
+                "ecmwf_open_meteo": {
+                    "endpoint": "https://api.open-meteo.com/v1/forecast",
+                    "model_order": MODEL_ORDER,
+                    "model_used": wx.get("_model_used", "unknown"),
+                    "units": e_units,
+                },
+                "marine_open_meteo": {
+                    "endpoint": "https://marine-api.open-meteo.com/v1/marine",
+                    "units": m_units,
+                },
+                "astro_daily_open_meteo": {
+                    "endpoint": "https://api.open-meteo.com/v1/astronomy",
+                    "units": d_units
+                },
+            },
+            "shelter_bonus_radius_km": site.get("shelter_bonus_radius_km", 0.0),
+            "debug": {
+                "hourly_keys_present_forecast": wx_keys_raw,
+                "hourly_keys_present_marine": sea_keys_raw,
+                "ecmwf_non_null_counts": nn_ecmwf,
+                "marine_non_null_counts": nn_marine,
+                "kept_indices": {
+                    "forecast": keep_wx[:6] + (["..."] if len(keep_wx) > 6 else []),
+                    "marine":   keep_sea[:6] + (["..."] if len(keep_sea) > 6 else []),
+                },
+                "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S}
+            },
+        },
+        "ecmwf": ecmwf_slice,
+        "marine": marine_slice,
+        "daily": daily,
+        "daily_units": d_units,   # expose aussi les unités daily
+        "hourly": hourly_flat,
+        "status": "ok",
+    }
 
+    # --- Écriture atomique ---
+    tmp = PUBLIC / f".{slug}.json.tmp"
+    final = PUBLIC / f"{slug}.json"
     tmp.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     tmp.replace(final)
-
+    
     results.append({
         "slug": slug,
         "name": name,

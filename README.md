@@ -70,3 +70,27 @@ public/
 ├─ ras-fartass.json
 ├─ el-haouaria.json
 └─ windows.json                # (optionnel) sorties du reader (fenêtres détectées)
+
+## Format JSON
+
+{
+  "meta": {
+    "name": "Gammarth (port)",
+    "slug": "gammarth-port.json",
+    "tz": "Africa/Tunis",
+    "lat": 36.9203,
+    "lon": 10.2846,
+    "sources": ["open-meteo:ecmwf", "open-meteo:marine"]
+  },
+  "hourly": {
+    "time": ["2025-09-12T00:00", "2025-09-12T01:00", "..."],
+    "wind_speed_10m": [..km/h..],
+    "wind_gusts_10m": [..km/h..],
+    "wind_direction_10m": [..deg..],
+    "weather_code": [..wmo..],
+    "visibility": [..m or km..],    // le reader convertit en km si nécessaire
+    "hs": [..m..],                  // alias: wave_height
+    "tp": [..s..]                   // alias: wave_period
+  }
+}
+

@@ -5,23 +5,23 @@
   <title>fable-collector — tableau de bord</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root{--bg:#0b1020;--fg:#e8eef6;--muted:#9fb3c8;--accent:#4cc9f0;--ok:#2dd4bf;--warn:#f59e0b}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:24px;background:#0b1020;color:#e8eef6}
+    :root{--bg:#0b1020;--fg:#e8eef6;--muted:#9fb3c8;--accent:#4cc9f0;--ok:#2dd4bf;--warn:#f59e0b;--bad:#dc2626;--card:#0f172a;--line:#23304a}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:24px;background:var(--bg);color:var(--fg)}
     a{color:var(--accent)}
     header{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:16px}
     header h1{font-size:1.4rem;margin:0}
-    .pill{border:1px solid #2a3142;border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.85rem}
-    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-    .card{border:1px solid #23304a;background:#0f172a;padding:14px;border-radius:14px}
+    .pill{border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.85rem}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+    .card{border:1px solid var(--line);background:var(--card);padding:14px;border-radius:14px}
     table{width:100%;border-collapse:collapse}
-    th,td{padding:8px 10px;border-bottom:1px solid #23304a;font-size:.92rem}
+    th,td{padding:8px 10px;border-bottom:1px solid var(--line);font-size:.92rem}
     th{text-align:left;color:var(--muted)}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
     .small{font-size:.9rem;color:var(--muted)}
-    .ok{color:var(--ok)}
-    .warn{color:var(--warn)}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
-    .badge{display:inline-block;background:#152033;border:1px solid #23304a;border-radius:8px;padding:2px 8px;margin-left:6px}
+    .badge{display:inline-block;background:#152033;border:1px solid var(--line);border-radius:8px;padding:2px 8px;margin-left:6px}
+    ul{margin:0 0 0 1rem}
   </style>
 </head>
 <body>
@@ -29,32 +29,36 @@
   <h1>fable-collector — tableau de bord</h1>
   <span id="tz" class="pill"></span>
   <span id="gen" class="pill"></span>
+  <span id="health" class="pill">Statut: inconnu</span>
 </header>
 
 <div class="cards">
   <div class="card">
     <h3>Liens rapides</h3>
     <ul>
-      <li><a href="index.json">index.json</a> <span class="small">— inventaire produit par <span class="mono">main.py</span></span></li>
-      <li><a href="catalog.json">catalog.json</a> <span class="small">— liste des fichiers réellement présents</span></li>
-      <li><a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> <span class="small">— fenêtres Family GO détectées</span></li>
+      <li><a href="index.json">index.json</a> <span class="small">— inventaire publié</span></li>
+      <li><a href="status.json">status.json</a> · <a href="status.html">status.html</a> <span class="small">— fraîcheur</span></li>
+      <li><a href="rules.normalized.json">rules.normalized.json</a> <span class="small">— règles normalisées</span></li>
+      <li><a href="windows.json">windows.json</a> <span class="small">— fenêtres détectées (si reader activé)</span></li>
+      <li id="li-catalog" style="display:none"><a href="catalog.json">catalog.json</a> <span class="small">— snapshot des fichiers</span></li>
     </ul>
   </div>
+
   <div class="card">
     <h3>Résumé fenêtres</h3>
-    <div id="wins">Chargement…</div>
+    <div id="wins" class="small">Chargement…</div>
   </div>
-</div>
 
-<h3 style="margin-top:18px">Spots collectés</h3>
-<div class="card">
-  <table id="files"><thead>
-    <tr><th>Fichier</th><th>Taille</th><th>Modifié</th><th>Type</th></tr>
-  </thead><tbody></tbody></table>
+  <div class="card">
+    <h3>Spots collectés</h3>
+    <table id="files"><thead>
+      <tr><th>Fichier</th><th>Taille</th><th>Modifié</th><th>État</th></tr>
+    </thead><tbody></tbody></table>
+  </div>
 </div>
 
 <footer>
-  <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO (avec ou sans offset) et s’entendent côté collecte (souvent Africa/Tunis).</p>
+  <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO et s’entendent côté collecte (souvent Africa/Tunis).</p>
 </footer>
 
 <script>
@@ -63,213 +67,112 @@
   document.getElementById('tz').textContent = 'Affichage: ' + tz;
   document.getElementById('tz2').textContent = tz;
 
+  // --- helpers ---
   function fmtBytes(n){
     if(n==null) return '';
     if(n<1024) return n+' B';
     if(n<1024*1024) return (n/1024).toFixed(1)+' kB';
     return (n/1024/1024).toFixed(1)+' MB';
   }
-  function tryParseISO(s){ try{ return new Date(s); }catch(e){ return null; } }
-  async function loadJSON(path){
+  function toLocal(iso){
+    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString(); }catch{ return iso||''; }
+  }
+  async function fetchJSON(path){
     try{
       const r = await fetch(path, {cache:'no-store'});
       if(!r.ok) throw new Error(r.status+' '+r.statusText);
       return await r.json();
-    }catch(e){ console.warn('fetch fail', path, e); return null; }
+    }catch(e){ return null; }
   }
 
-  const windows = await loadJSON('windows.json');
-  const idx = await loadJSON('index.json');
-  const cat = await loadJSON('catalog.json');
+  // --- charger éventuels fichiers ---
+  const [idx, cat, status, wins] = await Promise.all([
+    fetchJSON('index.json'),
+    fetchJSON('catalog.json'),
+    fetchJSON('status.json'),
+    fetchJSON('windows.json')
+  ]);
 
-  const gen = (windows && windows.generated_at) || (idx && idx.generated_at) || null;
-  if(gen){
-    const d = tryParseISO(gen);
-    const local = d ? d.toLocaleString() : gen;
-    document.getElementById('gen').textContent = 'Généré: ' + local;
+  // Généré à
+  const gen = (wins && wins.generated_at) || (status && status.generated_at) || (idx && idx.generated_at) || null;
+  document.getElementById('gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
+
+  // Statut / fraîcheur
+  const health = document.getElementById('health');
+  if(status && typeof status.all_fresh === 'boolean'){
+    health.textContent = status.all_fresh ? 'Statut: OK — fichiers frais' : 'Statut: ATTENTION — fichiers anciens';
+    health.className = 'pill ' + (status.all_fresh ? 'ok' : 'warn');
   }else{
-    document.getElementById('gen').textContent = 'Généré: inconnu';
+    health.textContent = 'Statut: indisponible';
+    health.className = 'pill bad';
   }
 
-  // Table fichiers (catalog.json prioritaire, sinon index.json)
+  // Afficher le lien catalog.json si présent
+  if(cat && Array.isArray(cat.files)){
+    document.getElementById('li-catalog').style.display = '';
+  }
+
+  // Table fichiers (priorité catalog.json, sinon index.json)
   const tbody = document.querySelector('#files tbody');
   let files = [];
   if(cat && Array.isArray(cat.files)) files = cat.files;
   else if(idx && Array.isArray(idx.files)) files = idx.files;
 
-  if(files.length === 0){
+  // Pour chaque entrée, tenter de croiser avec status.json pour l'état
+  const statusMap = new Map();
+  if(status && Array.isArray(status.files)){
+    for(const f of status.files) statusMap.set(f.path, f);
+  }
+
+  if(!files.length){
     tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun fichier listé.</td></tr>';
   }else{
     for(const f of files){
-      const p = f.path || f;
+      const path = f.path || f;
       const size = fmtBytes(f.size);
-      const mod  = f.modified || '';
-      let kind = 'spot';
-      if(p === 'index.json') kind = 'index';
-      else if(p === 'catalog.json') kind = 'catalog';
-      else if(p === 'windows.json') kind = 'windows';
+      const mod  = toLocal(f.modified || (statusMap.get(path)?.modified_local));
+      const fres = statusMap.has(path) ? (statusMap.get(path).ok_fresh ? 'OK' : 'Ancien') : '—';
+      const cls  = fres==='OK' ? 'ok' : (fres==='Ancien' ? 'warn' : 'small');
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td><a href="${encodeURIComponent(p)}">${p}</a></td>
+      tr.innerHTML = `<td><a class="mono" href="${encodeURIComponent(path)}">${path}</a></td>
                       <td class="mono">${size||''}</td>
                       <td class="mono">${mod||''}</td>
-                      <td>${kind}</td>`;
+                      <td class="${cls}">${fres}</td>`;
       tbody.appendChild(tr);
     }
   }
 
   // Résumé fenêtres
   const winsDiv = document.getElementById('wins');
-  if(!windows || !Array.isArray(windows.windows)){
-    winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
-  }else if(windows.windows.length === 0){
-    winsDiv.innerHTML = '<span class="small">Aucune fenêtre Family GO détectée.</span>';
+  if(!wins || !Array.isArray(wins.windows)){
+    winsDiv.textContent = 'windows.json introuvable ou vide.';
+  }else if(wins.windows.length === 0){
+    winsDiv.textContent = 'Aucune fenêtre Family GO détectée.';
   }else{
     const ul = document.createElement('ul');
-    for(const dest of windows.windows){
+    for(const dest of wins.windows){
       const name = dest.dest_name || dest.dest_slug || '?';
-      const li = document.createElement('li');
-      const spans = [];
-      if(Array.isArray(dest.windows) && dest.windows.length){
-        for(const seg of dest.windows){
-          const start = seg.start ? new Date(seg.start).toLocaleString() : '?';
-          const end   = seg.end ? new Date(seg.end).toLocaleString() : '?';
-          const conf  = seg.confidence || '';
-          spans.push(`${start} → ${end} <span class="badge">${seg.hours} h</span> <span class="badge">${conf}</span>`);
-        }
-        li.innerHTML = `<span class="ok">${name}</span><br><span class="small">${spans.join('<br>')}</span>`;
-      }else{
+      if(!Array.isArray(dest.windows) || !dest.windows.length){
+        const li = document.createElement('li');
         li.innerHTML = `<span>${name}</span> <span class="small">— aucune fenêtre</span>`;
+        ul.appendChild(li);
+        continue;
       }
-      ul.appendChild(li);
+      for(const seg of dest.windows){
+        const li = document.createElement('li');
+        const start = seg.start ? toLocal(seg.start) : '?';
+        const end   = seg.end ? toLocal(seg.end) : '?';
+        const conf  = seg.confidence || '';
+        li.innerHTML = `<span class="ok">${name}</span> — ${start} → ${end}
+                        <span class="badge">${seg.hours} h</span>
+                        <span class="badge">${conf}</span>`;
+        ul.appendChild(li);
+      }
     }
     winsDiv.innerHTML = '';
     winsDiv.appendChild(ul);
   }
 })();
-
----
-
-## public/index.html
-
-> À déposer dans `public/index.html`. La page lit `status.json`, affiche un badge d’état, et liste les endpoints utiles.
-
-```html
-<!doctype html>
-<html lang="fr">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>fable-collector · Données & statut</title>
-<style>
-  :root{--ok:#16a34a;--warn:#f59e0b;--bad:#dc2626;--ink:#0f172a;--muted:#64748b;--bg:#f8fafc;--card:#ffffff;--br:#e5e7eb}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial,sans-serif}
-  .wrap{max-width:1000px;margin:36px auto;padding:0 16px}
-  h1{font-size:1.6rem;margin:0 0 8px} p{margin:0 0 16px}
-  .row{display:grid;grid-template-columns:1fr;gap:16px}
-  @media (min-width:900px){.row{grid-template-columns:2fr 1fr}}
-  .card{background:var(--card);border:1px solid var(--br);border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-  .pill{display:inline-block;padding:4px 10px;border-radius:9999px;color:#fff;font-weight:600}
-  .ok{background:var(--ok)} .warn{background:var(--warn)} .bad{background:var(--bad)}
-  .muted{color:var(--muted)} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-  table{width:100%;border-collapse:collapse;margin-top:8px}
-  th,td{border:1px solid var(--br);padding:8px;text-align:left} th{background:#fff}
-  ul.links{list-style:none;padding:0;margin:8px 0 0} ul.links li{margin:6px 0}
-  a{color:#0ea5e9;text-decoration:none} a:hover{text-decoration:underline}
-  .badges img{height:22px;vertical-align:middle;margin-right:6px}
-</style>
-<div class="wrap">
-  <h1>fable-collector</h1>
-  <p class="muted">Collecte horaire Open-Meteo (ECMWF/ICON) & Open-Meteo Marine (Hs/Tp) · Publie JSON, index, règles et statut pour FABLE AI.</p>
-
-  <div class="badges" style="margin:8px 0 16px">
-    <a href="https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml">
-      <img src="https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml/badge.svg" alt="Healthcheck">
-    </a>
-    <a href="https://github.com/rbpower-hub/fable-collector/actions/workflows/pages.yml">
-      <img src="https://github.com/rbpower-hub/fable-collector/actions/workflows/pages.yml/badge.svg" alt="Build & Pages">
-    </a>
-  </div>
-
-  <div class="row">
-    <!-- Statut -->
-    <section class="card">
-      <h2 style="margin:0 0 8px">Statut</h2>
-      <div id="status-pill" class="pill warn">Chargement…</div>
-      <div id="status-meta" class="muted" style="margin-top:6px"></div>
-      <table id="status-table"></table>
-    </section>
-
-    <!-- Liens utiles -->
-    <aside class="card">
-      <h2 style="margin:0 0 8px">Liens</h2>
-      <ul class="links">
-        <li>📄 <a href="./index.json">index.json</a></li>
-        <li>⚙️ <a href="./rules.normalized.json">rules.normalized.json</a></li>
-        <li>📊 <a href="./status.json">status.json</a></li>
-        <li>🟢 <a href="./status.html">status.html</a></li>
-      </ul>
-      <h3 style="margin:16px 0 6px;font-size:1rem">Spots</h3>
-      <ul class="links" id="endpoints"></ul>
-    </aside>
-  </div>
-</div>
-
-<script>
-const ENDPOINTS = [
-  ["Gammarth (home)", "gammarth-port.json"],
-  ["Sidi Bou Saïd",   "sidi-bou-said.json"],
-  ["Ghar el Melh",    "ghar-el-melh.json"],
-  ["Ras Fartass",     "ras-fartass.json"],
-  ["El Haouaria",     "el-haouaria.json"]
-];
-
-async function fetchJSON(url){
-  const res = await fetch(url, {cache:'no-store'});
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
-}
-
-function renderEndpoints(){
-  const ul = document.getElementById('endpoints');
-  ul.innerHTML = ENDPOINTS.map(([name, file]) =>
-    `<li>🌊 <a href="./${file}">${name}</a></li>`
-  ).join('');
-}
-
-async function renderStatus(){
-  const pill = document.getElementById('status-pill');
-  const meta = document.getElementById('status-meta');
-  const tbl  = document.getElementById('status-table');
-
-  try{
-    const st = await fetchJSON('./status.json');
-    const cls = st.all_fresh ? 'ok' : 'warn';
-    const txt = st.all_fresh ? 'OK — fichiers frais' : 'ATTENTION — fichiers anciens';
-    pill.className = `pill ${cls}`;
-    pill.textContent = txt;
-    meta.innerHTML = `Généré : <span class="mono">${st.generated_at}</span> • Fraîcheur cible : ${st.fresh_hours}h`;
-
-    let html = `<tr><th>Fichier</th><th>Modifié (local)</th><th>État</th></tr>`;
-    for(const f of st.files){
-      const state = f.ok_fresh ? 'OK' : 'Ancien';
-      html += `<tr>
-        <td class="mono"><a href="./${f.path}">${f.path}</a></td>
-        <td class="mono">${f.modified_local ?? '-'}</td>
-        <td>${state}</td>
-      </tr>`;
-    }
-    tbl.innerHTML = html;
-  }catch(e){
-    pill.className = 'pill bad';
-    pill.textContent = 'ERREUR — status.json introuvable';
-    meta.textContent = 'Vérifier le workflow pages.yml';
-    tbl.innerHTML = '';
-  }
-}
-
-renderEndpoints();
-renderStatus();
-</script>
-
 </script>
 </body>
 </html>

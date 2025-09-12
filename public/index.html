@@ -146,6 +146,130 @@
     winsDiv.appendChild(ul);
   }
 })();
+
+---
+
+## public/index.html
+
+> À déposer dans `public/index.html`. La page lit `status.json`, affiche un badge d’état, et liste les endpoints utiles.
+
+```html
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fable-collector · Données & statut</title>
+<style>
+  :root{--ok:#16a34a;--warn:#f59e0b;--bad:#dc2626;--ink:#0f172a;--muted:#64748b;--bg:#f8fafc;--card:#ffffff;--br:#e5e7eb}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:36px auto;padding:0 16px}
+  h1{font-size:1.6rem;margin:0 0 8px} p{margin:0 0 16px}
+  .row{display:grid;grid-template-columns:1fr;gap:16px}
+  @media (min-width:900px){.row{grid-template-columns:2fr 1fr}}
+  .card{background:var(--card);border:1px solid var(--br);border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .pill{display:inline-block;padding:4px 10px;border-radius:9999px;color:#fff;font-weight:600}
+  .ok{background:var(--ok)} .warn{background:var(--warn)} .bad{background:var(--bad)}
+  .muted{color:var(--muted)} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{border:1px solid var(--br);padding:8px;text-align:left} th{background:#fff}
+  ul.links{list-style:none;padding:0;margin:8px 0 0} ul.links li{margin:6px 0}
+  a{color:#0ea5e9;text-decoration:none} a:hover{text-decoration:underline}
+  .badges img{height:22px;vertical-align:middle;margin-right:6px}
+</style>
+<div class="wrap">
+  <h1>fable-collector</h1>
+  <p class="muted">Collecte horaire Open-Meteo (ECMWF/ICON) & Open-Meteo Marine (Hs/Tp) · Publie JSON, index, règles et statut pour FABLE AI.</p>
+
+  <div class="badges" style="margin:8px 0 16px">
+    <a href="https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml">
+      <img src="https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml/badge.svg" alt="Healthcheck">
+    </a>
+    <a href="https://github.com/rbpower-hub/fable-collector/actions/workflows/pages.yml">
+      <img src="https://github.com/rbpower-hub/fable-collector/actions/workflows/pages.yml/badge.svg" alt="Build & Pages">
+    </a>
+  </div>
+
+  <div class="row">
+    <!-- Statut -->
+    <section class="card">
+      <h2 style="margin:0 0 8px">Statut</h2>
+      <div id="status-pill" class="pill warn">Chargement…</div>
+      <div id="status-meta" class="muted" style="margin-top:6px"></div>
+      <table id="status-table"></table>
+    </section>
+
+    <!-- Liens utiles -->
+    <aside class="card">
+      <h2 style="margin:0 0 8px">Liens</h2>
+      <ul class="links">
+        <li>📄 <a href="./index.json">index.json</a></li>
+        <li>⚙️ <a href="./rules.normalized.json">rules.normalized.json</a></li>
+        <li>📊 <a href="./status.json">status.json</a></li>
+        <li>🟢 <a href="./status.html">status.html</a></li>
+      </ul>
+      <h3 style="margin:16px 0 6px;font-size:1rem">Spots</h3>
+      <ul class="links" id="endpoints"></ul>
+    </aside>
+  </div>
+</div>
+
+<script>
+const ENDPOINTS = [
+  ["Gammarth (home)", "gammarth-port.json"],
+  ["Sidi Bou Saïd",   "sidi-bou-said.json"],
+  ["Ghar el Melh",    "ghar-el-melh.json"],
+  ["Ras Fartass",     "ras-fartass.json"],
+  ["El Haouaria",     "el-haouaria.json"]
+];
+
+async function fetchJSON(url){
+  const res = await fetch(url, {cache:'no-store'});
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+function renderEndpoints(){
+  const ul = document.getElementById('endpoints');
+  ul.innerHTML = ENDPOINTS.map(([name, file]) =>
+    `<li>🌊 <a href="./${file}">${name}</a></li>`
+  ).join('');
+}
+
+async function renderStatus(){
+  const pill = document.getElementById('status-pill');
+  const meta = document.getElementById('status-meta');
+  const tbl  = document.getElementById('status-table');
+
+  try{
+    const st = await fetchJSON('./status.json');
+    const cls = st.all_fresh ? 'ok' : 'warn';
+    const txt = st.all_fresh ? 'OK — fichiers frais' : 'ATTENTION — fichiers anciens';
+    pill.className = `pill ${cls}`;
+    pill.textContent = txt;
+    meta.innerHTML = `Généré : <span class="mono">${st.generated_at}</span> • Fraîcheur cible : ${st.fresh_hours}h`;
+
+    let html = `<tr><th>Fichier</th><th>Modifié (local)</th><th>État</th></tr>`;
+    for(const f of st.files){
+      const state = f.ok_fresh ? 'OK' : 'Ancien';
+      html += `<tr>
+        <td class="mono"><a href="./${f.path}">${f.path}</a></td>
+        <td class="mono">${f.modified_local ?? '-'}</td>
+        <td>${state}</td>
+      </tr>`;
+    }
+    tbl.innerHTML = html;
+  }catch(e){
+    pill.className = 'pill bad';
+    pill.textContent = 'ERREUR — status.json introuvable';
+    meta.textContent = 'Vérifier le workflow pages.yml';
+    tbl.innerHTML = '';
+  }
+}
+
+renderEndpoints();
+renderStatus();
+</script>
+
 </script>
 </body>
 </html>

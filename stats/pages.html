@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>fable-collector — dashboard</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; line-height: 1.35; }
+    h1 { margin: 0 0 8px; }
+    h2 { margin-top: 28px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #e7f2ff; color: #0056b3; margin-left: 8px; }
+    .muted { color: #777; font-size: 13px; }
+    .ok { color: #0a7a0a; }
+    .warn { color: #b36b00; }
+    .err { color: #b30000; }
+    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+    th, td { border: 1px solid #ccc; padding: 8px 10px; vertical-align: top; }
+    th { background: #f6f6f6; text-align: left; }
+    .pill { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 12px; background:#eee; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    a { text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .small { font-size: 12px; }
+    .spacer { height: 8px; }
+    .center { text-align:center; }
+    .btn { display:inline-block; padding:6px 10px; border:1px solid #bbb; border-radius:8px; cursor:pointer; background:#fafafa; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>fable-collector <span class="badge" id="tzBadge"></span></h1>
+    <div class="muted">Tableau de bord statique — lit <code>index.json</code>, <code>catalog.json</code>, <code>windows.json</code> depuis ce dossier.</div>
+    <div class="spacer"></div>
+    <button class="btn" onclick="location.reload()">Recharger ↻</button>
+  </header>
+
+  <section id="resume" class="grid"></section>
+
+  <h2>Fenêtres Family GO (selon <code>windows.json</code>)</h2>
+  <div id="windows"></div>
+
+  <h2>Fichiers de la dernière collecte (<code>catalog.json</code>)</h2>
+  <div class="muted small">Clique sur un nom de fichier pour l’ouvrir.</div>
+  <table id="filesTbl">
+    <thead><tr><th>Fichier</th><th>Taille</th><th>Modifié</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    // --- utilitaires ---
+    const tzLocal = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+    document.getElementById("tzBadge").textContent = tzLocal;
+
+    const fmtLocal = (iso) => {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d)) return iso;
+        const p = (n)=>String(n).padStart(2,'0');
+        return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+      } catch { return iso; }
+    };
+    const humanSize = (n) => {
+      if (typeof n !== "number") return "";
+      const u = ["B","KB","MB","GB"];
+      let i = 0, v = n;
+      while (v >= 1024 && i < u.length-1) { v /= 1024; i++; }
+      return `${v.toFixed(v<10?1:0)} ${u[i]}`;
+    };
+    const el = (tag, attrs={}, children=[]) => {
+      const x = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v]) => {
+        if (k==="class") x.className = v; else if (k==="html") x.innerHTML=v; else x.setAttribute(k,v);
+      });
+      children.forEach(c => x.appendChild(typeof c==="string" ? document.createTextNode(c) : c));
+      return x;
+    };
+    const fetchJson = async (path) => {
+      try {
+        const r = await fetch(path, {cache:"no-store"});
+        if (!r.ok) throw new Error(r.status);
+        return await r.json();
+      } catch (e) { return null; }
+    };
+
+    // --- charge et rend ---
+    (async () => {
+      const [indexJ, catalogJ, windowsJ] = await Promise.all([
+        fetchJson("index.json"),
+        fetchJson("catalog.json"),
+        fetchJson("windows.json"),
+      ]);
+
+      // Résumé
+      const resume = document.getElementById("resume");
+      resume.innerHTML = "";
+      const cardIndex = el("div", {class:"card"},
+        [
+          el("div", {class:"muted small"}, ["index.json"]),
+          el("div", {class:"mono"}, [indexJ ? (indexJ.generated_at||"—") : "manquant"]),
+          el("div", {class:"small muted"}, ["Horodatage d’index (collector)"])
+        ]);
+      const cardCatalog = el("div", {class:"card"},
+        [
+          el("div", {class:"muted small"}, ["catalog.json"]),
+          el("div", {}, [catalogJ ? `${(catalogJ.files||[]).length} fichier(s)` : "manquant"]),
+          el("div", {class:"small muted"}, ["Liste des JSON présents"])
+        ]);
+      const cardWindows = el("div", {class:"card"},
+        [
+          el("div", {class:"muted small"}, ["windows.json"]),
+          el("div", {}, [windowsJ ? "chargé" : "manquant"]),
+          el("div", {class:"small muted"}, ["Fenêtres Family GO détectées"])
+        ]);
+      resume.append(cardIndex, cardCatalog, cardWindows);
+
+      // Fenêtres
+      const winRoot = document.getElementById("windows");
+      winRoot.innerHTML = "";
+      if (!windowsJ || !Array.isArray(windowsJ.windows) || windowsJ.windows.length === 0) {
+        winRoot.append(el("p", {class:"muted"}, ["Aucune fenêtre Family GO détectée (ou fichier absent)."]));
+      } else {
+        windowsJ.windows.forEach(dest => {
+          const box = el("div", {class:"card"});
+          box.append(
+            el("div", {class:"mono"}, [dest.dest_name || dest.dest_slug || "Destination"]),
+          );
+          const list = el("ul");
+          (dest.windows||[]).forEach(seg => {
+            const cat = seg.category || "-";
+            list.append(
+              el("li", {}, [
+                `${fmtLocal(seg.start)} → ${fmtLocal(seg.end)}  `,
+                el("span", {class:"pill"}, [`${seg.hours} h`]),
+                "  ·  ",
+                el("span", {class:"muted small"}, [cat])
+              ])
+            );
+          });
+          if (!dest.windows || dest.windows.length === 0) {
+            list.append(el("li", {class:"muted"}, ["— aucune fenêtre —"]));
+          }
+          box.append(list);
+          winRoot.append(box);
+        });
+      }
+
+      // Table fichiers
+      const tbody = document.querySelector("#filesTbl tbody");
+      tbody.innerHTML = "";
+      if (!catalogJ || !Array.isArray(catalogJ.files)) {
+        tbody.append(el("tr", {}, [el("td", {colspan:"3", class:"err"}, ["catalog.json manquant ou invalide"])]));
+      } else if (catalogJ.files.length === 0) {
+        tbody.append(el("tr", {}, [el("td", {colspan:"3", class:"muted"}, ["Aucun fichier listé."])]));
+      } else {
+        catalogJ.files.forEach(f => {
+          const tr = el("tr");
+          tr.append(
+            el("td", {}, [el("a", {href: f.path || "#"}, [f.path || "—"])]),
+            el("td", {}, [humanSize(f.size)]),
+            el("td", {}, [f.modified ? fmtLocal(f.modified) : "—"])
+          );
+          tbody.append(tr);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

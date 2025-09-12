@@ -7,128 +7,208 @@
   <style>
     :root{
       --bg:#0b1020;--fg:#e8eef6;--muted:#9fb3c8;--accent:#4cc9f0;
-      --ok:#2dd4bf;--warn:#f59e0b;--bad:#ef4444;--br:#23304a;--card:#0f172a
+      --ok:#2dd4bf;--warn:#f59e0b;--bad:#ef4444;--card:#0f172a;--br:#23304a
     }
-    *{box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;background:var(--bg);color:var(--fg)}
-    a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
-    .wrap{max-width:1080px;margin:22px auto;padding:0 14px}
-    header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
-    header h1{font-size:1.25rem;margin:0}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:24px;background:var(--bg);color:var(--fg)}
+    a{color:var(--accent)}
+    header{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:16px}
+    header h1{font-size:1.4rem;margin:0}
     .pill{border:1px solid var(--br);border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.85rem}
-    .pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
-    .grid{display:grid;grid-template-columns:1fr;gap:12px}
-    @media (min-width:900px){.grid{grid-template-columns:1fr 1fr}}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
     .card{border:1px solid var(--br);background:var(--card);padding:14px;border-radius:14px}
-    h3{margin:0 0 8px 0;font-size:1.05rem;color:var(--fg)}
-    ul{margin:8px 0 0 18px}
-    .small{font-size:.9rem;color:var(--muted)}
     table{width:100%;border-collapse:collapse}
     th,td{padding:8px 10px;border-bottom:1px solid var(--br);font-size:.92rem}
     th{text-align:left;color:var(--muted)}
-    .badge{display:inline-block;border:1px solid var(--br);border-radius:8px;padding:2px 8px;margin-left:6px}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-    footer{margin:14px 0 28px 0;color:var(--muted);font-size:.9rem}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace}
+    .small{font-size:.9rem;color:var(--muted)}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+    footer{margin-top:24px;color:var(--muted);font-size:.9rem}
+    .badge{display:inline-block;background:#152033;border:1px solid var(--br);border-radius:8px;padding:2px 8px;margin-left:6px}
+    .status{display:inline-block;border-radius:8px;padding:2px 8px;margin-left:8px;color:#0b1020;font-weight:600}
+    .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
+    ul{margin:8px 0 0 18px}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>fable-collector — tableau de bord</h1>
-    <span id="tz-pill" class="pill"></span>
-    <span id="gen-pill" class="pill"></span>
-    <span id="status-pill" class="pill bad">Statut : indisponible</span>
-  </header>
+<header>
+  <h1>fable-collector — tableau de bord</h1>
+  <span id="tz" class="pill"></span>
+  <span id="gen" class="pill"></span>
+  <span id="hc" class="status warn">Statut: …</span>
+</header>
 
-  <div class="grid">
-    <section class="card">
-      <h3>Liens rapides</h3>
-      <ul>
-        <li><a href="index.json">index.json</a> <span class="small">— inventaire publié</span></li>
-        <li><a href="status.json">status.json</a> · <a href="status.html">status.html</a> <span class="small">— fraîcheur</span></li>
-        <li><a href="rules.normalized.json">rules.normalized.json</a> <span class="small">— règles normalisées</span></li>
-        <li><a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> <span class="small">— fenêtres détectées</span></li>
-        <li><a href="catalog.json">catalog.json</a> <span class="small">— snapshot des fichiers</span></li>
-      </ul>
-    </section>
-
-    <section class="card">
-      <h3>Résumé fenêtres (48 h)</h3>
-      <div id="wins">Chargement…</div>
-    </section>
+<div class="cards">
+  <div class="card">
+    <h3>Liens rapides</h3>
+    <ul id="quicklinks">
+      <!-- rempli par JS selon fichiers présents -->
+    </ul>
+    <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
   </div>
-
-  <h3 style="margin:16px 0 6px 0">Spots collectés</h3>
-  <section class="card">
-    <table id="files"><thead>
-      <tr><th>Fichier</th><th>Taille</th><th>Modifié (local)</th><th>Type</th></tr>
-    </thead><tbody></tbody></table>
-  </section>
-
-  <footer>
-    <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO et s’entendent côté collecte (souvent Africa/Tunis).</p>
-  </footer>
+  <div class="card">
+    <h3>Résumé fenêtres</h3>
+    <div id="wins">Chargement…</div>
+  </div>
 </div>
+
+<h3 style="margin-top:18px">Spots collectés</h3>
+<div class="card">
+  <table id="files"><thead>
+    <tr><th>Fichier</th><th>Taille</th><th>Modifié</th><th>Type</th></tr>
+  </thead><tbody></tbody></table>
+</div>
+
+<footer>
+  <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO (avec ou sans offset) et s’entendent côté collecte (souvent Africa/Tunis).</p>
+</footer>
 
 <script>
 (async function(){
-  const tzLocal = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
-  document.getElementById('tz-pill').textContent = 'Affichage : ' + tzLocal;
-  document.getElementById('tz2').textContent = tzLocal;
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+  const $ = (sel)=>document.querySelector(sel);
+  const $$ = (sel)=>document.querySelectorAll(sel);
 
-  async function getJSON(url){
+  $('#tz').textContent = 'Affichage: ' + tz;
+  $('#tz2').textContent = tz;
+
+  const wantSpots = [
+    ['Gammarth (home)', 'gammarth-port.json'],
+    ['Sidi Bou Saïd',   'sidi-bou-said.json'],
+    ['Ghar el Melh',    'ghar-el-melh.json'],
+    ['Ras Fartass',     'ras-fartass.json'],
+    ['El Haouaria',     'el-haouaria.json']
+  ];
+
+  const fmtBytes = (n)=>{
+    if(n==null) return '';
+    if(n<1024) return n+' B';
+    if(n<1024*1024) return (n/1024).toFixed(1)+' kB';
+    return (n/1024/1024).toFixed(1)+' MB';
+  };
+  const toLocal = (iso)=>{
+    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString(); }
+    catch(e){ return iso||''; }
+  };
+  const fetchJSON = async (path)=>{
     try{
-      const r = await fetch(url,{cache:'no-store'});
+      const r = await fetch(path, {cache:'no-store'});
       if(!r.ok) throw new Error(r.status+' '+r.statusText);
       return await r.json();
     }catch(e){ return null; }
-  }
-  function fmtBytes(n){ if(!Number.isFinite(n)) return ''; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' kB'; return (n/1048576).toFixed(1)+' MB'; }
-  const toLocal = s => { try{ return new Date(s).toLocaleString(); }catch{ return s||''; } };
+  };
 
-  // --- charge fichiers clés
-  const [idx, cat, wins, stat] = await Promise.all([
-    getJSON('index.json'), getJSON('catalog.json'), getJSON('windows.json'), getJSON('status.json')
-  ]);
+  const index = await fetchJSON('index.json');
+  const status = await fetchJSON('status.json'); // peut être null
+  const windows = await fetchJSON('windows.json'); // peut être null
 
-  // --- "Généré" (prend ce qu'on a)
-  const genAt = (wins && wins.generated_at) || (idx && idx.generated_at) || (stat && stat.generated_at) || null;
-  document.getElementById('gen-pill').textContent = 'Généré : ' + (genAt ? toLocal(genAt) : 'inconnu');
-
-  // --- Statut (si status.json existe)
-  const statusPill = document.getElementById('status-pill');
-  if(stat && typeof stat.all_fresh === 'boolean'){
-    statusPill.className = 'pill ' + (stat.all_fresh ? 'ok' : 'warn');
-    statusPill.textContent = (stat.all_fresh ? 'Statut : OK — fichiers frais' : 'Statut : ATTENTION — fichiers anciens');
-  } // sinon on garde "indisponible" (status.* absent ➜ 404)
-
-  // --- Tableau "Spots collectés"
-  const EXCLUDE = new Set(['index.json','catalog.json','rules.normalized.json','status.json','windows.json']);
-  const tbody = document.querySelector('#files tbody');
-  const files = (cat && Array.isArray(cat.files) ? cat.files : (idx && idx.files) || [])
-               .map(x => typeof x === 'string' ? {path:x} : x);
-
-  if(files.length === 0){
-    tbody.innerHTML = '<tr><td colspan="4" class="small">Aucun fichier listé.</td></tr>';
+  // pastille statut (status.json)
+  const hc = $('#hc');
+  if(status && Array.isArray(status.files)){
+    const ok = !!status.all_fresh;
+    hc.className = 'status ' + (ok ? 'ok' : 'warn');
+    hc.textContent = (ok ? 'Statut: OK (fichiers frais)' : 'Statut: ATTENTION (anciens)');
   }else{
-    // Ne garder que les "spots" (json ≠ fichiers techniques)
-    const spotFiles = files.filter(f => f.path && f.path.endsWith('.json') && !EXCLUDE.has(f.path));
-    for(const f of spotFiles){
+    hc.className = 'status bad';
+    hc.textContent = 'Statut: indisponible';
+  }
+
+  // généré à…
+  const gen = (windows && windows.generated_at) || (index && index.generated_at) || null;
+  $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
+
+  // liens rapides selon fichiers présents
+  const present = new Set((index && index.files || []).map(f => typeof f==='string'? f : f.path));
+  const links = [
+    ['index.json','index.json'],
+    present.has('status.json') ? ['status.json','status.json'] : null,
+    present.has('status.html') ? ['status.html','status.html'] : null,
+    present.has('rules.normalized.json') ? ['rules.normalized.json','rules.normalized.json'] : null,
+    present.has('windows.json') ? ['windows.json','windows.json'] : null
+  ].filter(Boolean);
+  const ql = $('#quicklinks');
+  ql.innerHTML = links.map(([label,href])=>`<li><a href="${href}">${label}</a></li>`).join('');
+
+  // table des fichiers (depuis index.json)
+  const tbody = $('#files tbody');
+  if(!index || !Array.isArray(index.files) || index.files.length===0){
+    tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun fichier listé.</td></tr>';
+  }else{
+    for(const f of index.files){
+      const p = f.path || f;
+      const size = fmtBytes(f.size);
+      const mod  = toLocal(f.modified);
+      let kind = 'spot';
+      if(p === 'index.json') kind = 'index';
+      else if(p === 'status.json' || p === 'status.html') kind = 'status';
+      else if(p === 'rules.normalized.json') kind = 'rules';
+      else if(p === 'windows.json') kind = 'windows';
+
       const tr = document.createElement('tr');
-      tr.innerHTML =
-        `<td><a href="${encodeURIComponent(f.path)}">${f.path}</a></td>
-         <td class="mono">${fmtBytes(f.size)}</td>
-         <td class="mono">${f.modified ? toLocal(f.modified) : ''}</td>
-         <td>spot</td>`;
+      tr.innerHTML = `
+        <td><a href="${encodeURIComponent(p)}">${p}</a></td>
+        <td class="mono">${size||''}</td>
+        <td class="mono">${mod||''}</td>
+        <td>${kind}</td>`;
       tbody.appendChild(tr);
     }
   }
 
-  // --- Résumé fenêtres (on n’affiche que les fenêtres "family")
-  const winsDiv = document.getElementById('wins');
-  if(!wins || !Array.isArray(wins.windows)){
+  // résumé des fenêtres (windows.json)
+  const winsDiv = $('#wins');
+  if(!windows || !Array.isArray(windows.windows)){
     winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
+  }else if(windows.windows.length === 0){
+    winsDiv.innerHTML = '<span class="small">Aucune fenêtre détectée.</span>';
   }else{
-    // Ignorer entrées non-spots (catalog, rules.normalized, etc.)
-    const notSpot = /^(index|catalog|rules\.normalized|windows|status)/i;
-    const ul = document
+    const ul = document.createElement('ul');
+    for(const dest of windows.windows){
+      const name = dest.dest_name || dest.dest_slug || '?';
+      const li = document.createElement('li');
+      const spans = [];
+      if(Array.isArray(dest.windows) && dest.windows.length){
+        for(const seg of dest.windows){
+          const start = seg.start ? toLocal(seg.start) : '?';
+          const end   = seg.end ? toLocal(seg.end) : '?';
+          const conf  = seg.confidence || '';
+          spans.push(`${start} → ${end} <span class="badge">${seg.hours} h</span> <span class="badge">${conf}</span>`);
+        }
+        li.innerHTML = `<span class="ok">${name}</span><br><span class="small">${spans.join('<br>')}</span>`;
+      }else{
+        li.innerHTML = `<span>${name}</span> <span class="small">— aucune fenêtre</span>`;
+      }
+      ul.appendChild(li);
+    }
+    winsDiv.innerHTML = '';
+    winsDiv.appendChild(ul);
+  }
+<details class="card" style="margin-top:16px">
+  <summary style="cursor:pointer">Format JSON (extrait)</summary>
+  <pre class="small" style="white-space:pre-wrap">
+{
+  "meta": {
+    "name": "Gammarth (port)",
+    "slug": "gammarth-port.json",
+    "tz": "Africa/Tunis",
+    "lat": 36.9203,
+    "lon": 10.2846,
+    "sources": ["open-meteo:ecmwf", "open-meteo:marine"]
+  },
+  "hourly": {
+    "time": ["2025-09-12T00:00", "2025-09-12T01:00", "..."],
+    "wind_speed_10m": [..km/h..],
+    "wind_gusts_10m": [..km/h..],
+    "wind_direction_10m": [..deg..],
+    "weather_code": [..wmo..],
+    "visibility": [..m ou km..],
+    "hs": [..m..],       // alias: wave_height
+    "tp": [..s..]        // alias: wave_period
+  }
+}
+  </pre>
+</details>
+
+  
+})();
+</script>
+</body>
+</html>

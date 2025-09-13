@@ -322,8 +322,8 @@ jobs:
           LOG_LEVEL: 'WARNING'
           FABLE_DEBUG_DUMP: '0'
           FABLE_INCLUDE_EXTRAS: '0'
-          FABLE_HTTP_RETRIES: '2'
-          FABLE_HTTP_TIMEOUT_S: '15'
+          FABLE_HTTP_RETRIES: '3'
+          FABLE_HTTP_TIMEOUT_S: '12'
           FABLE_RULES_PATH: rules.yaml         # ← ajouté
         run: |
           set -e

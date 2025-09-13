@@ -100,6 +100,12 @@
   const index = await fetchJSON('index.json');
   const status = await fetchJSON('status.json'); // peut être null
   const windows = await fetchJSON('windows.json'); // peut être null
+  // nouveau : on essaie catalog.json si index.json n'a pas .files
+  const catalog = await fetchJSON('catalog.json'); // peut être null
+
+  const files = (index && Array.isArray(index.files)) ? index.files
+              : (catalog && Array.isArray(catalog.files)) ? catalog.files
+              : [];
 
   // pastille statut (status.json)
   const hc = $('#hc');
@@ -113,11 +119,14 @@
   }
 
   // généré à…
-  const gen = (windows && windows.generated_at) || (index && index.generated_at) || null;
+  const gen = (windows && windows.generated_at)
+           || (index && index.generated_at)
+           || (catalog && catalog.generated_at)
+           || null;
   $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
 
   // liens rapides selon fichiers présents
-  const present = new Set((index && index.files || []).map(f => typeof f==='string'? f : f.path));
+  const present = new Set(files.map(f => typeof f==='string' ? f : f.path));
   const links = [
     ['index.json','index.json'],
     present.has('status.json') ? ['status.json','status.json'] : null,
@@ -130,13 +139,13 @@
 
   // table des fichiers (depuis index.json)
   const tbody = $('#files tbody');
-  if(!index || !Array.isArray(index.files) || index.files.length===0){
+  if(files.length===0){
     tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun fichier listé.</td></tr>';
   }else{
     for(const f of index.files){
-      const p = f.path || f;
-      const size = fmtBytes(f.size);
-      const mod  = toLocal(f.modified);
+      const p = typeof f==='string' ? f : (f.path || '');
+      const size = (typeof f==='string' ? '' : humanSize(f.size));
+      const mod  = (typeof f==='string' ? '' : toLocal(f.modified));
       let kind = 'spot';
       if(p === 'index.json') kind = 'index';
       else if(p === 'status.json' || p === 'status.html') kind = 'status';

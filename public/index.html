@@ -188,7 +188,7 @@
 
   // === Pastille statut ===
   if(status && Array.isArray(status.files)){
-    const ok = !!status.all_fresh;
+    const ok = !!(status.all_fresh || status.status==='ok' || status.state==='ok');
     hc.className = 'status ' + (ok ? 'ok' : 'warn');
     hc.textContent = ok ? 'Statut: OK (fichiers frais)' : 'Statut: ATTENTION (anciens)';
   }else{
@@ -220,22 +220,38 @@
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = filesTableBody;
   const isSpotPath = (p)=> SPOT_FILES.has(p) || (/\.json$/i.test(p) && !(new Set(['index.json','catalog.json','status.json','rules.normalized.json','windows.json']).has(p)));
+
+  const freshThreshold = (()=>{
+    if(!status) return 180; // défaut 3h
+    const cand = [status.threshold_minutes, status.fresh_minutes, status.max_age_minutes, status.expected_interval_minutes, status.expected_minutes];
+    for(const v of cand){ if(typeof v==='number' && isFinite(v)) return v; }
+    return 180;
+  })();
+
   function isFreshEntry(entry, fallbackModIso){
-    if(!entry){
-      if(!fallbackModIso) return null;
+    // Cas avec entrée détaillée dans status.json
+    if(entry){
+      if(typeof entry.fresh === 'boolean') return entry.fresh;
+      if(typeof entry.fresh === 'string') return /^(true|ok|fresh|1)$/i.test(entry.fresh);
+      if(typeof entry.status === 'string' && /^(ok|fresh|green)$/i.test(entry.status)) return true;
+      if(typeof entry.state === 'string' && /^(ok|fresh|green)$/i.test(entry.state)) return true;
+      if('stale' in entry) return !entry.stale;
+      const age = entry.age_minutes ?? entry.age_min ?? entry.minutes ?? entry.age;
+      if(typeof age === 'number' && isFinite(age)) return age <= freshThreshold;
+    }
+    // Fallback: utiliser mtime du fichier si disponible
+    if(fallbackModIso){
       const ageMin = (Date.now() - new Date(fallbackModIso).getTime())/60000;
-      const thr = (status && (status.threshold_minutes||status.max_age_minutes||status.fresh_minutes)) || 180; // défaut 3h
-      return ageMin <= thr;
+      return ageMin <= freshThreshold;
     }
-    if('fresh' in entry) return !!entry.fresh;
-    if('is_fresh' in entry) return !!entry.is_fresh;
-    if('stale' in entry) return !entry.stale;
-    if('age_minutes' in entry){
-      const thr = (status && (status.threshold_minutes||status.max_age_minutes||status.fresh_minutes)) || 180;
-      return entry.age_minutes <= thr;
+    // Dernier recours: si index.generated_at est très récent, considérer frais
+    if(gen){
+      const ageMinGen = (Date.now() - new Date(gen).getTime())/60000;
+      if(ageMinGen <= freshThreshold) return true;
     }
-    return null;
+    return null; // inconnu
   }
+
   const spotRows = files
     .map(f => typeof f==='string' ? {path:f} : f)
     .filter(f => isSpotPath(f.path));

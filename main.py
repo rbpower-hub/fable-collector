@@ -479,6 +479,10 @@ log.info("[rules] loaded digest=%s (squall_delta=%s, onshore=%s, family_hours=%s
          _dget(RULES, "wind.onshore_degrade_kmh", 22),
          _dget(RULES, "family_hours_local.start_h", 8),
          _dget(RULES, "family_hours_local.end_h", 21))
+# --- feature flag (rules.yaml + ENV) pour couper l'HTTP astronomy ---
+DISABLE_ASTRONOMY_HTTP = bool(_dget(RULES, "http.disable_astronomy_http", False)) \
+                         or (os.getenv("FABLE_DISABLE_ASTRONOMY_HTTP", "1") == "1")
+
 
 # PATCH astro/daily — fusion robuste + alignement par dates
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
@@ -567,14 +571,13 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
         except Exception as e:
             log.debug("  DAILY backfill (forecast) failed: %s", e)
 
-    # b) /v1/astronomy : uniquement si moon* manquants
-    if not have_moon:
+    # b) /v1/astronomy : uniquement si moon* manquants ET si non désactivé
+    if not have_moon and not DISABLE_ASTRONOMY_HTTP:
         try:
             aurl = astronomy_url(lat, lon)
             log.debug("  DAILY backfill: astronomy URL=%s", aurl)
+            # appel non bloquant : pas de retry, timeout court
             aa = http_get_json(aurl, retry=0, timeout=min(HTTP_TIMEOUT_S, 6))
-            if os.getenv("FABLE_DISABLE_ASTRONOMY_HTTP","0") == "1":
-                raise RuntimeError("astronomy HTTP disabled")
             if isinstance(aa, dict) and aa.get("daily"):
                 _merge_daily(p, aa)
                 log.info("  DAILY backfill: astronomy keys=%s", list((aa.get("daily") or {}).keys()))
@@ -598,7 +601,7 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
 
                 aurl2 = astronomy_url_no_tf(lat, lon)
                 log.debug("  DAILY backfill: astronomy URL (no timeformat)=%s", aurl2)
-                aa2 = http_get_json(aurl2, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+                aa2 = http_get_json(aurl2, retry=0, timeout=min(HTTP_TIMEOUT_S, 6))
                 if isinstance(aa2, dict) and aa2.get("daily"):
                     _merge_daily(p, aa2)
                     log.info("  DAILY backfill: astronomy(keys, no tf)=%s", list((aa2.get("daily") or {}).keys()))

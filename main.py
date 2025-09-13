@@ -29,9 +29,9 @@ import urllib.request
 HTTP_TIMEOUT_S       = int(os.getenv("FABLE_HTTP_TIMEOUT_S", "10"))
 HTTP_RETRIES         = int(os.getenv("FABLE_HTTP_RETRIES", "1"))
 MODEL_ORDER          = [m.strip() for m in os.getenv(
-    "FABLE_MODEL_ORDER", "ecmwf_ifs04,icon_seamless,gfs_seamless,default"
+    "FABLE_MODEL_ORDER", "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
 ).split(",") if m.strip()]
-SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "70"))
+SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "90"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
 
 logging.basicConfig(

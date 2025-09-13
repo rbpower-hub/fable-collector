@@ -9,14 +9,16 @@
     /* ===== Thème & palette accessibles (AA/AAA) ===== */
     :root{
       --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
-      --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --card:#0f172a; --br:#23304a;
+      --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444; --card:#0f172a; --br:#23304a;
       --badge-bg:#16243a; --badge-br:#2b3b59; --pill-bg:#0d1a2b;
       --link:#7dd3fc;
       --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
     }
-    [data-theme="light"]{
-      --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
-      --ok:#16a34a; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
+    [data-theme="light"]{      --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
+      --ok:#2dd4bf; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
+      --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
+      --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
+    } --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
       --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
       --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
     }
@@ -55,7 +57,7 @@
     .wins .line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--card);margin-bottom:8px}
     .wins .title{font-weight:700}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800; letter-spacing:.2px}
-    .go.family{background: #16a34a; color: #04110a}
+    .go.family{background: var(--ok); color: #04110a}
     .go.expert{background: #f59e0b; color: #160f04}
     .sep{opacity:.6; padding:0 6px}
 
@@ -152,8 +154,8 @@
     try{
       const d = new Date(iso);
       if(isNaN(d)) return iso||'?';
-      // Ex: "Dimanche, 5:00 AM" — format 12h comme demandé
-      return d.toLocaleString('fr-TN', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:true, timeZone: tz });
+      const s = d.toLocaleString('fr-TN', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:true, timeZone: tz });
+      return s.charAt(0).toUpperCase()+s.slice(1);
     }catch(e){ return iso||'?'; }
   };
   const hoursBetween = (a,b)=>{
@@ -198,23 +200,39 @@
            || null;
   $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
 
-  // === (1) Liens rapides — inclure au MINIMUM ces entrées si présentes ===
-  const QUICK_CANDIDATES = [
-    ['index.json', 'index.json'],
-    ['catalog.json', 'catalog.json'],
-    ['windows.json', 'windows.json'],
-    ['windows.md', 'windows.md'],
-    presentPaths.has('status.json') ? ['status.json','status.json'] : null,
-    presentPaths.has('status.html') ? ['status.html','status.html'] : null,
-    presentPaths.has('rules.normalized.json') ? ['rules.normalized.json','rules.normalized.json'] : null,
-  ].filter(Boolean);
-  const ql = $('#quicklinks');
-  const quick = QUICK_CANDIDATES.filter(([label,href])=> presentPaths.has(href));
-  ql.innerHTML = quick.map(([label,href])=>`<li><a href="${href}">${label}</a></li>`).join('');
+  // === (1) Liens rapides — entrées avec descriptions ===
+  const has = (p)=> presentPaths.has(p);
+  const winLinks = [has('windows.json') ? '<a href="windows.json">windows.json</a>' : null,
+                    has('windows.md')   ? '<a href="windows.md">windows.md</a>'     : null]
+                     .filter(Boolean).join(' · ');
+  const items = [];
+  if(has('index.json')) items.push(`<li><a href="index.json">index.json</a> — inventaire produit par <span class="mono">main.py</span></li>`);
+  if(has('catalog.json')) items.push(`<li><a href="catalog.json">catalog.json</a> — liste des fichiers réellement présents</li>`);
+  if(winLinks) items.push(`<li>${winLinks} — fenêtres <span class="mono">Family GO</span> détectées</li>`);
+  if(has('status.json')) items.push(`<li><a href="status.json">status.json</a></li>`);
+  if(has('status.html')) items.push(`<li><a href="status.html">status.html</a></li>`);
+  if(has('rules.normalized.json')) items.push(`<li><a href="rules.normalized.json">rules.normalized.json</a></li>`);
+  ql.innerHTML = items.join('');
 
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = $('#files tbody');
   const isSpotPath = (p)=> SPOT_FILES.has(p) || (/\.json$/i.test(p) && !(new Set(['index.json','catalog.json','status.json','rules.normalized.json','windows.json']).has(p)));
+  function isFreshEntry(entry, fallbackModIso){
+    if(!entry){
+      if(!fallbackModIso) return null;
+      const ageMin = (Date.now() - new Date(fallbackModIso).getTime())/60000;
+      const thr = (status && (status.threshold_minutes||status.max_age_minutes||status.fresh_minutes)) || 180; // défaut 3h
+      return ageMin <= thr;
+    }
+    if('fresh' in entry) return !!entry.fresh;
+    if('is_fresh' in entry) return !!entry.is_fresh;
+    if('stale' in entry) return !entry.stale;
+    if('age_minutes' in entry){
+      const thr = (status && (status.threshold_minutes||status.max_age_minutes||status.fresh_minutes)) || 180;
+      return entry.age_minutes <= thr;
+    }
+    return null;
+  }
   const spotRows = files
     .map(f => typeof f==='string' ? {path:f} : f)
     .filter(f => isSpotPath(f.path));
@@ -235,9 +253,12 @@
       const p = f.path || '';
       const size = f.size!=null ? fmtBytes(f.size) : '';
       const mod  = f.modified ? toLocal(f.modified) : '';
-      const fresh = (status && status.files && status.files.find(s=>s.path===p)) || null;
+      const freshEntry = (status && status.files && status.files.find(s=>s.path===p)) || null;
+      const freshBool = isFreshEntry(freshEntry, f.modified);
       let stat = '';
-      if(fresh){ stat = fresh.fresh ? '<span class="ok">frais</span>' : '<span class="warn">ancien</span>'; }
+      if(freshBool===true) stat = '<span class="ok">frais</span>';
+      else if(freshBool===false) stat = '<span class="warn">ancien</span>';
+      else stat = '';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -255,12 +276,16 @@
   const DEST_OK = new Set([...SPOT_FILES]); // limiter aux spots connus
 
   function labelFor(seg){
-    const raw = (seg.label||seg.kind||seg.type||seg.mode||'').toString().toLowerCase();
-    if(raw.includes('family')) return 'FAMILY GO';
-    if(raw.includes('expert')) return 'EXPERT GO';
-    // fallback: si segment marqué family:true/ expert:true
-    if(seg.family===true) return 'FAMILY GO';
-    if(seg.expert===true) return 'EXPERT GO';
+    const s = (seg.label||seg.kind||seg.type||seg.mode||seg.level||seg.tier||seg.grade||seg.decision||'').toString().toLowerCase();
+    if(/family|famille/.test(s)) return 'FAMILY GO';
+    if(/expert/.test(s)) return 'EXPERT GO';
+    if(Array.isArray(seg.tags)){
+      const tags = seg.tags.map(t=> t && t.toString().toLowerCase());
+      if(tags.some(t=>/family|famille/.test(t))) return 'FAMILY GO';
+      if(tags.some(t=>/expert/.test(t))) return 'EXPERT GO';
+    }
+    if(seg.family===true || seg.family_go===true) return 'FAMILY GO';
+    if(seg.expert===true || seg.expert_only===true) return 'EXPERT GO';
     return 'FENÊTRE';
   }
   function goClass(lbl){

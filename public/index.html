@@ -9,7 +9,9 @@
     /* ===== Thème & palette accessibles (AA/AAA) ===== */
     :root{
       --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
-      --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444; --card:#0f172a; --br:#23304a;
+      /* Mint clair demandé */
+      --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444;
+      --card:#0f172a; --br:#23304a;
       --badge-bg:#16243a; --badge-br:#2b3b59; --pill-bg:#0d1a2b;
       --link:#7dd3fc;
       --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
@@ -37,8 +39,10 @@
     .btn{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:6px 10px; border-radius:9px}
 
     .pill{border:1px solid var(--br);border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.86rem;background:var(--pill-bg)}
-    .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;color:#0b1020;font-weight:700}
+    .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
     .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
+    /* Empêche le conflit .ok/.warn/.bad générique qui colorait le texte comme le fond */
+    .status.ok, .status.warn, .status.bad { color:#081019 !important; }
 
     /* ===== Layout cartes ===== */
     .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
@@ -50,6 +54,7 @@
     /* ===== Liens rapides ===== */
     .quick ul{margin:6px 0 0 18px}
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
+    .off{opacity:.55; pointer-events:none}
 
     /* ===== Résumé fenêtres ===== */
     .wins .line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--card);margin-bottom:8px}
@@ -81,7 +86,7 @@
 </header>
 
 <div class="cards">
-  <!-- === 1) Liens rapides (avec minimum requis) === -->
+  <!-- === 1) Liens rapides (liste fixe demandée, avec descriptions) === -->
   <div class="card quick">
     <h3>Liens rapides</h3>
     <ul id="quicklinks"></ul>
@@ -203,19 +208,16 @@
            || null;
   $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
 
-  // === (1) Liens rapides — entrées avec descriptions ===
-  const has = (p)=> presentPaths.has(p);
-  const winLinks = [has('windows.json') ? '<a href="windows.json">windows.json</a>' : null,
-                    has('windows.md')   ? '<a href="windows.md">windows.md</a>'     : null]
-                     .filter(Boolean).join(' · ');
-  const items = [];
-  if(has('index.json')) items.push(`<li><a href="index.json">index.json</a> — inventaire produit par <span class="mono">main.py</span></li>`);
-  if(has('catalog.json')) items.push(`<li><a href="catalog.json">catalog.json</a> — liste des fichiers réellement présents</li>`);
-  if(winLinks) items.push(`<li>${winLinks} — fenêtres <span class="mono">Family GO</span> détectées</li>`);
-  if(has('status.json')) items.push(`<li><a href="status.json">status.json</a></li>`);
-  if(has('status.html')) items.push(`<li><a href="status.html">status.html</a></li>`);
-  if(has('rules.normalized.json')) items.push(`<li><a href="rules.normalized.json">rules.normalized.json</a></li>`);
-  if(ql) ql.innerHTML = items.join('');
+  // === (1) Liens rapides — liste FIXE avec descriptions ===
+  const exists = (p)=> presentPaths.has(p);
+  const linkOrText = (p, label=p)=> exists(p) ? `<a href="${p}">${label}</a>` : `<span class="off">${label}</span>`;
+  const winBoth = `${linkOrText('windows.json','windows.json')} · ${linkOrText('windows.md','windows.md')}`;
+  const quickHTML = [
+    `<li>${linkOrText('index.json','index.json')} — inventaire produit par <span class="mono">main.py</span></li>`,
+    `<li>${linkOrText('catalog.json','catalog.json')} — liste des fichiers réellement présents</li>`,
+    `<li>${winBoth} — fenêtres <span class="mono">Family GO</span> détectées</li>`
+  ].join('');
+  if(ql) ql.innerHTML = quickHTML;
 
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = filesTableBody;
@@ -229,7 +231,6 @@
   })();
 
   function isFreshEntry(entry, fallbackModIso){
-    // Cas avec entrée détaillée dans status.json
     if(entry){
       if(typeof entry.fresh === 'boolean') return entry.fresh;
       if(typeof entry.fresh === 'string') return /^(true|ok|fresh|1)$/i.test(entry.fresh);
@@ -239,17 +240,15 @@
       const age = entry.age_minutes ?? entry.age_min ?? entry.minutes ?? entry.age;
       if(typeof age === 'number' && isFinite(age)) return age <= freshThreshold;
     }
-    // Fallback: utiliser mtime du fichier si disponible
     if(fallbackModIso){
       const ageMin = (Date.now() - new Date(fallbackModIso).getTime())/60000;
       return ageMin <= freshThreshold;
     }
-    // Dernier recours: si index.generated_at est très récent, considérer frais
     if(gen){
       const ageMinGen = (Date.now() - new Date(gen).getTime())/60000;
       if(ageMinGen <= freshThreshold) return true;
     }
-    return null; // inconnu
+    return null;
   }
 
   const spotRows = files
@@ -259,7 +258,6 @@
   if(spotRows.length===0){
     tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun spot listé.</td></tr>';
   }else{
-    // trier par ordre attendu WANT_SPOTS puis le reste alpha
     const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
     spotRows.sort((a,b)=>{
       const ia = order.has(a.path) ? order.get(a.path) : 1e9;
@@ -291,7 +289,7 @@
   }
 
   // === (2) Résumé fenêtres — uniquement spots avec ≥1 fenêtre ===
-  const DEST_OK = new Set([...SPOT_FILES]); // limiter aux spots connus
+  const DEST_OK = new Set([...SPOT_FILES]);
 
   function labelFor(seg){
     const s = (seg.label||seg.kind||seg.type||seg.mode||seg.level||seg.tier||seg.grade||seg.decision||'').toString().toLowerCase();
@@ -317,8 +315,8 @@
     for(const dest of windows.windows){
       const name = dest.dest_name || dest.dest_slug || '?';
       const slug = dest.dest_slug || dest.slug || dest.file || '';
-      if(slug && !DEST_OK.has(slug)) continue; // n'afficher que les spots
-      if(!Array.isArray(dest.windows) || dest.windows.length===0) continue; // seulement avec fenêtre
+      if(slug && !DEST_OK.has(slug)) continue;
+      if(!Array.isArray(dest.windows) || dest.windows.length===0) continue;
 
       for(const seg of dest.windows){
         const start = seg.start ? toFriendly(seg.start) : '?';
@@ -345,6 +343,9 @@
       items.forEach(el=> winsDiv.appendChild(el));
     }
   }
+
+  // ===== Petits tests non bloquants (debug) =====
+  try{ console.assert(ql && ql.children.length >= 3, 'quicklinks devrait contenir 3 éléments'); }catch(_){}
 })();
 </script>
 

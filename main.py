@@ -572,7 +572,9 @@ def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None
         try:
             aurl = astronomy_url(lat, lon)
             log.debug("  DAILY backfill: astronomy URL=%s", aurl)
-            aa = http_get_json(aurl, retry=HTTP_RETRIES, timeout=HTTP_TIMEOUT_S)
+            aa = http_get_json(aurl, retry=0, timeout=min(HTTP_TIMEOUT_S, 6))
+            if os.getenv("FABLE_DISABLE_ASTRONOMY_HTTP","0") == "1":
+                raise RuntimeError("astronomy HTTP disabled")
             if isinstance(aa, dict) and aa.get("daily"):
                 _merge_daily(p, aa)
                 log.info("  DAILY backfill: astronomy keys=%s", list((aa.get("daily") or {}).keys()))

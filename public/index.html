@@ -136,18 +136,19 @@
   ].filter(Boolean);
   const ql = $('#quicklinks');
   ql.innerHTML = links.map(([label,href])=>`<li><a href="${href}">${label}</a></li>`).join('');
-
-  // table des fichiers (depuis index.json)
+  
+  // table des fichiers (depuis index.json OU catalog.json)
   const tbody = $('#files tbody');
   if(files.length===0){
     tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun fichier listé.</td></tr>';
   }else{
-    for(const f of index.files){
+    for(const f of files){
       const p = typeof f==='string' ? f : (f.path || '');
-      const size = (typeof f==='string' ? '' : humanSize(f.size));
+      const size = (typeof f==='string' ? '' : fmtBytes(f.size));
       const mod  = (typeof f==='string' ? '' : toLocal(f.modified));
       let kind = 'spot';
       if(p === 'index.json') kind = 'index';
+      else if(p === 'catalog.json') kind = 'catalog';     // (optionnel mais propre)
       else if(p === 'status.json' || p === 'status.html') kind = 'status';
       else if(p === 'rules.normalized.json') kind = 'rules';
       else if(p === 'windows.json') kind = 'windows';
@@ -161,6 +162,10 @@
       tbody.appendChild(tr);
     }
   }
+
+    <!-- résumé des fenêtres (windows.json) -->
+  <script>
+  (async function(){ /* …tout le code précédent de ton script ici… */
 
   // résumé des fenêtres (windows.json)
   const winsDiv = $('#wins');
@@ -190,9 +195,13 @@
     winsDiv.innerHTML = '';
     winsDiv.appendChild(ul);
   }
-<details class="card" style="margin-top:16px">
-  <summary style="cursor:pointer">Format JSON (extrait)</summary>
-  <pre class="small" style="white-space:pre-wrap">
+
+  })();
+  </script>
+
+  <details class="card" style="margin-top:16px">
+    <summary style="cursor:pointer">Format JSON (extrait)</summary>
+    <pre class="small" style="white-space:pre-wrap">
 {
   "meta": {
     "name": "Gammarth (port)",
@@ -213,11 +222,8 @@
     "tp": [..s..]        // alias: wave_period
   }
 }
-  </pre>
-</details>
+    </pre>
+  </details>
 
-  
-})();
-</script>
 </body>
 </html>

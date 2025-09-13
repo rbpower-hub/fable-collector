@@ -208,14 +208,12 @@
            || null;
   $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
 
-  // === (1) Liens rapides — liste FIXE avec descriptions ===
-  const exists = (p)=> presentPaths.has(p);
-  const linkOrText = (p, label=p)=> exists(p) ? `<a href="${p}">${label}</a>` : `<span class="off">${label}</span>`;
-  const winBoth = `${linkOrText('windows.json','windows.json')} · ${linkOrText('windows.md','windows.md')}`;
+  // === (1) Liens rapides — liste FIXE avec descriptions (tous cliquables) ===
   const quickHTML = [
-    `<li>${linkOrText('index.json','index.json')} — inventaire produit par <span class="mono">main.py</span></li>`,
-    `<li>${linkOrText('catalog.json','catalog.json')} — liste des fichiers réellement présents</li>`,
-    `<li>${winBoth} — fenêtres <span class="mono">Family GO</span> détectées</li>`
+    `<li><a href="index.json">index.json</a> — inventaire produit par <span class="mono">main.py</span></li>`,
+    `<li><a href="catalog.json">catalog.json</a> — liste des fichiers réellement présents</li>`,
+    `<li><a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> — fenêtres <span class=\"mono\">Family GO</span> détectées</li>`,
+    `<li><a href="rules.normalized.json">rules.normalized.json</a> — règles normalisées en vigueur</li>`
   ].join('');
   if(ql) ql.innerHTML = quickHTML;
 

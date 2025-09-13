@@ -309,6 +309,28 @@ jobs:
           print("   - Waves thresholds:", normalized["family"]["thresholds"]["waves"])
           print("✅ rules.yaml OK")
 
+      - name: Export flags from rules.yaml
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        run: |
+          import os, yaml, pathlib
+          raw = yaml.safe_load(pathlib.Path("rules.yaml").read_text(encoding="utf-8")) or {}
+          http = raw.get("http") or {}
+
+          # Option A: couper totalement l'appel HTTP /v1/astronomy et forcer Astral
+          if str(http.get("disable_astronomy_http", "")).strip().lower() in ("1","true","yes","on"):
+              with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
+                  fh.write("FABLE_DISABLE_ASTRONOMY_HTTP=1\n")
+              print("FABLE_DISABLE_ASTRONOMY_HTTP=1 (from rules.yaml)")
+
+          # (optionnel) centraliser aussi l'ordre des modèles dans rules.yaml:
+          # http:
+          #   model_order: "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
+          mo = (http.get("model_order") or "").strip()
+          if mo:
+              with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
+                  fh.write(f"FABLE_MODEL_ORDER={mo}\n")
+              print(f"FABLE_MODEL_ORDER={mo} (from rules.yaml)")
 
       # --- Collecte JSON ---
       - name: Generate JSON (window, tz, targeting)

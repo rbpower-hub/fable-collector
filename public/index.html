@@ -40,9 +40,7 @@
 <div class="cards">
   <div class="card">
     <h3>Liens rapides</h3>
-    <ul id="quicklinks">
-      <!-- rempli par JS selon fichiers présents -->
-    </ul>
+    <ul id="quicklinks"></ul>
     <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
   </div>
   <div class="card">
@@ -66,7 +64,6 @@
 (async function(){
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
   const $ = (sel)=>document.querySelector(sel);
-  const $$ = (sel)=>document.querySelectorAll(sel);
 
   $('#tz').textContent = 'Affichage: ' + tz;
   $('#tz2').textContent = tz;
@@ -97,11 +94,10 @@
     }catch(e){ return null; }
   };
 
-  const index = await fetchJSON('index.json');
-  const status = await fetchJSON('status.json'); // peut être null
-  const windows = await fetchJSON('windows.json'); // peut être null
-  // nouveau : on essaie catalog.json si index.json n'a pas .files
-  const catalog = await fetchJSON('catalog.json'); // peut être null
+  const index   = await fetchJSON('index.json');
+  const status  = await fetchJSON('status.json');   // peut être null
+  const windows = await fetchJSON('windows.json');  // peut être null
+  const catalog = await fetchJSON('catalog.json');  // peut être null
 
   const files = (index && Array.isArray(index.files)) ? index.files
               : (catalog && Array.isArray(catalog.files)) ? catalog.files
@@ -112,7 +108,7 @@
   if(status && Array.isArray(status.files)){
     const ok = !!status.all_fresh;
     hc.className = 'status ' + (ok ? 'ok' : 'warn');
-    hc.textContent = (ok ? 'Statut: OK (fichiers frais)' : 'Statut: ATTENTION (anciens)');
+    hc.textContent = ok ? 'Statut: OK (fichiers frais)' : 'Statut: ATTENTION (anciens)';
   }else{
     hc.className = 'status bad';
     hc.textContent = 'Statut: indisponible';
@@ -136,7 +132,7 @@
   ].filter(Boolean);
   const ql = $('#quicklinks');
   ql.innerHTML = links.map(([label,href])=>`<li><a href="${href}">${label}</a></li>`).join('');
-  
+
   // table des fichiers (depuis index.json OU catalog.json)
   const tbody = $('#files tbody');
   if(files.length===0){
@@ -148,7 +144,7 @@
       const mod  = (typeof f==='string' ? '' : toLocal(f.modified));
       let kind = 'spot';
       if(p === 'index.json') kind = 'index';
-      else if(p === 'catalog.json') kind = 'catalog';     // (optionnel mais propre)
+      else if(p === 'catalog.json') kind = 'catalog';
       else if(p === 'status.json' || p === 'status.html') kind = 'status';
       else if(p === 'rules.normalized.json') kind = 'rules';
       else if(p === 'windows.json') kind = 'windows';
@@ -162,10 +158,6 @@
       tbody.appendChild(tr);
     }
   }
-
-    <!-- résumé des fenêtres (windows.json) -->
-  <script>
-  (async function(){ /* …tout le code précédent de ton script ici… */
 
   // résumé des fenêtres (windows.json)
   const winsDiv = $('#wins');
@@ -195,13 +187,12 @@
     winsDiv.innerHTML = '';
     winsDiv.appendChild(ul);
   }
+})();
+</script>
 
-  })();
-  </script>
-
-  <details class="card" style="margin-top:16px">
-    <summary style="cursor:pointer">Format JSON (extrait)</summary>
-    <pre class="small" style="white-space:pre-wrap">
+<details class="card" style="margin-top:16px">
+  <summary style="cursor:pointer">Format JSON (extrait)</summary>
+  <pre class="small" style="white-space:pre-wrap">
 {
   "meta": {
     "name": "Gammarth (port)",
@@ -222,8 +213,8 @@
     "tp": [..s..]        // alias: wave_period
   }
 }
-    </pre>
-  </details>
+  </pre>
+</details>
 
 </body>
 </html>

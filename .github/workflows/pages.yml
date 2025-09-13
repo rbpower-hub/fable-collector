@@ -38,8 +38,7 @@ on:
       - "reader.py"
       - "sites.yaml"
       - "rules.yaml"
-      - "static/index.html"    # ← si jamais tu utilises encore le fallback
-      - "static/index.html"    # ← pour relancer le workflow si tu modifies le fichier statique
+      - "stats/index.html"    # ← pour relancer le workflow si tu modifies le fichier statique
       - "public/index.html"    # ← déclenche aussi sur la vraie page publique
 permissions:
   contents: read

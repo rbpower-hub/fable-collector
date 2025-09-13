@@ -10,6 +10,8 @@ wind:
 
 http:
   disable_astronomy_http: true
+  DAILY backfill (astronomy) failed: GET failed ... 404 ...
+
 
 sea:
   family_max_hs_m: 0.5

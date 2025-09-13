@@ -8,6 +8,9 @@ wind:
   nogo_min_kmh: 25
   onshore_degrade_kmh: 22            # >22 onshore => downgrade d’un niveau
 
+http:
+  disable_astronomy_http: true
+
 sea:
   family_max_hs_m: 0.5
   nogo_min_hs_m: 0.8

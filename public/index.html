@@ -14,11 +14,9 @@
       --link:#7dd3fc;
       --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
     }
-    [data-theme="light"]{      --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
+    [data-theme="light"]{
+      --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
       --ok:#2dd4bf; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
-      --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
-      --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
-    } --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
       --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
       --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
     }
@@ -128,6 +126,12 @@
   const $ = (sel)=>document.querySelector(sel);
   const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
 
+  // Elements utilises plus loin
+  const ql = $('#quicklinks');
+  const hc = $('#hc');
+  const winsDiv = $('#wins');
+  const filesTableBody = $('#files tbody');
+
   $('#tz').textContent = 'Affichage: ' + tz;
   $('#tz2').textContent = tz;
 
@@ -183,7 +187,6 @@
   const presentPaths = new Set(files.map(f => typeof f==='string' ? f : f.path));
 
   // === Pastille statut ===
-  const hc = $('#hc');
   if(status && Array.isArray(status.files)){
     const ok = !!status.all_fresh;
     hc.className = 'status ' + (ok ? 'ok' : 'warn');
@@ -212,10 +215,10 @@
   if(has('status.json')) items.push(`<li><a href="status.json">status.json</a></li>`);
   if(has('status.html')) items.push(`<li><a href="status.html">status.html</a></li>`);
   if(has('rules.normalized.json')) items.push(`<li><a href="rules.normalized.json">rules.normalized.json</a></li>`);
-  ql.innerHTML = items.join('');
+  if(ql) ql.innerHTML = items.join('');
 
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
-  const tbody = $('#files tbody');
+  const tbody = filesTableBody;
   const isSpotPath = (p)=> SPOT_FILES.has(p) || (/\.json$/i.test(p) && !(new Set(['index.json','catalog.json','status.json','rules.normalized.json','windows.json']).has(p)));
   function isFreshEntry(entry, fallbackModIso){
     if(!entry){
@@ -272,7 +275,6 @@
   }
 
   // === (2) Résumé fenêtres — uniquement spots avec ≥1 fenêtre ===
-  const winsDiv = $('#wins');
   const DEST_OK = new Set([...SPOT_FILES]); // limiter aux spots connus
 
   function labelFor(seg){

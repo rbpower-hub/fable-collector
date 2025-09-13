@@ -1,32 +1,73 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>fable-collector — tableau de bord</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1020" />
   <style>
+    /* ===== Thème & palette accessibles (AA/AAA) ===== */
     :root{
-      --bg:#0b1020;--fg:#e8eef6;--muted:#9fb3c8;--accent:#4cc9f0;
-      --ok:#2dd4bf;--warn:#f59e0b;--bad:#ef4444;--card:#0f172a;--br:#23304a
+      --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
+      --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --card:#0f172a; --br:#23304a;
+      --badge-bg:#16243a; --badge-br:#2b3b59; --pill-bg:#0d1a2b;
+      --link:#7dd3fc;
+      --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
     }
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:24px;background:var(--bg);color:var(--fg)}
-    a{color:var(--accent)}
-    header{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:16px}
-    header h1{font-size:1.4rem;margin:0}
-    .pill{border:1px solid var(--br);border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.85rem}
-    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-    .card{border:1px solid var(--br);background:var(--card);padding:14px;border-radius:14px}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:8px 10px;border-bottom:1px solid var(--br);font-size:.92rem}
-    th{text-align:left;color:var(--muted)}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace}
-    .small{font-size:.9rem;color:var(--muted)}
-    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-    footer{margin-top:24px;color:var(--muted);font-size:.9rem}
-    .badge{display:inline-block;background:#152033;border:1px solid var(--br);border-radius:8px;padding:2px 8px;margin-left:6px}
-    .status{display:inline-block;border-radius:8px;padding:2px 8px;margin-left:8px;color:#0b1020;font-weight:600}
+    [data-theme="light"]{
+      --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
+      --ok:#16a34a; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
+      --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
+      --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
+    }
+
+    /* ===== Base ===== */
+    html,body{height:100%}
+    body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg)}
+    *{box-sizing:border-box}
+    a{color:var(--link); text-decoration: none}
+    a:hover{text-decoration: underline}
+    h1,h2,h3{margin:0 0 8px 0}
+    .sr-only{position:absolute;left:-9999px}
+
+    /* ===== Header ===== */
+    header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+    header h1{font-size:1.35rem}
+    .spacer{flex:1}
+    .btn{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:6px 10px; border-radius:9px}
+
+    .pill{border:1px solid var(--br);border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.86rem;background:var(--pill-bg)}
+    .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;color:#0b1020;font-weight:700}
     .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
-    ul{margin:8px 0 0 18px}
+
+    /* ===== Layout cartes ===== */
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+    .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
+    .small{font-size:.92rem;color:var(--muted)}
+    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas, "Liberation Mono","Courier New",monospace}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+
+    /* ===== Liens rapides ===== */
+    .quick ul{margin:6px 0 0 18px}
+    .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
+
+    /* ===== Résumé fenêtres ===== */
+    .wins .line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--card);margin-bottom:8px}
+    .wins .title{font-weight:700}
+    .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800; letter-spacing:.2px}
+    .go.family{background: #16a34a; color: #04110a}
+    .go.expert{background: #f59e0b; color: #160f04}
+    .sep{opacity:.6; padding:0 6px}
+
+    /* ===== Tableau radar spots ===== */
+    .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px}
+    table{width:100%; border-collapse:collapse; background:var(--card)}
+    th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
+    th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
+    tr:hover td{background:rgba(76,201,240,.06)}
+
+    footer{margin-top:24px;color:var(--muted);font-size:.9rem}
+    details.card summary{cursor:pointer}
   </style>
 </head>
 <body>
@@ -35,24 +76,30 @@
   <span id="tz" class="pill"></span>
   <span id="gen" class="pill"></span>
   <span id="hc" class="status warn">Statut: …</span>
+  <span class="spacer"></span>
+  <button id="themeBtn" class="btn" title="Basculer clair/sombre">🌙/☀️</button>
 </header>
 
 <div class="cards">
-  <div class="card">
+  <!-- === 1) Liens rapides (avec minimum requis) === -->
+  <div class="card quick">
     <h3>Liens rapides</h3>
     <ul id="quicklinks"></ul>
     <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
   </div>
-  <div class="card">
+
+  <!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
+  <div class="card wins">
     <h3>Résumé fenêtres</h3>
     <div id="wins">Chargement…</div>
   </div>
 </div>
 
-<h3 style="margin-top:18px">Spots collectés</h3>
-<div class="card">
+<!-- === 3) Radar des spots (ex-spots collectés), uniquement fichiers de spots === -->
+<h3 style="margin-top:18px">Radar des spots</h3>
+<div class="card table-wrap">
   <table id="files"><thead>
-    <tr><th>Fichier</th><th>Taille</th><th>Modifié</th><th>Type</th></tr>
+    <tr><th>Spot (fichier)</th><th>Taille</th><th>Modifié</th><th>Statut</th></tr>
   </thead><tbody></tbody></table>
 </div>
 
@@ -61,20 +108,35 @@
 </footer>
 
 <script>
+(function(){
+  // === Préférences de thème ===
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme');
+  if(saved){ root.setAttribute('data-theme', saved); }
+  document.getElementById('themeBtn').addEventListener('click', ()=>{
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next); localStorage.setItem('theme', next);
+  });
+})();
+</script>
+
+<script>
 (async function(){
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
   const $ = (sel)=>document.querySelector(sel);
+  const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
 
   $('#tz').textContent = 'Affichage: ' + tz;
   $('#tz2').textContent = tz;
 
-  const wantSpots = [
+  const WANT_SPOTS = [
     ['Gammarth (home)', 'gammarth-port.json'],
     ['Sidi Bou Saïd',   'sidi-bou-said.json'],
     ['Ghar el Melh',    'ghar-el-melh.json'],
     ['Ras Fartass',     'ras-fartass.json'],
     ['El Haouaria',     'el-haouaria.json']
   ];
+  const SPOT_FILES = new Set(WANT_SPOTS.map(x=>x[1]));
 
   const fmtBytes = (n)=>{
     if(n==null) return '';
@@ -83,8 +145,22 @@
     return (n/1024/1024).toFixed(1)+' MB';
   };
   const toLocal = (iso)=>{
-    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString(); }
+    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString('fr-TN', { timeZone: tz }); }
     catch(e){ return iso||''; }
+  };
+  const toFriendly = (iso)=>{
+    try{
+      const d = new Date(iso);
+      if(isNaN(d)) return iso||'?';
+      // Ex: "Dimanche, 5:00 AM" — format 12h comme demandé
+      return d.toLocaleString('fr-TN', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:true, timeZone: tz });
+    }catch(e){ return iso||'?'; }
+  };
+  const hoursBetween = (a,b)=>{
+    const da = new Date(a), db = new Date(b);
+    if(isNaN(da) || isNaN(db)) return '';
+    const h = Math.round((db - da) / 36e5);
+    return h;
   };
   const fetchJSON = async (path)=>{
     try{
@@ -102,8 +178,9 @@
   const files = (index && Array.isArray(index.files)) ? index.files
               : (catalog && Array.isArray(catalog.files)) ? catalog.files
               : [];
+  const presentPaths = new Set(files.map(f => typeof f==='string' ? f : f.path));
 
-  // pastille statut (status.json)
+  // === Pastille statut ===
   const hc = $('#hc');
   if(status && Array.isArray(status.files)){
     const ok = !!status.all_fresh;
@@ -114,84 +191,122 @@
     hc.textContent = 'Statut: indisponible';
   }
 
-  // généré à…
+  // === Généré à… ===
   const gen = (windows && windows.generated_at)
            || (index && index.generated_at)
            || (catalog && catalog.generated_at)
            || null;
   $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
 
-  // liens rapides selon fichiers présents
-  const present = new Set(files.map(f => typeof f==='string' ? f : f.path));
-  const links = [
-    ['index.json','index.json'],
-    present.has('status.json') ? ['status.json','status.json'] : null,
-    present.has('status.html') ? ['status.html','status.html'] : null,
-    present.has('rules.normalized.json') ? ['rules.normalized.json','rules.normalized.json'] : null,
-    present.has('windows.json') ? ['windows.json','windows.json'] : null
+  // === (1) Liens rapides — inclure au MINIMUM ces entrées si présentes ===
+  const QUICK_CANDIDATES = [
+    ['index.json', 'index.json'],
+    ['catalog.json', 'catalog.json'],
+    ['windows.json', 'windows.json'],
+    ['windows.md', 'windows.md'],
+    presentPaths.has('status.json') ? ['status.json','status.json'] : null,
+    presentPaths.has('status.html') ? ['status.html','status.html'] : null,
+    presentPaths.has('rules.normalized.json') ? ['rules.normalized.json','rules.normalized.json'] : null,
   ].filter(Boolean);
   const ql = $('#quicklinks');
-  ql.innerHTML = links.map(([label,href])=>`<li><a href="${href}">${label}</a></li>`).join('');
+  const quick = QUICK_CANDIDATES.filter(([label,href])=> presentPaths.has(href));
+  ql.innerHTML = quick.map(([label,href])=>`<li><a href="${href}">${label}</a></li>`).join('');
 
-  // table des fichiers (depuis index.json OU catalog.json)
+  // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = $('#files tbody');
-  if(files.length===0){
-    tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun fichier listé.</td></tr>';
+  const isSpotPath = (p)=> SPOT_FILES.has(p) || (/\.json$/i.test(p) && !(new Set(['index.json','catalog.json','status.json','rules.normalized.json','windows.json']).has(p)));
+  const spotRows = files
+    .map(f => typeof f==='string' ? {path:f} : f)
+    .filter(f => isSpotPath(f.path));
+
+  if(spotRows.length===0){
+    tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun spot listé.</td></tr>';
   }else{
-    for(const f of files){
-      const p = typeof f==='string' ? f : (f.path || '');
-      const size = (typeof f==='string' ? '' : fmtBytes(f.size));
-      const mod  = (typeof f==='string' ? '' : toLocal(f.modified));
-      let kind = 'spot';
-      if(p === 'index.json') kind = 'index';
-      else if(p === 'catalog.json') kind = 'catalog';
-      else if(p === 'status.json' || p === 'status.html') kind = 'status';
-      else if(p === 'rules.normalized.json') kind = 'rules';
-      else if(p === 'windows.json') kind = 'windows';
+    // trier par ordre attendu WANT_SPOTS puis le reste alpha
+    const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
+    spotRows.sort((a,b)=>{
+      const ia = order.has(a.path) ? order.get(a.path) : 1e9;
+      const ib = order.has(b.path) ? order.get(b.path) : 1e9;
+      if(ia!==ib) return ia-ib;
+      return (a.path||'').localeCompare(b.path||'');
+    });
+
+    for(const f of spotRows){
+      const p = f.path || '';
+      const size = f.size!=null ? fmtBytes(f.size) : '';
+      const mod  = f.modified ? toLocal(f.modified) : '';
+      const fresh = (status && status.files && status.files.find(s=>s.path===p)) || null;
+      let stat = '';
+      if(fresh){ stat = fresh.fresh ? '<span class="ok">frais</span>' : '<span class="warn">ancien</span>'; }
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><a href="${encodeURIComponent(p)}">${p}</a></td>
+        <td><a href="${encodeURIComponent(p)}">${WANT_SPOTS.find(x=>x[1]===p)?.[0] || p}</a>
+          <span class="badge mono">${p}</span></td>
         <td class="mono">${size||''}</td>
         <td class="mono">${mod||''}</td>
-        <td>${kind}</td>`;
+        <td>${stat}</td>`;
       tbody.appendChild(tr);
     }
   }
 
-  // résumé des fenêtres (windows.json)
+  // === (2) Résumé fenêtres — uniquement spots avec ≥1 fenêtre ===
   const winsDiv = $('#wins');
+  const DEST_OK = new Set([...SPOT_FILES]); // limiter aux spots connus
+
+  function labelFor(seg){
+    const raw = (seg.label||seg.kind||seg.type||seg.mode||'').toString().toLowerCase();
+    if(raw.includes('family')) return 'FAMILY GO';
+    if(raw.includes('expert')) return 'EXPERT GO';
+    // fallback: si segment marqué family:true/ expert:true
+    if(seg.family===true) return 'FAMILY GO';
+    if(seg.expert===true) return 'EXPERT GO';
+    return 'FENÊTRE';
+  }
+  function goClass(lbl){
+    return lbl.startsWith('FAMILY') ? 'family' : (lbl.startsWith('EXPERT') ? 'expert' : '');
+  }
+
   if(!windows || !Array.isArray(windows.windows)){
     winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
-  }else if(windows.windows.length === 0){
-    winsDiv.innerHTML = '<span class="small">Aucune fenêtre détectée.</span>';
   }else{
-    const ul = document.createElement('ul');
+    const items = [];
     for(const dest of windows.windows){
       const name = dest.dest_name || dest.dest_slug || '?';
-      const li = document.createElement('li');
-      const spans = [];
-      if(Array.isArray(dest.windows) && dest.windows.length){
-        for(const seg of dest.windows){
-          const start = seg.start ? toLocal(seg.start) : '?';
-          const end   = seg.end ? toLocal(seg.end) : '?';
-          const conf  = seg.confidence || '';
-          spans.push(`${start} → ${end} <span class="badge">${seg.hours} h</span> <span class="badge">${conf}</span>`);
-        }
-        li.innerHTML = `<span class="ok">${name}</span><br><span class="small">${spans.join('<br>')}</span>`;
-      }else{
-        li.innerHTML = `<span>${name}</span> <span class="small">— aucune fenêtre</span>`;
+      const slug = dest.dest_slug || dest.slug || dest.file || '';
+      if(slug && !DEST_OK.has(slug)) continue; // n'afficher que les spots
+      if(!Array.isArray(dest.windows) || dest.windows.length===0) continue; // seulement avec fenêtre
+
+      for(const seg of dest.windows){
+        const start = seg.start ? toFriendly(seg.start) : '?';
+        const end   = seg.end ? toFriendly(seg.end) : '?';
+        const dur   = seg.hours || hoursBetween(seg.start, seg.end) || '';
+        const conf  = (seg.confidence || seg.conf || '').toString();
+        const lbl   = labelFor(seg);
+        const cls   = goClass(lbl);
+
+        const line = document.createElement('div');
+        line.className = 'line';
+        line.innerHTML = `
+          <div class="title">${name} <span class="go ${cls}">${lbl}</span></div>
+          <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''} <span class="sep">⟷</span> ${conf || ''}</div>
+        `;
+        items.push(line);
       }
-      ul.appendChild(li);
     }
-    winsDiv.innerHTML = '';
-    winsDiv.appendChild(ul);
+
+    if(items.length===0){
+      winsDiv.innerHTML = '<span class="small">Aucune fenêtre détectée.</span>';
+    }else{
+      winsDiv.innerHTML = '';
+      items.forEach(el=> winsDiv.appendChild(el));
+    }
   }
 })();
 </script>
 
 <details class="card" style="margin-top:16px">
-  <summary style="cursor:pointer">Format JSON (extrait)</summary>
+  <summary>Format JSON (extrait)</summary>
   <pre class="small" style="white-space:pre-wrap">
 {
   "meta": {

@@ -38,8 +38,9 @@ on:
       - "reader.py"
       - "sites.yaml"
       - "rules.yaml"
+      - "static/index.html"    # ← si jamais tu utilises encore le fallback
       - "static/index.html"    # ← pour relancer le workflow si tu modifies le fichier statique
-
+      - "public/index.html"    # ← déclenche aussi sur la vraie page publique
 permissions:
   contents: read
   pages: write
@@ -75,6 +76,8 @@ jobs:
           TZ_INPUT="${INPUT_TZ:-$DEFAULT_TZ}"
           HOURS_CSV="${INPUT_HOURS:-$DEFAULT_LOCAL_HOURS}"
           FORCE="${INPUT_FORCE}"
+          # Si l'événement est un push, on force un run immédiat
+          [ "${{ github.event_name }}" = "push" ] && FORCE="true"
 
           if [ "$FORCE" = "true" ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
@@ -552,6 +555,46 @@ jobs:
       - name: Setup Pages
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/configure-pages@v5
+
+      - name: Build status.json + status.html (inline healthcheck)
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        env:
+          TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
+        run: |
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+          tz = ZoneInfo("${{ steps.gate.outputs.tz_effective }}")
+          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
+          cat = json.loads((pub/"catalog.json").read_text(encoding="utf-8"))
+          files = cat.get("files", [])
+          # Fraîcheur: on considère "frais" si tous les JSON ont < 3h
+          now = datetime.datetime.now(tz)
+          stale = []
+          for f in files:
+              p = pub / f["path"]
+              # ignore catalog.json lui-même
+              if p.name in ("catalog.json",): 
+                  continue
+              m = datetime.datetime.fromisoformat(f["modified"])
+              age_h = (now - m).total_seconds()/3600.0
+              if age_h > 3:
+                  stale.append({"path": p.name, "age_h": round(age_h,2)})
+          status = {
+              "generated_at": now.isoformat(),
+              "all_fresh": len(stale)==0,
+              "stale": stale,
+              "files": files,
+          }
+          (pub/"status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+          (pub/"status.html").write_text(
+              "<!doctype html><meta charset='utf-8'><title>status</title>"
+              f"<p>Généré: {now.strftime('%Y-%m-%d %H:%M %Z')}</p>"
+              + ("<p>OK</p>" if not stale else f"<p>Stale: {len(stale)}</p>"),
+              encoding="utf-8"
+          )
+          print("✅ status.json/html générés")
+
 
       - name: Upload artifact
         if: steps.gate.outputs.should_run == 'true'

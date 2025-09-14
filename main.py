@@ -1025,6 +1025,7 @@ for site in selected_sites:
                     "model_order": MODEL_ORDER,
                     "model_used": wx.get("_model_used", "unknown"),
                     "units": e_units,
+                    "parallel_models": list(models_parallel.keys()),
                 },
                 "marine_open_meteo": {
                     "endpoint": "https://marine-api.open-meteo.com/v1/marine",
@@ -1046,6 +1047,7 @@ for site in selected_sites:
                     "marine":   keep_sea[:6] + (["..."] if len(keep_sea) > 6 else []),
                 },
                 "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S}
+                "parallel_models_count": len(models_parallel),
             },
         },
         "ecmwf": ecmwf_slice,
@@ -1053,6 +1055,7 @@ for site in selected_sites:
         "daily": daily,
         "daily_units": d_units,   # expose aussi les unités daily
         "hourly": hourly_flat,
+        "models": models_parallel,  # <-- NOUVEAU : séries vent parallèles alignées
         "status": "ok",
     }
 

@@ -292,15 +292,32 @@ def load_site(path: Path) -> Site:
         else:
             vis_km = [float(v) if v is not None else None for v in vis]
 
-    wind_models = {
-        "om": {
-            "wind_speed_10m":     hourly.get("wind_speed_10m"),
-            "wind_gusts_10m":     hourly.get("wind_gusts_10m"),
-            "wind_direction_10m": hourly.get("wind_direction_10m"),
-            "weather_code":       hourly.get("weather_code"),
-            "visibility_km":      vis_km,
+    wind_models = {}
+    # [NOUVEAU] support des séries multi-modèles alignées par le collector
+    models = d.get("models") or {}
+    if isinstance(models, dict) and models:
+        for mname, mobj in models.items():
+            hh = (mobj.get("hourly") or {})
+            if not isinstance(hh, dict): 
+                continue
+            wind_models[mname] = {
+                "wind_speed_10m":     hh.get("wind_speed_10m"),
+                "wind_gusts_10m":     hh.get("wind_gusts_10m"),
+                "wind_direction_10m": hh.get("wind_direction_10m"),
+                "weather_code":       hh.get("weather_code"),
+                "visibility_km":      ([(v/1000.0) if isinstance(v,(int,float)) and v>50 else (float(v) if v is not None else None) for v in (hh.get("visibility") or [])] if isinstance(hh.get("visibility"), list) else None),
+            }
+    # Fallback compat si aucun modèle parallèle exposé
+    if not wind_models:
+        wind_models = {
+            "om": {
+                "wind_speed_10m":     hourly.get("wind_speed_10m"),
+                "wind_gusts_10m":     hourly.get("wind_gusts_10m"),
+                "wind_direction_10m": hourly.get("wind_direction_10m"),
+                "weather_code":       hourly.get("weather_code"),
+                "visibility_km":      vis_km,
+            }
         }
-    }
     waves = {
         "significant_wave_height": hourly.get("hs") or hourly.get("wave_height"),
         "wave_period":             hourly.get("tp") or hourly.get("wave_period"),

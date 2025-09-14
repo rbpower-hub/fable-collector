@@ -362,15 +362,15 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
         wc = arrs.get("weather_code") or []
 
         has_triplet = (
-            i < len(sp) and sp[i] is not None and
-            i < len(gu) and gu[i] is not None and
-            i < len(di) and di[i] is not None
+            idx < len(sp) and sp[idx] is not None and
+            idx < len(gu) and gu[idx] is not None and
+            idx < len(di) and di[idx] is not None
         )
         if has_triplet:
-            speeds.append(sp[i]); gusts.append(gu[i]); dirs.append(di[i])
-            if i < len(vc) and vc[i] is not None: vis.append(vc[i])
-            if i < len(wc) and wc[i] is not None:
-                try: codes.append(int(wc[i]))
+            speeds.append(sp[idx]); gusts.append(gu[idx]); dirs.append(di[idx])
+            if idx < len(vc) and vc[idx] is not None: vis.append(vc[idx])
+            if idx < len(wc) and wc[idx] is not None:
+                try: codes.append(int(wc[idx]))
                 except: pass
             n_models += 1
 

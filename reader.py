@@ -607,11 +607,23 @@ def detect_windows(home: Site, dest: Site, min_h: int, max_h: int) -> List[Dict[
             window_dts = dest.times[i:best_end]
             category = "family" if _all_in_family_hours_dts(window_dts, dest.tz) else "off_hours"
 
+            conf = compute_confidence(dest, i, best_end - 1)
+            # diagnostics utiles
+            wind_models_per_hour = [worst_metrics_at_hour(dest, j).n_models for j in range(i, best_end)]
+            avg_spread = (statistics.mean([worst_metrics_at_hour(dest, j).spread_speed
+                                           for j in range(i, best_end)
+                                           if worst_metrics_at_hour(dest, j).spread_speed is not None])
+                          if any(worst_metrics_at_hour(dest, j).spread_speed is not None for j in range(i, best_end))
+                          else None)
             windows.append({
                 "start": start_dt.isoformat(),
                 "end": end_dt.isoformat(),
                 "hours": best_end - i,
-                "confidence": compute_confidence(dest, i, best_end - 1),
+                "confidence": conf,
+                "confidence_details": {
+                    "min_wind_models_per_hour": min(wind_models_per_hour) if wind_models_per_hour else 0,
+                    "avg_wind_spread_kmh": round(avg_spread, 2) if isinstance(avg_spread, (int, float)) else None
+                },
                 "category": category,
                 "reason": "valid_FAMILY_rules" + ("" if category == "family" else "_outside_08_21"),
             })

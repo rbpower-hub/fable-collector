@@ -954,7 +954,49 @@ for site in selected_sites:
     nn_marine = non_null_count(marine_slice, ["wave_height","wave_period","swell_wave_height","swell_wave_period"])
 
     # --- Construction du payload JSON ---
-    out: Dict[str, Any] = {
+    # ---------- [NOUVEAU] fonctions d’appoint pour les modèles parallèles ----------
+    def _align_model_to_axis(model_slice: Dict[str, Any], axis: list[str]) -> Dict[str, list]:
+        # aligne un slice forecast (time + wind_* listes) sur l’axe 'axis'
+        te = model_slice.get("time") or []
+        idx = {t:i for i,t in enumerate(te)}
+        def pick(key: str):
+            src = model_slice.get(key) or []
+            out = []
+            for t in axis:
+                j = idx.get(t)
+                out.append(src[j] if (j is not None and j < len(src)) else None)
+            return out
+        aligned = {"time": list(axis)}
+        for k in ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]:
+            if k in model_slice:
+                aligned[k] = pick(k)
+        return aligned
+
+    models_parallel: dict[str, dict] = {}
+    try:
+        WANT = [m for m in ["ecmwf_ifs04","icon_seamless"] if m]  # extensible (ex: "gfs_seamless")
+        for m in WANT:
+            # saute le modèle déjà utilisé comme primaire si identique
+            if wx.get("_model_used") == m:
+                # on peut tout de même publier la série primaire sous 'models' pour homogénéité
+                mslice = slice_by_indices(wx, ECMWF_KEYS, keep_wx)
+            else:
+                # requête dédiée par modèle, avec budget restant
+                if time.monotonic() > site_deadline: break
+                url_m = forecast_url(lat, lon, m, hourly_keys=ECMWF_KEYS, include_daily=False)
+                pm = http_get_json(url_m, retry=0, timeout=min(HTTP_TIMEOUT_S, 6))
+                if payload_has_error(pm): continue
+                pm = normalize_hourly_keys(pm)
+                if not has_wind_arrays(pm): continue
+                mslice = slice_by_indices(pm, ECMWF_KEYS, indices_in_window((pm.get("hourly") or {}).get("time") or [], start_local, end_local, TZ))
+            # aligne ce modèle sur l’axe 'hourly_flat.time'
+            aligned = _align_model_to_axis(mslice, hourly_flat.get("time") or [])
+            if aligned.get("time"):
+                models_parallel[m] = {"hourly": aligned}
+    except Exception as e:
+        log.debug("parallel models fetch failed: %s", e)
+
+    out: Dict[str, Any] = {        
         "meta": {
             "name": name, "slug": slug, "lat": lat, "lon": lon, "tz": TZ_NAME,
             "generated_at": dt.datetime.now(TZ).isoformat(),

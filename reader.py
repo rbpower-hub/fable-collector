@@ -355,26 +355,23 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
     n_models = 0
 
     for _, arrs in site.wind_models.items():
-        sp = arrs.get("wind_speed_10m")
-        gu = arrs.get("wind_gusts_10m")
-        di = arrs.get("wind_direction_10m")
-        vc = arrs.get("visibility_km")
-        wc = arrs.get("weather_code")
+        sp = arrs.get("wind_speed_10m") or []
+        gu = arrs.get("wind_gusts_10m") or []
+        di = arrs.get("wind_direction_10m") or []
+        vc = arrs.get("visibility_km") or []
+        wc = arrs.get("weather_code") or []
 
-        if sp and idx < len(sp) and sp[idx] is not None:
-            speeds.append(sp[idx])
-        if gu and idx < len(gu) and gu[idx] is not None:
-            gusts.append(gu[idx])
-        if di and idx < len(di) and di[idx] is not None:
-            dirs.append(di[idx])
-        if vc and idx < len(vc) and vc[idx] is not None:
-            vis.append(vc[idx])
-        if wc and idx < len(wc) and wc[idx] is not None:
-            try:
-                codes.append(int(wc[idx]))
-            except Exception:
-                pass
-                       
+        has_triplet = (
+            i < len(sp) and sp[i] is not None and
+            i < len(gu) and gu[i] is not None and
+            i < len(di) and di[i] is not None
+        )
+        if has_triplet:
+            speeds.append(sp[i]); gusts.append(gu[i]); dirs.append(di[i])
+            if i < len(vc) and vc[i] is not None: vis.append(vc[i])
+            if i < len(wc) and wc[i] is not None:
+                try: codes.append(int(wc[i]))
+                except: pass
             n_models += 1
 
     hs_arr = site.waves.get("significant_wave_height") or site.waves.get("wave_height")

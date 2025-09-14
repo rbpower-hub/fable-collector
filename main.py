@@ -35,10 +35,17 @@ SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "90"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
 
 logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "WARNING"),
+    level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 log = logging.getLogger("fable-collector")
+
+# Modèles parallèles à tenter (en plus du primaire choisi pour hourly)
+PARALLEL_MODELS        = [m.strip() for m in os.getenv(
+    "FABLE_PARALLEL_MODELS", "ecmwf_ifs04,icon_seamless,gfs_seamless"
+).split(",") if m.strip()]
+PARALLEL_TIMEOUT_S     = int(os.getenv("FABLE_PARALLEL_TIMEOUT_S", "10"))
+PARALLEL_RETRIES       = int(os.getenv("FABLE_PARALLEL_RETRIES", "0"))  # appels parallèles = best-effort
 
 # ➕ Debug dumps activables
 DEBUG_DUMP = os.getenv("FABLE_DEBUG_DUMP", "0") == "1"
@@ -813,6 +820,74 @@ def slice_by_indices(payload: Dict[str, Any], keys: List[str], keep_idx: List[in
         if series:
             out[k] = [series[i] for i in keep_idx if i < len(series)]
     return out
+    
+def _align_model_to_axis(model_slice: Dict[str, Any], axis: list[str]) -> Dict[str, list]:
+    """Aligne un slice forecast (time + variables vent) sur l’axe commun `axis`."""
+    te = model_slice.get("time") or []
+    idx = {t: i for i, t in enumerate(te)}
+    def pick(key: str) -> list:
+        arr = model_slice.get(key) or []
+        out = []
+        for t in axis:
+            j = idx.get(t)
+            out.append(arr[j] if (j is not None and j < len(arr)) else None)
+        return out
+
+    aligned = {"time": list(axis)}
+    for k in ["wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "weather_code", "visibility"]:
+        if k in (model_slice or {}):
+            aligned[k] = pick(k)
+    return aligned
+
+
+def fetch_parallel_models(
+    lat: float, lon: float, axis: list[str],
+    start_local: dt.datetime, end_local: dt.datetime, tz: ZoneInfo,
+    primary_used: Optional[str], site_deadline: float
+) -> tuple[dict, list]:
+    """
+    Tente de récupérer ≥1 modèle vent additionnel et de l’aligner sur `axis`.
+    Retourne: (models_parallel: dict[str, {"hourly": {...}}], attempts_debug: list[dict]).
+    """
+    models_out: dict[str, dict] = {}
+    attempts: list[dict] = []
+
+    # Ne pas retenter le primaire sous un autre nom, et dédupliquer via expand_models()
+    wanted = [m for m in expand_models(PARALLEL_MODELS) if m and m != (primary_used or "")]
+    for m in wanted:
+        status = "unknown"; url = None
+        # On garde un peu de marge budget (1.5s) pour éviter l’arrêt abrupt
+        if time.monotonic() > site_deadline - 1.5:
+            attempts.append({"model": m, "status": "budget_exceeded"})
+            continue
+        try:
+            url = forecast_url(lat, lon, m, hourly_keys=ECMWF_KEYS, include_daily=False)
+            p = http_get_json(url, retry=PARALLEL_RETRIES, timeout=min(PARALLEL_TIMEOUT_S, HTTP_TIMEOUT_S))
+            if payload_has_error(p):
+                status = f"payload_error:{api_reason(p)}"; attempts.append({"model": m, "status": status, "url": url}); continue
+
+            p = normalize_hourly_keys(p)
+            if not has_wind_arrays(p):
+                status = "no_wind_arrays"; attempts.append({"model": m, "status": status, "url": url}); continue
+
+            # Slicing sur la même fenêtre temporelle
+            keep_idx = indices_in_window((p.get("hourly") or {}).get("time") or [], start_local, end_local, tz)
+            mslice   = slice_by_indices(p, ECMWF_KEYS, keep_idx)
+
+            # Alignement sur l’axe commun
+            aligned = _align_model_to_axis(mslice, axis)
+            ws = aligned.get("wind_speed_10m") or []
+            if not any(v is not None for v in ws):
+                status = "no_overlap_with_axis"; attempts.append({"model": m, "status": status, "url": url}); continue
+
+            models_out[m] = {"hourly": aligned}
+            status = "ok"
+        except Exception as e:
+            status = f"exception:{e.__class__.__name__}"
+        attempts.append({"model": m, "status": status, "url": url})
+    return models_out, attempts
+
+
 
 # ---------- NOUVEAU : alignement robuste par INTERSECTION des timestamps ----------
 def flatten_hourly_aligned(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, Any]) -> Dict[str, List]:
@@ -926,6 +1001,18 @@ for site in selected_sites:
 
     # ⚠️ NOUVEAU : agrégat aligné sur intersection des heures
     hourly_flat  = flatten_hourly_aligned(ecmwf_slice, marine_slice)
+
+    # ---------- Modèles parallèles (vent) alignés sur l’axe commun ----------
+    primary_used = wx.get("_model_used", "unknown")
+    axis = hourly_flat.get("time") or []
+    models_parallel, parallel_attempts = ({}, [])
+    if axis:  # seulement si on a un axe horaire aligné valable
+        try:
+            models_parallel, parallel_attempts = fetch_parallel_models(
+                lat, lon, axis, start_local, end_local, TZ, primary_used, site_deadline
+            )
+        except Exception as e:
+            log.debug("parallel models fetch failed: %s", e)
 
     # Télémétrie APRÈS slicing + alignement
     log.info("  sliced forecast: time=%d wind=%d gust=%d dir=%d vis=%d | sliced marine: time=%d hs=%d tp=%d",
@@ -1048,6 +1135,7 @@ for site in selected_sites:
                 },
                 "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S},
                 "parallel_models_count": len(models_parallel),
+                "parallel_attempts": parallel_attempts,
             },
         },
         "ecmwf": ecmwf_slice,

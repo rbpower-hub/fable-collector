@@ -108,6 +108,8 @@ def parse_time_local(t_iso: str, tz: ZoneInfo) -> dt.datetime:
         t = dt.datetime.fromisoformat(t_iso + ":00")
     if t.tzinfo is None:
         t = t.replace(tzinfo=tz)
+    else:
+        t = t.astimezone(tz)
     return t
 
 def indices_in_window(times: List[str], start: dt.datetime, end: dt.datetime, tz: ZoneInfo) -> List[int]:
@@ -349,10 +351,12 @@ def _astral_backfill_daily(p: Dict[str, Any], lat: float, lon: float) -> None:
             # convertit en TZ locale Africa/Tunis, puis drop le tzinfo pour "YYYY-MM-DDTHH:MM"
             return dt_obj.astimezone(TZ).replace(tzinfo=None).isoformat(timespec="minutes")
             
-        moonrise_arr.append(mr.isoformat(timespec="minutes") if isinstance(mr, dt.datetime) else None)
-        moonset_arr.append(ms.isoformat(timespec="minutes") if isinstance(ms, dt.datetime) else None)
+        mr_s = _fmt_local_naive(mr) if isinstance(mr, dt.datetime) else None
+        ms_s = _fmt_local_naive(ms) if isinstance(ms, dt.datetime) else None
+        moonrise_arr.append(mr_s)
+        moonset_arr.append(ms_s)
         phase_arr.append(ph_frac)
-
+        
     # ---- Fusion sans écraser les valeurs non-nulles déjà présentes
     def _merge_if_empty(key: str, arr_new: list):
         # Harmoniser arr_new à l'axe ref_dates
@@ -935,12 +939,7 @@ def flatten_hourly_aligned(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, 
 # -------------------------------------------------------------------------------
 
 def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
-    out = {
-        "forecast_primary": {
-        "model": primary_used,
-        "hourly": ecmwf_slice
-    },
-    }
+    out: Dict[str, int] = {}
     for k in keys:
         arr = d.get(k) or []
         out[k] = sum(1 for x in arr if x is not None)
@@ -1007,6 +1006,7 @@ for site in selected_sites:
     # ⚠️ NOUVEAU : agrégat aligné sur intersection des heures
     hourly_flat  = flatten_hourly_aligned(ecmwf_slice, marine_slice)
 
+    #
     # ---------- Modèles parallèles (vent) alignés sur l’axe commun ----------
     primary_used = wx.get("_model_used", "unknown")
     axis = hourly_flat.get("time") or []
@@ -1016,6 +1016,9 @@ for site in selected_sites:
             models_parallel, parallel_attempts = fetch_parallel_models(
                 lat, lon, axis, start_local, end_local, TZ, primary_used, site_deadline
             )
+        except Exception as e:
+            log.debug("parallel models fetch failed: %s", e)
+    
     # Assure la présence du primaire sous models.* pour homogénéité du schéma
     if axis and primary_used and primary_used not in models_parallel:
         try:
@@ -1025,9 +1028,6 @@ for site in selected_sites:
                 parallel_attempts.append({"model": primary_used, "status": "published_primary_copy"})
         except Exception as e:
             log.debug("cannot publish primary under models.*: %s", e)
-        
-        except Exception as e:
-            log.debug("parallel models fetch failed: %s", e)
 
     # Télémétrie APRÈS slicing + alignement
     log.info("  sliced forecast: time=%d wind=%d gust=%d dir=%d vis=%d | sliced marine: time=%d hs=%d tp=%d",
@@ -1121,6 +1121,7 @@ for site in selected_sites:
         "daily_units": d_units,   # expose aussi les unités daily
         "hourly": hourly_flat,
         "models": models_parallel,  # <-- NOUVEAU : séries vent parallèles alignées
+        "forecast_primary": { "model": primary_used, "hourly": ecmwf_slice },
         "status": "ok",
     }
 

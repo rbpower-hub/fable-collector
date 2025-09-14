@@ -2,7 +2,7 @@
 <html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8" />
-  <h1>🧭 FABLE — TABLEAU DE BORD</h1>
+  <title>fable-collector — tableau de bord</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1020" />
   <style>
@@ -54,8 +54,7 @@
     /* ===== Liens rapides ===== */
     .quick ul{margin:6px 0 0 18px}
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
-    .ico{display:inline-block; width:1.25em; text-align:center; .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}
-
+    .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .off{opacity:.55; pointer-events:none}
 
     /* ===== Résumé fenêtres ===== */
@@ -65,15 +64,6 @@
     .go.family{background: var(--ok); color: #04110a}
     .go.expert{background: #f59e0b; color: #160f04}
     .sep{opacity:.6; padding:0 6px}
-
-    /* ===== Tags / Pills génériques ===== */
-    .tags{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px}
-    .tag{display:inline-flex;align-items:center;gap:.35em;padding:4px 10px;border-radius:999px;border:1px solid var(--br);background:var(--pill-bg);font-weight:700}
-    .tag.ok{border-color:var(--ok); box-shadow:0 0 0 1.5px rgba(45,212,191,.18) inset}
-    .tag.warn{border-color:var(--warn); box-shadow:0 0 0 1.5px rgba(245,158,11,.18) inset}
-    .tag.bad{border-color:var(--bad); box-shadow:0 0 0 1.5px rgba(239,68,68,.18) inset}
-    .tag.info{border-color:var(--accent); box-shadow:0 0 0 1.5px rgba(76,201,240,.18) inset}
-
 
     /* ===== Tableau radar spots ===== */
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px}
@@ -107,7 +97,6 @@
   <!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
   <div class="card wins">
     <h3>🪟 Résumé fenêtres</h3>
-    <div id="win-tags" class="tags" aria-live="polite"></div>
     <div id="wins">Chargement…</div>
   </div>
 </div>
@@ -188,7 +177,6 @@
   const fetchJSON = async (path)=>{
     try{
       const r = await fetch(path, {cache:'no-store'});
-      const winTags = document.getElementById('win-tags');
       if(!r.ok) throw new Error(r.status+' '+r.statusText);
       return await r.json();
     }catch(e){ return null; }
@@ -264,53 +252,42 @@
     return null;
   }
 
-  const fileMap = new Map(files.map(f=>[ (typeof f==='string'? f : f.path), (typeof f==='string'? {path:f} : f) ]));
-const ordered = [];
+  const spotRows = files
+    .map(f => typeof f==='string' ? {path:f} : f)
+    .filter(f => isSpotPath(f.path));
 
-// 1) Les 5 spots attendus (y compris manquants)
-for(const [name, path] of WANT_SPOTS){
-  const rec = fileMap.get(path);
-  ordered.push(rec ? rec : {path, missing:true});
-}
-// 2) Spots supplémentaires découverts
-for(const f of files){
-  const p = typeof f==='string' ? f : f.path;
-  if(!(/\.(json)$/i.test(p))) continue;
-  if(SPOT_FILES.has(p)) continue;
-  if(['index.json','catalog.json','status.json','rules.normalized.json','windows.json'].includes(p)) continue;
-  ordered.push(typeof f==='string' ? {path:p} : f);
-}
+  if(spotRows.length===0){
+    tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun spot listé.</td></tr>';
+  }else{
+    const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
+    spotRows.sort((a,b)=>{
+      const ia = order.has(a.path) ? order.get(a.path) : 1e9;
+      const ib = order.has(b.path) ? order.get(b.path) : 1e9;
+      if(ia!==ib) return ia-ib;
+      return (a.path||'').localeCompare(b.path||'');
+    });
 
-if(ordered.length===0){
-  tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun spot listé.</td></tr>';
-}else{
-  for(const f of ordered){
-    const p = f.path || '';
-    const want = WANT_SPOTS.find(x=>x[1]===p);
-    const name = want ? want[0] : (p||'?');
-    const size = (!f.missing && f.size!=null) ? fmtBytes(f.size) : '';
-    const mod  = (!f.missing && f.modified) ? toLocal(f.modified) : '';
-    const freshEntry = (!f.missing && status && status.files && status.files.find(s=>s.path===p)) || null;
-    const freshBool = f.missing ? null : isFreshEntry(freshEntry, f.modified);
+    for(const f of spotRows){
+      const p = f.path || '';
+      const size = f.size!=null ? fmtBytes(f.size) : '';
+      const mod  = f.modified ? toLocal(f.modified) : '';
+      const freshEntry = (status && status.files && status.files.find(s=>s.path===p)) || null;
+      const freshBool = isFreshEntry(freshEntry, f.modified);
+      let stat = '';
+      if(freshBool===true) stat = '<span class="ok">frais</span>';
+      else if(freshBool===false) stat = '<span class="warn">ancien</span>';
+      else stat = '';
 
-    const tagHTML = (cls, txt, sub)=>`<span class="tag ${cls}">${txt}</span>${sub? ' <span class="small">'+sub+'</span>':''}`;
-    let stat = '';
-    if(f.missing){ stat = tagHTML('bad','HS','manquant'); }
-    else if(freshBool===true){ stat = tagHTML('ok','OK','à l’heure'); }
-    else if(freshBool===false){ stat = tagHTML('warn','Lent','en retard'); }
-
-    const tr = document.createElement('tr');
-    const nameCell = f.missing
-      ? `<span class="off">${name}</span> <span class="badge mono">${p}</span>`
-      : `<a href="${encodeURIComponent(p)}">${name}</a> <span class="badge mono">${p}</span>`;
-    tr.innerHTML = `
-      <td>${nameCell}</td>
-      <td class="mono">${size||''}</td>
-      <td class="mono">${mod||''}</td>
-      <td>${stat||''}</td>`;
-    tbody.appendChild(tr);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><a href="${encodeURIComponent(p)}">${WANT_SPOTS.find(x=>x[1]===p)?.[0] || p}</a>
+          <span class="badge mono">${p}</span></td>
+        <td class="mono">${size||''}</td>
+        <td class="mono">${mod||''}</td>
+        <td>${stat}</td>`;
+      tbody.appendChild(tr);
+    }
   }
-}
 
   // === (2) Résumé fenêtres — uniquement spots avec ≥1 fenêtre ===
   const DEST_OK = new Set([...SPOT_FILES]);
@@ -333,68 +310,44 @@ if(ordered.length===0){
   }
 
   if(!windows || !Array.isArray(windows.windows)){
-  winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
-  if(winTags) winTags.innerHTML = `<span class="tag bad">× Aucune fenêtre</span>`;
-}else{
-  const items = [];
-  let family=0, expert=0; const confs=[];
-  for(const dest of windows.windows){
-    const name = dest.dest_name || dest.dest_slug || '?';
-    const slug = dest.dest_slug || dest.slug || dest.file || '';
-    if(slug && !DEST_OK.has(slug)) continue;
-    if(!Array.isArray(dest.windows) || dest.windows.length===0) continue;
-
-    for(const seg of dest.windows){
-      const start = seg.start ? toFriendly(seg.start) : '?';
-      const end   = seg.end ? toFriendly(seg.end) : '?';
-      const dur   = seg.hours || hoursBetween(seg.start, seg.end) || '';
-      const conf  = (seg.confidence || seg.conf || '').toString();
-      const lbl   = labelFor(seg);
-      const cls   = goClass(lbl);
-
-      if(/family|famille/i.test(seg.label||'') || seg.family===true || seg.family_go===true) family++;
-      else if(/expert/i.test(seg.label||'') || seg.expert===true || seg.expert_only===true) expert++;
-      if(conf) confs.push(conf.toLowerCase());
-
-      const line = document.createElement('div');
-      line.className = 'line';
-      line.innerHTML = `
-        <div class="title">${name} <span class="go ${cls}">${lbl}</span></div>
-        <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''} <span class="sep">⟷</span> ${conf || ''}</div>
-      `;
-      items.push(line);
-    }
-  }
-
-  // Tags globaux (comme dans tes captures)
-  if(winTags){
-    const pills = [];
-    if(family>0) pills.push(`<span class="tag ok">✔︎ Family GO</span>`);
-    if(expert>0) pills.push(`<span class="tag warn">! Expert-Only</span>`);
-    if(family+expert===0) pills.push(`<span class="tag bad">× Aucune fenêtre</span>`);
-    if(confs.length){
-      const fr = {high:'Élevée', medium:'Moyenne', low:'Faible'};
-      const freq = confs.reduce((m,c)=> (m[c]=(m[c]||0)+1, m), {});
-      const top  = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
-      pills.push(`<span class="tag info">Confiance : ${fr[top]||top}</span>`);
-    }
-    winTags.innerHTML = pills.join(' ');
-  }
-
-  if(items.length===0){
-    winsDiv.innerHTML = '<span class="small">Aucune fenêtre détectée.</span>';
+    winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
   }else{
-    winsDiv.innerHTML = '';
-    items.forEach(el=> winsDiv.appendChild(el));
-  }
-}
-// ===== Petits tests non bloquants (debug) =====
-try{ console.assert(ql && ql.children.length >= 3, 'quicklinks devrait contenir 3 éléments'); }catch(_){}
+    const items = [];
+    for(const dest of windows.windows){
+      const name = dest.dest_name || dest.dest_slug || '?';
+      const slug = dest.dest_slug || dest.slug || dest.file || '';
+      if(slug && !DEST_OK.has(slug)) continue;
+      if(!Array.isArray(dest.windows) || dest.windows.length===0) continue;
 
+      for(const seg of dest.windows){
+        const start = seg.start ? toFriendly(seg.start) : '?';
+        const end   = seg.end ? toFriendly(seg.end) : '?';
+        const dur   = seg.hours || hoursBetween(seg.start, seg.end) || '';
+        const conf  = (seg.confidence || seg.conf || '').toString();
+        const lbl   = labelFor(seg);
+        const cls   = goClass(lbl);
+
+        const line = document.createElement('div');
+        line.className = 'line';
+        line.innerHTML = `
+          <div class="title">${name} <span class="go ${cls}">${lbl}</span></div>
+          <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''} <span class="sep">⟷</span> ${conf || ''}</div>
+        `;
+        items.push(line);
+      }
+    }
+
+    if(items.length===0){
+      winsDiv.innerHTML = '<span class="small">Aucune fenêtre détectée.</span>';
+    }else{
+      winsDiv.innerHTML = '';
+      items.forEach(el=> winsDiv.appendChild(el));
+    }
+  }
 
   // ===== Petits tests non bloquants (debug) =====
-  try{ console.assert(ql && ql.children.length >= 3, 'quicklinks devrait contenir 3 éléments'); }catch(_){}}
-)();
+  try{ console.assert(ql && ql.children.length >= 3, 'quicklinks devrait contenir 3 éléments'); }catch(_){}
+})();
 </script>
 
 <details class="card" style="margin-top:16px">

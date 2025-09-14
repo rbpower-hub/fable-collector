@@ -1046,7 +1046,7 @@ for site in selected_sites:
                     "forecast": keep_wx[:6] + (["..."] if len(keep_wx) > 6 else []),
                     "marine":   keep_sea[:6] + (["..."] if len(keep_sea) > 6 else []),
                 },
-                "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S}
+                "budgets": {"site_s": SITE_BUDGET_S, "global_s": HARD_BUDGET_S},
                 "parallel_models_count": len(models_parallel),
             },
         },

@@ -27,7 +27,7 @@
     html,body{height:100%}
     body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg)}
     *{box-sizing:border-box}
-    a{color:var(--link); text-decoration: none}
+    a{color:var(--link); text-decoration: none} a:visited{color:var(--link)}
     a:hover{text-decoration: underline}
     h1,h2,h3{margin:0 0 8px 0}
     .sr-only{position:absolute;left:-9999px}
@@ -54,6 +54,7 @@
     /* ===== Liens rapides ===== */
     .quick ul{margin:6px 0 0 18px}
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
+    .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .off{opacity:.55; pointer-events:none}
 
     /* ===== Résumé fenêtres ===== */
@@ -88,20 +89,20 @@
 <div class="cards">
   <!-- === 1) Liens rapides (liste fixe demandée, avec descriptions) === -->
   <div class="card quick">
-    <h3>Liens rapides</h3>
+    <h3>🔗 Liens rapides</h3>
     <ul id="quicklinks"></ul>
     <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
   </div>
 
   <!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
   <div class="card wins">
-    <h3>Résumé fenêtres</h3>
+    <h3>🪟 Résumé fenêtres</h3>
     <div id="wins">Chargement…</div>
   </div>
 </div>
 
 <!-- === 3) Radar des spots (ex-spots collectés), uniquement fichiers de spots === -->
-<h3 style="margin-top:18px">Radar des spots</h3>
+<h3 style="margin-top:18px">📡 Radar des spots</h3>
 <div class="card table-wrap">
   <table id="files"><thead>
     <tr><th>Spot (fichier)</th><th>Taille</th><th>Modifié</th><th>Statut</th></tr>
@@ -210,12 +211,14 @@
 
   // === (1) Liens rapides — liste FIXE avec descriptions (tous cliquables) ===
   const quickHTML = [
-    `<li><a href="index.json">index.json</a> — inventaire produit par <span class="mono">main.py</span></li>`,
-    `<li><a href="catalog.json">catalog.json</a> — liste des fichiers réellement présents</li>`,
-    `<li><a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> — fenêtres <span class=\"mono\">Family GO</span> détectées</li>`,
-    `<li><a href="rules.normalized.json">rules.normalized.json</a> — règles normalisées en vigueur</li>`
+    `<li><span class="ico">📄</span> <a href="index.json">index.json</a> — inventaire produit par <span class="mono">main.py</span></li>`,
+    `<li><span class="ico">📦</span> <a href="catalog.json">catalog.json</a> — liste des fichiers réellement présents</li>`,
+    `<li><span class="ico">🪟</span> <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> — fenêtres <span class=\"mono\">Family GO</span> détectées</li>`,
+    `<li><span class="ico">⚙️</span> <a href="rules.normalized.json">rules.normalized.json</a> — règles normalisées en vigueur</li>`
   ].join('');
   if(ql) ql.innerHTML = quickHTML;
+  // force le style cliquable (si du cache DOM existe)
+  ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0'); a.setAttribute('rel','noopener');});
 
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = filesTableBody;

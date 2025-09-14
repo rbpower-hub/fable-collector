@@ -247,18 +247,28 @@ def _all_in_family_hours_dts(dts: Sequence[dt.datetime], tz: ZoneInfo) -> bool:
         if not (FAMILY_HOUR_START <= tt.hour < FAMILY_HOUR_END):
             return False
     return True
-
+#
 def _has_wind_range(site: Site, i0: int, i1: int) -> bool:
-    w = site.wind_models.get("om") or {}
-    sp = w.get("wind_speed_10m") or []
-    gu = w.get("wind_gusts_10m") or []
-    di = w.get("wind_direction_10m") or []
-    return all(
-        i < len(sp) and sp[i] is not None
-        and i < len(gu) and gu[i] is not None
-        and i < len(di) and di[i] is not None
-        for i in range(i0, i1 + 1)
-    )
+    """
+    Vrai si, pour chaque heure de [i0..i1], il existe AU MOINS UN modèle
+    qui possède speed/gust/dir non-nuls. (Compat multi-modèles.)
+    """
+    for i in range(i0, i1 + 1):
+        ok_hour = False
+        for _, arrs in site.wind_models.items():
+            sp = arrs.get("wind_speed_10m") or []
+            gu = arrs.get("wind_gusts_10m") or []
+            di = arrs.get("wind_direction_10m") or []
+            if (
+                i < len(sp) and sp[i] is not None
+                and i < len(gu) and gu[i] is not None
+                and i < len(di) and di[i] is not None
+            ):
+                ok_hour = True
+                break
+        if not ok_hour:
+            return False
+    return True
 
 def _safe_get(arr: Optional[List[Any]], i: int) -> Any:
     return None if arr is None or i >= len(arr) else arr[i]
@@ -364,7 +374,7 @@ def worst_metrics_at_hour(site: Site, idx: int) -> HourMetrics:
                 codes.append(int(wc[idx]))
             except Exception:
                 pass
-        if sp:
+                       
             n_models += 1
 
     hs_arr = site.waves.get("significant_wave_height") or site.waves.get("wave_height")
@@ -491,7 +501,7 @@ def hour_ok_for_phase(site: Site, idx: int, phase: str) -> Tuple[bool, Dict[str,
 def compute_confidence(site: Site, i0: int, i1: int) -> str:
     wind_spreads: List[float] = []
     hs_values: List[float] = []
-    n_models = 0
+    min_models = float("inf")
 
     for i in range(i0, i1 + 1):
         m = worst_metrics_at_hour(site, i)
@@ -499,10 +509,10 @@ def compute_confidence(site: Site, i0: int, i1: int) -> str:
             wind_spreads.append(m.spread_speed)
         if m.hs is not None:
             hs_values.append(m.hs)
-        n_models = max(n_models, m.n_models)
+        min_models = min(min_models, m.n_models or 0)
 
-    # Besoin d'au moins 2 modèles vent pour monter (collector fournit souvent 1 → Low)
-    if n_models < 2:
+    # Politique : toutes les heures de la fenêtre doivent avoir ≥2 modèles pour sortir de LOW
+    if min_models < 2:
         return "Low"
 
     avg_wind_spread = statistics.mean(wind_spreads) if wind_spreads else None
@@ -516,10 +526,8 @@ def compute_confidence(site: Site, i0: int, i1: int) -> str:
     else:
         result = "Low"
 
-    # Cap à Medium (une seule source houle)
-    if result == "High":
-        return "Medium"
-    return result
+    # Cap à Medium si une seule source de houle (collector actuel)
+    return "Medium" if result == "High" else result
 
 # =========================
 # Fenêtres 4–6 h avec phases

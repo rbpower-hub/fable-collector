@@ -1,337 +1,380 @@
 <!doctype html>
-<html lang="fr" data-theme="auto">
+<html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8" />
+  <title>fable-collector — tableau de bord</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="light dark" />
-  <title>FABLE Collector — Statut & fenêtres</title>
+  <meta name="theme-color" content="#0b1020" />
   <style>
-    /*
-      ⚓ Design system minimal, AA/AAA-friendly, sans dépendances.
-      - Palette via variables CSS (clair/sombre)
-      - Échelle typo fluide (clamp)
-      - Espacements, rayons, ombres
-      - Badges/pills (solides + soft) avec icônes
-      - Tableau de fraîcheur responsive, lisible mobile
-      - Toggle mode sombre mémorisé (localStorage)
-    */
-
-    :root {
-      /* Couleurs de base (clair) */
-      --bg: #f7fafc;               /* gris très clair, non pur blanc pour moins d’éblouissement */
-      --bg-elev: #ffffff;          /* surfaces (cards) */
-      --text: #0b1320;             /* bleu nuit quasi-noir */
-      --muted: #5b6473;            /* texte secondaire */
-      --border: #d6dde6;
-
-      /* Marins / météo */
-      --primary: #0a5fb4;          /* bleu cap (actions) */
-      --primary-contrast: #ffffff;
-      --info: #1e88e5;             /* info (bleu) */
-      --success: #1b7f4b;          /* vert profond (AAA sur blanc avec texte clair) */
-      --warning: #b26a00;          /* ambré foncé */
-      --danger: #9b1c1c;           /* rouge bourgogne */
-
-      /* Variants “soft” (fonds pâles + texte foncé) */
-      --success-soft-bg: #d1fae5;  /* vert 100-200 */
-      --success-soft-fg: #065f46;
-      --warning-soft-bg: #fff4db;
-      --warning-soft-fg: #7a4a00;
-      --danger-soft-bg: #fde2e2;
-      --danger-soft-fg: #7a1111;
-      --info-soft-bg: #e3f2fd;
-      --info-soft-fg: #0b4f8a;
-
-      /* Échelle */
-      --radius: 16px;              /* 2xl arrondi */
-      --radius-sm: 10px;
-      --shadow-1: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
-      --shadow-2: 0 1px 2px rgba(0,0,0,.06), 0 12px 40px rgba(0,0,0,.10);
-
-      /* Typo (système par défaut) */
-      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
-      --size-100: clamp(0.80rem, 0.74rem + 0.2vw, 0.90rem);
-      --size-200: clamp(0.95rem, 0.90rem + 0.3vw, 1.00rem);
-      --size-300: clamp(1.05rem, 1.00rem + 0.4vw, 1.15rem);
-      --size-400: clamp(1.25rem, 1.18rem + 0.6vw, 1.45rem);
-      --size-500: clamp(1.50rem, 1.38rem + 0.8vw, 1.80rem);
-      --size-600: clamp(1.85rem, 1.70rem + 1.0vw, 2.20rem);
-
-      /* Espacements */
-      --space-1: .25rem;
-      --space-2: .5rem;
-      --space-3: .75rem;
-      --space-4: 1rem;
-      --space-5: 1.5rem;
-      --space-6: 2rem;
-      --space-7: 3rem;
+    /* ===== Thème & palette accessibles (AA/AAA) ===== */
+    :root{
+      --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
+      /* Mint clair demandé */
+      --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444;
+      --card:#0f172a; --br:#23304a;
+      --badge-bg:#16243a; --badge-br:#2b3b59; --pill-bg:#0d1a2b;
+      --link:#7dd3fc;
+      --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
+    }
+    [data-theme="light"]{
+      --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
+      --ok:#2dd4bf; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
+      --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
+      --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
     }
 
-    /* Thème sombre */
-    html[data-theme="dark"] {
-      --bg: #0c1218;
-      --bg-elev: #0f161d;
-      --text: #eaf2ff;
-      --muted: #a7b3c7;
-      --border: #263140;
+    /* ===== Base ===== */
+    html,body{height:100%}
+    body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg)}
+    *{box-sizing:border-box}
+    a{color:var(--link); text-decoration: none} a:visited{color:var(--link)}
+    a:hover{text-decoration: underline}
+    h1,h2,h3{margin:0 0 8px 0}
+    .sr-only{position:absolute;left:-9999px}
 
-      --primary: #5ab0ff;          /* bleu plus clair pour contraste sur sombre */
-      --primary-contrast: #081018;
-      --info: #7ec2ff;
-      --success: #79d2a5;
-      --warning: #ffd27a;
-      --danger: #ff8f8f;
+    /* ===== Header ===== */
+    header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+    header h1{font-size:1.35rem}
+    .spacer{flex:1}
+    .btn{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:6px 10px; border-radius:9px}
 
-      --success-soft-bg: #0f2a21;
-      --success-soft-fg: #9ae6b4;
-      --warning-soft-bg: #2a210f;
-      --warning-soft-fg: #ffd27a;
-      --danger-soft-bg: #2a1414;
-      --danger-soft-fg: #ffb3b3;
-      --info-soft-bg: #102433;
-      --info-soft-fg: #b8e0ff;
+    .pill{border:1px solid var(--br);border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.86rem;background:var(--pill-bg)}
+    .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
+    .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
+    /* Empêche le conflit .ok/.warn/.bad générique qui colorait le texte comme le fond */
+    .status.ok, .status.warn, .status.bad { color:#081019 !important; }
 
-      --shadow-1: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-      --shadow-2: 0 1px 2px rgba(0,0,0,.45), 0 12px 40px rgba(0,0,0,.4);
-    }
+    /* ===== Layout cartes ===== */
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+    .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
+    .small{font-size:.92rem;color:var(--muted)}
+    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas, "Liberation Mono","Courier New",monospace}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
 
-    /* Base */
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; padding: 0; font-family: var(--font);
-      font-size: var(--size-200); line-height: 1.45;
-      color: var(--text); background: radial-gradient(1200px 800px at 10% -10%, rgba(10,95,180,.08), transparent 60%), var(--bg);
-    }
-    .container { max-width: 1000px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-7); }
+    /* ===== Liens rapides ===== */
+    .quick ul{margin:6px 0 0 18px}
+    .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
+    .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
+    .off{opacity:.55; pointer-events:none}
 
-    header.nav {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: var(--space-4); margin-bottom: var(--space-6);
-    }
-    .brand { display:flex; align-items:center; gap: var(--space-3); }
-    .brand .logo { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--primary), #0b91ff); box-shadow: var(--shadow-1); }
-    .brand h1 { font-size: var(--size-500); margin: 0; letter-spacing: .2px; }
-    .brand .sub { color: var(--muted); font-size: var(--size-100); margin-top: 2px; }
+    /* ===== Résumé fenêtres ===== */
+    .wins .line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--card);margin-bottom:8px}
+    .wins .title{font-weight:700}
+    .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800; letter-spacing:.2px}
+    .go.family{background: var(--ok); color: #04110a}
+    .go.expert{background: #f59e0b; color: #160f04}
+    .sep{opacity:.6; padding:0 6px}
 
-    /* Boutons */
-    .btn {
-      appearance: none; border: 1px solid var(--border); background: var(--bg-elev);
-      color: var(--text); border-radius: 999px; padding: .55rem .9rem; font-weight: 600;
-      box-shadow: var(--shadow-1); cursor: pointer; display: inline-flex; align-items: center; gap: .5rem;
-    }
-    .btn:hover { transform: translateY(-1px); }
-    .btn:active { transform: translateY(0); }
-    .btn-primary { background: var(--primary); border-color: transparent; color: var(--primary-contrast); }
+    /* ===== Tableau radar spots ===== */
+    .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px}
+    table{width:100%; border-collapse:collapse; background:var(--card)}
+    th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
+    th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
+    tr:hover td{background:rgba(76,201,240,.06)}
 
-    /* Section blocks */
-    .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-1); padding: var(--space-5); }
-    .stack { display: grid; gap: var(--space-4); }
-
-    h2 { font-size: var(--size-400); margin: 0 0 var(--space-4); }
-    p { margin: 0 0 var(--space-4); color: var(--text); }
-    .muted { color: var(--muted); }
-
-    /* Pills */
-    .pills { display: flex; flex-wrap: wrap; gap: .5rem; }
-    .pill { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; letter-spacing: .2px;
-            padding: .35rem .65rem; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
-    .pill svg { width: 1rem; height: 1rem; }
-
-    /* Solides (AAA visé) */
-    .pill--success { background: var(--success); color: #ffffff; }
-    .pill--warning { background: var(--warning); color: #1f1400; }
-    .pill--danger  { background: var(--danger);  color: #ffffff; }
-    .pill--info    { background: var(--info);    color: #071421; }
-
-    /* Soft (texte foncé + fond pâle) */
-    .pill--success-soft { background: var(--success-soft-bg); color: var(--success-soft-fg); border-color: color-mix(in oklab, var(--success-soft-fg), #000 10%); }
-    .pill--warning-soft { background: var(--warning-soft-bg); color: var(--warning-soft-fg); border-color: color-mix(in oklab, var(--warning-soft-fg), #000 10%); }
-    .pill--danger-soft  { background: var(--danger-soft-bg);  color: var(--danger-soft-fg);  border-color: color-mix(in oklab, var(--danger-soft-fg), #000 10%); }
-    .pill--info-soft    { background: var(--info-soft-bg);    color: var(--info-soft-fg);    border-color: color-mix(in oklab, var(--info-soft-fg), #000 10%); }
-
-    /* Tableau de fraîcheur */
-    .table-wrap { overflow: auto; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-elev); box-shadow: var(--shadow-1); }
-    table { width: 100%; border-collapse: collapse; min-width: 720px; }
-    thead th { text-align: left; font-size: var(--size-100); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: linear-gradient(180deg, rgba(0,0,0,.02), transparent); }
-    th, td { padding: .8rem 1rem; border-bottom: 1px solid var(--border); }
-    tbody tr:hover { background: color-mix(in oklab, var(--bg-elev), #000 4%); }
-    td .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-
-    /* Version “cartes” pour mobile étroit (option) */
-    @media (max-width: 560px) {
-      .table-cards { display: grid; gap: var(--space-3); }
-      .table-cards .row { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-4); background: var(--bg-elev); box-shadow: var(--shadow-1); }
-      .table-cards .row .top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
-      .table-cards .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .75rem; }
-      .table-cards .label { color: var(--muted); font-size: var(--size-100); }
-    }
-
-    /* Légende & aides */
-    .legend { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
-    .legend .item { display: inline-flex; align-items: center; gap: .5rem; color: var(--muted); }
-
-    footer { margin-top: var(--space-7); color: var(--muted); font-size: var(--size-100); text-align: center; }
+    footer{margin-top:24px;color:var(--muted);font-size:.9rem}
+    details.card summary{cursor:pointer}
   </style>
 </head>
 <body>
-  <div class="container">
-    <header class="nav" role="banner">
-      <div class="brand" aria-label="FABLE Collector">
-        <div class="logo" aria-hidden="true"></div>
-        <div>
-          <h1>FABLE&nbsp;Collector</h1>
-          <div class="sub">Suivi des fenêtres · Gammarth, Sidi Bou Saïd, Ghar el Melh, Ras Fartass, El Haouaria</div>
-        </div>
-      </div>
-      <div class="actions" role="group" aria-label="Actions d’affichage">
-        <button class="btn" id="unitToggle" aria-pressed="false" title="Basculer km/h ↔︎ nœuds">km/h · m · s</button>
-        <button class="btn" id="themeToggle" aria-pressed="false" title="Basculer clair/sombre">Thème</button>
-      </div>
-    </header>
+<header>
+  <h1>fable-collector — tableau de bord</h1>
+  <span id="tz" class="pill"></span>
+  <span id="gen" class="pill"></span>
+  <span id="hc" class="status warn">Statut: …</span>
+  <span class="spacer"></span>
+  <button id="themeBtn" class="btn" title="Basculer clair/sombre">🌙/☀️</button>
+</header>
 
-    <section class="stack">
-      <div class="card">
-        <h2>État courant</h2>
-        <p class="muted">Dernière génération collector & lecteur · <span class="mono" id="ts">—</span> · Africa/Tunis</p>
-        <div class="pills" aria-label="Badges de synthèse">
-          <span class="pill pill--success" title="Fenêtre Family disponible" role="status">✔︎ Family GO</span>
-          <span class="pill pill--warning" title="Fenêtre Expert-Only" role="status">! Expert-Only</span>
-          <span class="pill pill--danger-soft" title="Pas de fenêtre actuelle" role="status">× Aucune fenêtre</span>
-          <span class="pill pill--info-soft" title="Confiance des modèles" role="status">Confiance : Moyenne</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Fichiers & fraîcheur</h2>
-        <div class="legend" aria-hidden="true">
-          <span class="item"><span class="pill pill--success-soft">OK</span><span class="muted">à l’heure</span></span>
-          <span class="item"><span class="pill pill--warning-soft">Lent</span><span class="muted">en retard</span></span>
-          <span class="item"><span class="pill pill--danger-soft">HS</span><span class="muted">manquant</span></span>
-        </div>
-
-        <!--
-          ⚙️ Variante table scrollable (desktop) + cartes (mobile <=560px).
-          Branche les données en remplaçant les placeholders ci-dessous à partir de status.json / index.json.
-        -->
-        <div class="table-wrap" role="region" aria-label="Tableau des fichiers" tabindex="0">
-          <table aria-describedby="helpFreshness">
-            <thead>
-              <tr>
-                <th scope="col">Fichier</th>
-                <th scope="col">Modifié</th>
-                <th scope="col">Taille</th>
-                <th scope="col">Statut</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody">
-              <!-- Lignes injectées par JS -->
-            </tbody>
-          </table>
-        </div>
-        <p id="helpFreshness" class="muted" style="margin-top: .5rem;">Les horodatages sont convertis en heure locale (Africa/Tunis). Les statuts reflètent la fenêtre de fraîcheur ciblée par le healthcheck.</p>
-
-        <!-- Version cartes (option si tu préfères sur mobile) -->
-        <div class="table-cards" id="tableCards" hidden>
-          <!-- Cartes injectées par JS si jamais on choisit ce mode -->
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Légende des badges</h2>
-        <ul>
-          <li><strong>✔︎ Family GO</strong> : toutes les règles Family sont vraies pendant les heures 08:00–21:00.</li>
-          <li><strong>Expert-Only</strong> : conditions praticables mais au-delà du confort famille.</li>
-          <li><strong>Confiance</strong> : High si spreads vent < 5 km/h et Hs < 0,2 m ; Low si 3‑hourly ou source unique Hs/Tp.</li>
-        </ul>
-      </div>
-    </section>
-
-    <footer>
-      <div>© FABLE AI — Rapport météo loisirs & pêche amateur. Respectez les règles locales et votre jauge personnelle.</div>
-    </footer>
+<div class="cards">
+  <!-- === 1) Liens rapides (liste fixe demandée, avec descriptions) === -->
+  <div class="card quick">
+    <h3>🔗 Liens rapides</h3>
+    <ul id="quicklinks"></ul>
+    <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
   </div>
 
-  <script>
-    // === Prefs thème (auto/clair/sombre) ===
-    const THEME_KEY = 'fable.theme';
-    const themeBtn = document.getElementById('themeToggle');
-    function applyTheme(mode) {
-      // mode: 'light' | 'dark' | 'auto'
-      document.documentElement.setAttribute('data-theme', mode === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : mode);
-      localStorage.setItem(THEME_KEY, mode);
-      themeBtn.setAttribute('aria-pressed', mode === 'dark');
-      themeBtn.textContent = 'Thème' + (mode === 'dark' ? ' · sombre' : mode === 'light' ? ' · clair' : ' · auto');
-    }
-    function cycleTheme() {
-      const cur = localStorage.getItem(THEME_KEY) || 'auto';
-      const next = cur === 'auto' ? 'dark' : cur === 'dark' ? 'light' : 'auto';
-      applyTheme(next);
-    }
-    themeBtn.addEventListener('click', cycleTheme);
-    applyTheme(localStorage.getItem(THEME_KEY) || 'auto');
+  <!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
+  <div class="card wins">
+    <h3>🪟 Résumé fenêtres</h3>
+    <div id="wins">Chargement…</div>
+  </div>
+</div>
 
-    // === Unités (placeholder) ===
-    const unitBtn = document.getElementById('unitToggle');
-    const UNIT_KEY = 'fable.units'; // 'metric' | 'nautical'
-    function applyUnits(u){ localStorage.setItem(UNIT_KEY, u); unitBtn.textContent = (u==='nautical'? 'kn · m · s' : 'km/h · m · s'); }
-    unitBtn.addEventListener('click', () => {
-      const cur = localStorage.getItem(UNIT_KEY) || 'metric';
-      applyUnits(cur === 'metric' ? 'nautical' : 'metric');
+<!-- === 3) Radar des spots (ex-spots collectés), uniquement fichiers de spots === -->
+<h3 style="margin-top:18px">📡 Radar des spots</h3>
+<div class="card table-wrap">
+  <table id="files"><thead>
+    <tr><th>Spot (fichier)</th><th>Taille</th><th>Modifié</th><th>Statut</th></tr>
+  </thead><tbody></tbody></table>
+</div>
+
+<footer>
+  <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO (avec ou sans offset) et s’entendent côté collecte (souvent Africa/Tunis).</p>
+</footer>
+
+<script>
+(function(){
+  // === Préférences de thème ===
+  const root = document.documentElement;
+  const saved = localStorage.getItem('theme');
+  if(saved){ root.setAttribute('data-theme', saved); }
+  document.getElementById('themeBtn').addEventListener('click', ()=>{
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next); localStorage.setItem('theme', next);
+  });
+})();
+</script>
+
+<script>
+(async function(){
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+  const $ = (sel)=>document.querySelector(sel);
+  const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
+
+  // Elements utilises plus loin
+  const ql = $('#quicklinks');
+  const hc = $('#hc');
+  const winsDiv = $('#wins');
+  const filesTableBody = $('#files tbody');
+
+  $('#tz').textContent = 'Affichage: ' + tz;
+  $('#tz2').textContent = tz;
+
+  const WANT_SPOTS = [
+    ['Gammarth (home)', 'gammarth-port.json'],
+    ['Sidi Bou Saïd',   'sidi-bou-said.json'],
+    ['Ghar el Melh',    'ghar-el-melh.json'],
+    ['Ras Fartass',     'ras-fartass.json'],
+    ['El Haouaria',     'el-haouaria.json']
+  ];
+  const SPOT_FILES = new Set(WANT_SPOTS.map(x=>x[1]));
+
+  const fmtBytes = (n)=>{
+    if(n==null) return '';
+    if(n<1024) return n+' B';
+    if(n<1024*1024) return (n/1024).toFixed(1)+' kB';
+    return (n/1024/1024).toFixed(1)+' MB';
+  };
+  const toLocal = (iso)=>{
+    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString('fr-TN', { timeZone: tz }); }
+    catch(e){ return iso||''; }
+  };
+  const toFriendly = (iso)=>{
+    try{
+      const d = new Date(iso);
+      if(isNaN(d)) return iso||'?';
+      const s = d.toLocaleString('fr-TN', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:true, timeZone: tz });
+      return s.charAt(0).toUpperCase()+s.slice(1);
+    }catch(e){ return iso||'?'; }
+  };
+  const hoursBetween = (a,b)=>{
+    const da = new Date(a), db = new Date(b);
+    if(isNaN(da) || isNaN(db)) return '';
+    const h = Math.round((db - da) / 36e5);
+    return h;
+  };
+  const fetchJSON = async (path)=>{
+    try{
+      const r = await fetch(path, {cache:'no-store'});
+      if(!r.ok) throw new Error(r.status+' '+r.statusText);
+      return await r.json();
+    }catch(e){ return null; }
+  };
+
+  const index   = await fetchJSON('index.json');
+  const status  = await fetchJSON('status.json');   // peut être null
+  const windows = await fetchJSON('windows.json');  // peut être null
+  const catalog = await fetchJSON('catalog.json');  // peut être null
+
+  const files = (index && Array.isArray(index.files)) ? index.files
+              : (catalog && Array.isArray(catalog.files)) ? catalog.files
+              : [];
+  const presentPaths = new Set(files.map(f => typeof f==='string' ? f : f.path));
+
+  // === Pastille statut ===
+  if(status && Array.isArray(status.files)){
+    const ok = !!(status.all_fresh || status.status==='ok' || status.state==='ok');
+    hc.className = 'status ' + (ok ? 'ok' : 'warn');
+    hc.textContent = ok ? 'Statut: OK (fichiers frais)' : 'Statut: ATTENTION (anciens)';
+  }else{
+    hc.className = 'status bad';
+    hc.textContent = 'Statut: indisponible';
+  }
+
+  // === Généré à… ===
+  const gen = (windows && windows.generated_at)
+           || (index && index.generated_at)
+           || (catalog && catalog.generated_at)
+           || null;
+  $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
+
+  // === (1) Liens rapides — liste FIXE avec descriptions (tous cliquables) ===
+  const quickHTML = [
+    `<li><span class="ico">📄</span> <a href="index.json">index.json</a> — inventaire produit par <span class="mono">main.py</span></li>`,
+    `<li><span class="ico">📦</span> <a href="catalog.json">catalog.json</a> — liste des fichiers réellement présents</li>`,
+    `<li><span class="ico">🪟</span> <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> — fenêtres <span class=\"mono\">Family GO</span> détectées</li>`,
+    `<li><span class="ico">⚙️</span> <a href="rules.normalized.json">rules.normalized.json</a> — règles normalisées en vigueur</li>`
+  ].join('');
+  if(ql) ql.innerHTML = quickHTML;
+  // force le style cliquable (si du cache DOM existe)
+  ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0'); a.setAttribute('rel','noopener');});
+
+  // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
+  const tbody = filesTableBody;
+  const isSpotPath = (p)=> SPOT_FILES.has(p) || (/\.json$/i.test(p) && !(new Set(['index.json','catalog.json','status.json','rules.normalized.json','windows.json']).has(p)));
+
+  const freshThreshold = (()=>{
+    if(!status) return 180; // défaut 3h
+    const cand = [status.threshold_minutes, status.fresh_minutes, status.max_age_minutes, status.expected_interval_minutes, status.expected_minutes];
+    for(const v of cand){ if(typeof v==='number' && isFinite(v)) return v; }
+    return 180;
+  })();
+
+  function isFreshEntry(entry, fallbackModIso){
+    if(entry){
+      if(typeof entry.fresh === 'boolean') return entry.fresh;
+      if(typeof entry.fresh === 'string') return /^(true|ok|fresh|1)$/i.test(entry.fresh);
+      if(typeof entry.status === 'string' && /^(ok|fresh|green)$/i.test(entry.status)) return true;
+      if(typeof entry.state === 'string' && /^(ok|fresh|green)$/i.test(entry.state)) return true;
+      if('stale' in entry) return !entry.stale;
+      const age = entry.age_minutes ?? entry.age_min ?? entry.minutes ?? entry.age;
+      if(typeof age === 'number' && isFinite(age)) return age <= freshThreshold;
+    }
+    if(fallbackModIso){
+      const ageMin = (Date.now() - new Date(fallbackModIso).getTime())/60000;
+      return ageMin <= freshThreshold;
+    }
+    if(gen){
+      const ageMinGen = (Date.now() - new Date(gen).getTime())/60000;
+      if(ageMinGen <= freshThreshold) return true;
+    }
+    return null;
+  }
+
+  const spotRows = files
+    .map(f => typeof f==='string' ? {path:f} : f)
+    .filter(f => isSpotPath(f.path));
+
+  if(spotRows.length===0){
+    tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun spot listé.</td></tr>';
+  }else{
+    const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
+    spotRows.sort((a,b)=>{
+      const ia = order.has(a.path) ? order.get(a.path) : 1e9;
+      const ib = order.has(b.path) ? order.get(b.path) : 1e9;
+      if(ia!==ib) return ia-ib;
+      return (a.path||'').localeCompare(b.path||'');
     });
-    applyUnits(localStorage.getItem(UNIT_KEY) || 'metric');
 
-    // === Données de démonstration (remplace par fetch de status.json & index.json) ===
-    const demoRows = [
-      { name: 'index.json', mtime: '2025-09-14T17:55:00Z', size: 2140, status: 'ok' },
-      { name: 'rules.normalized.json', mtime: '2025-09-14T17:55:00Z', size: 3102, status: 'ok' },
-      { name: 'gammarth-port.json', mtime: '2025-09-14T17:00:00Z', size: 18240, status: 'ok' },
-      { name: 'sidi-bou-said.json', mtime: '2025-09-14T16:00:00Z', size: 17650, status: 'late' },
-      { name: 'ghar-el-melh.json', mtime: '2025-09-14T17:00:00Z', size: 17990, status: 'ok' },
-      { name: 'ras-fartass.json', mtime: '2025-09-14T12:00:00Z', size: 16011, status: 'late' },
-      { name: 'el-haouaria.json', mtime: '2025-09-13T12:00:00Z', size: 0, status: 'down' },
-    ];
+    for(const f of spotRows){
+      const p = f.path || '';
+      const size = f.size!=null ? fmtBytes(f.size) : '';
+      const mod  = f.modified ? toLocal(f.modified) : '';
+      const freshEntry = (status && status.files && status.files.find(s=>s.path===p)) || null;
+      const freshBool = isFreshEntry(freshEntry, f.modified);
+      let stat = '';
+      if(freshBool===true) stat = '<span class="ok">frais</span>';
+      else if(freshBool===false) stat = '<span class="warn">ancien</span>';
+      else stat = '';
 
-    function formatSize(bytes){ if(!bytes) return '—'; const units=['o','Ko','Mo','Go']; let i=0; let n=bytes; while(n>=1024 && i<units.length-1){ n/=1024; i++; } return n.toFixed(n<10?1:0)+'\u00A0'+units[i]; }
-    function toLocal(ts){ try{ const d=new Date(ts); return d.toLocaleString('fr-FR', { hour12:false, timeZone: 'Africa/Tunis' }); }catch{ return '—'; } }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><a href="${encodeURIComponent(p)}">${WANT_SPOTS.find(x=>x[1]===p)?.[0] || p}</a>
+          <span class="badge mono">${p}</span></td>
+        <td class="mono">${size||''}</td>
+        <td class="mono">${mod||''}</td>
+        <td>${stat}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
 
-    function statusPill(s){
-      const map = {
-        ok:   { cls: 'pill pill--success-soft', label: 'OK' },
-        late: { cls: 'pill pill--warning-soft', label: 'Lent' },
-        down: { cls: 'pill pill--danger-soft',  label: 'HS' },
-      };
-      const x = map[s] || map.down;
-      return `<span class="${x.cls}">${x.label}</span>`;
+  // === (2) Résumé fenêtres — uniquement spots avec ≥1 fenêtre ===
+  const DEST_OK = new Set([...SPOT_FILES]);
+
+  function labelFor(seg){
+    const s = (seg.label||seg.kind||seg.type||seg.mode||seg.level||seg.tier||seg.grade||seg.decision||'').toString().toLowerCase();
+    if(/family|famille/.test(s)) return 'FAMILY GO';
+    if(/expert/.test(s)) return 'EXPERT GO';
+    if(Array.isArray(seg.tags)){
+      const tags = seg.tags.map(t=> t && t.toString().toLowerCase());
+      if(tags.some(t=>/family|famille/.test(t))) return 'FAMILY GO';
+      if(tags.some(t=>/expert/.test(t))) return 'EXPERT GO';
+    }
+    if(seg.family===true || seg.family_go===true) return 'FAMILY GO';
+    if(seg.expert===true || seg.expert_only===true) return 'EXPERT GO';
+    return 'FENÊTRE';
+  }
+  function goClass(lbl){
+    return lbl.startsWith('FAMILY') ? 'family' : (lbl.startsWith('EXPERT') ? 'expert' : '');
+  }
+
+  if(!windows || !Array.isArray(windows.windows)){
+    winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
+  }else{
+    const items = [];
+    for(const dest of windows.windows){
+      const name = dest.dest_name || dest.dest_slug || '?';
+      const slug = dest.dest_slug || dest.slug || dest.file || '';
+      if(slug && !DEST_OK.has(slug)) continue;
+      if(!Array.isArray(dest.windows) || dest.windows.length===0) continue;
+
+      for(const seg of dest.windows){
+        const start = seg.start ? toFriendly(seg.start) : '?';
+        const end   = seg.end ? toFriendly(seg.end) : '?';
+        const dur   = seg.hours || hoursBetween(seg.start, seg.end) || '';
+        const conf  = (seg.confidence || seg.conf || '').toString();
+        const lbl   = labelFor(seg);
+        const cls   = goClass(lbl);
+
+        const line = document.createElement('div');
+        line.className = 'line';
+        line.innerHTML = `
+          <div class="title">${name} <span class="go ${cls}">${lbl}</span></div>
+          <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''} <span class="sep">⟷</span> ${conf || ''}</div>
+        `;
+        items.push(line);
+      }
     }
 
-    function renderTable(rows){
-      const tbody = document.getElementById('tableBody');
-      tbody.innerHTML = rows.map(r => `
-        <tr>
-          <th scope="row">${r.name}</th>
-          <td class="mono">${toLocal(r.mtime)}</td>
-          <td class="mono">${formatSize(r.size)}</td>
-          <td>${statusPill(r.status)}</td>
-        </tr>
-      `).join('');
+    if(items.length===0){
+      winsDiv.innerHTML = '<span class="small">Aucune fenêtre détectée.</span>';
+    }else{
+      winsDiv.innerHTML = '';
+      items.forEach(el=> winsDiv.appendChild(el));
     }
+  }
 
-    // Horodatage haut de page
-    const now = new Date();
-    document.getElementById('ts').textContent = now.toLocaleString('fr-FR', { hour12:false, timeZone: 'Africa/Tunis' });
+  // ===== Petits tests non bloquants (debug) =====
+  try{ console.assert(ql && ql.children.length >= 3, 'quicklinks devrait contenir 3 éléments'); }catch(_){}}
+)();
+</script>
 
-    renderTable(demoRows);
+<details class="card" style="margin-top:16px">
+  <summary>Format JSON (extrait)</summary>
+  <pre class="small" style="white-space:pre-wrap">
+{
+  "meta": {
+    "name": "Gammarth (port)",
+    "slug": "gammarth-port.json",
+    "tz": "Africa/Tunis",
+    "lat": 36.9203,
+    "lon": 10.2846,
+    "sources": ["open-meteo:ecmwf", "open-meteo:marine"]
+  },
+  "hourly": {
+    "time": ["2025-09-12T00:00", "2025-09-12T01:00", "..."],
+    "wind_speed_10m": [..km/h..],
+    "wind_gusts_10m": [..km/h..],
+    "wind_direction_10m": [..deg..],
+    "weather_code": [..wmo..],
+    "visibility": [..m ou km..],
+    "hs": [..m..],       // alias: wave_height
+    "tp": [..s..]        // alias: wave_period
+  }
+}
+  </pre>
+</details>
 
-    // 🔌 Exemple de branchement réel (décommente et adapte au CORS) :
-    // async function loadStatus(){
-    //   const [status, index] = await Promise.all([
-    //     fetch('./status.json').then(r=>r.json()),
-    //     fetch('./index.json').then(r=>r.json()),
-    //   ]);
-    //   // Mappe ici index.files et status.flags -> rows {name, mtime, size, status}
-    //   renderTable(rows);
-    // }
-    // loadStatus();
-  </script>
 </body>
 </html>

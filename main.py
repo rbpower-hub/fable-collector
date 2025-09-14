@@ -935,7 +935,12 @@ def flatten_hourly_aligned(ecmwf_slice: Dict[str, Any], marine_slice: Dict[str, 
 # -------------------------------------------------------------------------------
 
 def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
-    out = {}
+    out = {
+        "forecast_primary": {
+        "model": primary_used,
+        "hourly": ecmwf_slice
+    },
+    }
     for k in keys:
         arr = d.get(k) or []
         out[k] = sum(1 for x in arr if x is not None)
@@ -1011,6 +1016,16 @@ for site in selected_sites:
             models_parallel, parallel_attempts = fetch_parallel_models(
                 lat, lon, axis, start_local, end_local, TZ, primary_used, site_deadline
             )
+    # Assure la présence du primaire sous models.* pour homogénéité du schéma
+    if axis and primary_used and primary_used not in models_parallel:
+        try:
+            primary_aligned = _align_model_to_axis(ecmwf_slice, axis)
+            if any(v is not None for v in (primary_aligned.get("wind_speed_10m") or [])):
+                models_parallel[primary_used] = {"hourly": primary_aligned}
+                parallel_attempts.append({"model": primary_used, "status": "published_primary_copy"})
+        except Exception as e:
+            log.debug("cannot publish primary under models.*: %s", e)
+        
         except Exception as e:
             log.debug("parallel models fetch failed: %s", e)
 
@@ -1041,47 +1056,7 @@ for site in selected_sites:
     nn_marine = non_null_count(marine_slice, ["wave_height","wave_period","swell_wave_height","swell_wave_period"])
 
     # --- Construction du payload JSON ---
-    # ---------- [NOUVEAU] fonctions d’appoint pour les modèles parallèles ----------
-    def _align_model_to_axis(model_slice: Dict[str, Any], axis: list[str]) -> Dict[str, list]:
-        # aligne un slice forecast (time + wind_* listes) sur l’axe 'axis'
-        te = model_slice.get("time") or []
-        idx = {t:i for i,t in enumerate(te)}
-        def pick(key: str):
-            src = model_slice.get(key) or []
-            out = []
-            for t in axis:
-                j = idx.get(t)
-                out.append(src[j] if (j is not None and j < len(src)) else None)
-            return out
-        aligned = {"time": list(axis)}
-        for k in ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility"]:
-            if k in model_slice:
-                aligned[k] = pick(k)
-        return aligned
 
-    models_parallel: dict[str, dict] = {}
-    try:
-        WANT = [m for m in ["ecmwf_ifs04","icon_seamless"] if m]  # extensible (ex: "gfs_seamless")
-        for m in WANT:
-            # saute le modèle déjà utilisé comme primaire si identique
-            if wx.get("_model_used") == m:
-                # on peut tout de même publier la série primaire sous 'models' pour homogénéité
-                mslice = slice_by_indices(wx, ECMWF_KEYS, keep_wx)
-            else:
-                # requête dédiée par modèle, avec budget restant
-                if time.monotonic() > site_deadline: break
-                url_m = forecast_url(lat, lon, m, hourly_keys=ECMWF_KEYS, include_daily=False)
-                pm = http_get_json(url_m, retry=0, timeout=min(HTTP_TIMEOUT_S, 6))
-                if payload_has_error(pm): continue
-                pm = normalize_hourly_keys(pm)
-                if not has_wind_arrays(pm): continue
-                mslice = slice_by_indices(pm, ECMWF_KEYS, indices_in_window((pm.get("hourly") or {}).get("time") or [], start_local, end_local, TZ))
-            # aligne ce modèle sur l’axe 'hourly_flat.time'
-            aligned = _align_model_to_axis(mslice, hourly_flat.get("time") or [])
-            if aligned.get("time"):
-                models_parallel[m] = {"hourly": aligned}
-    except Exception as e:
-        log.debug("parallel models fetch failed: %s", e)
 
     out: Dict[str, Any] = {        
         "meta": {
@@ -1129,6 +1104,8 @@ for site in selected_sites:
                 "hourly_keys_present_marine": sea_keys_raw,
                 "ecmwf_non_null_counts": nn_ecmwf,
                 "marine_non_null_counts": nn_marine,
+                "forecast_primary_model": primary_used,
+                "forecast_primary_key": "ecmwf",  # alias historique conservé pour compat
                 "kept_indices": {
                     "forecast": keep_wx[:6] + (["..."] if len(keep_wx) > 6 else []),
                     "marine":   keep_sea[:6] + (["..."] if len(keep_sea) > 6 else []),

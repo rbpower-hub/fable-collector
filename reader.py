@@ -47,9 +47,9 @@ _DEFAULT_RULES = {
     "sea": {"family_max_hs_m": 0.5, "nogo_min_hs_m": 0.8},
     "tp_matrix": {
         "transit": {
-            "hs_lt_0_4_family_tp_s": 4.0,
+            "hs_lt_0_4_family_tp_s": 3.2,
             "hs_0_4_0_5_family_tp_s": 4.5,
-            "hs_lt_0_4_expert_tp_min_s": 3.6,
+            "hs_lt_0_4_expert_tp_min_s": 3.2,
             "hs_0_4_0_5_expert_tp_min_s": 4.0,
         },
         "anchor_sheltered": {

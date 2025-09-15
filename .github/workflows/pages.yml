@@ -249,7 +249,7 @@ jobs:
                   "tp_min_at_hs_lt_0_4_s": float(raw["tp_matrix"]["transit"]["hs_lt_0_4_family_tp_s"]),
                   "tp_min_at_hs_0_4_0_5_s": float(raw["tp_matrix"]["transit"]["hs_0_4_0_5_family_tp_s"]),
                 },
-                "visibility_km_min": 5.0
+                "visibility_km_min": float(raw.get("overrides",{}).get("visibility_km_min", 5.0))
               },
               "combined": {
                 # défauts FABLE (non présents dans ton YAML) — restent sûrs
@@ -274,6 +274,12 @@ jobs:
                   "max_fetch_km": float(raw["shelter"]["max_fetch_km"])
                 }
               },
+              "anchor_sheltered": {
+                "waves": {
+                  "hs_le_0_35_family_tp_s": float(raw["tp_matrix"]["anchor_sheltered"]["hs_le_0_35_family_tp_s"]),
+                  "hs_le_0_35_expert_tp_min_s": float(raw["tp_matrix"]["anchor_sheltered"]["hs_le_0_35_expert_tp_min_s"])
+                }
+              },
               "corridor": {
                 "check": True,
                 "buffer_km": 5,
@@ -289,7 +295,9 @@ jobs:
               },
               "medium_wind_spread_kmh": 8.0,  # garde réglage standard
               "cap_high_if_single_wave_source": True,
-              "min_wind_models_for_not_low": 2
+              "min_wind_models_for_not_low": (
+                  2 if bool(raw.get("resolution_policy",{}).get("second_model_required_for_medium", True)) else 1
+              )
             }
           }
 
@@ -346,6 +354,9 @@ jobs:
           FABLE_HTTP_RETRIES: '3'
           FABLE_HTTP_TIMEOUT_S: '12'
           FABLE_RULES_PATH: rules.yaml         # ← ajouté
+          FABLE_PARALLEL_MODELS: 'icon_seamless,gfs_seamless,ecmwf_ifs04'
+          FABLE_PARALLEL_TIMEOUT_S: '12'
+          FABLE_PARALLEL_RETRIES: '0'
         run: |
           set -e
           echo "Using FABLE_TZ=$FABLE_TZ"

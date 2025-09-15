@@ -54,7 +54,7 @@ def build_erddap_url(t0z, t1z, lat, lon_e):
     t1s = t1z.replace(microsecond=0).isoformat().replace("+00:00","Z")
     # sélection dimensionnelle: [time][depth=0][lat][lon]
     sel = f"[({t0s}):1:({t1s})][(0.0)][({latg})][({long})]"
-    q = f"time,Thgt,Tper&Thgt{sel}&Tper{sel}"
+    q = f"Thgt{sel},Tper{sel}"
     return ERDDAP_BASE + "?" + urllib.parse.quote(q, safe=",:[]()&=")
 
 def fetch_csv(url):

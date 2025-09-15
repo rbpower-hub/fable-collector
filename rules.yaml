@@ -2,6 +2,7 @@ overrides:
   thunder_wmo: [95, 96, 99]          # orage = NO-GO dur
   gusts_hard_nogo_kmh: 30            # hard NO-GO ≥30 (sauf exception mouillage)
   squall_delta_kmh: 17               # (rafales - soutenu) ≥17 => disqualification
+  visibility_km_min: 5              # NO-GO si visibilité < 5 km
 
 wind:
   family_max_kmh: 20
@@ -10,7 +11,7 @@ wind:
 
 http:
   disable_astronomy_http: true
-  DAILY backfill (astronomy) failed: GET failed ... 404 ...
+  model_order: "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
 
 
 sea:

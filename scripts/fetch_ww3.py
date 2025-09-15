@@ -6,6 +6,7 @@ Sortie: public/ww3-<slug>.json  { meta, hourly:{time,hs,tp} }
 """
 import argparse, csv, io, json, sys, math, urllib.parse
 from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -54,31 +55,23 @@ def build_erddap_url(t0z, t1z, lat, lon_e):
     t1s = t1z.replace(microsecond=0).isoformat().replace("+00:00","Z")
     # sélection dimensionnelle: [time][depth=0][lat][lon]
     sel = f"[({t0s}):1:({t1s})][(0.0)][({latg})][({long})]"
+    # griddap: variables séparées par VIRGULE ; les dimensions (time, lat, lon, depth) sont renvoyées automatiquement
     q = f"Thgt{sel},Tper{sel}"
-    return ERDDAP_BASE + "?" + urllib.parse.quote(q, safe=",:[]()&=")
+    return ERDDAP_BASE + "?" + urllib.parse.quote(q, safe=",:[]()=")
 
 def fetch_csv(url):
-    with urlopen(url, timeout=25) as r:
-        raw = r.read().decode("utf-8", errors="replace")
-    buf = io.StringIO(raw)
-    rdr = csv.reader(buf)
-    rows = list(rdr)
-    # ERDDAP .csv renvoie 2 lignes d’entête : noms / unités
-    # puis data: time, Thgt, Tper
-    if len(rows) <= 2:
-        return []
-    data = rows[2:]
-    out = []
-    for t, hs, tp in data:
-        if not t: continue
+    try:
+        with urlopen(url, timeout=25) as r:
+            raw = r.read().decode("utf-8", errors="replace")
+    except HTTPError as e:
+        body = ""
         try:
-            out.append((t, float(hs) if hs else None, float(tp) if tp else None))
+            body = e.read().decode("utf-8", errors="ignore")
         except Exception:
-            # lignes NaN -> None
-            hs = None if (hs.strip().lower() in ("nan","")) else float(hs)
-            tp = None if (tp.strip().lower() in ("nan","")) else float(tp)
-            out.append((t, hs, tp))
-    return out
+            pass
+        raise SystemExit(f"HTTP {e.code} from ERDDAP\\nURL: {url}\\n--- server said ---\\n{body[:800]}")
+    except URLError as e:
+        raise SystemExit(f"Network error contacting ERDDAP: {e}")
 
 def main():
     ap = argparse.ArgumentParser()

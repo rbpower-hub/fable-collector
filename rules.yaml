@@ -20,13 +20,13 @@ sea:
 tp_matrix:
   # Transit (strict)
   transit:
-    hs_lt_0_4_family_tp_s: 4.0
+    hs_lt_0_4_family_tp_s: 3.2
     hs_0_4_0_5_family_tp_s: 4.5
-    hs_lt_0_4_expert_tp_min_s: 3.6
+    hs_lt_0_4_expert_tp_min_s: 3.2
     hs_0_4_0_5_expert_tp_min_s: 4.0
   # Mouillage (abrité) – assouplissement léger si shelter OK & Hs ≤0,35 m
   anchor_sheltered:
-    hs_le_0_35_family_tp_s: 3.8
+    hs_le_0_35_family_tp_s: 3.2
     hs_le_0_35_expert_tp_min_s: 3.5
 
 hysteresis:

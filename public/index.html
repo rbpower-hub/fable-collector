@@ -116,6 +116,22 @@
     @media (max-width: 900px){
       .cards { grid-template-columns: 1fr; }
     }
+
+    /* Style spécifique pour l'icône du port principal */
+    .main-port-icon .marker-pulse:after {
+      /* Utilise la couleur d'accentuation et une animation plus forte */
+      animation-name: pulsate-main;
+      animation-duration: 1.2s;
+      box-shadow: 0 0 2px 3px var(--accent);
+      border: 3px solid rgba(76,201,240,0.5);
+    }
+    
+    @keyframes pulsate-main {
+      0% { transform: scale(0.1, 0.1); opacity: 0; }
+      50% { opacity: 1; }
+      100% { transform: scale(1.5, 1.5); opacity: 0; }
+    }
+    
   </style>
 </head>
 <body>
@@ -373,18 +389,35 @@
   // Add markers to the map
   for (const file in spotCoordinates) {
       const spot = spotCoordinates[file];
-      let icon = redIcon;
-      let statusText = "Données indisponibles ou anciennes.";
-      
-      if (spotStatus[file] === 'green') {
-          icon = greenIcon;
-          statusText = "Fenêtre de navigation 'GO' détectée !";
-      } else if (spotStatus[file] === 'yellow') {
-          icon = yellowIcon;
-          statusText = "Données à jour, pas de fenêtre 'GO' imminente.";
+      let icon;
+      let statusText;
+
+      // Condition spéciale pour le port principal (Gammarth)
+      if (file === 'gammarth-port.json') {
+          // On crée une icône unique avec la classe CSS "main-port-icon"
+          icon = L.divIcon({
+              className: 'custom-div-icon main-port-icon', // Ajout de la classe spéciale ici
+              html: `<div style='background-color:var(--accent);' class='marker-pin'></div><div class='marker-pulse'></div>`,
+              iconSize: [30, 42],
+              iconAnchor: [15, 42]
+          });
+          statusText = "Port Principal de Gammarth";
+
+      // Logique existante pour les autres ports
+      } else {
+          icon = redIcon; // Par défaut
+          statusText = "Données indisponibles ou anciennes.";
+
+          if (spotStatus[file] === 'green') {
+              icon = greenIcon;
+              statusText = "Fenêtre de navigation 'GO' détectée !";
+          } else if (spotStatus[file] === 'yellow') {
+              icon = yellowIcon;
+              statusText = "Données à jour, pas de fenêtre 'GO' imminente.";
+          }
       }
       
-      L.marker([spot.lat, spot.lon], { icon: icon })
+      L.marker([spot.lat, spot.lon], { icon: icon, zIndexOffset: (file === 'gammarth-port.json' ? 1000 : 0) }) // Met Gammarth au premier plan
           .addTo(map)
           .bindPopup(`<b>${spot.name}</b><br>${statusText}`);
   }

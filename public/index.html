@@ -20,7 +20,6 @@
       --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
       --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
     }
-    /* ## NEW: Nautical Theme ## */
     [data-theme="nautical"] {
       --bg: #fdfdfd; --fg: #0a2240; --muted: #5b6a7e; --accent: #0077b6;
       --ok: #1a936f; --warn: #f78c2a; --bad: #c83e4d;
@@ -44,26 +43,23 @@
 
     #map { height: 450px; border-radius: 14px; background-color: var(--card); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
     
-    /* ## NEW: Transition Style ## */
     #dashboard-content { transition: opacity 0.5s ease-in-out; }
     #dashboard-content.updating { opacity: 0.3; }
 
-    .cards{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
+    .layout-grid{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     
-    details.sub{margin-top:10px}
-    details.sub summary{cursor:pointer; list-style:none; font-weight:700; color:var(--muted)}
-    details.sub > ul{margin-top:8px}
-    .ico{display:inline-block; width:1.25em; text-align:center}
-    .divider{border-top:1px solid var(--br); margin:8px 0; list-style:none;}
-
-    .wins .line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
-    .wins .title{font-weight:700; font-size: 1.1rem;}
+    .wins .line, .conditions .line {padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
+    .wins .title, .conditions .title {font-weight:700; font-size: 1.1rem;}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800;}
     .go.family{background: var(--ok); color: #04110a}
+    /* ## NOUVEAU: Style pour la carte des conditions ## */
+    .conditions .line { border-left: 4px solid var(--warn); }
+    .conditions .reason { color: var(--fg); font-weight: 500;}
+    .conditions .spot-name { color: var(--muted); font-size: 0.9rem; }
     
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px; max-height: 250px;}
-    table{width:100%; border-collapse:collapse; background:var(--card)}
+    table{width:100%; border-collapse:collapse;}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
     
@@ -72,18 +68,12 @@
     
     .marker-pin { width: 30px; height: 30px; border-radius: 50% 50% 50% 0; position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; }
     .marker-pin::after { content: ''; width: 14px; height: 14px; margin: 8px 0 0 8px; background: #ffffff; position: absolute; border-radius: 50%; }
-    .marker-pulse { background: rgba(0,0,0,0.1); border-radius: 50%; height: 14px; width: 14px; position: absolute; left: 50%; top: 50%; margin: 11px 0px 0px -12px; transform: rotateX(55deg); z-index: -2; }
     .marker-pulse:after { content: ""; border-radius: 50%; height: 40px; width: 40px; position: absolute; margin: -13px 0 0 -13px; animation: pulsate 1.5s ease-out infinite; opacity: 0; box-shadow: 0 0 1px 2px var(--accent); border: 3px solid rgba(255,255,255,0.3); }
     @keyframes pulsate { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.2, 1.2); opacity: 0; } }
-
-    .main-port-icon .marker-pulse:after {
-      animation-name: pulsate-main; animation-duration: 1.2s;
-      box-shadow: 0 0 2px 3px var(--accent);
-      border: 3px solid rgba(76,201,240,0.5);
-    }
+    .main-port-icon .marker-pulse:after { animation-name: pulsate-main; animation-duration: 1.2s; box-shadow: 0 0 2px 3px var(--accent); border: 3px solid rgba(76,201,240,0.5); }
     @keyframes pulsate-main { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.5, 1.5); opacity: 0; } }
     
-    @media (max-width: 900px){ .cards { grid-template-columns: 1fr; } }
+    @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -99,10 +89,16 @@
 <div id="dashboard-content">
     <div id="map" aria-label="Carte des spots"></div>
 
-    <div class="cards">
-      <div class="card wins">
-        <h3>🪟 Fenêtres de Navigation "GO"</h3>
-        <div id="wins">Chargement…</div>
+    <div class="layout-grid">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="card wins">
+          <h3>🪟 Fenêtres de Navigation "GO"</h3>
+          <div id="wins">Chargement…</div>
+        </div>
+        <div class="card conditions">
+          <h3>🚦 Conditions Actuelles (No-GO)</h3>
+          <div id="reasons">Chargement…</div>
+        </div>
       </div>
       <div class="card">
         <h3 style="margin-bottom:12px;">📡 Radar des Spots</h3>
@@ -116,8 +112,7 @@
         </div>
         <details class="sub" style="margin-top:16px;">
           <summary>📚 Données Brutes &amp; Liens</summary>
-          <ul>
-            </ul>
+          <ul id="raw-links-list"></ul>
         </details>
       </div>
     </div>
@@ -132,11 +127,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
-// Encapsulate all logic in a single main function
 (async function main() {
-  const REFRESH_INTERVAL_SECONDS = 300; // 5 minutes
+  const REFRESH_INTERVAL_SECONDS = 600; // 10 minutes
   
-  // --- UI Elements ---
   const $ = (sel) => document.querySelector(sel);
   const themeBtn = $('#themeBtn');
   const fullscreenBtn = $('#fullscreenBtn');
@@ -145,12 +138,8 @@
   
   // --- Theme Manager ---
   const themes = ['dark', 'light', 'nautical'];
-  let currentThemeIndex = 0;
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme && themes.includes(savedTheme)) {
-    currentThemeIndex = themes.indexOf(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  }
+  let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark');
+  document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
   themeBtn.addEventListener('click', () => {
     currentThemeIndex = (currentThemeIndex + 1) % themes.length;
     const nextTheme = themes[currentThemeIndex];
@@ -161,15 +150,12 @@
   // --- Fullscreen Manager ---
   fullscreenBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-      });
+      document.documentElement.requestFullscreen().catch(err => console.error(err));
     } else {
       document.exitFullscreen();
     }
   });
 
-  // --- Data & Map Configuration ---
   const spotCoordinates = {
     'gammarth-port.json': { name: 'Gammarth Port', lat: 36.903, lon: 10.323 },
     'sidi-bou-said.json': { name: 'Sidi Bou Saïd', lat: 36.871, lon: 10.349 },
@@ -180,7 +166,6 @@
   const WANT_SPOTS = Object.entries(spotCoordinates).map(([file, {name}]) => [name, file]);
   const SPOT_FILES = new Set(Object.keys(spotCoordinates));
 
-  // --- Map Initialization ---
   const map = L.map('map').setView([36.95, 10.6], 9);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -190,19 +175,18 @@
     map.setView([s.lat, s.lon], 12, { animate: true });
   };
   
-  // --- Main Update Function ---
   async function updateDashboard() {
-    dashboardContent.classList.add('updating'); // Fade out for update
+    dashboardContent.classList.add('updating');
     
-    // Helper functions
     const toLocal = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     const toFriendly = (iso) => new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false });
     const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
 
-    // Fetch all data
-    const [status, windows] = await Promise.all([
+    // ## MODIFIÉ: Ajout de 'reasons.json' au fetch ##
+    const [status, windows, reasonsData] = await Promise.all([
       fetchJSON('status.json'),
-      fetchJSON('windows.json')
+      fetchJSON('windows.json'),
+      fetchJSON('reasons.json') // On charge les raisons en même temps
     ]);
 
     // Update Status & Generated Time
@@ -213,99 +197,69 @@
 
     // Update Windows Card
     const winsDiv = $('#wins');
-    const windowItems = (windows?.windows || [])
-      .filter(dest => SPOT_FILES.has(dest.dest_slug) && dest.windows?.length > 0)
-      .flatMap(dest => dest.windows.map(seg => `
+    const windowItems = (windows?.windows || []).flatMap(dest => dest.windows.map(seg => `
         <div class="line">
           <div class="title">${dest.dest_name} <span class="go family">FAMILY GO</span></div>
           <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
-        </div>`
-      ));
-    winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation détectée.</span>';
-
-    // Update Radar Table & Spot Status
-    const spotStatus = {};
-    if (windows?.windows) {
-      windows.windows.forEach(dest => {
-        if (dest.windows?.length > 0) spotStatus[dest.dest_slug] = 'green';
-      });
+        </div>`));
+    winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
+    
+    // ## NOUVEAU: Mise à jour de la carte "No-GO Reasons" ##
+    const reasonsDiv = $('#reasons');
+    if (reasonsData && reasonsData.reasons && reasonsData.reasons.length > 0) {
+        const reasonItems = reasonsData.reasons.map(item => `
+            <div class="line">
+                <div class="reason">🚫 ${item.reason}</div>
+                <div class="spot-name">${item.spot_name || 'Tous les spots'}</div>
+            </div>
+        `).join('');
+        reasonsDiv.innerHTML = reasonItems;
+    } else {
+        reasonsDiv.innerHTML = '<span class="small">Toutes les conditions sont potentiellement favorables.</span>';
     }
 
-    const filesTableBody = $('#files tbody');
-    const tableRows = WANT_SPOTS.map(([name, file]) => {
-      const isFresh = status?.files?.find(s => s.path === file)?.fresh;
-      if (spotStatus[file] !== 'green') {
-        spotStatus[file] = isFresh ? 'yellow' : 'red';
-      }
-      const statusText = isFresh ? '<span class="ok">Frais</span>' : '<span class="warn">Ancien</span>';
-      const modified = status?.files?.find(s => s.path === file)?.modified;
+    // Update Radar Table, Spot Status, and Map Markers (Logique existante)
+    const spotStatus = {};
+    if (windows?.windows) { windows.windows.forEach(dest => { if (dest.windows?.length > 0) spotStatus[dest.dest_slug] = 'green'; }); }
 
+    const filesTableBody = $('#files tbody');
+    filesTableBody.innerHTML = WANT_SPOTS.map(([name, file]) => {
+      const isFresh = status?.files?.find(s => s.path === file)?.fresh;
+      if (spotStatus[file] !== 'green') { spotStatus[file] = isFresh ? 'yellow' : 'red'; }
       return `<tr>
         <td><a href="#" data-file="${file}">${name}</a></td>
-        <td class="mono">${modified ? toLocal(modified) : ''}</td>
-        <td>${statusText}</td>
+        <td class="mono">${status?.files?.find(s => s.path === file)?.modified ? toLocal(status.files.find(s => s.path === file).modified) : ''}</td>
+        <td>${isFresh ? '<span style="color:var(--ok)">Frais</span>' : '<span style="color:var(--warn)">Ancien</span>'}</td>
       </tr>`;
-    });
-    filesTableBody.innerHTML = tableRows.join('');
-    filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.panToFile(e.target.dataset.file);
-    }));
+    }).join('');
+    filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.target.dataset.file); }));
     
-    // Update Map Markers
-    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); }); // Clear old markers
-    const createIcon = (color, isMain) => L.divIcon({
-      className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`,
-      html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`,
-      iconSize: [30, 42], iconAnchor: [15, 42]
-    });
+    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+    const createIcon = (color, isMain) => L.divIcon({ className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`, html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
     
     for (const file in spotCoordinates) {
       const spot = spotCoordinates[file];
-      let icon, text, color;
-      if (file === 'gammarth-port.json') {
-        icon = createIcon('var(--accent)', true);
-        text = "Port Principal de Gammarth";
-      } else {
-        color = spotStatus[file] === 'green' ? 'var(--ok)' : (spotStatus[file] === 'yellow' ? 'var(--warn)' : 'var(--bad)');
-        icon = createIcon(color, false);
-        text = spotStatus[file] === 'green' ? "Fenêtre 'GO' détectée !" : (spotStatus[file] === 'yellow' ? "Données à jour" : "Données anciennes");
-      }
-      L.marker([spot.lat, spot.lon], { icon, zIndexOffset: (file === 'gammarth-port.json' ? 1000 : 0) })
-        .addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
+      const isMain = file === 'gammarth-port.json';
+      const color = isMain ? 'var(--accent)' : (spotStatus[file] === 'green' ? 'var(--ok)' : (spotStatus[file] === 'yellow' ? 'var(--warn)' : 'var(--bad)'));
+      const text = isMain ? "Port Principal" : (spotStatus[file] === 'green' ? "Fenêtre 'GO' !" : (spotStatus[file] === 'yellow' ? "Données à jour" : "Données anciennes"));
+      L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
     }
 
-    // Update Raw Data Links
-    const rawLinksList = $('.sub ul');
-    rawLinksList.innerHTML = WANT_SPOTS.map(([name, file]) => `<li><span class="ico">⚓</span><a href="./${file}">${file}</a></li>`).join('');
+    $('#raw-links-list').innerHTML = WANT_SPOTS.map(([name, file]) => `<li><span class="ico">⚓</span><a href="./${file}">${file}</a></li>`).join('');
     
-    dashboardContent.classList.remove('updating'); // Fade back in
+    dashboardContent.classList.remove('updating');
   }
 
   // --- Auto-Refresh Manager ---
   let countdown = REFRESH_INTERVAL_SECONDS;
-  const startTimers = () => {
-    // Main data refresh timer
-    setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS * 1000);
-    // UI countdown timer (runs every second)
-    setInterval(() => {
-      countdown--;
-      if (countdown <= 0) {
-        countdown = REFRESH_INTERVAL_SECONDS;
-      }
-      refreshTimerSpan.textContent = `Prochaine mise à jour dans ${countdown}s.`;
-    }, 1000);
-  };
+  setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS * 1000);
+  setInterval(() => {
+    countdown = (countdown <= 1) ? REFRESH_INTERVAL_SECONDS : countdown - 1;
+    refreshTimerSpan.textContent = `Prochaine mise à jour dans ${countdown}s.`;
+  }, 1000);
   
-  // Initial Load & Start Timers
   await updateDashboard();
-  startTimers();
 })();
-</script>
-<script src="./reasons-debug.js"></script>
-<script>
-  // Optional: auto-run on load
-  // FABLE.debugReasons().then(rows => console.log('Summary', rows));
 </script>
 </body>
 </html>

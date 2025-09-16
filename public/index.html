@@ -1,22 +1,17 @@
 <!doctype html>
 <html lang="fr" data-theme="dark">
 <head>
-  <meta charset="utf--8" />
+  <meta charset="utf-8" />
   <title>TABLEAU DE BORD PORT GAMMARTH</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1020" />
-  
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-
   <style>
-    /* ===== Thème & palette accessibles (AA/AAA) ===== */
     :root{
       --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
-      /* Mint clair demandé */
       --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444;
       --card:#0f172a; --br:#23304a;
-      --badge-bg:#16243a; --badge-br:#2b3b59; --pill-bg:#0d1a2b;
-      --link:#7dd3fc;
+      --badge-bg:#16243a; --badge-br:#2b3b59; --pill-bg:#0d1a2b; --link:#7dd3fc;
       --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
     }
     [data-theme="light"]{
@@ -26,7 +21,6 @@
       --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
     }
 
-    /* ===== Base ===== */
     html,body{height:100%}
     body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg); font-size: 1.05rem;}
     *{box-sizing:border-box}
@@ -34,8 +28,8 @@
     a:hover{text-decoration: underline}
     h1,h2,h3{margin:0 0 8px 0; font-weight: 700;}
     .sr-only{position:absolute;left:-9999px}
+    .muted{color:var(--muted)}
 
-    /* ===== Header ===== */
     header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
     header h1{font-size:1.5rem}
     .spacer{flex:1}
@@ -46,17 +40,15 @@
     .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
     .status.ok, .status.warn, .status.bad { color:#081019 !important; }
 
-    /* ===== NEW: Map Style ===== */
     #map { height: 450px; border-radius: 14px; background-color: var(--card); border: 1px solid var(--br); margin-bottom: 16px; }
 
-    /* ===== Layout cartes ===== */
     .cards{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     .small{font-size:.92rem;color:var(--muted)}
     .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas, "Liberation Mono","Courier New",monospace}
     .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
 
-    /* ===== Liens rapides ===== */
+    /* Données brutes (accordion) */
     details.sub{margin-top:10px}
     details.sub summary{cursor:pointer; list-style:none; font-weight:700; color:var(--muted)}
     details.sub[open] summary{color:var(--fg)}
@@ -66,9 +58,12 @@
     .quick h3{margin-bottom:6px}
     .quick ul{margin:8px 0 0 18px; padding-left: 0;}
     .quick ul li{margin:6px 0; line-height:1.35}
-    .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
+    .divider{border-top:1px solid var(--br); margin:8px 0; list-style:none; height:0; padding:0}
 
-    /* ===== Résumé fenêtres ===== */
+    .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
+    .badge.ok{color:var(--ok)} .badge.warn{color:var(--warn)}
+
+    /* Fenêtres */
     .wins .line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--card);margin-bottom:8px}
     .wins .title{font-weight:700; font-size: 1.1rem;}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800; letter-spacing:.2px}
@@ -76,7 +71,7 @@
     .go.expert{background: #f59e0b; color: #160f04}
     .sep{opacity:.6; padding:0 6px}
     
-    /* ===== Tableau radar spots ===== */
+    /* Radar spots */
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px; max-height: 250px;}
     table{width:100%; border-collapse:collapse; background:var(--card)}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
@@ -85,65 +80,34 @@
 
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     
-    /* ===== NEW: Custom Map Marker CSS ===== */
-    .marker-pin {
-      width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
-      position: absolute; transform: rotate(-45deg);
-      left: 50%; top: 50%; margin: -15px 0 0 -15px;
-    }
-    .marker-pin::after {
-      content: ''; width: 14px; height: 14px; margin: 8px 0 0 8px;
-      background: #ffffff; position: absolute; border-radius: 50%;
-    }
-    .marker-pulse {
-      background: rgba(0,0,0,0.1); border-radius: 50%; height: 14px; width: 14px;
-      position: absolute; left: 50%; top: 50%; margin: 11px 0px 0px -12px;
-      transform: rotateX(55deg); z-index: -2;
-    }
-    .marker-pulse:after {
-      content: ""; border-radius: 50%; height: 40px; width: 40px;
-      position: absolute; margin: -13px 0 0 -13px;
-      animation: pulsate 1.5s ease-out infinite;
-      opacity: 0; box-shadow: 0 0 1px 2px var(--accent); border: 3px solid rgba(255,255,255,0.3);
-    }
-    @keyframes pulsate {
-      0% { transform: scale(0.1, 0.1); opacity: 0; }
-      50% { opacity: 1; }
-      100% { transform: scale(1.2, 1.2); opacity: 0; }
-    }
+    /* Map marker visuals */
+    .marker-pin { width: 30px; height: 30px; border-radius: 50% 50% 50% 0; position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; }
+    .marker-pin::after { content: ''; width: 14px; height: 14px; margin: 8px 0 0 8px; background: #ffffff; position: absolute; border-radius: 50%; }
+    .marker-pulse { background: rgba(0,0,0,0.1); border-radius: 50%; height: 14px; width: 14px; position: absolute; left: 50%; top: 50%; margin: 11px 0px 0px -12px; transform: rotateX(55deg); z-index: -2; }
+    .marker-pulse:after { content: ""; border-radius: 50%; height: 40px; width: 40px; position: absolute; margin: -13px 0 0 -13px; animation: pulsate 1.5s ease-out infinite; opacity: 0; box-shadow: 0 0 1px 2px var(--accent); border: 3px solid rgba(255,255,255,0.3); }
+    @keyframes pulsate { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.2, 1.2); opacity: 0; } }
 
-    /* Responsive adjustments */
-    @media (max-width: 900px){
-      .cards { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 900px){ .cards { grid-template-columns: 1fr; } }
 
-    /* Style spécifique pour l'icône du port principal */
+    /* Port principal pulse boost */
     .main-port-icon .marker-pulse:after {
-      /* Utilise la couleur d'accentuation et une animation plus forte */
-      animation-name: pulsate-main;
-      animation-duration: 1.2s;
+      animation-name: pulsate-main; animation-duration: 1.2s;
       box-shadow: 0 0 2px 3px var(--accent);
       border: 3px solid rgba(76,201,240,0.5);
     }
-    
-    @keyframes pulsate-main {
-      0% { transform: scale(0.1, 0.1); opacity: 0; }
-      50% { opacity: 1; }
-      100% { transform: scale(1.5, 1.5); opacity: 0; }
-    }
-    
+    @keyframes pulsate-main { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.5, 1.5); opacity: 0; } }
   </style>
 </head>
 <body>
 <header>
   <h1>🧭 Tableau de Bord – Port Gammarth</h1>
-  <span id="gen" class="pill"></span>
-  <span id="hc" class="status warn">Statut: …</span>
+  <span id="gen" class="pill" aria-live="polite"></span>
+  <span id="hc" class="status warn" role="status">Statut: …</span>
   <span class="spacer"></span>
   <button id="themeBtn" class="btn" title="Basculer clair/sombre">🌙/☀️</button>
 </header>
 
-<div id="map"></div>
+<div id="map" aria-label="Carte des spots"></div>
 
 <div class="cards">
   <div class="card wins">
@@ -163,14 +127,14 @@
     </div>
 
     <details class="sub" style="margin-top:16px;">
-      <summary>📚 Données Brutes & Liens</summary>
+      <summary>📚 Données Brutes &amp; Liens</summary>
       <ul>
         <li><span class="ico">⚓</span><a href="./gammarth-port.json">gammarth-port.json</a></li>
         <li><span class="ico">⛵</span><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
         <li><span class="ico">🏝️</span><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
         <li><span class="ico">🌊</span><a href="./ras-fartass.json">ras-fartass.json</a></li>
         <li><span class="ico">🪁</span><a href="./el-haouaria.json">el-haouaria.json</a></li>
-        <hr style="border-color: var(--br); margin: 8px 0;">
+        <li class="divider" role="separator"></li>
         <li><span class="ico">🪟</span><a href="./windows.json">windows.json</a></li>
         <li><span class="ico">📊</span><a href="./status.json">status.json</a></li>
         <li><span class="ico">📑</span><a href="./index.json">index.json</a></li>
@@ -180,7 +144,6 @@
   </div>
 </div>
 
-
 <footer>
   <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont au format ISO.</p>
 </footer>
@@ -189,7 +152,6 @@
 
 <script>
 (function(){
-  // === Préférences de thème ===
   const root = document.documentElement;
   const saved = localStorage.getItem('theme');
   if(saved){ root.setAttribute('data-theme', saved); }
@@ -204,12 +166,11 @@
 (async function(){
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
   const $ = (sel)=>document.querySelector(sel);
-  
-  // Elements
+  document.getElementById('tz2').textContent = tz;
+
   const hc = $('#hc');
   const winsDiv = $('#wins');
-  const filesTableBody = $('#files tbody');
-  $('#tz2').textContent = tz;
+  const filesTableBody = document.querySelector('#files tbody');
 
   const WANT_SPOTS = [
     ['Gammarth (home)', 'gammarth-port.json'],
@@ -221,22 +182,21 @@
   const SPOT_FILES = new Set(WANT_SPOTS.map(x=>x[1]));
 
   const toLocal = (iso)=>{
-    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString('fr-TN', { timeZone: tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString('fr-FR', { timeZone: tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
     catch(e){ return iso||''; }
   };
   const toFriendly = (iso)=>{
     try{
       const d = new Date(iso);
       if(isNaN(d)) return iso||'?';
-      const s = d.toLocaleString('fr-TN', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:false, timeZone: tz });
+      const s = d.toLocaleString('fr-FR', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:false, timeZone: tz });
       return s.charAt(0).toUpperCase()+s.slice(1);
     }catch(e){ return iso||'?'; }
   };
   const hoursBetween = (a,b)=>{
     const da = new Date(a), db = new Date(b);
     if(isNaN(da) || isNaN(db)) return '';
-    const h = Math.round((db - da) / 36e5);
-    return h;
+    return Math.round((db - da) / 36e5);
   };
   const fetchJSON = async (path)=>{
     try{
@@ -255,60 +215,65 @@
               : (catalog && Array.isArray(catalog.files)) ? catalog.files
               : [];
 
-  // === Pastille statut ===
   if(status && Array.isArray(status.files)){
-    const ok = !!(status.all_fresh || status.status==='ok');
+    const ok = !!(status.all_fresh || status.status==='ok' || status.state==='ok');
     hc.className = 'status ' + (ok ? 'ok' : 'warn');
-    hc.textContent = ok ? 'Statut: OK' : 'Statut: Données Anciennes';
+    hc.textContent = ok ? 'Statut: OK' : 'Statut: Données anciennes';
   }else{
     hc.className = 'status bad';
     hc.textContent = 'Statut: Indisponible';
   }
 
-  // === Généré à… ===
-  const gen = (windows && windows.generated_at) || (index && index.generated_at) || null;
-  $('#gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
+  const gen = (windows && windows.generated_at) || (index && index.generated_at) || (catalog && catalog.generated_at) || null;
+  document.getElementById('gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
 
-  // === Radar des spots Table ===
-  const freshThreshold = 180; // 3 hours
+  const freshThreshold = 180; // 3h
   function isFreshEntry(entry, fallbackModIso){
-    if(entry && typeof entry.fresh === 'boolean') return entry.fresh;
+    if(entry){
+      if(typeof entry.fresh === 'boolean') return entry.fresh;
+      if('stale' in entry) return !entry.stale;
+      const age = entry.age_minutes ?? entry.age_min ?? entry.minutes ?? entry.age;
+      if(typeof age === 'number' && isFinite(age)) return age <= freshThreshold;
+    }
     if(fallbackModIso){
       const ageMin = (Date.now() - new Date(fallbackModIso).getTime())/60000;
       return ageMin <= freshThreshold;
     }
+    if(gen){
+      const ageMinGen = (Date.now() - new Date(gen).getTime())/60000;
+      if(ageMinGen <= freshThreshold) return true;
+    }
     return null;
   }
-  const spotRows = files
-    .map(f => typeof f==='string' ? {path:f} : f)
-    .filter(f => SPOT_FILES.has(f.path));
-  
+
+  const spotRows = files.map(f => (typeof f==='string' ? {path:f} : f)).filter(f => SPOT_FILES.has(f.path));
   if(spotRows.length===0){
     filesTableBody.innerHTML = '<tr><td colspan="3" class="small warn">Aucun spot listé.</td></tr>';
   } else {
-      const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
-      spotRows.sort((a,b)=> (order.get(a.path) ?? 1e9) - (order.get(b.path) ?? 1e9));
+    const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
+    spotRows.sort((a,b)=> (order.get(a.path) ?? 1e9) - (order.get(b.path) ?? 1e9));
+    for(const f of spotRows){
+      const p = f.path || '';
+      const mod = f.modified ? toLocal(f.modified) : '';
+      const freshEntry = (status && status.files && status.files.find(s=>s.path===p)) || null;
+      const freshBool = isFreshEntry(freshEntry, f.modified);
+      let stat = '';
+      if(freshBool===true) stat = '<span class="ok">Frais</span>';
+      else if(freshBool===false) stat = '<span class="warn">Ancien</span>';
+      else stat = '<span class="muted">N/A</span>';
+      const name = (WANT_SPOTS.find(x=>x[1]===p) || [p])[0];
 
-      for(const f of spotRows){
-        const p = f.path || '';
-        const mod = f.modified ? toLocal(f.modified) : '';
-        const freshEntry = (status && status.files && status.files.find(s=>s.path===p)) || null;
-        const freshBool = isFreshEntry(freshEntry, f.modified);
-        let stat = '';
-        if(freshBool===true) stat = '<span class="ok">Frais</span>';
-        else if(freshBool===false) stat = '<span class="warn">Ancien</span>';
-        else stat = '<span class="muted">N/A</span>';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><a href="${encodeURIComponent(p)}">${WANT_SPOTS.find(x=>x[1]===p)?.[0] || p}</a></td>
-          <td class="mono">${mod||''}</td>
-          <td>${stat}</td>`;
-        filesTableBody.appendChild(tr);
-      }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><a href="${encodeURIComponent(p)}" data-file="${p}">${name}</a></td>
+                      <td class="mono">${mod||''}</td>
+                      <td>${stat}</td>`;
+      tr.querySelector('a').addEventListener('click', (e)=>{
+        if(window.panToFile){ e.preventDefault(); window.panToFile(p); }
+      });
+      filesTableBody.appendChild(tr);
+    }
   }
 
-  // === Résumé fenêtres ===
   if(!windows || !Array.isArray(windows.windows) || windows.windows.length === 0){
     winsDiv.innerHTML = '<span class="small">Aucune fenêtre de navigation détectée.</span>';
   } else {
@@ -316,35 +281,26 @@
     for(const dest of windows.windows){
       if(!SPOT_FILES.has(dest.dest_slug)) continue;
       if(!Array.isArray(dest.windows) || dest.windows.length===0) continue;
-
       for(const seg of dest.windows){
         const start = seg.start ? toFriendly(seg.start) : '?';
         const end   = seg.end ? toFriendly(seg.end) : '?';
         const dur   = seg.hours || hoursBetween(seg.start, seg.end) || '';
-        
         const line = document.createElement('div');
         line.className = 'line';
-        line.innerHTML = `
-          <div class="title">${dest.dest_name} <span class="go family">FAMILY GO</span></div>
-          <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''}</div>
-        `;
+        line.innerHTML = `<div class="title">${dest.dest_name} <span class="go family">FAMILY GO</span></div>
+                          <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''}</div>`;
         items.push(line);
       }
     }
-    if(items.length===0){
-      winsDiv.innerHTML = '<span class="small">Aucune fenêtre de navigation détectée.</span>';
-    } else {
-      winsDiv.innerHTML = '';
-      items.forEach(el=> winsDiv.appendChild(el));
-    }
+    winsDiv.innerHTML = items.length ? '' : '<span class="small">Aucune fenêtre de navigation détectée.</span>';
+    items.forEach(el=> winsDiv.appendChild(el));
   }
 
-  // ===== MAP INITIALIZATION =====
   const spotCoordinates = {
     'gammarth-port.json': { name: 'Gammarth Port', lat: 36.903, lon: 10.323 },
     'sidi-bou-said.json': { name: 'Sidi Bou Saïd', lat: 36.871, lon: 10.349 },
-    'ghar-el-melh.json': { name: 'Ghar el Melh', lat: 37.177, lon: 10.279 },
-    'ras-fartass.json': { name: 'Ras Fartass', lat: 36.877, lon: 10.612 },
+    'ghar-el-melh.json': { name: 'Ghar el Melh', lat: 37.168, lon: 10.194 },
+    'ras-fartass.json': { name: 'Ras Fartass', lat: 37.108, lon: 10.130 },
     'el-haouaria.json': { name: 'El Haouaria', lat: 37.054, lon: 11.042 }
   };
 
@@ -365,62 +321,69 @@
   const yellowIcon = createStatusIcon('var(--warn)');
   const redIcon = createStatusIcon('var(--bad)');
 
-  // Determine status for each spot
   const spotStatus = {};
   if (windows && Array.isArray(windows.windows)) {
-      windows.windows.forEach(dest => {
-          if (dest.windows && dest.windows.length > 0) {
-              spotStatus[dest.dest_slug] = 'green'; // Green: Has a "GO" window
-          }
-      });
-  }
-  spotRows.forEach(f => {
-      if (spotStatus[f.path] !== 'green') { // Don't override green
-          const freshEntry = (status && status.files && status.files.find(s => s.path === f.path)) || null;
-          const freshBool = isFreshEntry(freshEntry, f.modified);
-          if (freshBool === true) {
-              spotStatus[f.path] = 'yellow'; // Yellow: No window, but data is fresh
-          } else {
-              spotStatus[f.path] = 'red'; // Red: Data is stale
-          }
+    windows.windows.forEach(dest => {
+      if (dest.windows && dest.windows.length > 0) {
+        spotStatus[dest.dest_slug] = 'green';
       }
+    });
+  }
+  (spotRows || []).forEach(f => {
+    if (spotStatus[f.path] !== 'green') {
+      const freshEntry = (status && status.files && status.files.find(s => s.path === f.path)) || null;
+      const freshBool = isFreshEntry(freshEntry, f.modified);
+      spotStatus[f.path] = freshBool === true ? 'yellow' : 'red';
+    }
   });
 
-  // Add markers to the map
+  window.panToFile = function(file){
+    const s = spotCoordinates[file]; if(!s) return;
+    map.setView([s.lat, s.lon], 12, {animate:true});
+  };
+
   for (const file in spotCoordinates) {
-      const spot = spotCoordinates[file];
-      let icon;
-      let statusText;
-
-      // Condition spéciale pour le port principal (Gammarth)
-      if (file === 'gammarth-port.json') {
-          // On crée une icône unique avec la classe CSS "main-port-icon"
-          icon = L.divIcon({
-              className: 'custom-div-icon main-port-icon', // Ajout de la classe spéciale ici
-              html: `<div style='background-color:var(--accent);' class='marker-pin'></div><div class='marker-pulse'></div>`,
-              iconSize: [30, 42],
-              iconAnchor: [15, 42]
-          });
-          statusText = "Port Principal de Gammarth";
-
-      // Logique existante pour les autres ports
-      } else {
-          icon = redIcon; // Par défaut
-          statusText = "Données indisponibles ou anciennes.";
-
-          if (spotStatus[file] === 'green') {
-              icon = greenIcon;
-              statusText = "Fenêtre de navigation 'GO' détectée !";
-          } else if (spotStatus[file] === 'yellow') {
-              icon = yellowIcon;
-              statusText = "Données à jour, pas de fenêtre 'GO' imminente.";
-          }
-      }
-      
-      L.marker([spot.lat, spot.lon], { icon: icon, zIndexOffset: (file === 'gammarth-port.json' ? 1000 : 0) }) // Met Gammarth au premier plan
-          .addTo(map)
-          .bindPopup(`<b>${spot.name}</b><br>${statusText}`);
+    const spot = spotCoordinates[file];
+    let icon, statusText;
+    if (file === 'gammarth-port.json') {
+      icon = L.divIcon({
+        className: 'custom-div-icon main-port-icon',
+        html: `<div style='background-color:var(--accent);' class='marker-pin'></div><div class='marker-pulse'></div>`,
+        iconSize: [30, 42], iconAnchor: [15, 42]
+      });
+      statusText = "Port Principal de Gammarth";
+    } else {
+      icon = redIcon; statusText = "Données indisponibles ou anciennes.";
+      if (spotStatus[file] === 'green') { icon = greenIcon; statusText = "Fenêtre de navigation 'GO' détectée !"; }
+      else if (spotStatus[file] === 'yellow') { icon = yellowIcon; statusText = "Données à jour, pas de fenêtre 'GO' imminente."; }
+    }
+    L.marker([spot.lat, spot.lon], { icon, zIndexOffset: (file === 'gammarth-port.json' ? 1000 : 0) })
+      .addTo(map)
+      .bindPopup(`<b>${spot.name}</b><br>${statusText}`);
   }
+
+  // Raw list: add freshness badges
+  (function(){
+    const list = document.querySelector('details.sub ul'); if(!list) return;
+    const statusByBase = new Map();
+    if(status && Array.isArray(status.files)){
+      for(const e of status.files || []){
+        const base = (e.path||'').split('/').pop();
+        if(base) statusByBase.set(base, e);
+      }
+    }
+    list.querySelectorAll('li').forEach(li=>{
+      const a = li.querySelector('a'); if(!a) return;
+      const base = (a.getAttribute('href')||'').split('/').pop();
+      const entry = statusByBase.get(base) || null;
+      const fallback = (files.find(x => (x && (x.path||x) && ((x.path||x).split('/').pop()===base)))||{}).modified;
+      const fresh = isFreshEntry(entry, fallback);
+      let b = li.querySelector('.badge'); if(!b){ b = document.createElement('span'); b.className='badge'; li.appendChild(document.createTextNode(' ')); li.appendChild(b); }
+      if(fresh===true){ b.textContent='frais'; b.className='badge ok'; }
+      else if(fresh===false){ b.textContent='ancien'; b.className='badge warn'; }
+      else { b.textContent=''; b.className='badge'; }
+    });
+  })();
 
 })();
 </script>

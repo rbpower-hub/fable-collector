@@ -69,6 +69,7 @@
     .quick h4.small{margin:12px 0 4px; font-weight:700; letter-spacing:.2px; text-transform:none; color:var(--muted)}
 
     .quick ul{margin:6px 0 0 18px}
+    .quick li .badge { margin-left: 8px; }
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .off{opacity:.55; pointer-events:none}
@@ -262,6 +263,53 @@
     `<li><span class="ico">🪟</span> <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> — fenêtres <span class=\"mono\">Family GO</span> détectées</li>`,
     `<li><span class="ico">⚙️</span> <a href="rules.normalized.json">rules.normalized.json</a> — règles normalisées en vigueur</li>`
   ].join('');
+  // --- Badges de fraîcheur pour la liste "Données brutes"
+  (() => {
+    const detailsRaw = document.querySelector('details.sub');
+    if (!detailsRaw) return;
+  
+    // Index rapides pour retrouver les infos
+    const statusIndex = new Map(
+      (status && Array.isArray(status.files) ? status.files : []).map(e => [e.path, e])
+    );
+    const fileIndex = new Map(
+      (files || []).map(f => [ (typeof f === 'string' ? f : f.path), (typeof f === 'string' ? {} : f) ])
+    );
+  
+    detailsRaw.querySelectorAll('li').forEach(li => {
+      const a = li.querySelector('a');
+      if (!a) return;
+  
+      // Ex: "./index.json" -> "index.json"
+      const path = (a.getAttribute('href') || '').replace(/^\.\/+/, '');
+      // Évite les doublons si on ré-exécute
+      if (li.querySelector('.badge')) return;
+  
+      // Récupère l'entrée de statut (ou null)
+      const entry  = statusIndex.get(path) || null;
+      const fobj   = fileIndex.get(path) || null; // peut contenir .modified
+      const fresh  = typeof isFreshEntry === 'function' ? isFreshEntry(entry, fobj && fobj.modified) : undefined;
+  
+      if (fresh === true || fresh === false) {
+        const b = document.createElement('span');
+        b.className = 'badge ' + (fresh ? 'ok' : 'warn');
+        b.textContent = fresh ? 'frais' : 'ancien';
+  
+        // Info bulle utile (si dispo)
+        const modISO = (entry && entry.modified) || (fobj && fobj.modified) || null;
+        const ageMin = entry && (entry.age_minutes ?? entry.age_min ?? entry.minutes ?? entry.age);
+        const parts = [];
+        if (modISO && typeof toLocal === 'function') parts.push(`modifié: ${toLocal(modISO)}`);
+        if (typeof ageMin === 'number' && isFinite(ageMin)) parts.push(`âge: ${ageMin} min`);
+        if (parts.length) b.title = parts.join(' — ');
+  
+        li.appendChild(document.createTextNode(' '));
+        li.appendChild(b);
+      }
+    });
+  })();
+
+  
   if(ql) ql.innerHTML = quickHTML;
   // force le style cliquable (si du cache DOM existe)
   ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0');

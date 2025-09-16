@@ -37,6 +37,7 @@
     header h1{font-size:1.5rem}
     .spacer{flex:1}
     .btn{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:6px 10px; border-radius:9px}
+    .btn-mini{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:2px 6px; border-radius:7px; font-size:.82rem; margin-left:6px}
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
     .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
     .status.ok, .status.warn, .status.bad { color:#081019 !important; }
@@ -53,7 +54,6 @@
     .wins .title, .conditions .title {font-weight:700; font-size: 1.1rem;}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800;}
     .go.family{background: var(--ok); color: #04110a}
-    /* ## NOUVEAU: Style pour la carte des conditions ## */
     .conditions .line { border-left: 4px solid var(--warn); }
     .conditions .reason { color: var(--fg); font-weight: 500;}
     .conditions .spot-name { color: var(--muted); font-size: 0.9rem; }
@@ -74,6 +74,11 @@
     @keyframes pulsate-main { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.5, 1.5); opacity: 0; } }
     
     @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } }
+
+    .tip{position:absolute; z-index:9999; max-width: 360px; padding:8px 10px; border-radius:10px;
+         background:var(--card); border:1px solid var(--br); box-shadow: var(--shadow); font-size:.9rem}
+    .tip .hdr{font-weight:700; margin-bottom:4px}
+    .tip .row{margin-top:4px}
   </style>
 </head>
 <body>
@@ -125,6 +130,7 @@
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="./reasons-debug.js"></script>
 
 <script>
 (async function main() {
@@ -135,10 +141,12 @@
   const fullscreenBtn = $('#fullscreenBtn');
   const dashboardContent = $('#dashboard-content');
   const refreshTimerSpan = $('#refresh-timer');
-  
-  // --- Theme Manager ---
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+  $('#tz2').textContent = tz;
+
   const themes = ['dark', 'light', 'nautical'];
   let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark');
+  if(currentThemeIndex < 0) currentThemeIndex = 0;
   document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
   themeBtn.addEventListener('click', () => {
     currentThemeIndex = (currentThemeIndex + 1) % themes.length;
@@ -147,7 +155,6 @@
     localStorage.setItem('theme', nextTheme);
   });
 
-  // --- Fullscreen Manager ---
   fullscreenBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => console.error(err));
@@ -174,28 +181,31 @@
     const s = spotCoordinates[file]; if (!s) return;
     map.setView([s.lat, s.lon], 12, { animate: true });
   };
-  
+
+  function toLocal(iso){
+    try{ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { timeZone: tz, day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+    catch(e){ return ''; }
+  }
+  function toFriendly(iso){
+    try{ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { timeZone: tz, weekday:'long', hour:'numeric', minute:'2-digit', hour12:false }); }
+    catch(e){ return ''; }
+  }
+  const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
+
   async function updateDashboard() {
     dashboardContent.classList.add('updating');
     
-    const toLocal = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    const toFriendly = (iso) => new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false });
-    const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
-
-    // ## MODIFIÉ: Ajout de 'reasons.json' au fetch ##
-    const [status, windows, reasonsData] = await Promise.all([
+    const [status, windows] = await Promise.all([
       fetchJSON('status.json'),
-      fetchJSON('windows.json'),
-      fetchJSON('reasons.json') // On charge les raisons en même temps
+      fetchJSON('windows.json')
     ]);
 
-    // Update Status & Generated Time
     const ok = status && (status.all_fresh || status.status === 'ok');
     $('#hc').className = 'status ' + (ok ? 'ok' : 'warn');
     $('#hc').textContent = ok ? 'Statut: OK' : 'Statut: Données anciennes';
-    $('#gen').textContent = 'Mise à jour: ' + (windows?.generated_at ? toLocal(windows.generated_at) : 'inconnue');
+    const gen = (windows && windows.generated_at) || (status && status.generated_at) || null;
+    $('#gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
 
-    // Update Windows Card
     const winsDiv = $('#wins');
     const windowItems = (windows?.windows || []).flatMap(dest => dest.windows.map(seg => `
         <div class="line">
@@ -204,39 +214,79 @@
         </div>`));
     winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
     
-    // ## NOUVEAU: Mise à jour de la carte "No-GO Reasons" ##
+    // Reasons card (client-side)
     const reasonsDiv = $('#reasons');
-    if (reasonsData && reasonsData.reasons && reasonsData.reasons.length > 0) {
-        const reasonItems = reasonsData.reasons.map(item => `
-            <div class="line">
-                <div class="reason">🚫 ${item.reason}</div>
-                <div class="spot-name">${item.spot_name || 'Tous les spots'}</div>
-            </div>
-        `).join('');
-        reasonsDiv.innerHTML = reasonItems;
+    let reasonsRows = null;
+    if (window.FABLE && typeof FABLE.debugReasons === 'function') {
+      reasonsRows = await FABLE.debugReasons(Object.keys(spotCoordinates));
+    }
+    if (Array.isArray(reasonsRows) && reasonsRows.length) {
+      const items = reasonsRows.map(r => {
+        const famFail = (r.family || '').startsWith('✗') ? r.family.replace(/^✗\s*/, '') : null;
+        const expFail = (r.expert || '').startsWith('✗') ? r.expert.replace(/^✗\s*/, '') : null;
+        const reason = famFail || expFail || 'Fenêtre possible';
+        return `<div class="line"><div class="reason">${famFail||expFail?'🚫 ':'✅ '}${reason}</div><div class="spot-name">${r.spot}</div></div>`;
+      }).join('');
+      reasonsDiv.innerHTML = items;
     } else {
-        reasonsDiv.innerHTML = '<span class="small">Toutes les conditions sont potentiellement favorables.</span>';
+      reasonsDiv.innerHTML = '<span class="small">Raisons indisponibles (helper non chargé).</span>';
     }
 
-    // Update Radar Table, Spot Status, and Map Markers (Logique existante)
     const spotStatus = {};
     if (windows?.windows) { windows.windows.forEach(dest => { if (dest.windows?.length > 0) spotStatus[dest.dest_slug] = 'green'; }); }
 
-    const filesTableBody = $('#files tbody');
+    const filesTableBody = document.querySelector('#files tbody');
     filesTableBody.innerHTML = WANT_SPOTS.map(([name, file]) => {
-      const isFresh = status?.files?.find(s => s.path === file)?.fresh;
+      const entry = status?.files?.find(s => s.path === file);
+      const isFresh = entry?.fresh === true;
       if (spotStatus[file] !== 'green') { spotStatus[file] = isFresh ? 'yellow' : 'red'; }
-      return `<tr>
-        <td><a href="#" data-file="${file}">${name}</a></td>
-        <td class="mono">${status?.files?.find(s => s.path === file)?.modified ? toLocal(status.files.find(s => s.path === file).modified) : ''}</td>
+      const mod = entry?.modified ? toLocal(entry.modified) : '';
+      return `<tr data-file="${file}">
+        <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini why" type="button" data-file="${file}">Pourquoi ?</button></td>
+        <td class="mono">${mod}</td>
         <td>${isFresh ? '<span style="color:var(--ok)">Frais</span>' : '<span style="color:var(--warn)">Ancien</span>'}</td>
       </tr>`;
     }).join('');
-    filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.target.dataset.file); }));
-    
+
+    filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); }));
+
+    // Tooltip beside each spot
+    const reasonsByFile = new Map();
+    if (Array.isArray(reasonsRows)) {
+      reasonsRows.forEach(r => {
+        const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot || '');
+        const key = m ? m[1] : null;
+        if (key) reasonsByFile.set(key, r);
+      });
+    }
+    let tipEl = null;
+    const showTip = (btn) => {
+      const file = btn.dataset.file;
+      const r = reasonsByFile.get(file);
+      const fam = r?.family || '—';
+      const exp = r?.expert || '—';
+      if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'tip'; document.body.appendChild(tipEl); }
+      tipEl.innerHTML = `<div class="hdr">${spotCoordinates[file]?.name || file}</div>
+                         <div class="row"><b>Family:</b> ${fam}</div>
+                         <div class="row"><b>Expert:</b> ${exp}</div>`;
+      const rect = btn.getBoundingClientRect();
+      tipEl.style.left = (window.scrollX + rect.left + rect.width + 8) + 'px';
+      tipEl.style.top  = (window.scrollY + rect.top - 6) + 'px';
+      tipEl.style.display = 'block';
+    };
+    const hideTip = () => { if (tipEl) tipEl.style.display = 'none'; };
+    filesTableBody.querySelectorAll('button.why').forEach(btn => {
+      btn.addEventListener('mouseenter', () => showTip(btn));
+      btn.addEventListener('mouseleave', hideTip);
+      btn.addEventListener('focus', () => showTip(btn));
+      btn.addEventListener('blur', hideTip);
+      btn.addEventListener('click', (e) => { e.preventDefault(); showTip(btn); setTimeout(hideTip, 3000); });
+    });
+    document.addEventListener('scroll', () => { if (tipEl) tipEl.style.display = 'none'; }, { passive: true });
+
+    // Map markers
     map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
     const createIcon = (color, isMain) => L.divIcon({ className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`, html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
-    
     for (const file in spotCoordinates) {
       const spot = spotCoordinates[file];
       const isMain = file === 'gammarth-port.json';
@@ -245,12 +295,12 @@
       L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
     }
 
-    $('#raw-links-list').innerHTML = WANT_SPOTS.map(([name, file]) => `<li><span class="ico">⚓</span><a href="./${file}">${file}</a></li>`).join('');
-    
+    document.getElementById('raw-links-list').innerHTML = WANT_SPOTS.map(([name, file]) => `<li><span class="ico">⚓</span><a href="./${file}">${file}</a></li>`).join('');
+
     dashboardContent.classList.remove('updating');
+    countdown = REFRESH_INTERVAL_SECONDS;
   }
 
-  // --- Auto-Refresh Manager ---
   let countdown = REFRESH_INTERVAL_SECONDS;
   setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS * 1000);
   setInterval(() => {

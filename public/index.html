@@ -1,10 +1,13 @@
 <!doctype html>
 <html lang="fr" data-theme="dark">
 <head>
-  <meta charset="utf-8" />
-  <title>TABLEAU DE BORD</title>
+  <meta charset="utf--8" />
+  <title>TABLEAU DE BORD PORT GAMMARTH</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1020" />
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
   <style>
     /* ===== Thème & palette accessibles (AA/AAA) ===== */
     :root{
@@ -25,112 +28,148 @@
 
     /* ===== Base ===== */
     html,body{height:100%}
-    body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg)}
+    body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg); font-size: 1.05rem;}
     *{box-sizing:border-box}
     a{color:var(--link); text-decoration: none} a:visited{color:var(--link)}
     a:hover{text-decoration: underline}
-    h1,h2,h3{margin:0 0 8px 0}
+    h1,h2,h3{margin:0 0 8px 0; font-weight: 700;}
     .sr-only{position:absolute;left:-9999px}
 
     /* ===== Header ===== */
     header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
-    header h1{font-size:1.35rem}
+    header h1{font-size:1.5rem}
     .spacer{flex:1}
     .btn{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:6px 10px; border-radius:9px}
 
     .pill{border:1px solid var(--br);border-radius:999px;padding:4px 10px;color:var(--muted);font-size:.86rem;background:var(--pill-bg)}
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
     .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
-    /* Empêche le conflit .ok/.warn/.bad générique qui colorait le texte comme le fond */
     .status.ok, .status.warn, .status.bad { color:#081019 !important; }
 
+    /* ===== NEW: Map Style ===== */
+    #map { height: 450px; border-radius: 14px; background-color: var(--card); border: 1px solid var(--br); margin-bottom: 16px; }
+
     /* ===== Layout cartes ===== */
-    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+    .cards{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     .small{font-size:.92rem;color:var(--muted)}
     .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Consolas, "Liberation Mono","Courier New",monospace}
     .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
 
     /* ===== Liens rapides ===== */
-    /* (accordion) summaries for sub-sections */
-    details.sub, details.table-acc{border:1px solid var(--br); border-radius:14px; padding:10px 12px; background:var(--card); margin-top:10px}
-    details.sub summary, details.table-acc summary{cursor:pointer; list-style:none; font-weight:700; color:var(--muted)}
-    details.sub[open] summary, details.table-acc[open] summary{color:var(--fg)}
-    details.sub summary::-webkit-details-marker, details.table-acc summary::-webkit-details-marker{display:none}
+    details.sub{margin-top:10px}
+    details.sub summary{cursor:pointer; list-style:none; font-weight:700; color:var(--muted)}
+    details.sub[open] summary{color:var(--fg)}
+    details.sub summary::-webkit-details-marker{display:none}
     details.sub > ul{margin-top:8px}
-    .badge.ok{color:var(--ok)} .badge.warn{color:var(--warn)}
-
-    .quick ul{margin:6px 0 0 18px}
+    .ico{display:inline-block; width:1.25em; text-align:center}
+    .quick h3{margin-bottom:6px}
+    .quick ul{margin:8px 0 0 18px; padding-left: 0;}
+    .quick ul li{margin:6px 0; line-height:1.35}
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
-    .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
-    .off{opacity:.55; pointer-events:none}
 
     /* ===== Résumé fenêtres ===== */
     .wins .line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--card);margin-bottom:8px}
-    .wins .title{font-weight:700}
+    .wins .title{font-weight:700; font-size: 1.1rem;}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800; letter-spacing:.2px}
     .go.family{background: var(--ok); color: #04110a}
     .go.expert{background: #f59e0b; color: #160f04}
     .sep{opacity:.6; padding:0 6px}
-
+    
     /* ===== Tableau radar spots ===== */
-    .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px}
+    .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px; max-height: 250px;}
     table{width:100%; border-collapse:collapse; background:var(--card)}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
     tr:hover td{background:rgba(76,201,240,.06)}
 
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
-    details.card summary{cursor:pointer}
+    
+    /* ===== NEW: Custom Map Marker CSS ===== */
+    .marker-pin {
+      width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+      position: absolute; transform: rotate(-45deg);
+      left: 50%; top: 50%; margin: -15px 0 0 -15px;
+    }
+    .marker-pin::after {
+      content: ''; width: 14px; height: 14px; margin: 8px 0 0 8px;
+      background: #ffffff; position: absolute; border-radius: 50%;
+    }
+    .marker-pulse {
+      background: rgba(0,0,0,0.1); border-radius: 50%; height: 14px; width: 14px;
+      position: absolute; left: 50%; top: 50%; margin: 11px 0px 0px -12px;
+      transform: rotateX(55deg); z-index: -2;
+    }
+    .marker-pulse:after {
+      content: ""; border-radius: 50%; height: 40px; width: 40px;
+      position: absolute; margin: -13px 0 0 -13px;
+      animation: pulsate 1.5s ease-out infinite;
+      opacity: 0; box-shadow: 0 0 1px 2px var(--accent); border: 3px solid rgba(255,255,255,0.3);
+    }
+    @keyframes pulsate {
+      0% { transform: scale(0.1, 0.1); opacity: 0; }
+      50% { opacity: 1; }
+      100% { transform: scale(1.2, 1.2); opacity: 0; }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 900px){
+      .cards { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 <header>
-  <h1>🧭 FABLE Collector</h1>
-  <span id="tz" class="pill"></span>
+  <h1>🧭 Tableau de Bord – Port Gammarth</h1>
   <span id="gen" class="pill"></span>
   <span id="hc" class="status warn">Statut: …</span>
   <span class="spacer"></span>
   <button id="themeBtn" class="btn" title="Basculer clair/sombre">🌙/☀️</button>
 </header>
 
-<div class="cards">
-  <!-- === 1) Liens rapides (liste fixe demandée, avec descriptions) === -->
-  <div class="card quick">
-    <h3>📚 Données brutes</h3>
-    <details class="sub"><summary>Afficher la liste</summary>
-<ul>
-      <li><a href="./index.json">index.json</a></li>
-    ="./status.json">status.json</a></li>
-      <li><a href="./gammarth-port.json">gammarth-port.json</a></li>
-      <li><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
-      <li><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
-      <li><a href="./ras-fartass.json">ras-fartass.json</a></li>
-      <li><a href="./el-haouaria.json">el-haouaria.json</a></li>
-      <li><a href="./windows.json">windows.json</a></li>
-    </ul>
-    <p class="small">Ces liens sont statiques (sans JavaScript) pour faciliter l’accès machine/outils.</p>
-  </div>
+<div id="map"></div>
 
-  <!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
+<div class="cards">
   <div class="card wins">
-    <h3>🪟 Résumé fenêtres</h3>
+    <h3>🪟 Fenêtres de Navigation "GO"</h3>
     <div id="wins">Chargement…</div>
   </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:12px;">📡 Radar des Spots</h3>
+    <div class="table-wrap">
+      <table id="files">
+        <thead>
+          <tr><th>Spot (fichier)</th><th>Modifié</th><th>Statut</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <details class="sub" style="margin-top:16px;">
+      <summary>📚 Données Brutes & Liens</summary>
+      <ul>
+        <li><span class="ico">⚓</span><a href="./gammarth-port.json">gammarth-port.json</a></li>
+        <li><span class="ico">⛵</span><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
+        <li><span class="ico">🏝️</span><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
+        <li><span class="ico">🌊</span><a href="./ras-fartass.json">ras-fartass.json</a></li>
+        <li><span class="ico">🪁</span><a href="./el-haouaria.json">el-haouaria.json</a></li>
+        <hr style="border-color: var(--br); margin: 8px 0;">
+        <li><span class="ico">🪟</span><a href="./windows.json">windows.json</a></li>
+        <li><span class="ico">📊</span><a href="./status.json">status.json</a></li>
+        <li><span class="ico">📑</span><a href="./index.json">index.json</a></li>
+        <li><span class="ico">⚖️</span><a href="./rules.normalized.json">rules.normalized.json</a></li>
+      </ul>
+    </details>
+  </div>
 </div>
 
-<!-- === 3) Radar des spots (ex-spots collectés), uniquement fichiers de spots === -->
-<details class="table-acc" style="margin-top:18px"><summary>📡 Radar des spots</summary>
-<div class="table-wrap">
-  <table id="files"><thead>
-    <tr><th>Spot (fichier)</th><th>Taille</th><th>Modifié</th><th>Statut</th></tr>
-  </thead><tbody></tbody></table>
-</div>
-</details>
 
 <footer>
-  <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO (avec ou sans offset) et s’entendent côté collecte (souvent Africa/Tunis).</p>
+  <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont au format ISO.</p>
 </footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
 (function(){
@@ -149,15 +188,11 @@
 (async function(){
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
   const $ = (sel)=>document.querySelector(sel);
-  const $$ = (sel)=>Array.from(document.querySelectorAll(sel));
-
-  // Elements utilises plus loin
-  const ql = $('#quicklinks');
+  
+  // Elements
   const hc = $('#hc');
   const winsDiv = $('#wins');
   const filesTableBody = $('#files tbody');
-
-  $('#tz').textContent = 'Affichage: ' + tz;
   $('#tz2').textContent = tz;
 
   const WANT_SPOTS = [
@@ -169,21 +204,15 @@
   ];
   const SPOT_FILES = new Set(WANT_SPOTS.map(x=>x[1]));
 
-  const fmtBytes = (n)=>{
-    if(n==null) return '';
-    if(n<1024) return n+' B';
-    if(n<1024*1024) return (n/1024).toFixed(1)+' kB';
-    return (n/1024/1024).toFixed(1)+' MB';
-  };
   const toLocal = (iso)=>{
-    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString('fr-TN', { timeZone: tz }); }
+    try{ const d=new Date(iso); return isNaN(d)? iso : d.toLocaleString('fr-TN', { timeZone: tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
     catch(e){ return iso||''; }
   };
   const toFriendly = (iso)=>{
     try{
       const d = new Date(iso);
       if(isNaN(d)) return iso||'?';
-      const s = d.toLocaleString('fr-TN', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:true, timeZone: tz });
+      const s = d.toLocaleString('fr-TN', { weekday:'long', hour:'numeric', minute:'2-digit', hour12:false, timeZone: tz });
       return s.charAt(0).toUpperCase()+s.slice(1);
     }catch(e){ return iso||'?'; }
   };
@@ -202,226 +231,165 @@
   };
 
   const index   = await fetchJSON('index.json');
-  const status  = await fetchJSON('status.json');   // peut être null
-  const windows = await fetchJSON('windows.json');  // peut être null
-  const catalog = await fetchJSON('catalog.json');  // peut être null
+  const status  = await fetchJSON('status.json');
+  const windows = await fetchJSON('windows.json');
+  const catalog = await fetchJSON('catalog.json');
 
   const files = (index && Array.isArray(index.files)) ? index.files
               : (catalog && Array.isArray(catalog.files)) ? catalog.files
               : [];
-  const presentPaths = new Set(files.map(f => typeof f==='string' ? f : f.path));
 
   // === Pastille statut ===
   if(status && Array.isArray(status.files)){
-    const ok = !!(status.all_fresh || status.status==='ok' || status.state==='ok');
+    const ok = !!(status.all_fresh || status.status==='ok');
     hc.className = 'status ' + (ok ? 'ok' : 'warn');
-    hc.textContent = ok ? 'Statut: OK (fichiers frais)' : 'Statut: ATTENTION (anciens)';
+    hc.textContent = ok ? 'Statut: OK' : 'Statut: Données Anciennes';
   }else{
     hc.className = 'status bad';
-    hc.textContent = 'Statut: indisponible';
+    hc.textContent = 'Statut: Indisponible';
   }
 
   // === Généré à… ===
-  const gen = (windows && windows.generated_at)
-           || (index && index.generated_at)
-           || (catalog && catalog.generated_at)
-           || null;
-  $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
+  const gen = (windows && windows.generated_at) || (index && index.generated_at) || null;
+  $('#gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
 
-  // === Décorations "Données brutes" : icônes + pastille frais/ancien ===
-  (function(){
-    const detailsRaw = document.querySelector('.card.quick details.sub');
-    if(!detailsRaw) return;
-    const list = detailsRaw.querySelector('ul');
-    if(!list) return;
-
-    // Build a status map by basename for convenience
-    const statusByBase = new Map();
-    if(status && Array.isArray(status.files)){
-      for(const e of status.files || []){
-        const base = (e.path||'').split('/').pop();
-        if(base) statusByBase.set(base, e);
-      }
-    }
-
-    const iconFor = (name)=>{
-      if(name==='index.json') return '📄';
-      if(name==='catalog.json') return '📦';
-      if(name==='rules.normalized.json') return '⚙️';
-      if(name==='status.json') return '📊';
-      if(name==='windows.json') return '🪟';
-      if(name.endsWith('.json')) return '📍';
-      return '📁';
-    };
-
-    list.querySelectorAll('li').forEach(li=>{
-      const a = li.querySelector('a');
-      if(!a) return;
-      const base = (a.getAttribute('href')||'').split('/').pop();
-
-      // Add icon (if not already)
-      if(!li.querySelector('.ico')){
-        const span = document.createElement('span');
-        span.className = 'ico';
-        span.textContent = iconFor(base);
-        li.insertBefore(span, li.firstChild);
-        li.insertBefore(document.createTextNode(' '), span.nextSibling);
-      }
-
-      // Add freshness badge based on status.json OR modified date from index/catalog fallback via files[]
-      let entry = statusByBase.get(base) || null;
-      let fallback = null;
-      // try to find fallback "modified" timestamp from files list (index.json / catalog.json)
-      const f = (files || []).find(x => (x && (x.path||x) && ((x.path||x).split('/').pop()===base)));
-      if(f && typeof f==='object' && f.modified) fallback = f.modified;
-
-      const freshBool = (typeof isFreshEntry==='function') ? isFreshEntry(entry, fallback) : null;
-      let badge = li.querySelector('.badge');
-      if(!badge){
-        badge = document.createElement('span');
-        badge.className = 'badge';
-        li.appendChild(document.createTextNode(' '));
-        li.appendChild(badge);
-      }
-      if(freshBool===true){ badge.textContent='frais'; badge.className='badge ok'; }
-      else if(freshBool===false){ badge.textContent='ancien'; badge.className='badge warn'; }
-      else { badge.textContent=''; badge.className='badge'; }
-    });
-  })();
-
-
-  // (Liens rapides supprimés — section remplacée par "Données brutes") a.setAttribute('rel','noopener');});
-
-  // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
-  const tbody = filesTableBody;
-  const isSpotPath = (p)=> SPOT_FILES.has(p) || (/\.json$/i.test(p) && !(new Set(['index.json','catalog.json','status.json','rules.normalized.json','windows.json']).has(p)));
-
-  const freshThreshold = (()=>{
-    if(!status) return 180; // défaut 3h
-    const cand = [status.threshold_minutes, status.fresh_minutes, status.max_age_minutes, status.expected_interval_minutes, status.expected_minutes];
-    for(const v of cand){ if(typeof v==='number' && isFinite(v)) return v; }
-    return 180;
-  })();
-
+  // === Radar des spots Table ===
+  const freshThreshold = 180; // 3 hours
   function isFreshEntry(entry, fallbackModIso){
-    if(entry){
-      if(typeof entry.fresh === 'boolean') return entry.fresh;
-      if(typeof entry.fresh === 'string') return /^(true|ok|fresh|1)$/i.test(entry.fresh);
-      if(typeof entry.status === 'string' && /^(ok|fresh|green)$/i.test(entry.status)) return true;
-      if(typeof entry.state === 'string' && /^(ok|fresh|green)$/i.test(entry.state)) return true;
-      if('stale' in entry) return !entry.stale;
-      const age = entry.age_minutes ?? entry.age_min ?? entry.minutes ?? entry.age;
-      if(typeof age === 'number' && isFinite(age)) return age <= freshThreshold;
-    }
+    if(entry && typeof entry.fresh === 'boolean') return entry.fresh;
     if(fallbackModIso){
       const ageMin = (Date.now() - new Date(fallbackModIso).getTime())/60000;
       return ageMin <= freshThreshold;
     }
-    if(gen){
-      const ageMinGen = (Date.now() - new Date(gen).getTime())/60000;
-      if(ageMinGen <= freshThreshold) return true;
-    }
     return null;
   }
-
   const spotRows = files
     .map(f => typeof f==='string' ? {path:f} : f)
-    .filter(f => isSpotPath(f.path));
-
+    .filter(f => SPOT_FILES.has(f.path));
+  
   if(spotRows.length===0){
-    tbody.innerHTML = '<tr><td colspan="4" class="small warn">Aucun spot listé.</td></tr>';
-  }else{
-    const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
-    spotRows.sort((a,b)=>{
-      const ia = order.has(a.path) ? order.get(a.path) : 1e9;
-      const ib = order.has(b.path) ? order.get(b.path) : 1e9;
-      if(ia!==ib) return ia-ib;
-      return (a.path||'').localeCompare(b.path||'');
-    });
+    filesTableBody.innerHTML = '<tr><td colspan="3" class="small warn">Aucun spot listé.</td></tr>';
+  } else {
+      const order = new Map(WANT_SPOTS.map((x,i)=>[x[1],i]));
+      spotRows.sort((a,b)=> (order.get(a.path) ?? 1e9) - (order.get(b.path) ?? 1e9));
 
-    for(const f of spotRows){
-      const p = f.path || '';
-      const size = f.size!=null ? fmtBytes(f.size) : '';
-      const mod  = f.modified ? toLocal(f.modified) : '';
-      const freshEntry = (status && status.files && status.files.find(s=>s.path===p)) || null;
-      const freshBool = isFreshEntry(freshEntry, f.modified);
-      let stat = '';
-      if(freshBool===true) stat = '<span class="ok">frais</span>';
-      else if(freshBool===false) stat = '<span class="warn">ancien</span>';
-      else stat = '';
+      for(const f of spotRows){
+        const p = f.path || '';
+        const mod = f.modified ? toLocal(f.modified) : '';
+        const freshEntry = (status && status.files && status.files.find(s=>s.path===p)) || null;
+        const freshBool = isFreshEntry(freshEntry, f.modified);
+        let stat = '';
+        if(freshBool===true) stat = '<span class="ok">Frais</span>';
+        else if(freshBool===false) stat = '<span class="warn">Ancien</span>';
+        else stat = '<span class="muted">N/A</span>';
 
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><a href="${encodeURIComponent(p)}">${WANT_SPOTS.find(x=>x[1]===p)?.[0] || p}</a>
-          <span class="badge mono">${p}</span></td>
-        <td class="mono">${size||''}</td>
-        <td class="mono">${mod||''}</td>
-        <td>${stat}</td>`;
-      tbody.appendChild(tr);
-    }
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><a href="${encodeURIComponent(p)}">${WANT_SPOTS.find(x=>x[1]===p)?.[0] || p}</a></td>
+          <td class="mono">${mod||''}</td>
+          <td>${stat}</td>`;
+        filesTableBody.appendChild(tr);
+      }
   }
 
-  // === (2) Résumé fenêtres — uniquement spots avec ≥1 fenêtre ===
-  const DEST_OK = new Set([...SPOT_FILES]);
-
-  function labelFor(seg){
-    const s = (seg.label||seg.kind||seg.type||seg.mode||seg.level||seg.tier||seg.grade||seg.decision||'').toString().toLowerCase();
-    if(/family|famille/.test(s)) return 'FAMILY GO';
-    if(/expert/.test(s)) return 'EXPERT GO';
-    if(Array.isArray(seg.tags)){
-      const tags = seg.tags.map(t=> t && t.toString().toLowerCase());
-      if(tags.some(t=>/family|famille/.test(t))) return 'FAMILY GO';
-      if(tags.some(t=>/expert/.test(t))) return 'EXPERT GO';
-    }
-    if(seg.family===true || seg.family_go===true) return 'FAMILY GO';
-    if(seg.expert===true || seg.expert_only===true) return 'EXPERT GO';
-    return 'FENÊTRE';
-  }
-  function goClass(lbl){
-    return lbl.startsWith('FAMILY') ? 'family' : (lbl.startsWith('EXPERT') ? 'expert' : '');
-  }
-
-  if(!windows || !Array.isArray(windows.windows)){
-    winsDiv.innerHTML = '<span class="small">windows.json introuvable ou vide.</span>';
-  }else{
+  // === Résumé fenêtres ===
+  if(!windows || !Array.isArray(windows.windows) || windows.windows.length === 0){
+    winsDiv.innerHTML = '<span class="small">Aucune fenêtre de navigation détectée.</span>';
+  } else {
     const items = [];
     for(const dest of windows.windows){
-      const name = dest.dest_name || dest.dest_slug || '?';
-      const slug = dest.dest_slug || dest.slug || dest.file || '';
-      if(slug && !DEST_OK.has(slug)) continue;
+      if(!SPOT_FILES.has(dest.dest_slug)) continue;
       if(!Array.isArray(dest.windows) || dest.windows.length===0) continue;
 
       for(const seg of dest.windows){
         const start = seg.start ? toFriendly(seg.start) : '?';
         const end   = seg.end ? toFriendly(seg.end) : '?';
         const dur   = seg.hours || hoursBetween(seg.start, seg.end) || '';
-        const conf  = (seg.confidence || seg.conf || '').toString();
-        const lbl   = labelFor(seg);
-        const cls   = goClass(lbl);
-
+        
         const line = document.createElement('div');
         line.className = 'line';
         line.innerHTML = `
-          <div class="title">${name} <span class="go ${cls}">${lbl}</span></div>
-          <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''} <span class="sep">⟷</span> ${conf || ''}</div>
+          <div class="title">${dest.dest_name} <span class="go family">FAMILY GO</span></div>
+          <div class="small">${start} <span class="sep">⟷</span> ${end} <span class="sep">⟷</span> ${dur?dur+' h':''}</div>
         `;
         items.push(line);
       }
     }
-
     if(items.length===0){
-      winsDiv.innerHTML = '<span class="small">Aucune fenêtre détectée.</span>';
-    }else{
+      winsDiv.innerHTML = '<span class="small">Aucune fenêtre de navigation détectée.</span>';
+    } else {
       winsDiv.innerHTML = '';
       items.forEach(el=> winsDiv.appendChild(el));
     }
   }
 
-  // ===== Petits tests non bloquants (debug) =====
-  try{ // assert removed
-}catch(_){}
+  // ===== MAP INITIALIZATION =====
+  const spotCoordinates = {
+    'gammarth-port.json': { name: 'Gammarth Port', lat: 36.903, lon: 10.323 },
+    'sidi-bou-said.json': { name: 'Sidi Bou Saïd', lat: 36.871, lon: 10.349 },
+    'ghar-el-melh.json': { name: 'Ghar el Melh', lat: 37.168, lon: 10.194 },
+    'ras-fartass.json': { name: 'Ras Fartass', lat: 37.108, lon: 10.130 },
+    'el-haouaria.json': { name: 'El Haouaria', lat: 37.054, lon: 11.042 }
+  };
+
+  const map = L.map('map').setView([36.95, 10.6], 10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  function createStatusIcon(color) {
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse' style='border-color:${color};'></div>`,
+      iconSize: [30, 42],
+      iconAnchor: [15, 42]
+    });
+  }
+  const greenIcon = createStatusIcon('var(--ok)');
+  const yellowIcon = createStatusIcon('var(--warn)');
+  const redIcon = createStatusIcon('var(--bad)');
+
+  // Determine status for each spot
+  const spotStatus = {};
+  if (windows && Array.isArray(windows.windows)) {
+      windows.windows.forEach(dest => {
+          if (dest.windows && dest.windows.length > 0) {
+              spotStatus[dest.dest_slug] = 'green'; // Green: Has a "GO" window
+          }
+      });
+  }
+  spotRows.forEach(f => {
+      if (spotStatus[f.path] !== 'green') { // Don't override green
+          const freshEntry = (status && status.files && status.files.find(s => s.path === f.path)) || null;
+          const freshBool = isFreshEntry(freshEntry, f.modified);
+          if (freshBool === true) {
+              spotStatus[f.path] = 'yellow'; // Yellow: No window, but data is fresh
+          } else {
+              spotStatus[f.path] = 'red'; // Red: Data is stale
+          }
+      }
+  });
+
+  // Add markers to the map
+  for (const file in spotCoordinates) {
+      const spot = spotCoordinates[file];
+      let icon = redIcon;
+      let statusText = "Données indisponibles ou anciennes.";
+      
+      if (spotStatus[file] === 'green') {
+          icon = greenIcon;
+          statusText = "Fenêtre de navigation 'GO' détectée !";
+      } else if (spotStatus[file] === 'yellow') {
+          icon = yellowIcon;
+          statusText = "Données à jour, pas de fenêtre 'GO' imminente.";
+      }
+      
+      L.marker([spot.lat, spot.lon], { icon: icon })
+          .addTo(map)
+          .bindPopup(`<b>${spot.name}</b><br>${statusText}`);
+  }
+
 })();
 </script>
-
 </body>
 </html>

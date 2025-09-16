@@ -94,7 +94,7 @@
 </head>
 <body>
 <header>
-  <h1>🧭 Tableau de Bord – Port Gammarth</h1>
+  <h1>🧭 Tableau de Bord – FABLE</h1>
   <span class="spacer"></span>
   <!-- (#1) move these to the right -->
   <span id="gen" class="pill" aria-live="polite"></span>
@@ -109,7 +109,7 @@
     <div class="layout-grid">
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="card wins">
-          <h3>🪟 Fenêtres de Navigation "GO"</h3>
+          <h3>🪟 Possibles Fenêtres de Navigation depuis Port de Gammarth</h3>
           <div id="wins">Chargement…</div>
         </div>
         <div class="card conditions">
@@ -306,7 +306,7 @@
     // pan on click
     filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); }));
 
-    // tooltips “Pourquoi ?”
+    // tooltips “Info...”
     const reasonsByFile = new Map();
     if (Array.isArray(reasonsRows)) {
       reasonsRows.forEach(r => {

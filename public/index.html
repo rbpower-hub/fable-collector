@@ -1,4 +1,4 @@
-<!doctype html>
+quicklinks devrait contenir<!doctype html>
 <html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8" />
@@ -52,24 +52,7 @@
     .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
 
     /* ===== Liens rapides ===== */
-    /* (tweak) Quick links accordion for Données brutes */
-    details.sub{margin-top:10px}
-    details.sub summary{cursor:pointer; list-style:none; font-weight:700; color:var(--muted)}
-    details.sub[open] summary{color:var(--fg)}
-    details.sub summary::-webkit-details-marker{display:none}
-    details.sub > ul{margin-top:8px}
-    .ico{display:inline-block; width:1.25em; text-align:center}
-
-    /* (tweak) Quick links spacing & typography */
-    .quick h3{margin-bottom:6px}
-    .quick ul{margin:8px 0 0 18px}
-    .quick ul li{margin:6px 0; line-height:1.35}
-    .quick a{font-weight:600}
-    .quick .small{color:var(--muted)}
-    .quick h4.small{margin:12px 0 4px; font-weight:700; letter-spacing:.2px; text-transform:none; color:var(--muted)}
-
     .quick ul{margin:6px 0 0 18px}
-    .quick li .badge { margin-left: 8px; }
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .off{opacity:.55; pointer-events:none}
@@ -83,20 +66,10 @@
     .sep{opacity:.6; padding:0 6px}
 
     
-
-@media (min-width: 800px){
-  .wins{grid-column: span 2}
-}
-
-
-    
-.quick h4{margin:12px 0 6px 0; font-size:.95rem; color:var(--muted);}
-.quick ul{margin:4px 0 0 20px; line-height:1.5;}
-
-    
-@media (min-width: 840px){
-  .wins{grid-column: span 2}
-}
+    /* (tweak) Foldable card for Radar des spots */
+    details.fold summary{cursor:pointer; font-weight:700; font-size:1.1rem; list-style:none}
+    details.fold summary::-webkit-details-marker{display:none}
+    details.fold > .table-wrap{margin-top:10px}
 
     /* ===== Tableau radar spots ===== */
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px}
@@ -122,26 +95,28 @@
 <div class="cards">
   <!-- === 1) Liens rapides (liste fixe demandée, avec descriptions) === -->
   <div class="card quick">
-    <h3>🔗 Liens rapides</h3>
-    <ul id="quicklinks"></ul>
-    <details class="small" style="margin-top:8px"><summary>Données brutes</summary>
-<details class="sub">
-  <summary>📚 Données brutes</summary>
-  <ul>
-      <li><span class="ico">📑</span><a href="./index.json">index.json</a></li>
-      <li><span class="ico">⚖️</span><a href="./rules.normalized.json">rules.normalized.json</a></li>
-      <li><span class="ico">📊</span><a href="./status.json">status.json</a></li>
-      <li><span class="ico">⚓</span><a href="./gammarth-port.json">gammarth-port.json</a></li>
-      <li><span class="ico">⛵</span><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
-      <li><span class="ico">🏝️</span><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
-      <li><span class="ico">🌊</span><a href="./ras-fartass.json">ras-fartass.json</a></li>
-      <li><span class="ico">🪁</span><a href="./el-haouaria.json">el-haouaria.json</a></li>
-      <li><span class="ico">🪟</span><a href="./windows.json">windows.json</a></li>
+    <h3>📚 Données brutes</h3>
+<p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
+  </div>
+
+  <!-- (NOUVEAU) 1-bis) Données brutes — ancres HTML statiques pour robots/outils -->
+  <div class="card">
+    <h3>Données brutes</h3>
+    <ul>
+      <li><a href="./index.json">index.json</a></li>
+      <li><a href="./rules.normalized.json">rules.normalized.json</a></li>
+      <li><a href="./status.json">status.json</a></li>
+      <li><a href="./gammarth-port.json">gammarth-port.json</a></li>
+      <li><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
+      <li><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
+      <li><a href="./ras-fartass.json">ras-fartass.json</a></li>
+      <li><a href="./el-haouaria.json">el-haouaria.json</a></li>
+      <li><a href="./windows.json">windows.json</a></li>
     </ul>
-</details>
-</details>
-    <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
-  </div><!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
+    <p class="small">Ces liens sont statiques (sans JavaScript) pour faciliter l’accès machine/outils.</p>
+  </div>
+
+  <!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
   <div class="card wins">
     <h3>🪟 Résumé fenêtres</h3>
     <div id="wins">Chargement…</div>
@@ -263,84 +238,9 @@
     `<li><span class="ico">🪟</span> <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> — fenêtres <span class=\"mono\">Family GO</span> détectées</li>`,
     `<li><span class="ico">⚙️</span> <a href="rules.normalized.json">rules.normalized.json</a> — règles normalisées en vigueur</li>`
   ].join('');
-  // --- Badges de fraîcheur pour la liste "Données brutes"
-  (() => {
-    const detailsRaw = document.querySelector('details.sub');
-    if (!detailsRaw) return;
-  
-    // Index rapides pour retrouver les infos
-    const statusIndex = new Map(
-      (status && Array.isArray(status.files) ? status.files : []).map(e => [e.path, e])
-    );
-    const fileIndex = new Map(
-      (files || []).map(f => [ (typeof f === 'string' ? f : f.path), (typeof f === 'string' ? {} : f) ])
-    );
-  
-    detailsRaw.querySelectorAll('li').forEach(li => {
-      const a = li.querySelector('a');
-      if (!a) return;
-  
-      // Ex: "./index.json" -> "index.json"
-      const path = (a.getAttribute('href') || '').replace(/^\.\/+/, '');
-      // Évite les doublons si on ré-exécute
-      if (li.querySelector('.badge')) return;
-  
-      // Récupère l'entrée de statut (ou null)
-      const entry  = statusIndex.get(path) || null;
-      const fobj   = fileIndex.get(path) || null; // peut contenir .modified
-      const fresh  = typeof isFreshEntry === 'function' ? isFreshEntry(entry, fobj && fobj.modified) : undefined;
-  
-      if (fresh === true || fresh === false) {
-        const b = document.createElement('span');
-        b.className = 'badge ' + (fresh ? 'ok' : 'warn');
-        b.textContent = fresh ? 'frais' : 'ancien';
-  
-        // Info bulle utile (si dispo)
-        const modISO = (entry && entry.modified) || (fobj && fobj.modified) || null;
-        const ageMin = entry && (entry.age_minutes ?? entry.age_min ?? entry.minutes ?? entry.age);
-        const parts = [];
-        if (modISO && typeof toLocal === 'function') parts.push(`modifié: ${toLocal(modISO)}`);
-        if (typeof ageMin === 'number' && isFinite(ageMin)) parts.push(`âge: ${ageMin} min`);
-        if (parts.length) b.title = parts.join(' — ');
-  
-        li.appendChild(document.createTextNode(' '));
-        li.appendChild(b);
-      }
-    });
-  })();
-
-  
   if(ql) ql.innerHTML = quickHTML;
   // force le style cliquable (si du cache DOM existe)
-  ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0');
-  // Decorate raw-data list with icons
-  const detailsRaw = document.querySelector('details.sub');
-  if(detailsRaw){
-    const map = (name)=>{
-      if(name==='index.json') return '📄';
-      if(name==='catalog.json') return '📦';
-      if(name==='rules.normalized.json') return '⚙️';
-      if(name==='status.json') return '📊';
-      if(name==='windows.json') return '🪟';
-      if(name.endsWith('.json')){
-        // spot files
-        return '📍';
-      }
-      return '📁';
-    };
-    detailsRaw.querySelectorAll('li').forEach(li=>{
-      const a = li.querySelector('a');
-      if(!a) return;
-      const href = (a.getAttribute('href')||'').split('/').pop();
-      if(li.querySelector('.ico')) return; // idempotent
-      const span = document.createElement('span');
-      span.className = 'ico';
-      span.textContent = map(href);
-      li.insertBefore(span, li.firstChild);
-      li.insertBefore(document.createTextNode(' '), span.nextSibling);
-    });
-  }
- a.setAttribute('rel','noopener');});
+  ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0'); a.setAttribute('rel','noopener');});
 
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = filesTableBody;
@@ -468,7 +368,7 @@
   }
 
   // ===== Petits tests non bloquants (debug) =====
-  try{ console.assert(ql && ql.children.length >= 3, 'quicklinks devrait contenir 3 éléments'); }catch(_){}
+  try{ ql && console.assert(ql.children.length >= 3, \'quicklinks devrait contenir 3 éléments\'); }catch(_){}
 })();
 </script>
 </body>

@@ -1,4 +1,4 @@
-quicklinks devrait contenir<!doctype html>
+<!doctype html>
 <html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8" />
@@ -52,6 +52,14 @@ quicklinks devrait contenir<!doctype html>
     .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
 
     /* ===== Liens rapides ===== */
+    /* (accordion) summaries for sub-sections */
+    details.sub, details.table-acc{border:1px solid var(--br); border-radius:14px; padding:10px 12px; background:var(--card); margin-top:10px}
+    details.sub summary, details.table-acc summary{cursor:pointer; list-style:none; font-weight:700; color:var(--muted)}
+    details.sub[open] summary, details.table-acc[open] summary{color:var(--fg)}
+    details.sub summary::-webkit-details-marker, details.table-acc summary::-webkit-details-marker{display:none}
+    details.sub > ul{margin-top:8px}
+    .badge.ok{color:var(--ok)} .badge.warn{color:var(--warn)}
+
     .quick ul{margin:6px 0 0 18px}
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
@@ -64,12 +72,6 @@ quicklinks devrait contenir<!doctype html>
     .go.family{background: var(--ok); color: #04110a}
     .go.expert{background: #f59e0b; color: #160f04}
     .sep{opacity:.6; padding:0 6px}
-
-    
-    /* (tweak) Foldable card for Radar des spots */
-    details.fold summary{cursor:pointer; font-weight:700; font-size:1.1rem; list-style:none}
-    details.fold summary::-webkit-details-marker{display:none}
-    details.fold > .table-wrap{margin-top:10px}
 
     /* ===== Tableau radar spots ===== */
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px}
@@ -96,16 +98,10 @@ quicklinks devrait contenir<!doctype html>
   <!-- === 1) Liens rapides (liste fixe demandée, avec descriptions) === -->
   <div class="card quick">
     <h3>📚 Données brutes</h3>
-<p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
-  </div>
-
-  <!-- (NOUVEAU) 1-bis) Données brutes — ancres HTML statiques pour robots/outils -->
-  <div class="card">
-    <h3>Données brutes</h3>
-    <ul>
+    <details class="sub"><summary>Afficher la liste</summary>
+<ul>
       <li><a href="./index.json">index.json</a></li>
-      <li><a href="./rules.normalized.json">rules.normalized.json</a></li>
-      <li><a href="./status.json">status.json</a></li>
+    ="./status.json">status.json</a></li>
       <li><a href="./gammarth-port.json">gammarth-port.json</a></li>
       <li><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
       <li><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
@@ -124,12 +120,13 @@ quicklinks devrait contenir<!doctype html>
 </div>
 
 <!-- === 3) Radar des spots (ex-spots collectés), uniquement fichiers de spots === -->
-<h3 style="margin-top:18px">📡 Radar des spots</h3>
-<div class="card table-wrap">
+<details class="table-acc" style="margin-top:18px"><summary>📡 Radar des spots</summary>
+<div class="table-wrap">
   <table id="files"><thead>
     <tr><th>Spot (fichier)</th><th>Taille</th><th>Modifié</th><th>Statut</th></tr>
   </thead><tbody></tbody></table>
 </div>
+</details>
 
 <footer>
   <p>Affichage en <span id="tz2" class="mono"></span>. Les heures dans les fichiers sont ISO (avec ou sans offset) et s’entendent côté collecte (souvent Africa/Tunis).</p>
@@ -231,16 +228,69 @@ quicklinks devrait contenir<!doctype html>
            || null;
   $('#gen').textContent = 'Généré: ' + (gen ? toLocal(gen) : 'inconnu');
 
-  // === (1) Liens rapides — liste FIXE avec descriptions (tous cliquables) ===
-  const quickHTML = [
-    `<li><span class="ico">📄</span> <a href="index.json">index.json</a> — inventaire produit par <span class="mono">main.py</span></li>`,
-    `<li><span class="ico">📦</span> <a href="catalog.json">catalog.json</a> — liste des fichiers réellement présents</li>`,
-    `<li><span class="ico">🪟</span> <a href="windows.json">windows.json</a> · <a href="windows.md">windows.md</a> — fenêtres <span class=\"mono\">Family GO</span> détectées</li>`,
-    `<li><span class="ico">⚙️</span> <a href="rules.normalized.json">rules.normalized.json</a> — règles normalisées en vigueur</li>`
-  ].join('');
-  if(ql) ql.innerHTML = quickHTML;
-  // force le style cliquable (si du cache DOM existe)
-  ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0'); a.setAttribute('rel','noopener');});
+  // === Décorations "Données brutes" : icônes + pastille frais/ancien ===
+  (function(){
+    const detailsRaw = document.querySelector('.card.quick details.sub');
+    if(!detailsRaw) return;
+    const list = detailsRaw.querySelector('ul');
+    if(!list) return;
+
+    // Build a status map by basename for convenience
+    const statusByBase = new Map();
+    if(status && Array.isArray(status.files)){
+      for(const e of status.files || []){
+        const base = (e.path||'').split('/').pop();
+        if(base) statusByBase.set(base, e);
+      }
+    }
+
+    const iconFor = (name)=>{
+      if(name==='index.json') return '📄';
+      if(name==='catalog.json') return '📦';
+      if(name==='rules.normalized.json') return '⚙️';
+      if(name==='status.json') return '📊';
+      if(name==='windows.json') return '🪟';
+      if(name.endsWith('.json')) return '📍';
+      return '📁';
+    };
+
+    list.querySelectorAll('li').forEach(li=>{
+      const a = li.querySelector('a');
+      if(!a) return;
+      const base = (a.getAttribute('href')||'').split('/').pop();
+
+      // Add icon (if not already)
+      if(!li.querySelector('.ico')){
+        const span = document.createElement('span');
+        span.className = 'ico';
+        span.textContent = iconFor(base);
+        li.insertBefore(span, li.firstChild);
+        li.insertBefore(document.createTextNode(' '), span.nextSibling);
+      }
+
+      // Add freshness badge based on status.json OR modified date from index/catalog fallback via files[]
+      let entry = statusByBase.get(base) || null;
+      let fallback = null;
+      // try to find fallback "modified" timestamp from files list (index.json / catalog.json)
+      const f = (files || []).find(x => (x && (x.path||x) && ((x.path||x).split('/').pop()===base)));
+      if(f && typeof f==='object' && f.modified) fallback = f.modified;
+
+      const freshBool = (typeof isFreshEntry==='function') ? isFreshEntry(entry, fallback) : null;
+      let badge = li.querySelector('.badge');
+      if(!badge){
+        badge = document.createElement('span');
+        badge.className = 'badge';
+        li.appendChild(document.createTextNode(' '));
+        li.appendChild(badge);
+      }
+      if(freshBool===true){ badge.textContent='frais'; badge.className='badge ok'; }
+      else if(freshBool===false){ badge.textContent='ancien'; badge.className='badge warn'; }
+      else { badge.textContent=''; badge.className='badge'; }
+    });
+  })();
+
+
+  // (Liens rapides supprimés — section remplacée par "Données brutes") a.setAttribute('rel','noopener');});
 
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = filesTableBody;
@@ -368,8 +418,10 @@ quicklinks devrait contenir<!doctype html>
   }
 
   // ===== Petits tests non bloquants (debug) =====
-  try{ ql && console.assert(ql.children.length >= 3, \'quicklinks devrait contenir 3 éléments\'); }catch(_){}
+  try{ // assert removed
+}catch(_){}
 })();
 </script>
+
 </body>
 </html>

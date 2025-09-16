@@ -52,6 +52,22 @@
     .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
 
     /* ===== Liens rapides ===== */
+    /* (tweak) Quick links accordion for Données brutes */
+    details.sub{margin-top:10px}
+    details.sub summary{cursor:pointer; list-style:none; font-weight:700; color:var(--muted)}
+    details.sub[open] summary{color:var(--fg)}
+    details.sub summary::-webkit-details-marker{display:none}
+    details.sub > ul{margin-top:8px}
+    .ico{display:inline-block; width:1.25em; text-align:center}
+
+    /* (tweak) Quick links spacing & typography */
+    .quick h3{margin-bottom:6px}
+    .quick ul{margin:8px 0 0 18px}
+    .quick ul li{margin:6px 0; line-height:1.35}
+    .quick a{font-weight:600}
+    .quick .small{color:var(--muted)}
+    .quick h4.small{margin:12px 0 4px; font-weight:700; letter-spacing:.2px; text-transform:none; color:var(--muted)}
+
     .quick ul{margin:6px 0 0 18px}
     .badge{display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
     .ico{display:inline-block; width:1.25em; text-align:center; margin-right:.25em}display:inline-block;background:var(--badge-bg);border:1px solid var(--badge-br);border-radius:8px;padding:2px 8px;margin-left:6px}
@@ -64,6 +80,22 @@
     .go.family{background: var(--ok); color: #04110a}
     .go.expert{background: #f59e0b; color: #160f04}
     .sep{opacity:.6; padding:0 6px}
+
+    
+
+@media (min-width: 800px){
+  .wins{grid-column: span 2}
+}
+
+
+    
+.quick h4{margin:12px 0 6px 0; font-size:.95rem; color:var(--muted);}
+.quick ul{margin:4px 0 0 20px; line-height:1.5;}
+
+    
+@media (min-width: 840px){
+  .wins{grid-column: span 2}
+}
 
     /* ===== Tableau radar spots ===== */
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px}
@@ -91,27 +123,24 @@
   <div class="card quick">
     <h3>🔗 Liens rapides</h3>
     <ul id="quicklinks"></ul>
-    <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
-  </div>
-
-  <!-- (NOUVEAU) 1-bis) Données brutes — ancres HTML statiques pour robots/outils -->
-  <div class="card">
-    <h3>Données brutes</h3>
-    <ul>
-      <li><a href="./index.json">index.json</a></li>
-      <li><a href="./rules.normalized.json">rules.normalized.json</a></li>
-      <li><a href="./status.json">status.json</a></li>
-      <li><a href="./gammarth-port.json">gammarth-port.json</a></li>
-      <li><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
-      <li><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
-      <li><a href="./ras-fartass.json">ras-fartass.json</a></li>
-      <li><a href="./el-haouaria.json">el-haouaria.json</a></li>
-      <li><a href="./windows.json">windows.json</a></li>
+    <details class="small" style="margin-top:8px"><summary>Données brutes</summary>
+<details class="sub">
+  <summary>📚 Données brutes</summary>
+  <ul>
+      <li><span class="ico">📑</span><a href="./index.json">index.json</a></li>
+      <li><span class="ico">⚖️</span><a href="./rules.normalized.json">rules.normalized.json</a></li>
+      <li><span class="ico">📊</span><a href="./status.json">status.json</a></li>
+      <li><span class="ico">⚓</span><a href="./gammarth-port.json">gammarth-port.json</a></li>
+      <li><span class="ico">⛵</span><a href="./sidi-bou-said.json">sidi-bou-said.json</a></li>
+      <li><span class="ico">🏝️</span><a href="./ghar-el-melh.json">ghar-el-melh.json</a></li>
+      <li><span class="ico">🌊</span><a href="./ras-fartass.json">ras-fartass.json</a></li>
+      <li><span class="ico">🪁</span><a href="./el-haouaria.json">el-haouaria.json</a></li>
+      <li><span class="ico">🪟</span><a href="./windows.json">windows.json</a></li>
     </ul>
-    <p class="small">Ces liens sont statiques (sans JavaScript) pour faciliter l’accès machine/outils.</p>
-  </div>
-
-  <!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
+</details>
+</details>
+    <p class="small">Inventaire basé sur <span class="mono">index.json</span>.</p>
+  </div><!-- === 2) Résumé fenêtres (afficher SEULEMENT spots ayant ≥1 fenêtre) === -->
   <div class="card wins">
     <h3>🪟 Résumé fenêtres</h3>
     <div id="wins">Chargement…</div>
@@ -235,7 +264,35 @@
   ].join('');
   if(ql) ql.innerHTML = quickHTML;
   // force le style cliquable (si du cache DOM existe)
-  ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0'); a.setAttribute('rel','noopener');});
+  ql.querySelectorAll('a').forEach(a=>{a.setAttribute('tabindex','0');
+  // Decorate raw-data list with icons
+  const detailsRaw = document.querySelector('details.sub');
+  if(detailsRaw){
+    const map = (name)=>{
+      if(name==='index.json') return '📄';
+      if(name==='catalog.json') return '📦';
+      if(name==='rules.normalized.json') return '⚙️';
+      if(name==='status.json') return '📊';
+      if(name==='windows.json') return '🪟';
+      if(name.endsWith('.json')){
+        // spot files
+        return '📍';
+      }
+      return '📁';
+    };
+    detailsRaw.querySelectorAll('li').forEach(li=>{
+      const a = li.querySelector('a');
+      if(!a) return;
+      const href = (a.getAttribute('href')||'').split('/').pop();
+      if(li.querySelector('.ico')) return; // idempotent
+      const span = document.createElement('span');
+      span.className = 'ico';
+      span.textContent = map(href);
+      li.insertBefore(span, li.firstChild);
+      li.insertBefore(document.createTextNode(' '), span.nextSibling);
+    });
+  }
+ a.setAttribute('rel','noopener');});
 
   // === (3) Radar des spots — UNIQUEMENT les fichiers spot.* ===
   const tbody = filesTableBody;
@@ -366,32 +423,5 @@
   try{ console.assert(ql && ql.children.length >= 3, 'quicklinks devrait contenir 3 éléments'); }catch(_){}
 })();
 </script>
-
-<details class="card" style="margin-top:16px">
-  <summary>Format JSON (extrait)</summary>
-  <pre class="small" style="white-space:pre-wrap">
-{
-  "meta": {
-    "name": "Gammarth (port)",
-    "slug": "gammarth-port.json",
-    "tz": "Africa/Tunis",
-    "lat": 36.9203,
-    "lon": 10.2846,
-    "sources": ["open-meteo:ecmwf", "open-meteo:marine"]
-  },
-  "hourly": {
-    "time": ["2025-09-12T00:00", "2025-09-12T01:00", "..."],
-    "wind_speed_10m": [..km/h..],
-    "wind_gusts_10m": [..km/h..],
-    "wind_direction_10m": [..deg..],
-    "weather_code": [..wmo..],
-    "visibility": [..m ou km..],
-    "hs": [..m..],       // alias: wave_height
-    "tp": [..s..]        // alias: wave_period
-  }
-}
-  </pre>
-</details>
-
 </body>
 </html>

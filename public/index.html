@@ -72,6 +72,13 @@
     table{width:100%; border-collapse:collapse;}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
+
+    .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;
+          padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted)}
+    .conf.high{color:var(--ok)}
+    .conf.medium{color:var(--warn)}
+    .conf.low{color:var(--bad)}
+
     
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     #refresh-timer{font-size: 0.85rem; color: var(--muted); margin-left: 16px;}
@@ -256,18 +263,33 @@
     const gen = (windows && windows.generated_at) || (status && status.generated_at) || null;
     document.getElementById('gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
 
-    // windows with label Family/Expert
-    const winsDiv = document.getElementById('wins');
-    const windowItems = (windows?.windows || []).flatMap(dest => dest.windows.map(seg => {
-      const family = isFamilyWindow(seg.start, seg.end);
-      const cls = family ? 'family' : 'expert';
-      const label = family ? 'FAMILY GO' : 'EXPERT GO';
-      return `<div class="line">
-          <div class="title">${dest.dest_name} <span class="go ${cls}">${label}</span></div>
-          <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
-        </div>`;
-    }));
-    winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
+   // -- Fenêtres GO avec badge de confiance --
+  const winsDiv = document.getElementById('wins');
+  const windowItems = (windows?.windows || []).flatMap(dest => dest.windows.map(seg => {
+    const family = isFamilyWindow(seg.start, seg.end);
+    const cls = family ? 'family' : 'expert';
+    const label = family ? 'FAMILY GO' : 'EXPERT GO';
+  
+    // confiance: 'high' | 'medium' | 'low' (case-insensitive) + score optionnel
+    const rawConf = (seg.confidence || dest.confidence || '').toString().toLowerCase();
+    const confKey = ['high','medium','low'].includes(rawConf) ? rawConf : '';
+    const confTxt = confKey === 'high'   ? 'Haute'
+                  : confKey === 'medium' ? 'Moy.'
+                  : confKey === 'low'    ? 'Faible' : '';
+    const score = typeof seg.confidence_score === 'number'
+                  ? Math.round(seg.confidence_score * (seg.confidence_score <= 1 ? 100 : 1))
+                  : null;
+    const confBadge = confTxt
+        ? `<span class="conf ${confKey}">${confTxt}${score!=null ? ' · '+score : ''}</span>`
+        : '';
+  
+    return `<div class="line">
+      <div class="title">${dest.dest_name} <span class="go ${cls}">${label}</span> ${confBadge}</div>
+      <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
+    </div>`;
+  }));
+  winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
+
     
     // reasons (client-side helper)
     const reasonsDiv = document.getElementById('reasons');
@@ -297,7 +319,7 @@
       if (spotStatus[file] !== 'green') { spotStatus[file] = fresh ? 'yellow' : 'red'; }
       const mod = entry?.modified ? toLocal(entry.modified) : '';
       return `<tr data-file="${file}">
-        <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini why" type="button" data-file="${file}">Pourquoi ?</button></td>
+        <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini why" type="button" data-file="${file}">Info...</button></td>
         <td class="mono">${mod}</td>
         <td>${fresh ? '<span style="color:var(--ok)">Frais</span>' : '<span style="color:var(--warn)">Ancien</span>'}</td>
       </tr>`;

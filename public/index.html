@@ -518,8 +518,9 @@
         <td>${toLocal(entry?.modified)}</td>
         <td><span style="color:var(--${fresh ? 'ok' : 'warn'})">${fresh ? 'Frais' : 'Ancien'}</span></td>
     </tr>`;
-    await renderSparklines();
   }).join('');
+
+  await renderSparklines();
 
 
     // ## CORRIGÉ: Attacher tous les listeners du tableau ici ##
@@ -595,6 +596,13 @@
     countdown = (countdown <= 1) ? REFRESH_INTERVAL_SECONDS : countdown - 1;
     $('#refresh-timer').textContent = `Prochaine mise à jour dans ${countdown}s.`;
   }, 1000);
+
+  const langBtn = document.getElementById('langBtn');
+  langBtn.addEventListener('click', () => {
+    const next = LANG === 'fr' ? 'en' : LANG === 'en' ? 'ar' : 'fr';
+    setLang(next);
+    updateDashboard();
+  });
 
   // Pour que les fonctions `is...` ne soient pas manquantes, je les replace ici.
   function isFamilyWindow(startIso, endIso) { const start = new Date(startIso), end = new Date(endIso); if (isNaN(start) || isNaN(end)) return true; for (let d = new Date(start); d <= end; d.setHours(d.getHours() + 1)) { const hour = d.getHours(); if (hour < 8 || hour >= 21) return false; } return true; }

@@ -74,7 +74,8 @@
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
 
     .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;
-          padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted)}
+          padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted);
+          white-space:nowrap;}
     .conf.high{color:var(--ok)}
     .conf.medium{color:var(--warn)}
     .conf.low{color:var(--bad)}
@@ -263,33 +264,37 @@
     const gen = (windows && windows.generated_at) || (status && status.generated_at) || null;
     document.getElementById('gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
 
-   // -- Fenêtres GO avec badge de confiance --
-  const winsDiv = document.getElementById('wins');
-  const windowItems = (windows?.windows || []).flatMap(dest => dest.windows.map(seg => {
-    const family = isFamilyWindow(seg.start, seg.end);
-    const cls = family ? 'family' : 'expert';
-    const label = family ? 'FAMILY GO' : 'EXPERT GO';
-  
-    // confiance: 'high' | 'medium' | 'low' (case-insensitive) + score optionnel
-    const rawConf = (seg.confidence || dest.confidence || '').toString().toLowerCase();
-    const confKey = ['high','medium','low'].includes(rawConf) ? rawConf : '';
-    const confTxt = confKey === 'high'   ? 'Haute'
-                  : confKey === 'medium' ? 'Moy.'
-                  : confKey === 'low'    ? 'Faible' : '';
-    const score = typeof seg.confidence_score === 'number'
-                  ? Math.round(seg.confidence_score * (seg.confidence_score <= 1 ? 100 : 1))
-                  : null;
-    const confBadge = confTxt
-        ? `<span class="conf ${confKey}">${confTxt}${score!=null ? ' · '+score : ''}</span>`
+    // -- Fenêtres GO avec badge de confiance + tooltip --
+    const winsDiv = document.getElementById('wins');
+    const windowItems = (windows?.windows || []).flatMap(dest => dest.windows.map(seg => {
+      const family = isFamilyWindow(seg.start, seg.end);
+      const cls = family ? 'family' : 'expert';
+      const label = family ? 'FAMILY GO' : 'EXPERT GO';
+    
+      // confiance: 'high' | 'medium' | 'low' + score optionnel
+      const rawConf = (seg.confidence || dest.confidence || '').toString().toLowerCase();
+      const confKey = ['high','medium','low'].includes(rawConf) ? rawConf : '';
+      const confTxt = confKey === 'high'   ? 'Haute'
+                    : confKey === 'medium' ? 'Moy.'
+                    : confKey === 'low'    ? 'Faible' : '';
+      const score = typeof seg.confidence_score === 'number'
+                    ? Math.round(seg.confidence_score * (seg.confidence_score <= 1 ? 100 : 1))
+                    : null;
+    
+      const confTitle = confTxt
+        ? `Confiance Prédictions : ${confTxt}${score!=null ? ' · ' + score + '%' : ''}`
         : '';
-  
-    return `<div class="line">
-      <div class="title">${dest.dest_name} <span class="go ${cls}">${label}</span> ${confBadge}</div>
-      <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
-    </div>`;
-  }));
-  winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
-
+    
+      const confBadge = confTxt
+        ? `<span class="conf ${confKey}" title="${confTitle}" aria-label="${confTitle}">${confTxt}${score!=null ? ' · '+score : ''}</span>`
+        : '';   
+      
+      return `<div class="line">
+        <div class="title">${dest.dest_name} <span class="go ${cls}">${label}</span> ${confBadge}</div>
+        <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
+      </div>`;
+    }));
+    winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
     
     // reasons (client-side helper)
     const reasonsDiv = document.getElementById('reasons');
@@ -376,8 +381,24 @@
       L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
     }
 
-    // raw links
-    document.getElementById('raw-links-list').innerHTML = WANT_SPOTS.map(([name, file]) => `<li><span class="ico">⚓</span><a href="./${file}">${file}</a></li>`).join('');
+    // Icônes par fichier
+    const ICON = {
+      'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁',
+      'windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️'
+    };
+    
+    const spotLinks = WANT_SPOTS.map(([name, file]) =>
+      `<li><span class="ico">${ICON[file]||'•'}</span><a href="./${file}">${file}</a></li>`
+    ).join('');
+    
+    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'].map(f =>
+      `<li><span class="ico">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`
+    ).join('');
+    
+    // Séparateur visuel entre spots et fichiers système
+    const separator = `<li style="list-style:none;border-top:1px solid var(--br);margin:6px 0;"></li>`;
+    
+    document.getElementById('raw-links-list').innerHTML = spotLinks + separator + systemLinks;
 
     document.getElementById('dashboard-content').classList.remove('updating');
     countdown = REFRESH_INTERVAL_SECONDS;

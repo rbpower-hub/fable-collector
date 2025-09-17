@@ -25,13 +25,11 @@
       --section:#005b96; --shadow: 0 4px 12px rgba(10,34,64,.08);
       --link:#0077b6; --pill-bg:#f0f5fa;
     }
-
     html,body{height:100%}
     body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg); font-size: 1.05rem;}
     *{box-sizing:border-box}
     a{color:var(--link); text-decoration: none} a:hover{text-decoration: underline}
     h1,h2,h3{margin:0 0 8px 0; font-weight: 700;}
-    
     header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
     header h1{font-size:1.5rem}
     .spacer{flex:1}
@@ -39,99 +37,46 @@
     .btn-mini{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:2px 6px; border-radius:7px; font-size:.82rem; margin-left:6px}
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
     .status.ok{background:var(--ok); color:#081019 !important} .status.warn{background:var(--warn); color:#081019 !important}
-
-    #map{
-      height: 450px;
-      border-radius: 14px;
-      background-color: var(--card);
-      border: 1px solid var(--br);
-      margin-bottom: 16px;
-      z-index: 0;
-    }
+    #gen.pill{border:1px solid var(--br); border-radius:999px; padding:6px 12px; font-weight:800; color:var(--muted); background:var(--pill-bg);}
+    #map{height: 450px; border-radius: 14px; background-color: var(--card); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
     #dashboard-content { transition: opacity 0.5s ease-in-out; }
     #dashboard-content.updating { opacity: 0.3; }
-
     .layout-grid{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     .card h3{font-size:1.15rem; color:var(--section); display:flex; align-items:center; gap:8px; justify-content: space-between;}
-
     .window-line {padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
     .window-line .title {font-weight:700; font-size: 1.1rem; display: flex; align-items: center;}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800;}
     .go.family{background: var(--ok); color: #04110a}
     .go.expert{background:#f59e0b; color:#160f04}
-    .conf{border:1px solid var(--br);background:var(--card);border-radius:999px; padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted); white-space:nowrap;}
+    .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px; padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted); white-space:nowrap;}
     .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
-
     .conditions .line { border-left: 4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
-
-    #gen.pill{
-      border:1px solid var(--br); border-radius:999px; padding:6px 12px;
-      font-weight:800; color:var(--muted); background:var(--pill-bg);
-    }
-
-    
-    /* ## CORRIGÉ: Tableau agrandi ## */
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px;}
     table{width:100%; border-collapse:collapse;}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
-
     .tip{position:absolute; z-index:9999; max-width: 360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow: var(--shadow); font-size:.9rem}
-    
-    /* ## NOUVEAU: Styles pour la vue simplifiée ## */
+    .tip .hdr{font-weight:700; margin-bottom:4px} .tip .row{margin-top:4px}
     body.simplified-view .expert-only { display: none; }
-    
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     #refresh-timer{font-size: 0.85rem; color: var(--muted); margin-left: 16px;}
-    
     .marker-pin { width: 30px; height: 30px; border-radius: 50% 50% 50% 0; position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; }
     .marker-pin::after { content: ''; width: 14px; height: 14px; margin: 8px 0 0 8px; background: #ffffff; position: absolute; border-radius: 50%; }
     .marker-pulse:after { content: ""; border-radius: 50%; height: 40px; width: 40px; position: absolute; margin: -13px 0 0 -13px; animation: pulsate 1.5s ease-out infinite; opacity: 0; box-shadow: 0 0 1px 2px var(--accent); border: 3px solid rgba(255,255,255,0.3); }
     @keyframes pulsate { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.2, 1.2); opacity: 0; } }
     .main-port-icon .marker-pulse:after { animation-name: pulsate-main; animation-duration: 1.2s; box-shadow: 0 0 2px 3px var(--accent); border: 3px solid rgba(76,201,240,0.5); }
     @keyframes pulsate-main { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.5, 1.5); opacity: 0; } }
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
-    .small{
-      font-size:.92rem;
-      color: var(--muted);
-    }
-
-    /* mini-courbes (sparklines) */
-    .spark{
-      width:120px; height:24px; display:inline-block; vertical-align:middle; margin-left:8px;
-    }
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;}
+    .small{font-size:.92rem; color: var(--muted);}
+    .spark{width:120px; height:24px; display:inline-block; vertical-align:middle; margin-left:8px;}
     .spark svg{ width:100%; height:100%; }
-    @media (max-width: 900px){ .spark{display:none} }
-    
-    /* badge “ancrage 1 h” posé sur la carte */
-    .anchor-badge{
-      background: var(--pill-bg);
-      border:1px solid var(--br);
-      color: var(--fg);
-      padding:2px 6px;
-      border-radius: 999px;
-      font-size:.8rem;
-      box-shadow: var(--shadow);
-    }
-    
-    @media (max-width: 900px){ .spark{display:none} } /* option : masquer en mobile */
-    
-    /* flash alerte douce */
+    .anchor-badge{background: var(--pill-bg); border:1px solid var(--br); color: var(--fg); padding:2px 6px; border-radius: 999px; font-size:.8rem; box-shadow: var(--shadow);}
     @keyframes flashPulse { 0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)} 100%{box-shadow:0 0 0 18px rgba(76,201,240,0)} }
-    .flash{animation:flashPulse .8s ease-out 2}
-    
-    /* styles utilitaires manquants */
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace}
-    .small{font-size:.92rem;color:var(--muted)}
-    
-    /* meilleure lisibilité arabe (RTL) */
+    .flash{animation:flashPulse .8s ease-out 1}
     :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
     :root[dir="rtl"] h1, :root[dir="rtl"] h3 { letter-spacing:.2px }
-
-    @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } .spark{display:none} }
   </style>
 </head>
 <body>
@@ -145,16 +90,13 @@
   <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
   <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
   <button id="langBtn" class="btn" title="Langue">FR</button>
-
 </header>
-
 <div id="dashboard-content">
     <div id="map" aria-label="Carte des spots"></div>
-
     <div class="layout-grid">
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="card wins">
-          <h3><span>🪟 Fenêtres de Navigation depuis Port de Gammarth</span></h3>
+          <h3><span>🪟 Fenêtres de Navigation</span></h3>
           <div id="wins">Chargement…</div>
         </div>
         <div class="card conditions expert-only">
@@ -180,433 +122,165 @@
       </div>
     </div>
 </div>
-
 <footer>
-  <p>Affichage en <span id="tz2" class="mono"></span>.
-  <span id="refresh-timer"></span>
-  </p>
+  <p><span id="tz" class="small"></span><span id="refresh-timer"></span></p>
 </footer>
-
 <div id="tooltip" class="tip" style="display:none;" role="tooltip"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./reasons-debug.js"></script>
 
 <script>
 (async function main() {
   const REFRESH_INTERVAL_SECONDS = 600;
-  // ===== I18N =====
-  const I18N = {
-    fr: {
-      status_ok: "Statut: OK",
-      status_stale: "Statut: Données anciennes",
-      updated: "Mise à jour",
-      reasons_unavailable: "Raisons indisponibles.",
-      none_windows: 'Aucune fenêtre "GO" détectée.',
-      fresh: "Frais", stale: "Ancien",
-      next_refresh: s => `Prochaine mise à jour dans ${s}s.`,
-      principal_port: "Port Principal",
-      go_popup: { green: "Fenêtre 'GO' !", yellow: "Données à jour", red: "Données anciennes" },
-      conf_title: (txt,score)=>`Confiance Prédictions : ${txt}${score!=null?' · '+score+'%':''}`
-    },
-    en: {
-      status_ok: "Status: OK",
-      status_stale: "Status: Stale data",
-      updated: "Updated",
-      reasons_unavailable: "Reasons unavailable.",
-      none_windows: 'No "GO" window detected.',
-      fresh: "Fresh", stale: "Stale",
-      next_refresh: s => `Next refresh in ${s}s.`,
-      principal_port: "Main Port",
-      go_popup: { green: "GO window!", yellow: "Data up to date", red: "Stale data" },
-      conf_title: (txt,score)=>`Forecast Confidence: ${txt}${score!=null?' · '+score+'%':''}`
-    },
-    ar: {
-      status_ok: "الحالة: جيد",
-      status_stale: "الحالة: بيانات قديمة",
-      updated: "آخر تحديث",
-      reasons_unavailable: "الأسباب غير متاحة.",
-      none_windows: 'لا توجد نافذة "GO".',
-      fresh: "محدث", stale: "قديم",
-      next_refresh: s => `التحديث القادم خلال ${s}ث`,
-      principal_port: "الميناء الرئيسي",
-      go_popup: { green: "نافذة GO!", yellow: "البيانات محدثة", red: "البيانات قديمة" },
-      conf_title: (txt,score)=>`ثقة التنبؤات: ${txt}${score!=null?' · '+score+'%':''}`
-    }
-  };
+
+  // ===== I18N & Configuration Statique =====
+  const I18N = { fr: { status_ok:"Statut: OK", status_stale:"Statut: Données anciennes", updated:"Mise à jour", reasons_unavailable:"Raisons indisponibles.", none_windows:'Aucune fenêtre "GO" détectée.', fresh:"Frais", stale:"Ancien", next_refresh:s=>`Prochaine MAJ dans ${s}s.`, principal_port:"Port Principal", go_popup:{green:"Fenêtre 'GO' !", yellow:"Données à jour", red:"Données anciennes"}, conf_title:(t,s)=>`Confiance: ${t}${s!=null?'·'+s+'%':''}`}, en: { status_ok:"Status: OK", status_stale:"Status: Stale data", updated:"Updated", reasons_unavailable:"Reasons unavailable.", none_windows:'No "GO" window detected.', fresh:"Fresh", stale:"Stale", next_refresh:s=>`Next refresh in ${s}s.`, principal_port:"Main Port", go_popup:{green:"GO window!", yellow:"Data up to date", red:"Stale data"}, conf_title:(t,s)=>`Confidence: ${t}${s!=null?'·'+s+'%':''}`}, ar: { status_ok:"الحالة: جيد", status_stale:"الحالة: بيانات قديمة", updated:"آخر تحديث", reasons_unavailable:"الأسباب غير متاحة.", none_windows:'لا توجد نافذة "GO".', fresh:"محدث", stale:"قديم", next_refresh:s=>`التحديث القادم خلال ${s}ث`, principal_port:"الميناء الرئيسي", go_popup:{green:"نافذة GO!", yellow:"البيانات محدثة", red:"البيانات قديمة"}, conf_title:(t,s)=>`ثقة التنبؤات: ${t}${s!=null?'·'+s+'%':''}`} };
   const LOCALES = { fr: 'fr-FR', en: 'en-GB', ar: 'ar-TN' };
-  let LANG = (localStorage.getItem('lang') || 'fr');
-  function setLang(l){ LANG = l; localStorage.setItem('lang', l); document.documentElement.lang = l; document.documentElement.dir = (l==='ar'?'rtl':'ltr'); document.getElementById('langBtn').textContent = l.toUpperCase(); }
-  function t(path, ...a){
-    const dict = I18N[LANG] || I18N.fr;
-    const val = path.split('.').reduce((o,k)=>(o||{})[k], dict);
-    return (typeof val==='function') ? val(...a) : (val ?? path);
-  }
-  setLang(LANG);
-  
-  // helpers de format date dépendant de la langue
-  const fmtLocal = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-  const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
-  
-  // ===== KIOSK =====
-  const KIOSK_AUTO_FS_MS = 5000;
-  setTimeout(()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); }, KIOSK_AUTO_FS_MS);
-  let _cursorTimer; function hideCursor(){ document.body.style.cursor='none'; }
-  function showCursor(){ document.body.style.cursor=''; clearTimeout(_cursorTimer); _cursorTimer=setTimeout(hideCursor, 5000); }
-  ['mousemove','keydown','click','wheel','touchstart'].forEach(ev=>document.addEventListener(ev, showCursor, {passive:true}));
-  showCursor();
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ updateDashboard(); if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); } });
-  
-  // ===== ALERTE (ding + flash) =====
-  let muted = localStorage.getItem('mute') === '1';
-  const muteBtn = document.getElementById('muteBtn');
-  function setMute(m){ muted=m; localStorage.setItem('mute', m?'1':'0'); muteBtn.textContent = m?'🔕':'🔔'; }
-  setMute(muted);
-  muteBtn.addEventListener('click', ()=> setMute(!muted));
-  
-  function ding(){
-    if(muted) return;
-    try{
-      const ctx = new (window.AudioContext||window.webkitAudioContext)();
-      const o = ctx.createOscillator(); const g = ctx.createGain();
-      o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
-      g.gain.setValueAtTime(0.0001, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.22);
-      o.start(); o.stop(ctx.currentTime+0.25);
-    }catch{}
-  }
-  function flash(el){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
-  
-  // mémorisation des fenêtres (pour détecter les nouvelles)
-  let _lastWinsKey = new Set();
-
-  const $ = (sel) => document.querySelector(sel);
-  const dashboardContent = $('#dashboard-content');
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
-  $('#tz2').textContent = tz;
-
-  const spotCoordinates = {
-    'gammarth-port.json': { name: 'Gammarth Port', lat: 36.903, lon: 10.323 },
-    'sidi-bou-said.json': { name: 'Sidi Bou Saïd', lat: 36.871, lon: 10.349 },
-    'ghar-el-melh.json': { name: 'Ghar el Melh', lat: 37.168, lon: 10.194 },
-    'ras-fartass.json': { name: 'Ras Fartass', lat: 36.877, lon: 10.612 },
-    'el-haouaria.json': { name: 'El Haouaria', lat: 37.054, lon: 11.042 }
-  };
-  const WANT_SPOTS = Object.entries(spotCoordinates).map(([file, {name}]) => [name, file]);
-
+  const spotConfig = { 'gammarth-port.json':{name:'Gammarth Port',lat:36.903,lon:10.323},'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.871,lon:10.349},'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.168,lon:10.194},'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.612},'el-haouaria.json':{name:'El Haouaria',lat:37.054,lon:11.042} };
   const INITIAL_MAP_VIEW = { center: [36.95, 10.6], zoom: 9 };
+
+  // ===== État de l'Application =====
+  let LANG = localStorage.getItem('lang') || 'fr';
+  let muted = localStorage.getItem('mute') === '1';
+  let lastWinsKey = new Set();
+  
+  // ===== Fonctions Utilitaires =====
+  const $ = (sel) => document.querySelector(sel);
+  const t = (path, ...args) => { const dict=I18N[LANG]||I18N.fr; const val=path.split('.').reduce((o,k)=>(o||{})[k],dict); return typeof val==='function'?val(...args):(val??path); };
+  const fmtLocal = (iso) => iso ? new Date(iso).toLocaleString(LOCALES[LANG] || 'fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  const fmtFriendly = (iso) => iso ? new Date(iso).toLocaleString(LOCALES[LANG] || 'fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false }) : '';
+  const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
+  const isFamilyWindow = (startIso, endIso) => { const s=new Date(startIso), e=new Date(endIso); if(isNaN(s)||isNaN(e)) return true; for(let d=s; d<=e; d.setHours(d.getHours()+1)) { const h=d.getHours(); if(h<8||h>=21) return false; } return true; };
+  const isFresh = (entry, genIso) => { const THRESHOLD=180; if(!entry)return false; if(typeof entry.fresh==='boolean')return entry.fresh; if(entry.modified){const age=(Date.now()-new Date(entry.modified).getTime())/60000; if(isFinite(age))return age<=THRESHOLD;} if(genIso){const age=(Date.now()-new Date(genIso).getTime())/60000; if(isFinite(age))return age<=THRESHOLD;} return false; };
+  const ding = () => { if(muted) return; try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(),o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=880;o.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(0.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.05,ctx.currentTime+0.02);g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.22);o.start();o.stop(ctx.currentTime+0.25);}catch{} };
+  const flash = (el) => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+  const sparklineSVG = (seriesList, opts={}) => { const W=120,H=24,p=2,min=(opts.min??Math.min(...seriesList.flat())),max=(opts.max??Math.max(...seriesList.flat())),span=max-min||1; const path=v=>v.map((val,i)=>`${i===0?'M':'L'}${p+(W-2*p)*(v.length===1?1:i/(v.length-1))} ${p+(H-2*p)*(1-(val-min)/span)}`).join(' '); const colors=opts.colors||['currentColor','rgba(255,255,255,.6)']; return `<svg viewBox="0 0 ${W} ${H}">${seriesList.map((s,i)=>`<path d="${path(s)}" fill="none" stroke="${colors[i%colors.length]}" stroke-width="${i===0?1.8:1.2}"/>`).join('')}</svg>`; };
+
+  // ===== Initialisation =====
   const map = L.map('map').setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
-  
-  // Couche dédiée aux corridors
   const corridorLayer = L.layerGroup().addTo(map);
-  const ORIGIN_FILE = 'gammarth-port.json';
-  
-  function getLatLng(file){
-    const s = spotCoordinates[file];
-    return s ? [s.lat, s.lon] : null;
-  }
-  
-  function midPoint(a,b){ // simple milieu
-    return [(a[0]+b[0])/2, (a[1]+b[1])/2];
-  }
-  
-  function drawCorridors(destSlugs){
-    corridorLayer.clearLayers();
-    const origin = getLatLng(ORIGIN_FILE);
-    if(!origin) return;
-  
-    // Unicité + on limite à 3 corridors pour lisibilité
-    const uniq = [...new Set(destSlugs)].filter(f=>f && f!==ORIGIN_FILE).slice(0,3);
-  
-    uniq.forEach(file=>{
-      const dest = getLatLng(file);
-      if(!dest) return;
-  
-      // Aller/retour = même ligne; style accent/dash
-      const line = L.polyline([origin, dest], {
-        color: getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#4cc9f0',
-        weight: 3,
-        opacity: 0.9,
-        dashArray: '6,6'
-      });
-      corridorLayer.addLayer(line);
-  
-      // Badge "Ancrage 1 h" au milieu
-      const m = midPoint(origin, dest);
-      const div = L.divIcon({ className: 'anchor-badge', html: '⚓ 1&nbsp;h', iconSize: [10,10], iconAnchor:[0,0] });
-      corridorLayer.addLayer(L.marker(m, { icon: div }));
-    });
-  }
+  window.panToFile = (file) => { const s = spotConfig[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
 
-  window.panToFile = (file) => { const s = spotCoordinates[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
-
-  // --- Fonctions Utilitaires ---
-  const toLocal = fmtLocal;
-  const toFriendly = fmtFriendly;
-  const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
-  // ---- Sparklines ----
-  function sparklineSVG(seriesList, opts={}){
-    const W = opts.w || 120, H = opts.h || 24, pad = 2;
-    const min = (opts.min ?? Math.min(...seriesList.flat().map(v=>+v).filter(Number.isFinite)));
-    const max = (opts.max ?? Math.max(...seriesList.flat().map(v=>+v).filter(Number.isFinite)));
-    const span = (max-min) || 1;
-  
-    function pathFor(values){
-      if(!values || values.length===0) return '';
-      const n = values.length;
-      return values.map((v,i)=>{
-        const x = pad + (W-2*pad) * (n===1 ? 1 : i/(n-1));
-        const y = pad + (H-2*pad) * (1 - ((v-min)/span));
-        return (i===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1);
-      }).join(' ');
-    }
-  
-    const colors = opts.colors || ['currentColor','rgba(255,255,255,.6)','rgba(255,255,255,.35)'];
-    const strokes = seriesList.map((arr,idx)=>`<path d="${pathFor(arr)}" fill="none" stroke="${colors[idx%colors.length]}" stroke-width="${idx===0?1.8:1.2}" stroke-linecap="round"/>`).join('');
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${strokes}</svg>`;
-  }
-  
-  // Essaie d’extraire 6–12h de tendances pour vent/rafales/Hs depuis un JSON spot
-  function extractTrend(spotJson, take=12){
-    // Heuristiques de schéma
-    const arr = Array.isArray(spotJson?.hours) ? spotJson.hours
-             : Array.isArray(spotJson?.timeline) ? spotJson.timeline
-             : Array.isArray(spotJson?.series) ? spotJson.series
-             : Array.isArray(spotJson) ? spotJson
-             : [];
-    const last = arr.slice(-take);
-  
-    const get = (o, keys)=> {
-      for(const k of keys){
-        const v = o[k]; if(typeof v === 'number') return v;
-        if(typeof v === 'object' && v && typeof v.v === 'number') return v.v;
-      } return NaN;
-    };
-    const wind = last.map(o=> get(o, ['wind_kmh','wind','windSpeedKmh','wind_speed_kmh']));
-    const gust = last.map(o=> get(o, ['gust_kmh','gust','gusts_kmh','wind_gust_kmh']));
-    const hs   = last.map(o=> get(o, ['hs_m','Hs','wave_hs_m','sea_hs_m']));
-    return { wind, gust, hs, ok: (wind.some(Number.isFinite) || hs.some(Number.isFinite)) };
-  }
-  
-  // Rendu asynchrone des sparklines dans la table
-  async function renderSparklines(){
-    const nodes = document.querySelectorAll('.spark[data-file]');
-    for (const el of nodes){
-      const file = el.dataset.file;
-      try{
-        const js = await fetchJSON(file);
-        const tr = extractTrend(js, 12);
-        if(!tr.ok){ el.innerHTML = ''; continue; }
-        // Normalisation d’échelle commune vent/gust, Hs sur une autre échelle
-        const vAll = [...tr.wind.filter(Number.isFinite), ...tr.gust.filter(Number.isFinite)];
-        const vMin = Math.min(...vAll, 0), vMax = Math.max(...vAll, 1);
-        const hsAll = tr.hs.filter(Number.isFinite);
-        const hsMin = hsAll.length? Math.min(...hsAll, 0) : 0;
-        const hsMax = hsAll.length? Math.max(...hsAll, 0.1) : 0.1;
-  
-        // Deux SVG superposés: vent/rafales (couleur courante), Hs (plus clair)
-        const svg1 = sparklineSVG([tr.wind, tr.gust], {min:vMin, max:vMax});
-        const svg2 = hsAll.length ? sparklineSVG([tr.hs], {min:hsMin, max:hsMax, colors:['rgba(76,201,240,.5)']}) : '';
-  
-        el.innerHTML = svg1 + svg2;
-        // Tooltip synthèse
-        const lastWind = tr.wind.filter(Number.isFinite).slice(-1)[0];
-        const lastGust = tr.gust.filter(Number.isFinite).slice(-1)[0];
-        const lastHs   = tr.hs.filter(Number.isFinite).slice(-1)[0];
-        el.title = [
-          Number.isFinite(lastWind)? `Vent: ${lastWind} km/h` : null,
-          Number.isFinite(lastGust)? `Raf.: ${lastGust} km/h` : null,
-          Number.isFinite(lastHs)?   `Hs: ${lastHs} m` : null
-        ].filter(Boolean).join(' · ');
-      }catch{
-        el.innerHTML = '';
-      }
-    }
-  }
-
+  // ===== Contrôleur Principal de Mise à Jour =====
   async function updateDashboard() {
-    dashboardContent.classList.add('updating');
+    $('#dashboard-content').classList.add('updating');
     
     const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
-    const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotCoordinates)) : [];
+    const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotConfig)) : [];
     
-    // --- MISE À JOUR DE L'INTERFACE ---
-
-    // Header
-    const ok = status && (status.all_fresh || status.status === 'ok');
-    $('#hc').className = 'status ' + (ok ? 'ok' : 'warn');
-    $('#hc').textContent = ok ? 'Statut: OK' : 'Statut: Données anciennes';
     const gen = windows?.generated_at || status?.generated_at || null;
-    $('#gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
+    const spotStatus = {};
+    (windows?.windows || []).forEach(d => { if(d.windows?.length>0) spotStatus[d.dest_slug] = 'green'; });
+    Object.keys(spotConfig).forEach(file => { if (spotStatus[file] !== 'green') { const e=status?.files?.find(s=>s.path===file); spotStatus[file]=isFresh(e,gen)?'yellow':'red'; } });
 
-    // Fenêtres GO (avec badges de confiance)
-    const winsDiv = document.getElementById('wins');
-    const winsCard = document.querySelector('.card.wins');
+    // --- Rendu des composants ---
+    // Header
+    $('#hc').className = 'status ' + (status?.all_fresh ? 'ok' : 'warn');
+    $('#hc').textContent = t(status?.all_fresh ? 'status_ok' : 'status_stale');
+    $('#gen').textContent = `${t('updated')}: ${gen ? fmtLocal(gen) : '...'}`;
+
+    // Fenêtres GO
+    const winsDiv = $('#wins');
     const isSimplified = document.body.classList.contains('simplified-view');
     const nowWinsKey = new Set();
-    
     const winItems = (windows?.windows || [])
       .flatMap(dest => (dest.windows||[]).map(seg => {
         const family = isFamilyWindow(seg.start, seg.end);
-        const confKey = ((seg.confidence ?? dest.confidence) || '').toString().toLowerCase();
+        const confKey = ((seg.confidence || dest.confidence) || '').toLowerCase();
         const confText = confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
-        const confScore = (typeof seg.confidence_score==='number')
-          ? Math.round(seg.confidence_score * (seg.confidence_score<=1 ? 100 : 1))
-          : null;
-        const confTitle = confText ? t('conf_title', confText, confScore) : '';
-        const confBadge = confText
-          ? `<span class="conf ${confKey}" title="${confTitle}" aria-label="${confTitle}">${confText}${confScore!=null?' · '+confScore:''}</span>`
-          : '';
-    
-        // badges sources/spreads
-        const models = seg.models || dest.models || [];
-        const spreads = seg.spreads || dest.spreads || {};
-        const spreadsTxt = [];
-        if (typeof spreads.wind_kmh === 'number') spreadsTxt.push(`±${spreads.wind_kmh} km/h`);
-        if (typeof spreads.hs_m === 'number')     spreadsTxt.push(`±${spreads.hs_m} m`);
-        const srcBadge = (models.length||spreadsTxt.length)
-          ? `<div class="small" style="margin-top:4px;opacity:.9">
-               ${models.length?('<b>Src:</b> '+models.join('/')):''}
-               ${spreadsTxt.length?(' &nbsp; <b>Δ:</b> '+spreadsTxt.join(' / ')):''}
-             </div>` : '';
-    
-        const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
+        const confScore = (typeof seg.confidence_score==='number') ? Math.round(seg.confidence_score*100):null;
+        const key = `${dest.dest_slug}|${seg.start}`;
         nowWinsKey.add(key);
-    
-        return {
-          dest_slug: dest.dest_slug,
-          html: `<div class="window-line ${!family?'expert-only':''}">
-                   <div class="title">${dest.dest_name} <span class="go ${family?'family':'expert'}">${family?'FAMILY GO':'EXPERT GO'}</span> ${confBadge}</div>
-                   <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
-                   ${srcBadge}
-                 </div>`,
-          isFamily: family
-        };
+        return { html:`<div class="window-line ${!family?'expert-only':''}"><div class="title">${dest.dest_name} <span class="go ${family?'family':'expert'}">${family?'FAMILY GO':'EXPERT GO'}</span> ${confText?`<span class="conf ${confKey}" title="${t('conf_title',confText,confScore)}">${confText}${confScore!=null?'·'+confScore:''}</span>`:''}</div><div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div></div>`, isFamily: family, dest_slug: dest.dest_slug };
       }))
       .filter(x => isSimplified ? x.isFamily : true);
-    
     winsDiv.innerHTML = winItems.length ? winItems.map(x=>x.html).join('') : `<span class="small">${t('none_windows')}</span>`;
-    
-    // Alerte si nouvelles fenêtres depuis le dernier rendu
-    let hasNew = false;
-    nowWinsKey.forEach(k => { if(!_lastWinsKey.has(k)) hasNew = true; });
-    _lastWinsKey = nowWinsKey;
-    if (hasNew && winItems.length){ ding(); flash(winsCard); }
-    
-    // Corridors visuels (limités à 3 pour la lisibilité)
-    drawCorridors(winItems.map(x=>x.dest_slug).filter(Boolean));
+    if ([...nowWinsKey].some(k => !lastWinsKey.has(k)) && winItems.length > 0) { ding(); flash($('#wins').parentElement); }
+    lastWinsKey = nowWinsKey;
 
-    // Avertissements (No-GO)
-    const reasonsDiv = document.getElementById('reasons');
-    if (Array.isArray(reasonsRows) && reasonsRows.length) {
-        reasonsDiv.innerHTML = reasonsRows.map(r => `<div class="line"><div class="reason">🚫 ${(r.family || r.expert || '').replace(/^✗\s*/, '')}</div><div class="small">${r.spot}</div></div>`).join('');
-    } else {
-        reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
-    }
-
-    // Radar des Spots (avec boutons "Infos..." et tooltips)
-    const filesTableBody = document.querySelector('#files tbody');
-    filesTableBody.innerHTML = WANT_SPOTS.map(([name, file]) => {
-    const entry = status?.files?.find(s => s.path === file);
-    const fresh = isFresh(entry, gen);
-    return `<tr data-file="${file}">
-        <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button>
-            <span class="spark" data-file="${file}"></span>
-        </td>
-        <td>${toLocal(entry?.modified)}</td>
-        <td><span style="color:var(--${fresh ? 'ok' : 'warn'})">${fresh ? 'Frais' : 'Ancien'}</span></td>
-    </tr>`;
-  }).join('');
-
-  await renderSparklines();
-
-
-    // ## CORRIGÉ: Attacher tous les listeners du tableau ici ##
-    filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); }));
-    
-    const reasonsByFile = new Map((reasonsRows || []).map(r => {
-        const match = /\(([^)]+\.json)\)\s*$/.exec(r.spot || '');
-        return match ? [match[1], r] : [null, null];
-    }).filter(entry => entry[0]));
-    const tipEl = document.getElementById('tooltip');
-    const showTip = (btn) => {
-        const file = btn.dataset.file;
-        const r = reasonsByFile.get(file);
-        tipEl.innerHTML = `<div class="hdr">${spotCoordinates[file]?.name}</div><div class="row"><b>Family:</b> ${r?.family || '—'}</div><div class="row"><b>Expert:</b> ${r?.expert || '—'}</div>`;
-        const rect = btn.getBoundingClientRect();
-        tipEl.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;
-        tipEl.style.top = `${window.scrollY + rect.top - 6}px`;
-        tipEl.style.display = 'block';
-    };
-    const hideTip = () => { if (tipEl) tipEl.style.display = 'none'; };
-    filesTableBody.querySelectorAll('button.why').forEach(btn => {
-        btn.addEventListener('mouseenter', () => showTip(btn));
-        btn.addEventListener('mouseleave', hideTip);
+    // Corridors
+    corridorLayer.clearLayers();
+    const origin = spotConfig['gammarth-port.json'];
+    const destSlugs = [...new Set(winItems.map(x=>x.dest_slug))].slice(0,3);
+    destSlugs.forEach(slug => {
+        const dest = spotConfig[slug]; if (!dest || !origin) return;
+        L.polyline([[origin.lat, origin.lon], [dest.lat, dest.lon]], { color: 'var(--accent)', weight: 3, opacity: 0.9, dashArray: '6,6' }).addTo(corridorLayer);
+        const mid = [(origin.lat+dest.lat)/2, (origin.lon+dest.lon)/2];
+        L.marker(mid, { icon: L.divIcon({ className: 'anchor-badge', html: '⚓ 1h' }) }).addTo(corridorLayer);
     });
-    document.addEventListener('scroll', hideTip, { passive: true });
 
-    // Liens Données Brutes (avec icônes)
-    const ICON = { 'gammarth-port.json':'⚓', 'sidi-bou-said.json':'⛵', 'ghar-el-melh.json':'🏝️', 'ras-fartass.json':'🌊', 'el-haouaria.json':'🪁', 'windows.json':'🪟', 'status.json':'📊', 'index.json':'📑', 'rules.normalized.json':'⚖️' };
-    const createLink = file => `<li><span style="display:inline-block;width:1.5em;">${ICON[file]||'•'}</span><a href="./${file}">${file}</a></li>`;
-    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-    document.getElementById('raw-links-list').innerHTML = WANT_SPOTS.map(([,file]) => createLink(file)).join('') + 
-        '<li style="border-top:1px solid var(--br); margin: 6px 0;"></li>' + 
-        systemLinks.map(createLink).join('');
+    // Avertissements
+    const reasonsDiv = $('#reasons');
+    if (reasonsRows?.length) { reasonsDiv.innerHTML = reasonsRows.map(r => `<div class="line"><div class="reason">🚫 ${(r.family || r.expert || '').replace(/^✗\s*/,'')}</div><div class="small">${r.spot}</div></div>`).join('');
+    } else { reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`; }
 
-    // Marqueurs de la carte
-    const spotStatus = {};
-    (windows?.windows || []).forEach(dest => { if (dest.windows?.length > 0) spotStatus[dest.dest_slug] = 'green'; });
-    Object.keys(spotCoordinates).forEach(file => { if (spotStatus[file] !== 'green') { const entry = status?.files?.find(s => s.path === file); spotStatus[file] = isFresh(entry, gen) ? 'yellow' : 'red'; } });
+    // Radar des Spots
+    const filesTableBody = $('#files tbody');
+    filesTableBody.innerHTML = Object.entries(spotConfig).map(([file, {name}]) => {
+        const entry = status?.files?.find(s => s.path === file);
+        return `<tr><td><a href="#" data-file="${file}">${name}</a><span class="spark expert-only" data-file="${file}"></span></td><td>${fmtLocal(entry?.modified)}</td><td><span style="color:var(--${isFresh(entry,gen)?'ok':'warn'})">${t(isFresh(entry,gen)?'fresh':'stale')}</span></td></tr>`;
+    }).join('');
     
-    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-    const createIcon = (color, isMain) => L.divIcon({ className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`, html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
-    for (const file in spotCoordinates) {
-        const spot = spotCoordinates[file];
-        const isMain = file === 'gammarth-port.json';
-        const status = spotStatus[file];
-        const color = isMain ? 'var(--accent)' : (status === 'green' ? 'var(--ok)' : (status === 'yellow' ? 'var(--warn)' : 'var(--bad)'));
-        const text = isMain ? "Port Principal" : (status === 'green' ? "Fenêtre 'GO' !" : (status === 'yellow' ? "Données à jour" : "Données anciennes"));
-        L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
+    // CORRIGÉ: `await` est déplacé en dehors du `.map()`
+    for (const el of document.querySelectorAll('.spark[data-file]')) {
+      const spotData = await fetchJSON(el.dataset.file); if (!spotData?.hours) continue;
+      const last = spotData.hours.slice(-12);
+      const wind=last.map(h=>h.wind_kmh), gust=last.map(h=>h.gust_kmh), hs=last.map(h=>h.hs_m);
+      const vMax=Math.max(...wind,...gust);
+      el.innerHTML = sparklineSVG([wind,gust],{max:vMax,colors:['var(--fg)','var(--muted)']}) + sparklineSVG([hs],{colors:['var(--accent)']});
     }
 
-    dashboardContent.classList.remove('updating');
+    // Map Markers
+    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+    const createIcon = (color,isMain) => L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`,html:`<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`,iconSize:[30,42],iconAnchor:[15,42]});
+    for(const file in spotConfig){
+      const spot=spotConfig[file], isMain=file==='gammarth-port.json', status=spotStatus[file];
+      const color = isMain?'var(--accent)':(status==='green'?'var(--ok)':(status==='yellow'?'var(--warn)':'var(--bad)'));
+      const text = isMain?t('main_port'):t(`go_popup.${status}`);
+      L.marker([spot.lat,spot.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
+    }
+
+    $('#dashboard-content').classList.remove('updating');
   }
 
-  // --- Initialisation et Timers ---
-  const themeBtn = $('#themeBtn'); const fullscreenBtn = $('#fullscreenBtn'); const viewToggleBtn = $('#viewToggleBtn'); const resetMapBtn = $('#resetMapBtn');
-  const themes = ['dark', 'light', 'nautical']; let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark'); if (currentThemeIndex < 0) currentThemeIndex = 0;
-  document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
-  themeBtn.addEventListener('click', () => { currentThemeIndex = (currentThemeIndex + 1) % themes.length; const nextTheme = themes[currentThemeIndex]; document.documentElement.setAttribute('data-theme', nextTheme); localStorage.setItem('theme', nextTheme); });
-  fullscreenBtn.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
+  // ===== Écouteurs d'Événements Statiques & Timers =====
+  function setupEventListeners() {
+    $('#tz').textContent = `Affichage en ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
+    // Langue
+    const setLangUI = l => { LANG = l; localStorage.setItem('lang', l); document.documentElement.lang = l; document.documentElement.dir = (l==='ar'?'rtl':'ltr'); elements.buttons.lang.textContent = l.toUpperCase(); };
+    setLangUI(LANG);
+    elements.buttons.lang.addEventListener('click', () => { setLangUI(LANG==='fr'?'en':LANG==='en'?'ar':'fr'); updateDashboard(); });
+    // Son
+    const setMuteUI = m => { muted = m; localStorage.setItem('mute', m?'1':'0'); elements.buttons.mute.textContent = m?'🔕':'🔔'; };
+    setMuteUI(muted);
+    elements.buttons.mute.addEventListener('click', () => setMuteUI(!muted));
+    // Thème
+    const themes=['dark','light','nautical']; let themeIdx=themes.indexOf(localStorage.getItem('theme')||'dark');
+    elements.buttons.theme.addEventListener('click',() => { themeIdx=(themeIdx+1)%themes.length; const th=themes[themeIdx]; document.documentElement.setAttribute('data-theme',th); localStorage.setItem('theme',th); });
+    // Plein écran & Kiosque
+    elements.buttons.fullscreen.addEventListener('click',()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen());
+    setTimeout(()=> { if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); }, 5000);
+    let cursorTimer; const hideCursor=()=>document.body.style.cursor='none';
+    const showCursor=()=>{document.body.style.cursor='';clearTimeout(cursorTimer);cursorTimer=setTimeout(hideCursor,5000);};
+    ['mousemove','keydown','click'].forEach(ev=>document.addEventListener(ev,showCursor,{passive:true}));
+    showCursor();
+    // Vue
+    elements.buttons.viewToggle.addEventListener('click',() => { const s=elements.body.classList.toggle('simplified-view'); elements.buttons.viewToggle.textContent=s?'Vue Experte':'Vue Simplifiée'; updateWindowsCard(lastFetchedData.windows,s); });
+    // Reset Carte
+    elements.buttons.resetMap.addEventListener('click',()=>map.setView(INITIAL_MAP_VIEW.center,INITIAL_MAP_VIEW.zoom,{animate:true}));
+    // Délégation d'événements pour le radar
+    $('#files tbody').addEventListener('click', (e) => { const link=e.target.closest('a[data-file]'); if(link){e.preventDefault();window.panToFile(link.dataset.file);} });
+  }
 
-  viewToggleBtn.addEventListener('click', () => {
-    const simplified = document.body.classList.toggle('simplified-view');
-    viewToggleBtn.textContent = simplified ? 'Vue Experte' : 'Vue Simplifiée';
-    updateDashboard();
-  });
-  resetMapBtn.addEventListener('click', () => { map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, { animate: true }); });
-  
+  setupEventListeners();
   await updateDashboard();
   
   let countdown = REFRESH_INTERVAL_SECONDS;
+  setInterval(() => { countdown=(countdown<=1)?REFRESH_INTERVAL_SECONDS:countdown-1; elements.footer.refreshTimer.textContent = t('next_refresh', countdown); }, 1000);
   setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS * 1000);
-  setInterval(() => {
-    countdown = (countdown <= 1) ? REFRESH_INTERVAL_SECONDS : countdown - 1;
-    $('#refresh-timer').textContent = `Prochaine mise à jour dans ${countdown}s.`;
-  }, 1000);
 
-  const langBtn = document.getElementById('langBtn');
-  langBtn.addEventListener('click', () => {
-    const next = LANG === 'fr' ? 'en' : LANG === 'en' ? 'ar' : 'fr';
-    setLang(next);
-    updateDashboard();
-  });
-
-  // Pour que les fonctions `is...` ne soient pas manquantes, je les replace ici.
-  function isFamilyWindow(startIso, endIso) { const start = new Date(startIso), end = new Date(endIso); if (isNaN(start) || isNaN(end)) return true; for (let d = new Date(start); d <= end; d.setHours(d.getHours() + 1)) { const hour = d.getHours(); if (hour < 8 || hour >= 21) return false; } return true; }
-  function isFresh(entry, genIso) { const FRESH_THRESHOLD_MIN = 180; if (!entry) return false; if (typeof entry.fresh === 'boolean') return entry.fresh; if (entry.modified) { const ageMin = (Date.now() - new Date(entry.modified).getTime()) / 60000; if (isFinite(ageMin)) return ageMin <= FRESH_THRESHOLD_MIN; } if (genIso) { const ageMin = (Date.now() - new Date(genIso).getTime()) / 60000; if (isFinite(ageMin)) return ageMin <= FRESH_THRESHOLD_MIN; } return false; }
 })();
 </script>
 </body>

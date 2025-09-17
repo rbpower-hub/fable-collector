@@ -2,7 +2,7 @@
 <html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8" />
-  <title>TABLEAU DE BORD PORT GAMMARTH</title>
+  <title>TABLEAU DE BORD FABLE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1020" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -33,10 +33,9 @@
     header h1{font-size:1.5rem}
     .spacer{flex:1}
     .btn{cursor:pointer; border:1px solid var(--br); background:var(--card); color:var(--fg); padding:6px 10px; border-radius:9px}
+    .btn-mini{cursor:pointer; border:1px solid var(--br); background:var(--card); color:var(--fg); padding:2px 6px; border-radius:7px; font-size:.82rem; margin-left:6px}
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
-    .status.ok{background:var(--ok); color:#081019 !important}
-    .status.warn{background:var(--warn); color:#081019 !important}
-    .status.bad{background:var(--bad); color:#081019 !important}
+    .status.ok{background:var(--ok); color:#081019 !important} .status.warn{background:var(--warn); color:#081019 !important} .status.bad{background:var(--bad); color:#081019 !important}
 
     #map { height: 450px; border-radius: 14px; background-color: var(--br); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
     
@@ -48,20 +47,24 @@
     .card h3{font-size:1.15rem; color:var(--section); display:flex; align-items:center; gap:8px}
     
     .window-line {padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
-    .window-line .title {font-weight:700; font-size: 1.1rem;}
+    .window-line .title {font-weight:700; font-size: 1.1rem; display: flex; align-items: center;}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800;}
     .go.family{background: var(--ok); color: #04110a}
     .go.expert{background:#f59e0b; color:#160f04}
+    .conf{border:1px solid var(--br);background:var(--card);border-radius:999px; padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted); white-space:nowrap;}
+    .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
 
     .conditions .line { border-left: 4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
-    .conditions .reason { color: var(--fg); font-weight: 500;}
     
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px; max-height: 250px;}
     table{width:100%; border-collapse:collapse;}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
+
+    .tip{position:absolute; z-index:9999; max-width: 360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow: var(--shadow); font-size:.9rem}
+    .tip .hdr{font-weight:700; margin-bottom:4px}
+    .tip .row{margin-top:4px}
     
-    /* Styles pour la vue simplifiée */
     body.simplified-view .expert-only { display: none; }
     
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
@@ -124,7 +127,7 @@
   </p>
 </footer>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<div id="tooltip" class="tip" style="display:none;" role="tooltip"></div> <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
 
 <script>
@@ -138,7 +141,8 @@
     radar: { tableBody: document.querySelector('#files tbody'), rawLinks: document.getElementById('raw-links-list') },
     footer: { tz: document.getElementById('tz2'), refreshTimer: document.getElementById('refresh-timer') },
     buttons: { theme: document.getElementById('themeBtn'), fullscreen: document.getElementById('fullscreenBtn'), viewToggle: document.getElementById('viewToggleBtn') },
-    dashboardContent: document.getElementById('dashboard-content')
+    dashboardContent: document.getElementById('dashboard-content'),
+    tooltip: document.getElementById('tooltip')
   };
 
   const spotConfig = {
@@ -150,12 +154,9 @@
   };
   const spotFiles = Object.keys(spotConfig);
   let lastFetchedData = {};
-
-  // --- Initialisation de la carte (CORRIGÉ) ---
+  
   const map = L.map('map').setView([36.95, 10.6], 9);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
   window.panToFile = (file) => { const s = spotConfig[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
 
   // --- Gestionnaires d'événements ---
@@ -187,8 +188,15 @@
   const toLocal = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
   const toFriendly = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false }) : '';
   const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
-  const isFamilyWindow = (startIso) => new Date(startIso).getHours() >= 8 && new Date(startIso).getHours() < 21;
-  // Fonction de fraîcheur robuste (CORRIGÉ)
+  function isFamilyWindow(startIso, endIso) {
+      const start = new Date(startIso), end = new Date(endIso);
+      if (isNaN(start) || isNaN(end)) return true;
+      for (let d = start; d <= end; d.setHours(d.getHours() + 1)) {
+          const hour = d.getHours();
+          if (hour < 8 || hour >= 21) return false;
+      }
+      return true;
+  }
   function isFresh(entry, genIso) {
       const FRESH_THRESHOLD_MIN = 180;
       if (!entry) return false;
@@ -204,7 +212,7 @@
       return false;
   }
 
-  // --- Fonctions de mise à jour de l'interface ---
+  // --- Fonctions de mise à jour de l'interface (UI Updaters) ---
   function updateHeader(status, windows) {
     const ok = status && (status.all_fresh || status.status === 'ok');
     elements.header.hc.className = `status ${ok ? 'ok' : 'warn'}`;
@@ -214,11 +222,19 @@
 
   function updateWindowsCard(windows, isSimplified) {
       const windowItems = (windows?.windows || [])
-          .flatMap(dest => dest.windows.map(seg => ({ ...seg, dest_name: dest.dest_name, isFamily: isFamilyWindow(seg.start) })))
+          .flatMap(dest => dest.windows.map(seg => {
+              const family = isFamilyWindow(seg.start, seg.end);
+              const confKey = (seg.confidence || dest.confidence || '').toString().toLowerCase();
+              const confText = confKey === 'high' ? 'Haute' : confKey === 'medium' ? 'Moy.' : confKey === 'low' ? 'Faible' : '';
+              const confScore = typeof seg.confidence_score === 'number' ? ` · ${Math.round(seg.confidence_score * 100)}` : '';
+              const confBadge = confText ? `<span class="conf ${confKey}">${confText}${confScore}</span>` : '';
+              
+              return { ...seg, dest_name: dest.dest_name, isFamily: family, confBadge };
+          }))
           .filter(seg => isSimplified ? seg.isFamily : true)
           .map(seg => `
               <div class="window-line ${!seg.isFamily ? 'expert-only' : ''}">
-                  <div class="title">${seg.dest_name} <span class="go ${seg.isFamily ? 'family' : 'expert'}">${seg.isFamily ? 'FAMILY GO' : 'EXPERT GO'}</span></div>
+                  <div class="title">${seg.dest_name} <span class="go ${seg.isFamily ? 'family' : 'expert'}">${seg.isFamily ? 'FAMILY GO' : 'EXPERT GO'}</span> ${seg.confBadge}</div>
                   <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
               </div>`
           );
@@ -236,40 +252,56 @@
       }
   }
 
-  function updateRadarTable(status, genIso) {
-      const spotEntries = Object.entries(spotConfig).map(([file, {name}]) => {
+  function updateRadarTable(status, genIso, reasonsRows) {
+      const reasonsByFile = new Map((reasonsRows || []).map(r => {
+          const match = /\(([^)]+\.json)\)\s*$/.exec(r.spot || '');
+          return match ? [match[1], r] : [null, null];
+      }).filter(entry => entry[0]));
+
+      elements.radar.tableBody.innerHTML = Object.entries(spotConfig).map(([file, {name}]) => {
           const entry = status?.files?.find(s => s.path === file);
           const fresh = isFresh(entry, genIso);
           return `<tr>
-              <td><a href="#" data-file="${file}">${name}</a></td>
+              <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini expert-only" type="button" data-file="${file}">Info...</button></td>
               <td>${toLocal(entry?.modified)}</td>
               <td><span style="color:var(--${fresh ? 'ok' : 'warn'})">${fresh ? 'Frais' : 'Ancien'}</span></td>
           </tr>`;
       }).join('');
-      elements.radar.tableBody.innerHTML = spotEntries;
-      elements.radar.tableBody.querySelectorAll('a').forEach(a => 
-          a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); })
-      );
 
-      // Liens Données Brutes (CORRIGÉ)
-      const systemFiles = ['windows.json', 'status.json', 'reasons.json'];
-      const spotLinks = spotFiles.map(file => `<li><a href="./${file}">${file}</a></li>`).join('');
-      const systemLinks = systemFiles.map(file => `<li><a href="./${file}">${file}</a></li>`).join('');
-      elements.radar.rawLinks.innerHTML = spotLinks + '<li style="border-top:1px solid var(--br); margin: 6px 0;"></li>' + systemLinks;
+      // Gestion des tooltips
+      const showTip = (btn) => {
+        const file = btn.dataset.file;
+        const r = reasonsByFile.get(file);
+        elements.tooltip.innerHTML = `<div class="hdr">${spotConfig[file]?.name}</div>
+            <div class="row"><b>Family:</b> ${r?.family || '—'}</div>
+            <div class="row"><b>Expert:</b> ${r?.expert || '—'}</div>`;
+        const rect = btn.getBoundingClientRect();
+        elements.tooltip.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;
+        elements.tooltip.style.top  = `${window.scrollY + rect.top - 6}px`;
+        elements.tooltip.style.display = 'block';
+      };
+      const hideTip = () => { elements.tooltip.style.display = 'none'; };
+      
+      elements.radar.tableBody.querySelectorAll('button').forEach(btn => {
+          btn.addEventListener('mouseenter', () => showTip(btn));
+          btn.addEventListener('mouseleave', hideTip);
+      });
+      document.addEventListener('scroll', hideTip, { passive: true });
+      
+      // Liens Données Brutes
+      const icons = {
+          'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁',
+          'windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️', 'reasons.json':'🚦'
+      };
+      const systemFiles = ['windows.json', 'status.json', 'reasons.json', 'index.json', 'rules.normalized.json'];
+      const createLink = file => `<li><span style="display:inline-block;width:1.5em;">${icons[file] || '•'}</span><a href="./${file}">${file}</a></li>`;
+      
+      elements.radar.rawLinks.innerHTML = spotFiles.map(createLink).join('') + 
+          '<li style="border-top:1px solid var(--br); margin: 6px 0;"></li>' + 
+          systemFiles.map(createLink).join('');
   }
-
-  function updateMapMarkers(spotStatus) {
-    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-    const createIcon = (color, isMain) => L.divIcon({ className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`, html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
-    for (const file in spotConfig) {
-        const spot = spotConfig[file];
-        const isMain = file === 'gammarth-port.json';
-        const status = spotStatus[file];
-        const color = isMain ? 'var(--accent)' : (status === 'green' ? 'var(--ok)' : (status === 'yellow' ? 'var(--warn)' : 'var(--bad)'));
-        const text = isMain ? "Port Principal" : (status === 'green' ? "Fenêtre 'GO' !" : (status === 'yellow' ? "Données à jour" : "Données anciennes"));
-        L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
-    }
-  }
+  
+  function updateMapMarkers(spotStatus) { /* ... (identique à la version précédente) ... */ }
 
   // --- Contrôleur Principal ---
   async function updateDashboard() {
@@ -291,8 +323,8 @@
     updateHeader(status, windows);
     updateWindowsCard(windows, elements.body.classList.contains('simplified-view'));
     updateReasonsCard(reasonsRows);
-    updateRadarTable(status, windows?.generated_at);
-    updateMapMarkers(spotStatus);
+    updateRadarTable(status, windows?.generated_at, reasonsRows);
+    updateMapMarkers(spotStatus); // Assurez-vous que cette fonction existe et est complète
     
     elements.dashboardContent.classList.remove('updating');
   }
@@ -307,6 +339,20 @@
     countdown = (countdown <= 1) ? REFRESH_INTERVAL_SECONDS : countdown - 1;
     elements.footer.refreshTimer.textContent = `Prochaine mise à jour dans ${countdown}s.`;
   }, 1000);
+
+  // Pour que la fonction updateMapMarkers ne soit pas manquante, je la remets ici.
+  function updateMapMarkers(spotStatus) {
+    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+    const createIcon = (color, isMain) => L.divIcon({ className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`, html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
+    for (const file in spotConfig) {
+        const spot = spotConfig[file];
+        const isMain = file === 'gammarth-port.json';
+        const status = spotStatus[file];
+        const color = isMain ? 'var(--accent)' : (status === 'green' ? 'var(--ok)' : (status === 'yellow' ? 'var(--warn)' : 'var(--bad)'));
+        const text = isMain ? "Port Principal" : (status === 'green' ? "Fenêtre 'GO' !" : (status === 'yellow' ? "Données à jour" : "Données anciennes"));
+        L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
+    }
+  }
 
 })();
 </script>

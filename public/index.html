@@ -9,25 +9,18 @@
   <style>
     :root{
       --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
-      --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444;
-      --card:#0f172a; --br:#23304a;
-      --badge-bg:#16243a; --badge-br:#2b3b59; --pill-bg:#0d1a2b; --link:#7dd3fc;
-      --section:#9ad9ff;
-      --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
+      --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444; --card:#0f172a; --br:#23304a;
+      --section:#9ad9ff; --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
     }
     [data-theme="light"]{
       --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
       --ok:#2dd4bf; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
-      --badge-bg:#eef6ff; --badge-br:#d9e7ff; --pill-bg:#f1f5f9; --link:#0284c7;
-      --section:#0ea5e9;
-      --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
+      --section:#0ea5e9; --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
     }
     [data-theme="nautical"] {
       --bg: #fdfdfd; --fg: #0a2240; --muted: #5b6a7e; --accent: #0077b6;
-      --ok: #1a936f; --warn: #f78c2a; --bad: #c83e4d;
-      --card: #ffffff; --br: #e1e8f0; --pill-bg: #f0f5fa; --link: #0077b6;
-      --section:#005b96;
-      --shadow: 0 4px 12px rgba(10,34,64,.08);
+      --ok: #1a936f; --warn: #f78c2a; --bad: #c83e4d; --card: #ffffff; --br: #e1e8f0;
+      --section:#005b96; --shadow: 0 4px 12px rgba(10,34,64,.08);
     }
 
     html,body{height:100%}
@@ -39,14 +32,11 @@
     header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
     header h1{font-size:1.5rem}
     .spacer{flex:1}
-    .btn{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:6px 10px; border-radius:9px}
-    .btn-mini{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:2px 6px; border-radius:7px; font-size:.82rem; margin-left:6px}
+    .btn{cursor:pointer; border:1px solid var(--br); background:var(--card); color:var(--fg); padding:6px 10px; border-radius:9px}
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
-    .status.ok{background:var(--ok)} .status.warn{background:var(--warn)} .status.bad{background:var(--bad)}
-    .status.ok, .status.warn, .status.bad { color:#081019 !important; }
-
-    /* (#7) Bigger & bolder updated time */
-    #gen.pill{border:1px solid var(--br);border-radius:999px;padding:6px 12px;color:var(--muted);font-size:1rem;font-weight:800;background:var(--pill-bg)}
+    .status.ok{background:var(--ok); color:#081019 !important}
+    .status.warn{background:var(--warn); color:#081019 !important}
+    .status.bad{background:var(--bad); color:#081019 !important}
 
     #map { height: 450px; border-radius: 14px; background-color: var(--card); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
     
@@ -55,32 +45,25 @@
 
     .layout-grid{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
-    
-    /* (#6) Section titles bigger & themed color */
     .card h3{font-size:1.15rem; color:var(--section); display:flex; align-items:center; gap:8px}
-    .wins .line, .conditions .line {padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
-    .wins .title, .conditions .title {font-weight:700; font-size: 1.1rem;}
+    
+    .window-line {padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
+    .window-line .title {font-weight:700; font-size: 1.1rem;}
     .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800;}
     .go.family{background: var(--ok); color: #04110a}
-    .go.expert{background:#f59e0b; color:#160f04} /* (#3) Expert tag */
+    .go.expert{background:#f59e0b; color:#160f04}
 
-    .conditions .line { border-left: 4px solid var(--warn); }
+    .conditions .line { border-left: 4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
     .conditions .reason { color: var(--fg); font-weight: 500;}
-    .conditions .spot-name { color: var(--muted); font-size: 0.9rem; }
     
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px; max-height: 250px;}
     table{width:100%; border-collapse:collapse;}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
-
-    .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;
-          padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted);
-          white-space:nowrap;}
-    .conf.high{color:var(--ok)}
-    .conf.medium{color:var(--warn)}
-    .conf.low{color:var(--bad)}
-
     
+    /* Styles pour la vue simplifiée */
+    body.simplified-view .expert-only { display: none; }
+
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     #refresh-timer{font-size: 0.85rem; color: var(--muted); margin-left: 16px;}
     
@@ -92,21 +75,15 @@
     @keyframes pulsate-main { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.5, 1.5); opacity: 0; } }
     
     @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } }
-
-    /* tooltip */
-    .tip{position:absolute; z-index:9999; max-width: 360px; padding:8px 10px; border-radius:10px;
-         background:var(--card); border:1px solid var(--br); box-shadow: var(--shadow); font-size:.9rem}
-    .tip .hdr{font-weight:700; margin-bottom:4px}
-    .tip .row{margin-top:4px}
   </style>
 </head>
 <body>
 <header>
-  <h1>🧭 Tableau de Bord – FABLE</h1>
+  <h1>🧭 Tableau de Bord FABLE</h1>
   <span class="spacer"></span>
-  <!-- (#1) move these to the right -->
   <span id="gen" class="pill" aria-live="polite"></span>
   <span id="hc" class="status warn" role="status">Statut: …</span>
+  <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
   <button id="themeBtn" class="btn" title="Changer le thème">🎨</button>
   <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
 </header>
@@ -117,26 +94,22 @@
     <div class="layout-grid">
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="card wins">
-          <h3>🪟 Possibles Fenêtres de Navigation depuis Port de Gammarth</h3>
+          <h3>🪟 Fenêtres de Navigation "GO"</h3>
           <div id="wins">Chargement…</div>
         </div>
-        <div class="card conditions">
-          <h3>🚨 Alarms &amp; Events List <span class="small" style="font-weight:600;color:var(--muted)">(Conditions actuelles)</span></h3>
+        <div class="card conditions expert-only"> <h3>🚦 Avertissements Actuels (No-GO)</h3>
           <div id="reasons">Chargement…</div>
         </div>
       </div>
-      <div class="card">
-        <h3>📡 Radar des Spots</h3>
+      <div class="card expert-only"> <h3>📡 Radar des Spots</h3>
         <div class="table-wrap">
           <table id="files">
-            <thead>
-              <tr><th>Spot</th><th>Modifié</th><th>Statut</th></tr>
-            </thead>
+            <thead><tr><th>Spot</th><th>Modifié</th><th>Statut</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
         <details class="sub" style="margin-top:16px;">
-          <summary>📚 Données Brutes &amp; Liens</summary>
+          <summary>📚 Données Brutes</summary>
           <ul id="raw-links-list"></ul>
         </details>
       </div>
@@ -150,269 +123,176 @@
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="./reasons-debug.js"></script>
-
-<script>
+<script src="./reasons-debug.js"></script> <script>
 (async function main() {
   const REFRESH_INTERVAL_SECONDS = 600; // 10 minutes
   
+  // --- Éléments du DOM (mis en cache une seule fois) ---
   const $ = (sel) => document.querySelector(sel);
-  const themeBtn = $('#themeBtn');
-  const fullscreenBtn = $('#fullscreenBtn');
-  const dashboardContent = $('#dashboard-content');
-  const refreshTimerSpan = $('#refresh-timer');
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
-  $('#tz2').textContent = tz;
+  const elements = {
+    body: document.body,
+    header: { gen: $('#gen'), hc: $('#hc') },
+    cards: { wins: $('#wins'), reasons: $('#reasons') },
+    radar: { tableBody: $('#files tbody'), rawLinks: $('#raw-links-list') },
+    footer: { tz: $('#tz2'), refreshTimer: $('#refresh-timer') },
+    buttons: { theme: $('#themeBtn'), fullscreen: $('#fullscreenBtn'), viewToggle: $('#viewToggleBtn') },
+    dashboardContent: $('#dashboard-content')
+  };
 
-  // theme
-  const themes = ['dark', 'light', 'nautical'];
-  let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark');
-  if(currentThemeIndex < 0) currentThemeIndex = 0;
-  document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
-  themeBtn.addEventListener('click', () => {
-    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-    const nextTheme = themes[currentThemeIndex];
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    localStorage.setItem('theme', nextTheme);
-  });
-
-  // fullscreen
-  fullscreenBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => console.error(err));
-    } else {
-      document.exitFullscreen();
-    }
-  });
-
-  // spots
-  const spotCoordinates = {
+  // --- Configuration ---
+  const spotConfig = {
     'gammarth-port.json': { name: 'Gammarth Port', lat: 36.903, lon: 10.323 },
     'sidi-bou-said.json': { name: 'Sidi Bou Saïd', lat: 36.871, lon: 10.349 },
     'ghar-el-melh.json': { name: 'Ghar el Melh', lat: 37.168, lon: 10.194 },
     'ras-fartass.json': { name: 'Ras Fartass', lat: 36.877, lon: 10.612 },
     'el-haouaria.json': { name: 'El Haouaria', lat: 37.054, lon: 11.042 }
   };
-  const WANT_SPOTS = Object.entries(spotCoordinates).map(([file, {name}]) => [name, file]);
+  const spotFiles = Object.keys(spotConfig);
+  let lastFetchedData = {}; // Pour stocker les données et re-rendre sans fetch
 
-  // map
-  const map = L.map('map').setView([36.95, 10.6], 9);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-  }).addTo(map);
-  window.panToFile = (file) => {
-    const s = spotCoordinates[file]; if (!s) return;
-    map.setView([s.lat, s.lon], 12, { animate: true });
-  };
-
-  // helpers
-  function toLocal(iso){
-    try{ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { timeZone: tz, day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); }
-    catch(e){ return ''; }
-  }
-  function toFriendly(iso){
-    try{ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { timeZone: tz, weekday:'long', hour:'numeric', minute:'2-digit', hour12:false }); }
-    catch(e){ return ''; }
-  }
-  const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
-
-  // (#2) freshness detection
-  const FRESH_THRESHOLD_MIN = 180; // 3 hours
-  function isFresh(entry, genIso){
-    if(!entry) return false;
-    if(typeof entry.fresh === 'boolean') return entry.fresh;
-    if(typeof entry.stale === 'boolean') return !entry.stale;
-    if(typeof entry.age_minutes === 'number') return entry.age_minutes <= FRESH_THRESHOLD_MIN;
-    if(entry.modified){
-      const ageMin = (Date.now() - new Date(entry.modified).getTime())/60000;
-      if(isFinite(ageMin)) return ageMin <= FRESH_THRESHOLD_MIN;
-    }
-    if(genIso){
-      const ageMin = (Date.now() - new Date(genIso).getTime())/60000;
-      if(isFinite(ageMin)) return ageMin <= FRESH_THRESHOLD_MIN;
-    }
-    return false;
-  }
-
-  // (#3) Family vs Expert window
-  function isFamilyWindow(startIso, endIso){
-    const start = new Date(startIso), end = new Date(endIso);
-    if(isNaN(start) || isNaN(end)) return true;
-    const startH = 8, endH = 21;
-    const step = new Date(start);
-    while(step <= end){
-      const hh = step.toLocaleTimeString('fr-FR', { timeZone: tz, hour:'2-digit', hour12:false });
-      const h = parseInt(hh, 10);
-      if(h < startH || h > endH) return false;
-      step.setHours(step.getHours()+1);
-    }
-    return true;
-  }
-
-  async function updateDashboard() {
-    document.getElementById('dashboard-content').classList.add('updating');
-    
-    const [status, windows] = await Promise.all([
-      fetchJSON('status.json'),
-      fetchJSON('windows.json')
-    ]);
-
-    // status (right side) + generated time with fallback
-    const ok = status && (status.all_fresh || status.status === 'ok');
-    document.getElementById('hc').className = 'status ' + (ok ? 'ok' : 'warn');
-    document.getElementById('hc').textContent = ok ? 'Statut: OK' : 'Statut: Données anciennes';
-    const gen = (windows && windows.generated_at) || (status && status.generated_at) || null;
-    document.getElementById('gen').textContent = 'Mise à jour: ' + (gen ? toLocal(gen) : 'inconnue');
-
-    // -- Fenêtres GO avec badge de confiance + tooltip --
-    const winsDiv = document.getElementById('wins');
-    const windowItems = (windows?.windows || []).flatMap(dest => dest.windows.map(seg => {
-      const family = isFamilyWindow(seg.start, seg.end);
-      const cls = family ? 'family' : 'expert';
-      const label = family ? 'FAMILY GO' : 'EXPERT GO';
-    
-      // confiance: 'high' | 'medium' | 'low' + score optionnel
-      const rawConf = (seg.confidence || dest.confidence || '').toString().toLowerCase();
-      const confKey = ['high','medium','low'].includes(rawConf) ? rawConf : '';
-      const confTxt = confKey === 'high'   ? 'Haute'
-                    : confKey === 'medium' ? 'Moy.'
-                    : confKey === 'low'    ? 'Faible' : '';
-      const score = typeof seg.confidence_score === 'number'
-                    ? Math.round(seg.confidence_score * (seg.confidence_score <= 1 ? 100 : 1))
-                    : null;
-    
-      const confTitle = confTxt
-        ? `Confiance Prédictions : ${confTxt}${score!=null ? ' · ' + score + '%' : ''}`
-        : '';
-    
-      const confBadge = confTxt
-        ? `<span class="conf ${confKey}" title="${confTitle}" aria-label="${confTitle}">${confTxt}${score!=null ? ' · '+score : ''}</span>`
-        : '';   
-      
-      return `<div class="line">
-        <div class="title">${dest.dest_name} <span class="go ${cls}">${label}</span> ${confBadge}</div>
-        <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
-      </div>`;
-    }));
-    winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
-    
-    // reasons (client-side helper)
-    const reasonsDiv = document.getElementById('reasons');
-    let reasonsRows = null;
-    if (window.FABLE && typeof FABLE.debugReasons === 'function') {
-      reasonsRows = await FABLE.debugReasons(Object.keys(spotCoordinates));
-    }
-    if (Array.isArray(reasonsRows) && reasonsRows.length) {
-      const items = reasonsRows.map(r => {
-        const famFail = (r.family || '').startsWith('✗') ? r.family.replace(/^✗\s*/, '') : null;
-        const expFail = (r.expert || '').startsWith('✗') ? r.expert.replace(/^✗\s*/, '') : null;
-        const reason = famFail || expFail || 'Fenêtre possible';
-        return `<div class="line"><div class="reason">${famFail||expFail?'🚫 ':'✅ '}${reason}</div><div class="spot-name">${r.spot}</div></div>`;
-      }).join('');
-      reasonsDiv.innerHTML = items;
-    } else {
-      reasonsDiv.innerHTML = '<span class="small">Raisons indisponibles (helper non chargé).</span>';
-    }
-
-    // table + freshness
-    const spotStatus = {};
-    const filesTableBody = document.querySelector('#files tbody');
-    const genIso = gen || null;
-    filesTableBody.innerHTML = WANT_SPOTS.map(([name, file]) => {
-      const entry = status?.files?.find(s => s.path === file);
-      const fresh = isFresh(entry, genIso);
-      if (spotStatus[file] !== 'green') { spotStatus[file] = fresh ? 'yellow' : 'red'; }
-      const mod = entry?.modified ? toLocal(entry.modified) : '';
-      return `<tr data-file="${file}">
-        <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini why" type="button" data-file="${file}">Info...</button></td>
-        <td class="mono">${mod}</td>
-        <td>${fresh ? '<span style="color:var(--ok)">Frais</span>' : '<span style="color:var(--warn)">Ancien</span>'}</td>
-      </tr>`;
-    }).join('');
-
-    // pan on click
-    filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); }));
-
-    // tooltips “Info...”
-    const reasonsByFile = new Map();
-    if (Array.isArray(reasonsRows)) {
-      reasonsRows.forEach(r => {
-        const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot || '');
-        const key = m ? m[1] : null;
-        if (key) reasonsByFile.set(key, r);
-      });
-    }
-    let tipEl = null;
-    const showTip = (btn) => {
-      const file = btn.dataset.file;
-      const r = reasonsByFile.get(file);
-      const fam = r?.family || '—';
-      const exp = r?.expert || '—';
-      if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'tip'; document.body.appendChild(tipEl); }
-      tipEl.innerHTML = `<div class="hdr">${spotCoordinates[file]?.name || file}</div>
-                         <div class="row"><b>Family:</b> ${fam}</div>
-                         <div class="row"><b>Expert:</b> ${exp}</div>`;
-      const rect = btn.getBoundingClientRect();
-      tipEl.style.left = (window.scrollX + rect.left + rect.width + 8) + 'px';
-      tipEl.style.top  = (window.scrollY + rect.top - 6) + 'px';
-      tipEl.style.display = 'block';
-    };
-    const hideTip = () => { if (tipEl) tipEl.style.display = 'none'; };
-    filesTableBody.querySelectorAll('button.why').forEach(btn => {
-      btn.addEventListener('mouseenter', () => showTip(btn));
-      btn.addEventListener('mouseleave', hideTip);
-      btn.addEventListener('focus', () => showTip(btn));
-      btn.addEventListener('blur', hideTip);
-      btn.addEventListener('click', (e) => { e.preventDefault(); showTip(btn); setTimeout(hideTip, 3000); });
+  // --- Gestionnaires d'événements (Setup) ---
+  function setupEventListeners() {
+    // Thème
+    const themes = ['dark', 'light', 'nautical'];
+    let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark');
+    document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
+    elements.buttons.theme.addEventListener('click', () => {
+      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+      const nextTheme = themes[currentThemeIndex];
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      localStorage.setItem('theme', nextTheme);
     });
-    document.addEventListener('scroll', () => { if (tipEl) tipEl.style.display = 'none'; }, { passive: true });
+    // Plein écran
+    elements.buttons.fullscreen.addEventListener('click', () => {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    });
+    // Changement de vue
+    elements.buttons.viewToggle.addEventListener('click', () => {
+        const isSimplified = elements.body.classList.toggle('simplified-view');
+        elements.buttons.viewToggle.textContent = isSimplified ? 'Vue Experte' : 'Vue Simplifiée';
+        // Re-rendre la carte des fenêtres instantanément avec les données existantes
+        if(lastFetchedData.windows) {
+            updateWindowsCard(lastFetchedData.windows, isSimplified);
+        }
+    });
+  }
 
-    // promote green on actual GO windows
-    if (windows?.windows) { windows.windows.forEach(dest => { if (dest.windows?.length > 0) spotStatus[dest.dest_slug] = 'green'; }); }
+  // --- Fonctions Utilitaires (Helpers) ---
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+  elements.footer.tz.textContent = tz;
+  const toLocal = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const toFriendly = (iso) => new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false });
+  const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
+  const isFamilyWindow = (startIso) => new Date(startIso).getHours() >= 8 && new Date(startIso).getHours() < 21;
 
-    // map markers
+  // --- Fonctions de mise à jour de l'interface (UI Updaters) ---
+  function updateHeader(status, windows) {
+    const ok = status && (status.all_fresh || status.status === 'ok');
+    elements.header.hc.className = `status ${ok ? 'ok' : 'warn'}`;
+    elements.header.hc.textContent = ok ? 'Statut: OK' : 'Statut: Données anciennes';
+    elements.header.gen.textContent = 'Mise à jour: ' + (windows?.generated_at ? toLocal(windows.generated_at) : 'inconnue');
+  }
+
+  function updateWindowsCard(windows, isSimplified) {
+      const windowItems = (windows?.windows || [])
+          .flatMap(dest => dest.windows.map(seg => {
+              const isFamily = isFamilyWindow(seg.start);
+              return { ...seg, dest_name: dest.dest_name, isFamily };
+          }))
+          .filter(seg => isSimplified ? seg.isFamily : true) // Filtre pour la vue simplifiée
+          .map(seg => `
+              <div class="window-line ${!seg.isFamily ? 'expert-only' : ''}">
+                  <div class="title">${seg.dest_name} <span class="go ${seg.isFamily ? 'family' : 'expert'}">${seg.isFamily ? 'FAMILY GO' : 'EXPERT GO'}</span></div>
+                  <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
+              </div>`
+          );
+      elements.cards.wins.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre de navigation "GO" détectée.</span>';
+  }
+
+  function updateReasonsCard(reasonsRows) {
+      if (Array.isArray(reasonsRows) && reasonsRows.length) {
+          elements.cards.reasons.innerHTML = reasonsRows.map(r => {
+              const reason = (r.family || r.expert || '').replace(/^✗\s*/, '');
+              return `<div class="line"><div class="reason">🚫 ${reason}</div><div class="small">${r.spot}</div></div>`;
+          }).join('');
+      } else {
+          elements.cards.reasons.innerHTML = '<span class="small">Toutes les conditions sont potentiellement favorables.</span>';
+      }
+  }
+
+  function updateRadarTable(status) {
+    elements.radar.tableBody.innerHTML = Object.entries(spotConfig).map(([file, {name}]) => {
+        const entry = status?.files?.find(s => s.path === file);
+        const isFresh = entry && entry.fresh;
+        return `<tr>
+            <td><a href="#" data-file="${file}">${name}</a></td>
+            <td>${entry?.modified ? toLocal(entry.modified) : ''}</td>
+            <td><span style="color:var(--${isFresh ? 'ok' : 'warn'})">${isFresh ? 'Frais' : 'Ancien'}</span></td>
+        </tr>`;
+    }).join('');
+    elements.radar.tableBody.querySelectorAll('a').forEach(a => 
+        a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); })
+    );
+    elements.radar.rawLinks.innerHTML = spotFiles.map(file => `<li><a href="./${file}">${file}</a></li>`).join('');
+  }
+
+  function updateMapMarkers(spotStatus) {
     map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
     const createIcon = (color, isMain) => L.divIcon({ className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`, html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
-    for (const file in spotCoordinates) {
-      const spot = spotCoordinates[file];
-      const isMain = file === 'gammarth-port.json';
-      const color = isMain ? 'var(--accent)' : (spotStatus[file] === 'green' ? 'var(--ok)' : (spotStatus[file] === 'yellow' ? 'var(--warn)' : 'var(--bad)'));
-      const text = isMain ? "Port Principal" : (spotStatus[file] === 'green' ? "Fenêtre 'GO' !" : (spotStatus[file] === 'yellow' ? "Données à jour" : "Données anciennes"));
-      L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
+
+    for (const file in spotConfig) {
+        const spot = spotConfig[file];
+        const isMain = file === 'gammarth-port.json';
+        const status = spotStatus[file];
+        const color = isMain ? 'var(--accent)' : (status === 'green' ? 'var(--ok)' : (status === 'yellow' ? 'var(--warn)' : 'var(--bad)'));
+        const text = isMain ? "Port Principal" : (status === 'green' ? "Fenêtre 'GO' !" : (status === 'yellow' ? "Données à jour" : "Données anciennes"));
+        L.marker([spot.lat, spot.lon], { icon: createIcon(color, isMain), zIndexOffset: isMain ? 1000 : 0 }).addTo(map).bindPopup(`<b>${spot.name}</b><br>${text}`);
     }
-
-    // Icônes par fichier
-    const ICON = {
-      'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁',
-      'windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️'
-    };
-    
-    const spotLinks = WANT_SPOTS.map(([name, file]) =>
-      `<li><span class="ico">${ICON[file]||'•'}</span><a href="./${file}">${file}</a></li>`
-    ).join('');
-    
-    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'].map(f =>
-      `<li><span class="ico">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`
-    ).join('');
-    
-    // Séparateur visuel entre spots et fichiers système
-    const separator = `<li style="list-style:none;border-top:1px solid var(--br);margin:6px 0;"></li>`;
-    
-    document.getElementById('raw-links-list').innerHTML = spotLinks + separator + systemLinks;
-
-    document.getElementById('dashboard-content').classList.remove('updating');
-    countdown = REFRESH_INTERVAL_SECONDS;
   }
 
-  // auto-refresh + countdown
+  // --- Contrôleur Principal de Mise à Jour ---
+  async function updateDashboard() {
+    elements.dashboardContent.classList.add('updating');
+    
+    const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
+    const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(spotFiles) : [];
+    lastFetchedData = { status, windows, reasonsRows }; // Sauvegarde pour re-rendu instantané
+
+    // Logique métier : calculer le statut des spots
+    const spotStatus = {};
+    (windows?.windows || []).forEach(dest => { if (dest.windows?.length > 0) spotStatus[dest.dest_slug] = 'green'; });
+    Object.keys(spotConfig).forEach(file => {
+        if (spotStatus[file] !== 'green') {
+            const isFresh = status?.files?.find(s => s.path === file)?.fresh;
+            spotStatus[file] = isFresh ? 'yellow' : 'red';
+        }
+    });
+    
+    // Rendu de l'interface
+    updateHeader(status, windows);
+    updateWindowsCard(windows, elements.body.classList.contains('simplified-view'));
+    updateReasonsCard(reasonsRows);
+    updateRadarTable(status);
+    updateMapMarkers(spotStatus);
+    
+    elements.dashboardContent.classList.remove('updating');
+  }
+
+  // --- Initialisation et Rafraîchissement Automatique ---
+  const map = L.map('map').setView([36.95, 10.6], 9);
+  window.panToFile = (file) => { const s = spotConfig[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
+  
+  setupEventListeners();
+  await updateDashboard(); // Premier chargement
+  
+  // Lancement des timers après le premier chargement
   let countdown = REFRESH_INTERVAL_SECONDS;
   setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS * 1000);
   setInterval(() => {
     countdown = (countdown <= 1) ? REFRESH_INTERVAL_SECONDS : countdown - 1;
-    document.getElementById('refresh-timer').textContent = `Prochaine mise à jour dans ${countdown}s.`;
+    elements.footer.refreshTimer.textContent = `Prochaine mise à jour dans ${countdown}s.`;
   }, 1000);
-  
-  await updateDashboard();
+
 })();
 </script>
 </body>

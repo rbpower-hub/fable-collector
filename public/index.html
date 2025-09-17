@@ -99,6 +99,38 @@
       color: var(--muted);
     }
 
+    /* mini-courbes (sparklines) */
+    .spark{
+      width:120px; height:24px; display:inline-block; vertical-align:middle; margin-left:8px;
+    }
+    .spark svg{ width:100%; height:100%; }
+    @media (max-width: 900px){ .spark{display:none} }
+    
+    /* badge “ancrage 1 h” posé sur la carte */
+    .anchor-badge{
+      background: var(--pill-bg);
+      border:1px solid var(--br);
+      color: var(--fg);
+      padding:2px 6px;
+      border-radius: 999px;
+      font-size:.8rem;
+      box-shadow: var(--shadow);
+    }
+    
+    @media (max-width: 900px){ .spark{display:none} } /* option : masquer en mobile */
+    
+    /* flash alerte douce */
+    @keyframes flashPulse { 0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)} 100%{box-shadow:0 0 0 18px rgba(76,201,240,0)} }
+    .flash{animation:flashPulse .8s ease-out 2}
+    
+    /* styles utilitaires manquants */
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace}
+    .small{font-size:.92rem;color:var(--muted)}
+    
+    /* meilleure lisibilité arabe (RTL) */
+    :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
+    :root[dir="rtl"] h1, :root[dir="rtl"] h3 { letter-spacing:.2px }
+
     @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -111,6 +143,9 @@
   <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
   <button id="themeBtn" class="btn" title="Changer le thème">🎨</button>
   <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
+  <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
+  <button id="langBtn" class="btn" title="Langue">FR</button>
+
 </header>
 
 <div id="dashboard-content">
@@ -160,7 +195,92 @@
 <script>
 (async function main() {
   const REFRESH_INTERVAL_SECONDS = 600;
+  // ===== I18N =====
+  const I18N = {
+    fr: {
+      status_ok: "Statut: OK",
+      status_stale: "Statut: Données anciennes",
+      updated: "Mise à jour",
+      reasons_unavailable: "Raisons indisponibles.",
+      none_windows: 'Aucune fenêtre "GO" détectée.',
+      fresh: "Frais", stale: "Ancien",
+      next_refresh: s => `Prochaine mise à jour dans ${s}s.`,
+      principal_port: "Port Principal",
+      go_popup: { green: "Fenêtre 'GO' !", yellow: "Données à jour", red: "Données anciennes" },
+      conf_title: (txt,score)=>`Confiance Prédictions : ${txt}${score!=null?' · '+score+'%':''}`
+    },
+    en: {
+      status_ok: "Status: OK",
+      status_stale: "Status: Stale data",
+      updated: "Updated",
+      reasons_unavailable: "Reasons unavailable.",
+      none_windows: 'No "GO" window detected.',
+      fresh: "Fresh", stale: "Stale",
+      next_refresh: s => `Next refresh in ${s}s.`,
+      principal_port: "Main Port",
+      go_popup: { green: "GO window!", yellow: "Data up to date", red: "Stale data" },
+      conf_title: (txt,score)=>`Forecast Confidence: ${txt}${score!=null?' · '+score+'%':''}`
+    },
+    ar: {
+      status_ok: "الحالة: جيد",
+      status_stale: "الحالة: بيانات قديمة",
+      updated: "آخر تحديث",
+      reasons_unavailable: "الأسباب غير متاحة.",
+      none_windows: 'لا توجد نافذة "GO".',
+      fresh: "محدث", stale: "قديم",
+      next_refresh: s => `التحديث القادم خلال ${s}ث`,
+      principal_port: "الميناء الرئيسي",
+      go_popup: { green: "نافذة GO!", yellow: "البيانات محدثة", red: "البيانات قديمة" },
+      conf_title: (txt,score)=>`ثقة التنبؤات: ${txt}${score!=null?' · '+score+'%':''}`
+    }
+  };
+  const LOCALES = { fr: 'fr-FR', en: 'en-GB', ar: 'ar-TN' };
+  let LANG = (localStorage.getItem('lang') || 'fr');
+  function setLang(l){ LANG = l; localStorage.setItem('lang', l); document.documentElement.lang = l; document.documentElement.dir = (l==='ar'?'rtl':'ltr'); document.getElementById('langBtn').textContent = l.toUpperCase(); }
+  function t(path, ...a){
+    const dict = I18N[LANG] || I18N.fr;
+    const val = path.split('.').reduce((o,k)=>(o||{})[k], dict);
+    return (typeof val==='function') ? val(...a) : (val ?? path);
+  }
+  setLang(LANG);
   
+  // helpers de format date dépendant de la langue
+  const fmtLocal = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
+  
+  // ===== KIOSK =====
+  const KIOSK_AUTO_FS_MS = 5000;
+  setTimeout(()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); }, KIOSK_AUTO_FS_MS);
+  let _cursorTimer; function hideCursor(){ document.body.style.cursor='none'; }
+  function showCursor(){ document.body.style.cursor=''; clearTimeout(_cursorTimer); _cursorTimer=setTimeout(hideCursor, 5000); }
+  ['mousemove','keydown','click','wheel','touchstart'].forEach(ev=>document.addEventListener(ev, showCursor, {passive:true}));
+  showCursor();
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ updateDashboard(); if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); } });
+  
+  // ===== ALERTE (ding + flash) =====
+  let muted = localStorage.getItem('mute') === '1';
+  const muteBtn = document.getElementById('muteBtn');
+  function setMute(m){ muted=m; localStorage.setItem('mute', m?'1':'0'); muteBtn.textContent = m?'🔕':'🔔'; }
+  setMute(muted);
+  muteBtn.addEventListener('click', ()=> setMute(!muted));
+  
+  function ding(){
+    if(muted) return;
+    try{
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.22);
+      o.start(); o.stop(ctx.currentTime+0.25);
+    }catch{}
+  }
+  function flash(el){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  
+  // mémorisation des fenêtres (pour détecter les nouvelles)
+  let _lastWinsKey = new Set();
+
   const $ = (sel) => document.querySelector(sel);
   const dashboardContent = $('#dashboard-content');
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
@@ -178,12 +298,134 @@
   const INITIAL_MAP_VIEW = { center: [36.95, 10.6], zoom: 9 };
   const map = L.map('map').setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+  
+  // Couche dédiée aux corridors
+  const corridorLayer = L.layerGroup().addTo(map);
+  const ORIGIN_FILE = 'gammarth-port.json';
+  
+  function getLatLng(file){
+    const s = spotCoordinates[file];
+    return s ? [s.lat, s.lon] : null;
+  }
+  
+  function midPoint(a,b){ // simple milieu
+    return [(a[0]+b[0])/2, (a[1]+b[1])/2];
+  }
+  
+  function drawCorridors(destSlugs){
+    corridorLayer.clearLayers();
+    const origin = getLatLng(ORIGIN_FILE);
+    if(!origin) return;
+  
+    // Unicité + on limite à 3 corridors pour lisibilité
+    const uniq = [...new Set(destSlugs)].filter(f=>f && f!==ORIGIN_FILE).slice(0,3);
+  
+    uniq.forEach(file=>{
+      const dest = getLatLng(file);
+      if(!dest) return;
+  
+      // Aller/retour = même ligne; style accent/dash
+      const line = L.polyline([origin, dest], {
+        color: getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#4cc9f0',
+        weight: 3,
+        opacity: 0.9,
+        dashArray: '6,6'
+      });
+      corridorLayer.addLayer(line);
+  
+      // Badge "Ancrage 1 h" au milieu
+      const m = midPoint(origin, dest);
+      const div = L.divIcon({ className: 'anchor-badge', html: '⚓ 1&nbsp;h', iconSize: [10,10], iconAnchor:[0,0] });
+      corridorLayer.addLayer(L.marker(m, { icon: div }));
+    });
+  }
+
   window.panToFile = (file) => { const s = spotCoordinates[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
 
   // --- Fonctions Utilitaires ---
-  const toLocal = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
-  const toFriendly = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false }) : '';
+  const toLocal = fmtLocal;
+  const toFriendly = fmtFriendly;
   const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
+  // ---- Sparklines ----
+  function sparklineSVG(seriesList, opts={}){
+    const W = opts.w || 120, H = opts.h || 24, pad = 2;
+    const min = (opts.min ?? Math.min(...seriesList.flat().map(v=>+v).filter(Number.isFinite)));
+    const max = (opts.max ?? Math.max(...seriesList.flat().map(v=>+v).filter(Number.isFinite)));
+    const span = (max-min) || 1;
+  
+    function pathFor(values){
+      if(!values || values.length===0) return '';
+      const n = values.length;
+      return values.map((v,i)=>{
+        const x = pad + (W-2*pad) * (n===1 ? 1 : i/(n-1));
+        const y = pad + (H-2*pad) * (1 - ((v-min)/span));
+        return (i===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1);
+      }).join(' ');
+    }
+  
+    const colors = opts.colors || ['currentColor','rgba(255,255,255,.6)','rgba(255,255,255,.35)'];
+    const strokes = seriesList.map((arr,idx)=>`<path d="${pathFor(arr)}" fill="none" stroke="${colors[idx%colors.length]}" stroke-width="${idx===0?1.8:1.2}" stroke-linecap="round"/>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${strokes}</svg>`;
+  }
+  
+  // Essaie d’extraire 6–12h de tendances pour vent/rafales/Hs depuis un JSON spot
+  function extractTrend(spotJson, take=12){
+    // Heuristiques de schéma
+    const arr = Array.isArray(spotJson?.hours) ? spotJson.hours
+             : Array.isArray(spotJson?.timeline) ? spotJson.timeline
+             : Array.isArray(spotJson?.series) ? spotJson.series
+             : Array.isArray(spotJson) ? spotJson
+             : [];
+    const last = arr.slice(-take);
+  
+    const get = (o, keys)=> {
+      for(const k of keys){
+        const v = o[k]; if(typeof v === 'number') return v;
+        if(typeof v === 'object' && v && typeof v.v === 'number') return v.v;
+      } return NaN;
+    };
+    const wind = last.map(o=> get(o, ['wind_kmh','wind','windSpeedKmh','wind_speed_kmh']));
+    const gust = last.map(o=> get(o, ['gust_kmh','gust','gusts_kmh','wind_gust_kmh']));
+    const hs   = last.map(o=> get(o, ['hs_m','Hs','wave_hs_m','sea_hs_m']));
+    return { wind, gust, hs, ok: (wind.some(Number.isFinite) || hs.some(Number.isFinite)) };
+  }
+  
+  // Rendu asynchrone des sparklines dans la table
+  async function renderSparklines(){
+    const nodes = document.querySelectorAll('.spark[data-file]');
+    for (const el of nodes){
+      const file = el.dataset.file;
+      try{
+        const js = await fetchJSON(file);
+        const tr = extractTrend(js, 12);
+        if(!tr.ok){ el.innerHTML = ''; continue; }
+        // Normalisation d’échelle commune vent/gust, Hs sur une autre échelle
+        const vAll = [...tr.wind.filter(Number.isFinite), ...tr.gust.filter(Number.isFinite)];
+        const vMin = Math.min(...vAll, 0), vMax = Math.max(...vAll, 1);
+        const hsAll = tr.hs.filter(Number.isFinite);
+        const hsMin = hsAll.length? Math.min(...hsAll, 0) : 0;
+        const hsMax = hsAll.length? Math.max(...hsAll, 0.1) : 0.1;
+  
+        // Deux SVG superposés: vent/rafales (couleur courante), Hs (plus clair)
+        const svg1 = sparklineSVG([tr.wind, tr.gust], {min:vMin, max:vMax});
+        const svg2 = hsAll.length ? sparklineSVG([tr.hs], {min:hsMin, max:hsMax, colors:['rgba(76,201,240,.5)']}) : '';
+  
+        el.innerHTML = svg1 + svg2;
+        // Tooltip synthèse
+        const lastWind = tr.wind.filter(Number.isFinite).slice(-1)[0];
+        const lastGust = tr.gust.filter(Number.isFinite).slice(-1)[0];
+        const lastHs   = tr.hs.filter(Number.isFinite).slice(-1)[0];
+        el.title = [
+          Number.isFinite(lastWind)? `Vent: ${lastWind} km/h` : null,
+          Number.isFinite(lastGust)? `Raf.: ${lastGust} km/h` : null,
+          Number.isFinite(lastHs)?   `Hs: ${lastHs} m` : null
+        ].filter(Boolean).join(' · ');
+      }catch{
+        el.innerHTML = '';
+      }
+    }
+  }
+
   async function updateDashboard() {
     dashboardContent.classList.add('updating');
     
@@ -201,54 +443,84 @@
 
     // Fenêtres GO (avec badges de confiance)
     const winsDiv = document.getElementById('wins');
+    const winsCard = document.querySelector('.card.wins');
     const isSimplified = document.body.classList.contains('simplified-view');
-    const windowItems = (windows?.windows || [])
-        .flatMap(dest => dest.windows.map(seg => {
-            const family = isFamilyWindow(seg.start, seg.end);
-            const confKey = ((seg.confidence ?? dest.confidence) || '').toString().toLowerCase();
-            const confText = confKey === 'high' ? 'Haute' : confKey === 'medium' ? 'Moy.' : confKey === 'low' ? 'Faible' : '';
-            const confScore = (typeof seg.confidence_score === 'number')
-              ? Math.round(seg.confidence_score * (seg.confidence_score <= 1 ? 100 : 1))
-              : null;
-            const confTitle = confText
-              ? `Confiance Prédictions : ${confText}${confScore!=null ? ' · ' + confScore + '%' : ''}`
-              : '';
-            const confBadge = confText
-              ? `<span class="conf ${confKey}" title="${confTitle}" aria-label="${confTitle}">
-                   ${confText}${confScore!=null ? ' · ' + confScore : ''}
-                 </span>`
-              : '';
-
-            return { ...seg, dest_name: dest.dest_name, isFamily: family, confBadge };
-        }))
-        .filter(seg => isSimplified ? seg.isFamily : true)
-        .map(seg => `
-            <div class="window-line ${!seg.isFamily ? 'expert-only' : ''}">
-                <div class="title">${seg.dest_name} <span class="go ${seg.isFamily ? 'family' : 'expert'}">${seg.isFamily ? 'FAMILY GO' : 'EXPERT GO'}</span> ${seg.confBadge}</div>
-                <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end) - new Date(seg.start)) / 36e5)} h</div>
-            </div>`
-        );
-    winsDiv.innerHTML = windowItems.length ? windowItems.join('') : '<span class="small">Aucune fenêtre "GO" détectée.</span>';
+    const nowWinsKey = new Set();
+    
+    const winItems = (windows?.windows || [])
+      .flatMap(dest => (dest.windows||[]).map(seg => {
+        const family = isFamilyWindow(seg.start, seg.end);
+        const confKey = ((seg.confidence ?? dest.confidence) || '').toString().toLowerCase();
+        const confText = confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
+        const confScore = (typeof seg.confidence_score==='number')
+          ? Math.round(seg.confidence_score * (seg.confidence_score<=1 ? 100 : 1))
+          : null;
+        const confTitle = confText ? t('conf_title', confText, confScore) : '';
+        const confBadge = confText
+          ? `<span class="conf ${confKey}" title="${confTitle}" aria-label="${confTitle}">${confText}${confScore!=null?' · '+confScore:''}</span>`
+          : '';
+    
+        // badges sources/spreads
+        const models = seg.models || dest.models || [];
+        const spreads = seg.spreads || dest.spreads || {};
+        const spreadsTxt = [];
+        if (typeof spreads.wind_kmh === 'number') spreadsTxt.push(`±${spreads.wind_kmh} km/h`);
+        if (typeof spreads.hs_m === 'number')     spreadsTxt.push(`±${spreads.hs_m} m`);
+        const srcBadge = (models.length||spreadsTxt.length)
+          ? `<div class="small" style="margin-top:4px;opacity:.9">
+               ${models.length?('<b>Src:</b> '+models.join('/')):''}
+               ${spreadsTxt.length?(' &nbsp; <b>Δ:</b> '+spreadsTxt.join(' / ')):''}
+             </div>` : '';
+    
+        const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
+        nowWinsKey.add(key);
+    
+        return {
+          dest_slug: dest.dest_slug,
+          html: `<div class="window-line ${!family?'expert-only':''}">
+                   <div class="title">${dest.dest_name} <span class="go ${family?'family':'expert'}">${family?'FAMILY GO':'EXPERT GO'}</span> ${confBadge}</div>
+                   <div class="small">${toFriendly(seg.start)} ⟷ ${toFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
+                   ${srcBadge}
+                 </div>`,
+          isFamily: family
+        };
+      }))
+      .filter(x => isSimplified ? x.isFamily : true);
+    
+    winsDiv.innerHTML = winItems.length ? winItems.map(x=>x.html).join('') : `<span class="small">${t('none_windows')}</span>`;
+    
+    // Alerte si nouvelles fenêtres depuis le dernier rendu
+    let hasNew = false;
+    nowWinsKey.forEach(k => { if(!_lastWinsKey.has(k)) hasNew = true; });
+    _lastWinsKey = nowWinsKey;
+    if (hasNew && winItems.length){ ding(); flash(winsCard); }
+    
+    // Corridors visuels (limités à 3 pour la lisibilité)
+    drawCorridors(winItems.map(x=>x.dest_slug).filter(Boolean));
 
     // Avertissements (No-GO)
     const reasonsDiv = document.getElementById('reasons');
     if (Array.isArray(reasonsRows) && reasonsRows.length) {
         reasonsDiv.innerHTML = reasonsRows.map(r => `<div class="line"><div class="reason">🚫 ${(r.family || r.expert || '').replace(/^✗\s*/, '')}</div><div class="small">${r.spot}</div></div>`).join('');
     } else {
-        reasonsDiv.innerHTML = '<span class="small">Raisons indisponibles.</span>';
+        reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
     }
 
     // Radar des Spots (avec boutons "Infos..." et tooltips)
     const filesTableBody = document.querySelector('#files tbody');
     filesTableBody.innerHTML = WANT_SPOTS.map(([name, file]) => {
-        const entry = status?.files?.find(s => s.path === file);
-        const fresh = isFresh(entry, gen);
-        return `<tr data-file="${file}">
-            <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button></td>
-            <td>${toLocal(entry?.modified)}</td>
-            <td><span style="color:var(--${fresh ? 'ok' : 'warn'})">${fresh ? 'Frais' : 'Ancien'}</span></td>
-        </tr>`;
-    }).join('');
+    const entry = status?.files?.find(s => s.path === file);
+    const fresh = isFresh(entry, gen);
+    return `<tr data-file="${file}">
+        <td><a href="#" data-file="${file}">${name}</a><button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button>
+            <span class="spark" data-file="${file}"></span>
+        </td>
+        <td>${toLocal(entry?.modified)}</td>
+        <td><span style="color:var(--${fresh ? 'ok' : 'warn'})">${fresh ? 'Frais' : 'Ancien'}</span></td>
+    </tr>`;
+    await renderSparklines();
+  }).join('');
+
 
     // ## CORRIGÉ: Attacher tous les listeners du tableau ici ##
     filesTableBody.querySelectorAll('a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); }));

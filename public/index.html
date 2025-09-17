@@ -11,16 +11,19 @@
       --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
       --ok:#2dd4bf; --warn:#f59e0b; --bad:#ef4444; --card:#0f172a; --br:#23304a;
       --section:#9ad9ff; --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 6px 20px rgba(0,0,0,.35);
+      --link:#7dd3fc; --pill-bg:#0d1a2b;
     }
     [data-theme="light"]{
       --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
       --ok:#2dd4bf; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
       --section:#0ea5e9; --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
+      --link:#0284c7; --pill-bg:#f1f5f9;
     }
     [data-theme="nautical"] {
       --bg: #fdfdfd; --fg: #0a2240; --muted: #5b6a7e; --accent: #0077b6;
       --ok: #1a936f; --warn: #f78c2a; --bad: #c83e4d; --card: #ffffff; --br: #e1e8f0;
       --section:#005b96; --shadow: 0 4px 12px rgba(10,34,64,.08);
+      --link:#0077b6; --pill-bg:#f0f5fa;
     }
 
     html,body{height:100%}
@@ -33,12 +36,18 @@
     header h1{font-size:1.5rem}
     .spacer{flex:1}
     .btn{cursor:pointer; border:1px solid var(--br); background:var(--card); color:var(--fg); padding:6px 10px; border-radius:9px}
-    .btn-mini{cursor:pointer; border:1px solid var(--br); background:var(--card); color:var(--fg); padding:2px 6px; border-radius:7px; font-size:.82rem; margin-left:6px}
+    .btn-mini{cursor:pointer; border:1px solid var(--br); background:var(--pill-bg); color:var(--fg); padding:2px 6px; border-radius:7px; font-size:.82rem; margin-left:6px}
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
     .status.ok{background:var(--ok); color:#081019 !important} .status.warn{background:var(--warn); color:#081019 !important}
 
-    #map { height: 450px; border-radius: 14px; background-color: var(--br); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
-    
+    #map{
+      height: 450px;
+      border-radius: 14px;
+      background-color: var(--card);
+      border: 1px solid var(--br);
+      margin-bottom: 16px;
+      z-index: 0;
+    }
     #dashboard-content { transition: opacity 0.5s ease-in-out; }
     #dashboard-content.updating { opacity: 0.3; }
 
@@ -55,6 +64,12 @@
     .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
 
     .conditions .line { border-left: 4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
+
+    #gen.pill{
+      border:1px solid var(--br); border-radius:999px; padding:6px 12px;
+      font-weight:800; color:var(--muted); background:var(--pill-bg);
+    }
+
     
     /* ## CORRIGÉ: Tableau agrandi ## */
     .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px;}
@@ -76,7 +91,14 @@
     @keyframes pulsate { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.2, 1.2); opacity: 0; } }
     .main-port-icon .marker-pulse:after { animation-name: pulsate-main; animation-duration: 1.2s; box-shadow: 0 0 2px 3px var(--accent); border: 3px solid rgba(76,201,240,0.5); }
     @keyframes pulsate-main { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.5, 1.5); opacity: 0; } }
-    
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .small{
+      font-size:.92rem;
+      color: var(--muted);
+    }
+
     @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -162,9 +184,6 @@
   const toLocal = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
   const toFriendly = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false }) : '';
   const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
-  function isFamilyWindow(startIso, endIso) { /* ... (Votre logique complète et correcte) ... */ }
-  function isFresh(entry, genIso) { /* ... (Votre logique complète et correcte) ... */ }
-
   async function updateDashboard() {
     dashboardContent.classList.add('updating');
     
@@ -186,10 +205,20 @@
     const windowItems = (windows?.windows || [])
         .flatMap(dest => dest.windows.map(seg => {
             const family = isFamilyWindow(seg.start, seg.end);
-            const confKey = (seg.confidence || '').toString().toLowerCase();
+            const confKey = ((seg.confidence ?? dest.confidence) || '').toString().toLowerCase();
             const confText = confKey === 'high' ? 'Haute' : confKey === 'medium' ? 'Moy.' : confKey === 'low' ? 'Faible' : '';
-            const score = typeof seg.confidence_score === 'number' ? ` · ${Math.round(seg.confidence_score * 100)}` : '';
-            const confBadge = confText ? `<span class="conf ${confKey}">${confText}${score}</span>` : '';
+            const confScore = (typeof seg.confidence_score === 'number')
+              ? Math.round(seg.confidence_score * (seg.confidence_score <= 1 ? 100 : 1))
+              : null;
+            const confTitle = confText
+              ? `Confiance Prédictions : ${confText}${confScore!=null ? ' · ' + confScore + '%' : ''}`
+              : '';
+            const confBadge = confText
+              ? `<span class="conf ${confKey}" title="${confTitle}" aria-label="${confTitle}">
+                   ${confText}${confScore!=null ? ' · ' + confScore : ''}
+                 </span>`
+              : '';
+
             return { ...seg, dest_name: dest.dest_name, isFamily: family, confBadge };
         }))
         .filter(seg => isSimplified ? seg.isFamily : true)
@@ -209,7 +238,7 @@
         reasonsDiv.innerHTML = '<span class="small">Raisons indisponibles.</span>';
     }
 
-    // Radar des Spots (avec boutons "Info..." et tooltips)
+    // Radar des Spots (avec boutons "Infos..." et tooltips)
     const filesTableBody = document.querySelector('#files tbody');
     filesTableBody.innerHTML = WANT_SPOTS.map(([name, file]) => {
         const entry = status?.files?.find(s => s.path === file);
@@ -274,11 +303,16 @@
 
   // --- Initialisation et Timers ---
   const themeBtn = $('#themeBtn'); const fullscreenBtn = $('#fullscreenBtn'); const viewToggleBtn = $('#viewToggleBtn'); const resetMapBtn = $('#resetMapBtn');
-  const themes = ['dark', 'light', 'nautical']; let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark');
+  const themes = ['dark', 'light', 'nautical']; let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark'); if (currentThemeIndex < 0) currentThemeIndex = 0;
   document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
   themeBtn.addEventListener('click', () => { currentThemeIndex = (currentThemeIndex + 1) % themes.length; const nextTheme = themes[currentThemeIndex]; document.documentElement.setAttribute('data-theme', nextTheme); localStorage.setItem('theme', nextTheme); });
   fullscreenBtn.addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); });
-  viewToggleBtn.addEventListener('click', () => { const isSimplified = document.body.classList.toggle('simplified-view'); viewToggleBtn.textContent = isSimplified ? 'Vue Experte' : 'Vue Simplifiée'; if(lastFetchedData.windows) { updateDashboard(); } });
+
+  viewToggleBtn.addEventListener('click', () => {
+    const simplified = document.body.classList.toggle('simplified-view');
+    viewToggleBtn.textContent = simplified ? 'Vue Experte' : 'Vue Simplifiée';
+    updateDashboard();
+  });
   resetMapBtn.addEventListener('click', () => { map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, { animate: true }); });
   
   await updateDashboard();

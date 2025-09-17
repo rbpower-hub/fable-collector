@@ -5,7 +5,7 @@
   <title>TABLEAU DE BORD FABLE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1020" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <style>
     :root{
       --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
@@ -25,13 +25,12 @@
       --section:#005b96; --shadow: 0 4px 12px rgba(10,34,64,.08);
       --link:#0077b6; --pill-bg:#f0f5fa;
     }
-
     html,body{height:100%}
     body{font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif; margin:24px; background:var(--bg); color:var(--fg); font-size: 1.05rem;}
     *{box-sizing:border-box}
     a{color:var(--link); text-decoration: none} a:hover{text-decoration: underline}
     h1,h2,h3{margin:0 0 8px 0; font-weight: 700;}
-    
+
     header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
     header h1{font-size:1.5rem}
     .spacer{flex:1}
@@ -40,55 +39,63 @@
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
     .status.ok{background:var(--ok); color:#081019 !important} .status.warn{background:var(--warn); color:#081019 !important}
     #gen.pill{border:1px solid var(--br); border-radius:999px; padding:6px 12px; font-weight:800; color:var(--muted); background:var(--pill-bg);}
-    
-    #map{height: 450px; border-radius: 14px; background-color: var(--card); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
-    #dashboard-content { transition: opacity 0.5s ease-in-out; }
-    #dashboard-content.updating { opacity: 0.3; }
 
-    .layout-grid{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
+    #map{height:450px;border-radius:14px;background:var(--card);border:1px solid var(--br);margin-bottom:16px;z-index:0}
+    #dashboard-content{transition:opacity .5s ease-in-out}
+    #dashboard-content.updating{opacity:.3}
+
+    .layout-grid{display:grid;grid-template-columns:2fr 1fr; gap:16px}
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     .card h3{font-size:1.15rem; color:var(--section); display:flex; align-items:center; gap:8px; justify-content: space-between;}
 
-    .window-line {padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
-    .window-line .title {font-weight:700; font-size: 1.1rem; display: flex; align-items: center;}
-    .go{display:inline-block; border-radius:10px; padding:2px 8px; margin-left:8px; font-weight:800;}
-    .go.family{background: var(--ok); color: #04110a}
+    .window-line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
+    .window-line .title{font-weight:700; font-size: 1.1rem; display:flex; align-items:center}
+    .go{display:inline-block;border-radius:10px;padding:2px 8px;margin-left:8px;font-weight:800}
+    .go.family{background:var(--ok); color:#04110a}
     .go.expert{background:#f59e0b; color:#160f04}
-    .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px; padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted); white-space:nowrap;}
+    .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted);white-space:nowrap}
     .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
+    .conditions .line{border-left:4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
 
-    .conditions .line { border-left: 4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
-    .table-wrap{overflow:auto; border:1px solid var(--br); border-radius:14px;}
-    table{width:100%; border-collapse:collapse;}
+    .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
+    table{width:100%; border-collapse:collapse}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
 
-    .tip{position:absolute; z-index:9999; max-width: 360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow: var(--shadow); font-size:.9rem}
+    .tip{position:absolute; z-index:9999; max-width:360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow:var(--shadow); font-size:.9rem}
     .tip .hdr{font-weight:700; margin-bottom:4px} .tip .row{margin-top:4px}
-    
-    body.simplified-view .expert-only { display: none; }
-    
+
+    body.simplified-view .expert-only{display:none}
+
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
-    #refresh-timer{font-size: 0.85rem; color: var(--muted); margin-left: 16px;}
-    
-    .marker-pin { width: 30px; height: 30px; border-radius: 50% 50% 50% 0; position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; }
-    .marker-pin::after { content: ''; width: 14px; height: 14px; margin: 8px 0 0 8px; background: #ffffff; position: absolute; border-radius: 50%; }
-    .marker-pulse:after { content: ""; border-radius: 50%; height: 40px; width: 40px; position: absolute; margin: -13px 0 0 -13px; animation: pulsate 1.5s ease-out infinite; opacity: 0; box-shadow: 0 0 1px 2px var(--accent); border: 3px solid rgba(255,255,255,0.3); }
-    @keyframes pulsate { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.2, 1.2); opacity: 0; } }
-    .main-port-icon .marker-pulse:after { animation-name: pulsate-main; animation-duration: 1.2s; box-shadow: 0 0 2px 3px var(--accent); border: 3px solid rgba(76,201,240,0.5); }
-    @keyframes pulsate-main { 0% { transform: scale(0.1, 0.1); opacity: 0; } 50% { opacity: 1; } 100% { transform: scale(1.5, 1.5); opacity: 0; } }
-    
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;}
-    .small{font-size:.92rem; color: var(--muted);}
-    .spark{width:120px; height:24px; display:inline-block; vertical-align:middle; margin-left:8px;}
-    .spark svg{ width:100%; height:100%; }
-    .anchor-badge{background: var(--pill-bg); border:1px solid var(--br); color: var(--fg); padding:2px 6px; border-radius: 999px; font-size:.8rem; box-shadow: var(--shadow);}
-    @keyframes flashPulse { 0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)} 100%{box-shadow:0 0 0 18px rgba(76,201,240,0)} }
+    #refresh-timer{font-size:.85rem;color:var(--muted);margin-left:16px}
+
+    .marker-pin{width:30px; height:30px; border-radius:50% 50% 50% 0; position:absolute; transform:rotate(-45deg); left:50%; top:50%; margin:-15px 0 0 -15px}
+    .marker-pin::after{content:''; width:14px; height:14px; margin:8px 0 0 8px; background:#fff; position:absolute; border-radius:50%}
+    .marker-pulse:after{content:""; border-radius:50%; height:40px; width:40px; position:absolute; margin:-13px 0 0 -13px; animation:pulsate 1.5s ease-out infinite; opacity:0; box-shadow:0 0 1px 2px var(--accent); border:3px solid rgba(255,255,255,0.3)}
+    @keyframes pulsate{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.2);opacity:0}}
+    .main-port-icon .marker-pulse:after{animation-name:pulsate-main; animation-duration:1.2s; box-shadow:0 0 2px 3px var(--accent); border:3px solid rgba(76,201,240,0.5)}
+    @keyframes pulsate-main{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.5);opacity:0}}
+
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace}
+    .small{font-size:.92rem;color:var(--muted)}
+
+    /* Sparklines */
+    .spark{width:120px;height:24px;display:inline-block;vertical-align:middle;margin-left:8px}
+    .spark svg{width:100%;height:100%}
+
+    /* Corridors / ancrage */
+    .anchor-badge{background:var(--pill-bg);border:1px solid var(--br);color:var(--fg);padding:2px 6px;border-radius:999px;font-size:.8rem;box-shadow:var(--shadow)}
+
+    /* Alerte douce */
+    @keyframes flashPulse{0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)}100%{box-shadow:0 0 0 18px rgba(76,201,240,0)}}
     .flash{animation:flashPulse .8s ease-out 1}
+
+    /* AR lisible */
     :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
     :root[dir="rtl"] h1, :root[dir="rtl"] h3 { letter-spacing:.2px }
-    
-    @media (max-width: 900px){ .layout-grid { grid-template-columns: 1fr; } .spark{display:none} }
+
+    @media (max-width:900px){ .layout-grid{grid-template-columns:1fr} .spark{display:none} }
   </style>
 </head>
 <body>
@@ -103,168 +110,335 @@
   <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
   <button id="langBtn" class="btn" title="Langue">FR</button>
 </header>
+
 <div id="dashboard-content">
-    <div id="map" aria-label="Carte des spots"></div>
-    <div class="layout-grid">
-      <div style="display: flex; flex-direction: column; gap: 16px;">
-        <div class="card wins">
-          <h3><span>🪟 Fenêtres de Navigation</span></h3>
-          <div id="wins">Chargement…</div>
-        </div>
-        <div class="card conditions expert-only">
-          <h3><span>🚦 Avertissements (No-GO)</span></h3>
-          <div id="reasons">Chargement…</div>
-        </div>
+  <div id="map" aria-label="Carte des spots"></div>
+
+  <div class="layout-grid">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card wins">
+        <h3><span>🪟 Fenêtres de Navigation</span></h3>
+        <div id="wins">Chargement…</div>
       </div>
-      <div class="card expert-only">
-        <h3>
-          <span>📡 Radar des Spots</span>
-          <button id="resetMapBtn" class="btn" title="Vue initiale">🔄</button>
-        </h3>
-        <div class="table-wrap">
-          <table id="files">
-            <thead><tr><th>Spot</th><th>Modifié</th><th>Statut</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <details class="sub" style="margin-top:16px;">
-          <summary>📚 Données Brutes</summary>
-          <ul id="raw-links-list"></ul>
-        </details>
+      <div class="card conditions expert-only">
+        <h3><span>🚦 Avertissements (No-GO)</span></h3>
+        <div id="reasons">Chargement…</div>
       </div>
     </div>
+
+    <div class="card expert-only">
+      <h3>
+        <span>📡 Radar des Spots</span>
+        <button id="resetMapBtn" class="btn" title="Vue initiale">🔄</button>
+      </h3>
+      <div class="table-wrap">
+        <table id="files">
+          <thead><tr><th>Spot</th><th>Modifié</th><th>Statut</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <details class="sub" style="margin-top:16px;">
+        <summary>📚 Données Brutes</summary>
+        <ul id="raw-links-list"></ul>
+      </details>
+    </div>
+  </div>
 </div>
+
 <footer>
   <p><span id="tz" class="small"></span><span id="refresh-timer"></span></p>
 </footer>
+
 <div id="tooltip" class="tip" style="display:none;" role="tooltip"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
 
 <script>
 (async function main() {
   const REFRESH_INTERVAL_SECONDS = 600;
 
-  // ===== I18N & Configuration Statique =====
-  const I18N = { fr:{status_ok:"Statut: OK",status_stale:"Statut: Données anciennes",updated:"Mise à jour",reasons_unavailable:"Raisons indisponibles.",none_windows:'Aucune fenêtre "GO" détectée.',fresh:"Frais",stale:"Ancien",next_refresh:s=>`Prochaine MAJ dans ${s}s.`,principal_port:"Port Principal",go_popup:{green:"Fenêtre 'GO' !",yellow:"Données à jour",red:"Données anciennes"},conf_title:(t,s)=>`Confiance: ${t}${s!=null?' · '+s+'%':''}`}, en:{status_ok:"Status: OK",status_stale:"Status: Stale data",updated:"Updated",reasons_unavailable:"Reasons unavailable.",none_windows:'No "GO" window detected.',fresh:"Fresh",stale:"Stale",next_refresh:s=>`Next refresh in ${s}s.`,principal_port:"Main Port",go_popup:{green:"GO window!",yellow:"Data up to date",red:"Stale data"},conf_title:(t,s)=>`Confidence: ${t}${s!=null?' · '+s+'%':''}`}, ar:{status_ok:"الحالة: جيد",status_stale:"الحالة: بيانات قديمة",updated:"آخر تحديث",reasons_unavailable:"الأسباب غير متاحة.",none_windows:'لا توجد نافذة "GO".',fresh:"محدث",stale:"قديم",next_refresh:s=>`التحديث القادم خلال ${s}ث`,principal_port:"الميناء الرئيسي",go_popup:{green:"نافذة GO!",yellow:"البيانات محدثة",red:"البيانات قديمة"},conf_title:(t,s)=>`ثقة التنبؤات: ${t}${s!=null?' · '+s+'%':''}`} };
-  const LOCALES = { fr: 'fr-FR', en: 'en-GB', ar: 'ar-TN' };
-  const spotConfig = { 'gammarth-port.json':{name:'Gammarth Port',lat:36.903,lon:10.323},'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.871,lon:10.349},'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.168,lon:10.194},'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.612},'el-haouaria.json':{name:'El Haouaria',lat:37.054,lon:11.042} };
-  const INITIAL_MAP_VIEW = { center: [36.95, 10.6], zoom: 9 };
+  // ===== I18N =====
+  const I18N = {
+    fr:{status_ok:"Statut: OK",status_stale:"Statut: Données anciennes",updated:"Mise à jour",reasons_unavailable:"Raisons indisponibles.",none_windows:'Aucune fenêtre "GO" détectée.',fresh:"Frais",stale:"Ancien",next_refresh:s=>`Prochaine MAJ dans ${s}s.`,principal_port:"Port Principal",go_popup:{green:"Fenêtre 'GO' !",yellow:"Données à jour",red:"Données anciennes"},conf_title:(t,s)=>`Confiance: ${t}${s!=null?' · '+s+'%':''}`},
+    en:{status_ok:"Status: OK",status_stale:"Status: Stale data",updated:"Updated",reasons_unavailable:"Reasons unavailable.",none_windows:'No "GO" window detected.',fresh:"Fresh",stale:"Stale",next_refresh:s=>`Next refresh in ${s}s.`,principal_port:"Main Port",go_popup:{green:"GO window!",yellow:"Data up to date",red:"Stale data"},conf_title:(t,s)=>`Confidence: ${t}${s!=null?' · '+s+'%':''}`},
+    ar:{status_ok:"الحالة: جيد",status_stale:"الحالة: بيانات قديمة",updated:"آخر تحديث",reasons_unavailable:"الأسباب غير متاحة.",none_windows:'لا توجد نافذة "GO".',fresh:"محدث",stale:"قديم",next_refresh:s=>`التحديث القادم خلال ${s}ث`,principal_port:"الميناء الرئيسي",go_popup:{green:"نافذة GO!",yellow:"البيانات محدثة",red:"البيانات قديمة"},conf_title:(t,s)=>`ثقة التنبؤات: ${t}${s!=null?' · '+s+'%':''}`}
+  };
+  const LOCALES = { fr:'fr-FR', en:'en-GB', ar:'ar-TN' };
 
-  // ===== État de l'Application =====
+  // Spots & config
+  const spotConfig = {
+    'gammarth-port.json':{name:'Gammarth Port',lat:36.903,lon:10.323},
+    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.871,lon:10.349},
+    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.168,lon:10.194},
+    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.612},
+    'el-haouaria.json':{name:'El Haouaria',lat:37.054,lon:11.042}
+  };
+  const WANT_SPOTS = Object.entries(spotConfig).map(([file,{name}]) => [name,file]);
+  const INITIAL_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
+
+  // ===== State & helpers =====
   let LANG = localStorage.getItem('lang') || 'fr';
   let muted = localStorage.getItem('mute') === '1';
   let lastWinsKey = new Set();
-  
-  // ===== Fonctions Utilitaires =====
-  const $ = (sel) => document.querySelector(sel);
-  const t = (path, ...args) => { const dict=I18N[LANG]||I18N.fr; const val=path.split('.').reduce((o,k)=>(o||{})[k],dict); return typeof val==='function'?val(...args):(val??path); };
-  const fmtLocal = (iso) => iso ? new Date(iso).toLocaleString(LOCALES[LANG] || 'fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
-  const fmtFriendly = (iso) => iso ? new Date(iso).toLocaleString(LOCALES[LANG] || 'fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false }) : '';
-  const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
-  const isFamilyWindow = (startIso, endIso) => { const s=new Date(startIso), e=new Date(endIso); if(isNaN(s)||isNaN(e)) return true; for(let d=new Date(s); d<=e; d.setHours(d.getHours()+1)) { const h=d.getHours(); if(h<8||h>=21) return false; } return true; };
-  const isFresh = (entry, genIso) => { const THRESHOLD=180; if(!entry)return false; if(typeof entry.fresh==='boolean')return entry.fresh; if(entry.modified){const age=(Date.now()-new Date(entry.modified).getTime())/60000; if(isFinite(age))return age<=THRESHOLD;} if(genIso){const age=(Date.now()-new Date(genIso).getTime())/60000; if(isFinite(age))return age<=THRESHOLD;} return false; };
-  const ding = () => { if(muted) return; try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(),o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.value=880;o.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(0.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.05,ctx.currentTime+0.02);g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.22);o.start();o.stop(ctx.currentTime+0.25);}catch{} };
-  const flash = (el) => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
-  const sparklineSVG = (seriesList, opts={}) => { const W=120,H=24,p=2;const flat=seriesList.flat().map(Number).filter(Number.isFinite);const min=(opts.min??Math.min(...flat,0));const max=(opts.max??Math.max(...flat,1));const span=(max-min)||1;const path=(v)=>{const values=v.map(Number).filter(Number.isFinite);if(!values.length)return'';const n=values.length;return values.map((val,i)=>{const x=p+(W-2*p)*(n===1?1:i/(n-1));const y=p+(H-2*p)*(1-(val-min)/span);return`${i?'L':'M'}${x.toFixed(1)} ${y.toFixed(1)}`;}).join(' ');};const colors=opts.colors||['currentColor','rgba(255,255,255,.6)'];return`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${seriesList.map((s,i)=>`<path d="${path(s)}" fill="none" stroke="${colors[i%colors.length]}" stroke-width="${i===0?1.8:1.2}" stroke-linecap="round"/>`).join('')}</svg>`;};
 
-  // ===== Initialisation de la Carte et des Écouteurs d'Événements =====
+  const $ = sel => document.querySelector(sel);
+  const t = (path,...args)=>{const d=I18N[LANG]||I18N.fr; const v=path.split('.').reduce((o,k)=>(o||{})[k],d); return typeof v==='function'?v(...args):(v??path);};
+  const fmtLocal = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
+  const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
+
+  const isFamilyWindow = (startIso,endIso) => { const s=new Date(startIso), e=new Date(endIso); if(isNaN(s)||isNaN(e)) return true; for(let d=new Date(s); d<=e; d.setHours(d.getHours()+1)){const h=d.getHours(); if(h<8||h>=21) return false;} return true; };
+  const isFresh = (entry,genIso) => { const T=180; if(!entry) return false; if(typeof entry.fresh==='boolean') return entry.fresh; if(entry.modified){const age=(Date.now()-new Date(entry.modified))/60000; if(isFinite(age)) return age<=T;} if(genIso){const age=(Date.now()-new Date(genIso))/60000; if(isFinite(age)) return age<=T;} return false; };
+
+  const ding = ()=>{ if(muted) return; try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(), o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(0.0001,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.05,ctx.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.22); o.start(); o.stop(ctx.currentTime+0.25);}catch{} };
+  const flash = el => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+
+  const sparklineSVG = (seriesList, opts={})=>{
+    const W=120,H=24,p=2;
+    const flat = seriesList.flat().map(Number).filter(Number.isFinite);
+    const min = (opts.min ?? Math.min(...flat, 0));
+    const max = (opts.max ?? Math.max(...flat, 1));
+    const span = (max - min) || 1;
+    const path = v=>{
+      const values=v.map(Number).filter(Number.isFinite);
+      if(!values.length) return '';
+      const n=values.length;
+      return values.map((val,i)=>{
+        const x=p+(W-2*p)*(n===1?1:i/(n-1));
+        const y=p+(H-2*p)*(1-(val-min)/span);
+        return `${i?'L':'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ');
+    };
+    const colors = opts.colors || ['currentColor','rgba(255,255,255,.6)'];
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      ${seriesList.map((s,i)=>`<path d="${path(s)}" fill="none" stroke="${colors[i%colors.length]}" stroke-width="${i===0?1.8:1.2}" stroke-linecap="round"/>`).join('')}
+    </svg>`;
+  };
+
+  // Map
   const map = L.map('map').setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
   const corridorLayer = L.layerGroup().addTo(map);
-  window.panToFile = (file) => { const s = spotConfig[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
-  setupEventListeners();
+  window.panToFile = (file)=>{ const s=spotConfig[file]; if(s) map.setView([s.lat,s.lon],12,{animate:true}); };
 
-  // ===== Contrôleur Principal de Mise à Jour =====
-  async function updateDashboard() {
+  // ===== KIOSK =====
+  setTimeout(()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); }, 5000);
+  let cursorTimer; const hideCursor=()=>document.body.style.cursor='none';
+  const showCursor=()=>{document.body.style.cursor='';clearTimeout(cursorTimer);cursorTimer=setTimeout(hideCursor,5000);};
+  ['mousemove','keydown','click','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,showCursor,{passive:true}));
+  showCursor();
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ updateDashboard(); if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); } });
+
+  // ===== UI setup =====
+  $('#tz').textContent = `Affichage en ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
+
+  // Langue
+  const btnLang = $('#langBtn');
+  const setLangUI = l => { LANG=l; localStorage.setItem('lang',l); document.documentElement.lang=l; document.documentElement.dir=(l==='ar'?'rtl':'ltr'); btnLang.textContent=l.toUpperCase(); };
+  setLangUI(LANG);
+  btnLang.addEventListener('click', ()=>{ setLangUI(LANG==='fr'?'en':LANG==='en'?'ar':'fr'); updateDashboard(); });
+
+  // Son
+  const btnMute = $('#muteBtn');
+  const setMuteUI = m => { muted=m; localStorage.setItem('mute', m?'1':'0'); btnMute.textContent = m?'🔕':'🔔'; };
+  setMuteUI(muted);
+  btnMute.addEventListener('click', ()=> setMuteUI(!muted));
+
+  // Thème
+  const themes=['dark','light','nautical']; let themeIdx = themes.indexOf(localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'dark'); if(themeIdx<0) themeIdx=0;
+  document.documentElement.setAttribute('data-theme', themes[themeIdx]);
+  $('#themeBtn').addEventListener('click', ()=>{ themeIdx=(themeIdx+1)%themes.length; const th=themes[themeIdx]; document.documentElement.setAttribute('data-theme', th); localStorage.setItem('theme', th); });
+
+  // Plein écran
+  $('#fullscreenBtn').addEventListener('click', ()=> document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
+
+  // Vue simplifiée
+  $('#viewToggleBtn').addEventListener('click', ()=>{
+    const s=document.body.classList.toggle('simplified-view');
+    $('#viewToggleBtn').textContent = s ? 'Vue Experte' : 'Vue Simplifiée';
+    updateDashboard();
+  });
+
+  // Reset map
+  $('#resetMapBtn').addEventListener('click', ()=> map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true}));
+
+  // Tooltip
+  const tipEl = $('#tooltip');
+  const hideTip = ()=>{ tipEl.style.display='none'; };
+  document.addEventListener('scroll', hideTip, {passive:true});
+
+  // ===== Rendu principal =====
+  async function updateDashboard(){
     $('#dashboard-content').classList.add('updating');
-    
+
     const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
     const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotConfig)) : [];
-    
-    const gen = windows?.generated_at || status?.generated_at || null;
-    const spotStatus = {};
-    (windows?.windows||[]).forEach(d=>{if(d.windows?.length>0)spotStatus[d.dest_slug]='green';});
-    Object.keys(spotConfig).forEach(file=>{if(spotStatus[file]!=='green'){const e=status?.files?.find(s=>s.path===file);spotStatus[file]=isFresh(e,gen)?'yellow':'red';}});
 
-    // --- Rendu des composants ---
-    $('#hc').className = 'status ' + (status?.all_fresh ? 'ok' : 'warn');
-    $('#hc').textContent = t(status?.all_fresh ? 'status_ok' : 'status_stale');
+    // Header
+    const ok = status && (status.all_fresh || status.status === 'ok');
+    $('#hc').className = 'status ' + (ok ? 'ok' : 'warn');
+    $('#hc').textContent = t(ok ? 'status_ok' : 'status_stale');
+    const gen = windows?.generated_at || status?.generated_at || null;
     $('#gen').textContent = `${t('updated')}: ${gen ? fmtLocal(gen) : '...'}`;
 
+    // Fenêtres GO + badges sources/spreads
+    const winsDiv = $('#wins');
     const isSimplified = document.body.classList.contains('simplified-view');
+    const winsCard = document.querySelector('.card.wins');
     const nowWinsKey = new Set();
+
     const winItems = (windows?.windows || [])
       .flatMap(dest => (dest.windows||[]).map(seg => {
-        const key=`${dest.dest_slug}|${seg.start}`; nowWinsKey.add(key);
-        const family=isFamilyWindow(seg.start, seg.end);
-        const confKey=((seg.confidence||dest.confidence)||'').toLowerCase();
-        const confText=confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
-        const confScore=(typeof seg.confidence_score==='number')?Math.round(seg.confidence_score*100):null;
-        const models=seg.models||dest.models||[]; const spreads=seg.spreads||dest.spreads||{};
-        const spreadsTxt=[]; if(typeof spreads.wind_kmh==='number')spreadsTxt.push(`±${spreads.wind_kmh} km/h`); if(typeof spreads.hs_m==='number')spreadsTxt.push(`±${spreads.hs_m} m`);
-        return {html:`<div class="window-line ${!family?'expert-only':''}"><div class="title">${dest.dest_name} <span class="go ${family?'family':'expert'}">${family?'FAMILY GO':'EXPERT GO'}</span> ${confText?`<span class="conf ${confKey}" title="${t('conf_title',confText,confScore)}">${confText}${confScore!=null?'·'+confScore:''}</span>`:''}</div><div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>${(models.length||spreadsTxt.length)?`<div class="small" style="margin-top:4px;opacity:.9">${models.length?('<b>Src:</b> '+models.join('/')):''} ${spreadsTxt.length?(' <b>Δ:</b> '+spreadsTxt.join(' / ')):''}</div>`:''}</div>`,isFamily:family,dest_slug:dest.dest_slug};
+        const family = isFamilyWindow(seg.start, seg.end);
+        const confKey = ((seg.confidence || dest.confidence) || '').toLowerCase();
+        const confText = confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
+        const confScore = (typeof seg.confidence_score==='number') ? Math.round((seg.confidence_score<=1? seg.confidence_score*100 : seg.confidence_score)) : null;
+        const confBadge = confText ? `<span class="conf ${confKey}" title="${t('conf_title',confText,confScore)}">${confText}${confScore!=null?' · '+confScore:''}</span>` : '';
+
+        // sources/spreads
+        const models = seg.models || dest.models || [];
+        const spreads = seg.spreads || dest.spreads || {};
+        const spreadsTxt = [];
+        if (typeof spreads.wind_kmh === 'number') spreadsTxt.push(`±${spreads.wind_kmh} km/h`);
+        if (typeof spreads.hs_m === 'number')     spreadsTxt.push(`±${spreads.hs_m} m`);
+        const srcBadge = (models.length||spreadsTxt.length)
+          ? `<div class="small" style="margin-top:4px;opacity:.9">${models.length?('<b>Src:</b> '+models.join('/')):''}${spreadsTxt.length?(' &nbsp; <b>Δ:</b> '+spreadsTxt.join(' / ')):''}</div>`
+          : '';
+
+        const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
+        nowWinsKey.add(key);
+
+        return {
+          isFamily: family,
+          dest_slug: dest.dest_slug,
+          html: `<div class="window-line ${!family?'expert-only':''}">
+                  <div class="title">${dest.dest_name} <span class="go ${family?'family':'expert'}">${family?'FAMILY GO':'EXPERT GO'}</span> ${confBadge}</div>
+                  <div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
+                  ${srcBadge}
+                </div>`
+        };
       }))
       .filter(x => isSimplified ? x.isFamily : true);
-    $('#wins').innerHTML = winItems.length ? winItems.map(x=>x.html).join('') : `<span class="small">${t('none_windows')}</span>`;
-    if ([...nowWinsKey].some(k => !lastWinsKey.has(k)) && winItems.length > 0) { ding(); flash($('#wins').parentElement); }
+
+    winsDiv.innerHTML = winItems.length ? winItems.map(x=>x.html).join('') : `<span class="small">${t('none_windows')}</span>`;
+
+    // Alerte douce si nouvelles fenêtres
+    let hasNew=false; nowWinsKey.forEach(k=>{ if(!lastWinsKey.has(k)) hasNew=true; });
     lastWinsKey = nowWinsKey;
+    if(hasNew && winItems.length){ ding(); flash(winsCard); }
 
+    // Corridors (limités à 3)
     corridorLayer.clearLayers();
-    const origin=spotConfig['gammarth-port.json']; const ACCENT_COLOR=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#4cc9f0';
-    const destSlugs=[...new Set(winItems.map(x=>x.dest_slug))].slice(0,3);
-    destSlugs.forEach(slug=>{const dest=spotConfig[slug]; if(!dest||!origin)return; L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT_COLOR,weight:3,opacity:0.9,dashArray:'6,6'}).addTo(corridorLayer);const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2]; L.marker(mid,{icon:L.divIcon({className:'anchor-badge',html:'⚓ 1h'})}).addTo(corridorLayer);});
+    const origin = spotConfig['gammarth-port.json'];
+    const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
+    [...new Set(winItems.map(x=>x.dest_slug))].filter(Boolean).slice(0,3).forEach(slug=>{
+      const dest=spotConfig[slug]; if(!dest||!origin) return;
+      L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
+      const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
+      L.marker(mid,{icon:L.divIcon({className:'anchor-badge',html:'⚓ 1h'})}).addTo(corridorLayer);
+    });
 
-    const reasonsDiv=$('#reasons'); if(reasonsRows?.length){reasonsDiv.innerHTML=reasonsRows.map(r=>`<div class="line"><div class="reason">🚫 ${(r.family||r.expert||'').replace(/^✗\s*/,'')}</div><div class="small">${r.spot}</div></div>`).join('');}else{reasonsDiv.innerHTML=`<span class="small">${t('reasons_unavailable')}</span>`;}
-
-    const filesTableBody=$('#files tbody');
-    filesTableBody.innerHTML=Object.entries(spotConfig).map(([file,{name}])=>{const entry=status?.files?.find(s=>s.path===file); return `<tr><td><a href="#" data-file="${file}">${name}</a><button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button><span class="spark expert-only" data-file="${file}"></span></td><td>${fmtLocal(entry?.modified)}</td><td><span style="color:var(--${isFresh(entry,gen)?'ok':'warn'})">${t(isFresh(entry,gen)?'fresh':'stale')}</span></td></tr>`;}).join('');
-    
-    // CORRIGÉ: `await` est maintenant en dehors de la boucle principale de rendu.
-    for (const el of document.querySelectorAll('.spark[data-file]')) {
-      const spotData = await fetchJSON(el.dataset.file);
-      const hours = Array.isArray(spotData?.hours) ? spotData.hours.slice(-12) : [];
-      if (!hours.length) { el.innerHTML = ''; continue; }
-      const wind=hours.map(h=>h?.wind_kmh); const gust=hours.map(h=>h?.gust_kmh); const hs=hours.map(h=>h?.hs_m);
-      const vmax = Math.max(...wind.map(Number).filter(Number.isFinite), ...gust.map(Number).filter(Number.isFinite), 1);
-      el.innerHTML = sparklineSVG([wind,gust],{max:vmax,colors:['var(--fg)','var(--muted)']}) + sparklineSVG([hs],{colors:['var(--accent)']});
+    // Avertissements (No-GO)
+    const reasonsDiv = $('#reasons');
+    if (Array.isArray(reasonsRows) && reasonsRows.length) {
+      reasonsDiv.innerHTML = reasonsRows.map(r=>`<div class="line"><div class="reason">🚫 ${(r.family||r.expert||'').replace(/^✗\s*/,'')}</div><div class="small">${r.spot}</div></div>`).join('');
+    } else {
+      reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
     }
 
-    map.eachLayer(layer=>{if(layer instanceof L.Marker)map.removeLayer(layer);});
-    const createIcon=(c,i)=>L.divIcon({className:`custom-div-icon ${i?'main-port-icon':''}`,html:`<div style='background-color:${c};' class='marker-pin'></div><div class='marker-pulse'></div>`,iconSize:[30,42],iconAnchor:[15,42]});
-    for(const file in spotConfig){const s=spotConfig[file],i=file==='gammarth-port.json',st=spotStatus[file],c=i?'var(--accent)':st==='green'?'var(--ok)':st==='yellow'?'var(--warn)':'var(--bad)',txt=i?t('principal_port'):t(`go_popup.${st}`);L.marker([s.lat,s.lon],{icon:createIcon(c,i),zIndexOffset:i?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${txt}`);}
+    // Radar des spots + sparklines + bouton Info...
+    const filesTableBody = $('#files tbody');
+    filesTableBody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+      const entry = status?.files?.find(s=>s.path===file);
+      const fresh = isFresh(entry, gen);
+      return `<tr data-file="${file}">
+        <td>
+          <a href="#" data-file="${file}">${name}</a>
+          <button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button>
+          <span class="spark expert-only" data-file="${file}"></span>
+        </td>
+        <td>${fmtLocal(entry?.modified)}</td>
+        <td><span style="color:var(--${fresh?'ok':'warn'})">${t(fresh?'fresh':'stale')}</span></td>
+      </tr>`;
+    }).join('');
+
+    // Rendu sparklines (séquentiel pour éviter les freezes)
+    for(const el of document.querySelectorAll('.spark[data-file]')){
+      try{
+        const js = await fetchJSON(el.dataset.file);
+        const hours = Array.isArray(js?.hours) ? js.hours.slice(-12) : [];
+        if(!hours.length){ el.innerHTML=''; continue; }
+        const wind = hours.map(h=>h?.wind_kmh);
+        const gust = hours.map(h=>h?.gust_kmh);
+        const hs   = hours.map(h=>h?.hs_m);
+        const vmax = Math.max(...wind.map(Number).filter(Number.isFinite), ...gust.map(Number).filter(Number.isFinite), 1);
+        el.innerHTML = sparklineSVG([wind,gust],{max:vmax,colors:['var(--fg)','var(--muted)']})
+                     + sparklineSVG([hs],{colors:['var(--accent)']});
+        const lw = wind.map(Number).filter(Number.isFinite).slice(-1)[0];
+        const lg = gust.map(Number).filter(Number.isFinite).slice(-1)[0];
+        const lh =  hs.map(Number).filter(Number.isFinite).slice(-1)[0];
+        el.title = [Number.isFinite(lw)?`Vent: ${lw} km/h`:null, Number.isFinite(lg)?`Raf.: ${lg} km/h`:null, Number.isFinite(lh)?`Hs: ${lh} m`:null].filter(Boolean).join(' · ');
+      }catch{ el.innerHTML=''; }
+    }
+
+    // Infobulles "Info..." (reasons mappés par fichier)
+    const reasonsByFile = new Map((reasonsRows||[]).map(r=>{
+      const m=/\(([^)]+\.json)\)\s*$/.exec(r.spot||''); return m ? [m[1], r] : [null,null];
+    }).filter(x=>x[0]));
+    const showTip = (btn)=>{
+      const file = btn.dataset.file;
+      const r = reasonsByFile.get(file);
+      tipEl.innerHTML = `<div class="hdr">${spotConfig[file]?.name||file}</div>
+                         <div class="row"><b>Family:</b> ${r?.family||'—'}</div>
+                         <div class="row"><b>Expert:</b> ${r?.expert||'—'}</div>`;
+      const rect = btn.getBoundingClientRect();
+      tipEl.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;
+      tipEl.style.top  = `${window.scrollY + rect.top - 6}px`;
+      tipEl.style.display = 'block';
+    };
+    document.querySelectorAll('button.why').forEach(btn=>{
+      btn.addEventListener('mouseenter', ()=>showTip(btn));
+      btn.addEventListener('mouseleave', hideTip);
+    });
+
+    // Liens bruts
+    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
+    const createLink = f => `<li><span style="display:inline-block;width:1.5em;">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`;
+    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
+    $('#raw-links-list').innerHTML = WANT_SPOTS.map(([,f])=>createLink(f)).join('')
+      + '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>'
+      + systemLinks.map(createLink).join('');
+
+    // Marqueurs carte
+    const spotStatus = {};
+    (windows?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
+    Object.keys(spotConfig).forEach(file=>{
+      if(spotStatus[file]!=='green'){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = isFresh(entry,gen) ? 'yellow' : 'red'; }
+    });
+
+    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); }); // on garde tuiles + corridors
+    const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+    for(const file in spotConfig){
+      const s=spotConfig[file], isMain = file==='gammarth-port.json', st = spotStatus[file];
+      const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
+      const text  = isMain ? t('principal_port') : t(`go_popup.${st}`);
+      L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${text}`);
+    }
 
     $('#dashboard-content').classList.remove('updating');
   }
 
-  function setupEventListeners() {
-    $('#tz').textContent = `Affichage en ${Int.DateTimeFormat().resolvedOptions().timeZone}.`;
-    const btns = {lang:$('#langBtn'),mute:$('#muteBtn'),theme:$('#themeBtn'),fullscreen:$('#fullscreenBtn'),viewToggle:$('#viewToggleBtn'),resetMap:$('#resetMapBtn')};
-    const setLangUI=l=>{LANG=l;localStorage.setItem('lang',l);document.documentElement.lang=l;document.documentElement.dir=(l==='ar'?'rtl':'ltr');btns.lang.textContent=l.toUpperCase();}; setLangUI(LANG);
-    btns.lang.addEventListener('click',()=>{setLangUI(LANG==='fr'?'en':LANG==='en'?'ar':'fr');updateDashboard();});
-    const setMuteUI=m=>{muted=m;localStorage.setItem('mute',m?'1':'0');btns.mute.textContent=m?'🔕':'🔔';}; setMuteUI(muted);
-    btns.mute.addEventListener('click',()=>setMuteUI(!muted));
-    const themes=['dark','light','nautical'];let themeIdx=themes.indexOf(localStorage.getItem('theme')||'dark');if(themeIdx<0)themeIdx=0;document.documentElement.setAttribute('data-theme',themes[themeIdx]);
-    btns.theme.addEventListener('click',()=>{themeIdx=(themeIdx+1)%themes.length;const th=themes[themeIdx];document.documentElement.setAttribute('data-theme',th);localStorage.setItem('theme',th);});
-    btns.fullscreen.addEventListener('click',()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen());
-    setTimeout(()=> {if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});},5000);
-    let cT;const hC=()=>document.body.style.cursor='none';const sC=()=>{document.body.style.cursor='';clearTimeout(cT);cT=setTimeout(hC,5000);};
-    ['mousemove','keydown','click'].forEach(ev=>document.addEventListener(ev,sC,{passive:true}));sC();
-    btns.viewToggle.addEventListener('click',()=>{const s=document.body.classList.toggle('simplified-view');btns.viewToggle.textContent=s?'Vue Experte':'Vue Simplifiée';updateDashboard();});
-    btns.resetMap.addEventListener('click',()=>map.setView(INITIAL_MAP_VIEW.center,INITIAL_MAP_VIEW.zoom,{animate:true}));
-    $('#files tbody').addEventListener('click',e=>{const l=e.target.closest('a[data-file]');if(l){e.preventDefault();window.panToFile(l.dataset.file);}});
-    // Tooltips (utilisait "reasonsRows" qui n'est plus global)
-    // Pour le moment, on laisse désactivé pour éviter le bug, on corrigera ensuite.
-  }
+  // Délégation clics dans le tableau (pan sur spot)
+  $('#files tbody').addEventListener('click',(e)=>{
+    const a=e.target.closest('a[data-file]'); if(a){ e.preventDefault(); window.panToFile(a.dataset.file); }
+  });
 
-  setupEventListeners();
+  // Boucle de vie
   await updateDashboard();
-  
   let countdown = REFRESH_INTERVAL_SECONDS;
-  setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS * 1000);
-  setInterval(() => { countdown=(countdown<=1)?REFRESH_INTERVAL_SECONDS:countdown-1; $('#refresh-timer').textContent = " " + t('next_refresh', countdown); }, 1000);
-
+  setInterval(()=>{ countdown=(countdown<=1)?REFRESH_INTERVAL_SECONDS:countdown-1; $('#refresh-timer').textContent=t('next_refresh',countdown); },1000);
+  setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS*1000);
 })();
 </script>
 </body>

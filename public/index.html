@@ -38,7 +38,7 @@
     .status.warn{background:var(--warn); color:#081019 !important}
     .status.bad{background:var(--bad); color:#081019 !important}
 
-    #map { height: 450px; border-radius: 14px; background-color: var(--card); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
+    #map { height: 450px; border-radius: 14px; background-color: var(--br); border: 1px solid var(--br); margin-bottom: 16px; z-index: 0;}
     
     #dashboard-content { transition: opacity 0.5s ease-in-out; }
     #dashboard-content.updating { opacity: 0.3; }
@@ -63,7 +63,7 @@
     
     /* Styles pour la vue simplifiée */
     body.simplified-view .expert-only { display: none; }
-
+    
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     #refresh-timer{font-size: 0.85rem; color: var(--muted); margin-left: 16px;}
     
@@ -97,11 +97,13 @@
           <h3>🪟 Fenêtres de Navigation "GO"</h3>
           <div id="wins">Chargement…</div>
         </div>
-        <div class="card conditions expert-only"> <h3>🚦 Avertissements Actuels (No-GO)</h3>
+        <div class="card conditions expert-only">
+          <h3>🚦 Avertissements Actuels (No-GO)</h3>
           <div id="reasons">Chargement…</div>
         </div>
       </div>
-      <div class="card expert-only"> <h3>📡 Radar des Spots</h3>
+      <div class="card expert-only">
+        <h3>📡 Radar des Spots</h3>
         <div class="table-wrap">
           <table id="files">
             <thead><tr><th>Spot</th><th>Modifié</th><th>Statut</th></tr></thead>
@@ -123,23 +125,22 @@
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="./reasons-debug.js"></script> <script>
+<script src="./reasons-debug.js"></script>
+
+<script>
 (async function main() {
-  const REFRESH_INTERVAL_SECONDS = 600; // 10 minutes
+  const REFRESH_INTERVAL_SECONDS = 600;
   
-  // --- Éléments du DOM (mis en cache une seule fois) ---
-  const $ = (sel) => document.querySelector(sel);
   const elements = {
     body: document.body,
-    header: { gen: $('#gen'), hc: $('#hc') },
-    cards: { wins: $('#wins'), reasons: $('#reasons') },
-    radar: { tableBody: $('#files tbody'), rawLinks: $('#raw-links-list') },
-    footer: { tz: $('#tz2'), refreshTimer: $('#refresh-timer') },
-    buttons: { theme: $('#themeBtn'), fullscreen: $('#fullscreenBtn'), viewToggle: $('#viewToggleBtn') },
-    dashboardContent: $('#dashboard-content')
+    header: { gen: document.getElementById('gen'), hc: document.getElementById('hc') },
+    cards: { wins: document.getElementById('wins'), reasons: document.getElementById('reasons') },
+    radar: { tableBody: document.querySelector('#files tbody'), rawLinks: document.getElementById('raw-links-list') },
+    footer: { tz: document.getElementById('tz2'), refreshTimer: document.getElementById('refresh-timer') },
+    buttons: { theme: document.getElementById('themeBtn'), fullscreen: document.getElementById('fullscreenBtn'), viewToggle: document.getElementById('viewToggleBtn') },
+    dashboardContent: document.getElementById('dashboard-content')
   };
 
-  // --- Configuration ---
   const spotConfig = {
     'gammarth-port.json': { name: 'Gammarth Port', lat: 36.903, lon: 10.323 },
     'sidi-bou-said.json': { name: 'Sidi Bou Saïd', lat: 36.871, lon: 10.349 },
@@ -148,11 +149,17 @@
     'el-haouaria.json': { name: 'El Haouaria', lat: 37.054, lon: 11.042 }
   };
   const spotFiles = Object.keys(spotConfig);
-  let lastFetchedData = {}; // Pour stocker les données et re-rendre sans fetch
+  let lastFetchedData = {};
 
-  // --- Gestionnaires d'événements (Setup) ---
+  // --- Initialisation de la carte (CORRIGÉ) ---
+  const map = L.map('map').setView([36.95, 10.6], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+  window.panToFile = (file) => { const s = spotConfig[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
+
+  // --- Gestionnaires d'événements ---
   function setupEventListeners() {
-    // Thème
     const themes = ['dark', 'light', 'nautical'];
     let currentThemeIndex = themes.indexOf(localStorage.getItem('theme') || 'dark');
     document.documentElement.setAttribute('data-theme', themes[currentThemeIndex]);
@@ -162,30 +169,42 @@
       document.documentElement.setAttribute('data-theme', nextTheme);
       localStorage.setItem('theme', nextTheme);
     });
-    // Plein écran
     elements.buttons.fullscreen.addEventListener('click', () => {
       document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
     });
-    // Changement de vue
     elements.buttons.viewToggle.addEventListener('click', () => {
         const isSimplified = elements.body.classList.toggle('simplified-view');
         elements.buttons.viewToggle.textContent = isSimplified ? 'Vue Experte' : 'Vue Simplifiée';
-        // Re-rendre la carte des fenêtres instantanément avec les données existantes
         if(lastFetchedData.windows) {
             updateWindowsCard(lastFetchedData.windows, isSimplified);
         }
     });
   }
 
-  // --- Fonctions Utilitaires (Helpers) ---
+  // --- Fonctions Utilitaires ---
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
   elements.footer.tz.textContent = tz;
-  const toLocal = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  const toFriendly = (iso) => new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false });
+  const toLocal = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  const toFriendly = (iso) => iso ? new Date(iso).toLocaleString('fr-FR', { weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: false }) : '';
   const fetchJSON = async (path) => { try { const r = await fetch(path, { cache: 'no-store' }); return r.ok ? r.json() : null; } catch { return null; }};
   const isFamilyWindow = (startIso) => new Date(startIso).getHours() >= 8 && new Date(startIso).getHours() < 21;
+  // Fonction de fraîcheur robuste (CORRIGÉ)
+  function isFresh(entry, genIso) {
+      const FRESH_THRESHOLD_MIN = 180;
+      if (!entry) return false;
+      if (typeof entry.fresh === 'boolean') return entry.fresh;
+      if (entry.modified) {
+          const ageMin = (Date.now() - new Date(entry.modified).getTime()) / 60000;
+          if (isFinite(ageMin)) return ageMin <= FRESH_THRESHOLD_MIN;
+      }
+      if (genIso) {
+          const ageMin = (Date.now() - new Date(genIso).getTime()) / 60000;
+          if (isFinite(ageMin)) return ageMin <= FRESH_THRESHOLD_MIN;
+      }
+      return false;
+  }
 
-  // --- Fonctions de mise à jour de l'interface (UI Updaters) ---
+  // --- Fonctions de mise à jour de l'interface ---
   function updateHeader(status, windows) {
     const ok = status && (status.all_fresh || status.status === 'ok');
     elements.header.hc.className = `status ${ok ? 'ok' : 'warn'}`;
@@ -195,11 +214,8 @@
 
   function updateWindowsCard(windows, isSimplified) {
       const windowItems = (windows?.windows || [])
-          .flatMap(dest => dest.windows.map(seg => {
-              const isFamily = isFamilyWindow(seg.start);
-              return { ...seg, dest_name: dest.dest_name, isFamily };
-          }))
-          .filter(seg => isSimplified ? seg.isFamily : true) // Filtre pour la vue simplifiée
+          .flatMap(dest => dest.windows.map(seg => ({ ...seg, dest_name: dest.dest_name, isFamily: isFamilyWindow(seg.start) })))
+          .filter(seg => isSimplified ? seg.isFamily : true)
           .map(seg => `
               <div class="window-line ${!seg.isFamily ? 'expert-only' : ''}">
                   <div class="title">${seg.dest_name} <span class="go ${seg.isFamily ? 'family' : 'expert'}">${seg.isFamily ? 'FAMILY GO' : 'EXPERT GO'}</span></div>
@@ -220,26 +236,31 @@
       }
   }
 
-  function updateRadarTable(status) {
-    elements.radar.tableBody.innerHTML = Object.entries(spotConfig).map(([file, {name}]) => {
-        const entry = status?.files?.find(s => s.path === file);
-        const isFresh = entry && entry.fresh;
-        return `<tr>
-            <td><a href="#" data-file="${file}">${name}</a></td>
-            <td>${entry?.modified ? toLocal(entry.modified) : ''}</td>
-            <td><span style="color:var(--${isFresh ? 'ok' : 'warn'})">${isFresh ? 'Frais' : 'Ancien'}</span></td>
-        </tr>`;
-    }).join('');
-    elements.radar.tableBody.querySelectorAll('a').forEach(a => 
-        a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); })
-    );
-    elements.radar.rawLinks.innerHTML = spotFiles.map(file => `<li><a href="./${file}">${file}</a></li>`).join('');
+  function updateRadarTable(status, genIso) {
+      const spotEntries = Object.entries(spotConfig).map(([file, {name}]) => {
+          const entry = status?.files?.find(s => s.path === file);
+          const fresh = isFresh(entry, genIso);
+          return `<tr>
+              <td><a href="#" data-file="${file}">${name}</a></td>
+              <td>${toLocal(entry?.modified)}</td>
+              <td><span style="color:var(--${fresh ? 'ok' : 'warn'})">${fresh ? 'Frais' : 'Ancien'}</span></td>
+          </tr>`;
+      }).join('');
+      elements.radar.tableBody.innerHTML = spotEntries;
+      elements.radar.tableBody.querySelectorAll('a').forEach(a => 
+          a.addEventListener('click', (e) => { e.preventDefault(); window.panToFile(e.currentTarget.dataset.file); })
+      );
+
+      // Liens Données Brutes (CORRIGÉ)
+      const systemFiles = ['windows.json', 'status.json', 'reasons.json'];
+      const spotLinks = spotFiles.map(file => `<li><a href="./${file}">${file}</a></li>`).join('');
+      const systemLinks = systemFiles.map(file => `<li><a href="./${file}">${file}</a></li>`).join('');
+      elements.radar.rawLinks.innerHTML = spotLinks + '<li style="border-top:1px solid var(--br); margin: 6px 0;"></li>' + systemLinks;
   }
 
   function updateMapMarkers(spotStatus) {
     map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
     const createIcon = (color, isMain) => L.divIcon({ className: `custom-div-icon ${isMain ? 'main-port-icon' : ''}`, html: `<div style='background-color:${color};' class='marker-pin'></div><div class='marker-pulse'></div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
-
     for (const file in spotConfig) {
         const spot = spotConfig[file];
         const isMain = file === 'gammarth-port.json';
@@ -250,42 +271,36 @@
     }
   }
 
-  // --- Contrôleur Principal de Mise à Jour ---
+  // --- Contrôleur Principal ---
   async function updateDashboard() {
     elements.dashboardContent.classList.add('updating');
     
     const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
     const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(spotFiles) : [];
-    lastFetchedData = { status, windows, reasonsRows }; // Sauvegarde pour re-rendu instantané
+    lastFetchedData = { status, windows, reasonsRows };
 
-    // Logique métier : calculer le statut des spots
     const spotStatus = {};
     (windows?.windows || []).forEach(dest => { if (dest.windows?.length > 0) spotStatus[dest.dest_slug] = 'green'; });
     Object.keys(spotConfig).forEach(file => {
         if (spotStatus[file] !== 'green') {
-            const isFresh = status?.files?.find(s => s.path === file)?.fresh;
-            spotStatus[file] = isFresh ? 'yellow' : 'red';
+            const entry = status?.files?.find(s => s.path === file);
+            spotStatus[file] = isFresh(entry, windows?.generated_at) ? 'yellow' : 'red';
         }
     });
     
-    // Rendu de l'interface
     updateHeader(status, windows);
     updateWindowsCard(windows, elements.body.classList.contains('simplified-view'));
     updateReasonsCard(reasonsRows);
-    updateRadarTable(status);
+    updateRadarTable(status, windows?.generated_at);
     updateMapMarkers(spotStatus);
     
     elements.dashboardContent.classList.remove('updating');
   }
 
-  // --- Initialisation et Rafraîchissement Automatique ---
-  const map = L.map('map').setView([36.95, 10.6], 9);
-  window.panToFile = (file) => { const s = spotConfig[file]; if (s) map.setView([s.lat, s.lon], 12, { animate: true }); };
-  
+  // --- Initialisation et Timers ---
   setupEventListeners();
-  await updateDashboard(); // Premier chargement
+  await updateDashboard();
   
-  // Lancement des timers après le premier chargement
   let countdown = REFRESH_INTERVAL_SECONDS;
   setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS * 1000);
   setInterval(() => {

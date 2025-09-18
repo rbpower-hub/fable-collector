@@ -504,6 +504,33 @@
   window.addEventListener('resize', adjustLayoutForViewport);
   adjustLayoutForViewport();
 
+  // Ajuste la mise en page pour que la page tienne sans scroll
+  function fitToViewport(){
+    const root = document.documentElement;
+    const vh = window.innerHeight;
+  
+    const headerH = document.querySelector('header')?.offsetHeight || 0;
+    const footerH = document.querySelector('footer')?.offsetHeight || 0;
+  
+    // hauteur restante pour le contenu central (carte + cards)
+    const available = vh - headerH - footerH - 32; // 32px marge/paddings
+    // prends ~40-48% de la hauteur utile pour la carte
+    const target = Math.round(available * 0.44);
+  
+    // bornes pour éviter une carte trop petite/grande
+    const mapH = Math.max(280, Math.min(520, target));
+    root.style.setProperty('--map-h', mapH + 'px');
+  
+    // Si la page déborde quand même (contenu très long), réduis encore un peu la carte
+    const extra = document.body.scrollHeight - vh;
+    if (extra > 0) {
+      const reduced = Math.max(260, mapH - extra - 12);
+      root.style.setProperty('--map-h', reduced + 'px');
+    }
+  }
+  window.addEventListener('resize', fitToViewport);
+  document.addEventListener('fullscreenchange', fitToViewport);
+
   
   // Boucle de vie
   await updateDashboard();

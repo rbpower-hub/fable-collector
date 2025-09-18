@@ -46,7 +46,7 @@
     /* plein écran via Fullscreen API : html est l’élément en fullscreen */
     html:fullscreen body{
       padding:16px;       /* un peu moins de padding en FS */
-      overflow:hidden;    /* on évite la barre si 1-2px de rounding */
+      overflow:auto;    /* laisse scroller si le contenu dépasse */
     }
     
     #dashboard-content{transition:opacity .5s ease-in-out}
@@ -55,6 +55,13 @@
     .layout-grid{display:grid;grid-template-columns:2fr 1fr; gap:16px}
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     .card h3{font-size:1.15rem; color:var(--section); display:flex; align-items:center; gap:8px; justify-content: space-between;}
+    .card.wins{ max-height:22vh; overflow:auto; }
+    .card.conditions{ max-height:24vh; overflow:auto; }
+    /* Sur mobile on laisse respirer */
+    @media (max-width:900px){
+      .card.wins, .card.conditions{ max-height:none; }
+    }
+
 
     .window-line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
     .window-line .title{font-weight:700; font-size: 1.1rem; display:flex; align-items:center}
@@ -67,6 +74,16 @@
     .conditions .line.ok{   border-left-color: var(--ok); }
     .conditions .line.warn{ border-left-color: var(--warn); }
     .conditions .line.bad{  border-left-color: var(--bad); }
+    /* Couleurs du statut (table "Radar des Spots") */
+    .status-val{ font-weight:600; }            /* optionnel: un peu plus lisible */
+    .status-val.ok   { color: var(--ok); }
+    .status-val.warn { color: var(--warn); }
+    .status-val.bad  { color: var(--bad); }    /* pas encore utilisé mais prêt si besoin */
+    .table-wrap .status-val.ok   { color: var(--ok); }
+    .table-wrap .status-val.warn { color: var(--warn); }
+    .table-wrap .status-val.bad  { color: var(--bad); }
+
+
 
     .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
     table{width:100%; border-collapse:collapse}
@@ -106,7 +123,7 @@
 
     /* Alerte douce */
     @keyframes flashPulse{0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)}100%{box-shadow:0 0 0 18px rgba(76,201,240,0)}}
-    .flash{animation:flashPulse .8s ease-out 1}
+    .card.flash{animation:flashPulse .8s ease-out 1}
 
     /* AR lisible */
     :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
@@ -171,7 +188,7 @@
       </h3>
       <div class="table-wrap">
         <table id="files">
-          <thead><tr><th>Spot</th><th>Modifié</th><th>Statut</th></tr></thead>
+          <thead><tr><th>Spot</th><th>Statut</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -328,7 +345,7 @@
   });
 
   // Reset map
-  $('#resetMapBtn').addEventListener('click', ()=> 
+  document.getElementById('resetMapBtnTop')?.addEventListener('click', () =>
     map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true})
   );
   
@@ -462,10 +479,14 @@
           <button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button>
           <span class="spark expert-only" data-file="${file}"></span>
         </td>
-        <td>${fmtLocal(entry?.modified)}</td>
-        <td><span style="color:var(--${fresh?'ok':'warn'})">${t(fresh?'fresh':'stale')}</span></td>
+        <td>
+          <span class="status-val ${fresh?'ok':'warn'}" title="${fmtLocal(entry?.modified)}">
+            ${t(fresh?'fresh':'stale')}
+          </span>
+        </td>
       </tr>`;
     }).join('');
+
 
     // Rendu sparklines (séquentiel pour éviter les freezes)
     for(const el of document.querySelectorAll('.spark[data-file]')){
@@ -563,7 +584,17 @@
   window.addEventListener('resize', ()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} });
   document.addEventListener('fullscreenchange', ()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} });
 
-  
+  function tuneFullscreenOverflow(){
+    const body = document.body;
+    const needScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
+    if (document.fullscreenElement && needScroll) body.style.overflow = 'auto';
+    else body.style.overflow = '';
+  }
+  window.addEventListener('resize', tuneFullscreenOverflow);
+  document.addEventListener('fullscreenchange', tuneFullscreenOverflow);
+
+  tuneFullscreenOverflow();
+
   // Boucle de vie
   await updateDashboard();
   fitToViewport();

@@ -111,6 +111,18 @@
     /* AR lisible */
     :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
     :root[dir="rtl"] h1, :root[dir="rtl"] h3 { letter-spacing:.2px }
+    :root{ --map-h: 450px; }
+
+    #map{
+      height: var(--map-h);
+      min-height: 260px;        /* garde-fou */
+      border-radius: 14px;
+      background: var(--card);
+      border: 1px solid var(--br);
+      margin-bottom: 16px;
+      z-index: 0;
+    }
+
 
     @media (max-width:900px){ .layout-grid{grid-template-columns:1fr} .spark{display:none} }
   </style>
@@ -316,8 +328,13 @@
   });
 
   // Reset map
-  $('#resetMapBtnTop').addEventListener('click', ()=> 
+  $('#resetMapBtn').addEventListener('click', ()=> 
     map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true})
+  );
+  
+  // Reset map (bouton 🔄 dans "Radar des Spots")
+  document.getElementById('resetMapBtn')?.addEventListener('click', () =>
+    map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, { animate: true })
   );
   // Tooltip
   const tipEl = $('#tooltip');
@@ -543,8 +560,9 @@
       root.style.setProperty('--map-h', Math.max(240, mapH - overflow - 8) + 'px');
     }
   }
-  window.addEventListener('resize', fitToViewport);
-  document.addEventListener('fullscreenchange', fitToViewport);
+  window.addEventListener('resize', ()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} });
+  document.addEventListener('fullscreenchange', ()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} });
+
   
   // Boucle de vie
   await updateDashboard();

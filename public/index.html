@@ -226,8 +226,8 @@
         <summary>📚 Données Brutes</summary>
         <ul id="raw-links-list"></ul>
       </details>
+    </div>
   </div>
-</div>
 </div> <!-- 🔧 ferme #dashboard-content -->
 
 <footer>
@@ -465,14 +465,14 @@
       const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
       L.marker(mid, {
       icon: L.divIcon({
-        className: 'anchor-badge',   // ❗️on garde uniquement notre classe
+        className: 'anchor-badge',
         html: '⚓ 1h',
         iconSize: [36, 20],
         iconAnchor: [18, 10]
       }),
       interactive: false
     }).addTo(corridorLayer);
-    });
+
 
     // Avertissements (No-GO) — icône/sevérité + raison principale
     const reasonsDiv = $('#reasons');
@@ -499,7 +499,28 @@
                   <div class="small">${r.spot||''}</div>
                 </div>`;
       }).join('');
+    const parsed = (reasonsRows||[]).map(r=>{
+      const raw = String((r.family || r.expert || '')).trim();
+      let sev='warn', icon='⚠️';
+      if (/^[✗🚫]/.test(raw)) { sev='bad';  icon='🚫'; }
+      else if (/^[✓✅]/.test(raw)) { sev='ok'; icon='✅'; }
+      const cleaned = raw.replace(/^[✗✓⚠🚫✅]\s*/,'')
+                         .replace(/\s*\(([^)]+\.json)\)\s*$/,'')
+                         .trim();
+      const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
+      return { sev, icon, main, full: cleaned, spot: r.spot||'' };
+    });
     
+    // ne garder que warn/bad
+    const onlyIssues = parsed.filter(p => p.sev !== 'ok');
+    
+    reasonsDiv.innerHTML = onlyIssues.length
+      ? onlyIssues.map(p => `
+          <div class="line ${p.sev}" title="${p.full}">
+            <div class="reason">${p.icon} ${p.main}</div>
+            <div class="small">${p.spot}</div>
+          </div>`).join('')
+      : `<span class="small">Aucun avertissement.</span>`;
       reasonsDiv.innerHTML = rowsHTML;
     } else {
       reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
@@ -572,7 +593,7 @@
       WANT_SPOTS.map(([,f])=>createLink(f)).join('') +
       '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>' +
       systemLinks.map(createLink).join('');
-
+      
     // Marqueurs carte
     const spotStatus = {};
     (windows?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });

@@ -62,6 +62,9 @@
     .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted);white-space:nowrap}
     .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
     .conditions .line{border-left:4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
+    .conditions .line.ok{   border-left-color: var(--ok); }
+    .conditions .line.warn{ border-left-color: var(--warn); }
+    .conditions .line.bad{  border-left-color: var(--bad); }
 
     .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
     table{width:100%; border-collapse:collapse}
@@ -321,7 +324,8 @@
 
   // ===== Rendu principal =====
   async function updateDashboard(){
-    $('#dashboard-content').classList.add('updating');
+    $('#dashboard-content').classList.remove('updating');
+    fitToViewport();
 
     const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
     const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotConfig)) : [];
@@ -398,10 +402,33 @@
       }).addTo(corridorLayer);
     });
 
-    // Avertissements (No-GO)
+    // Avertissements (No-GO) — icône/sevérité + raison principale
     const reasonsDiv = $('#reasons');
     if (Array.isArray(reasonsRows) && reasonsRows.length) {
-      reasonsDiv.innerHTML = reasonsRows.map(r=>`<div class="line"><div class="reason">🚫 ${(r.family||r.expert||'').replace(/^✗\s*/,'')}</div><div class="small">${r.spot}</div></div>`).join('');
+      const rowsHTML = reasonsRows.map(r=>{
+        const raw = String((r.family || r.expert || '')).trim();
+    
+        // Sévérité + icône à partir du premier symbole
+        let sev = 'warn', icon = '⚠️';
+        if (/^[✗🚫]/.test(raw)) { sev='bad';  icon='🚫'; }
+        else if (/^[✓✅]/.test(raw)) { sev='ok'; icon='✅'; }
+    
+        // Nettoyage du préfixe et du suffixe (… (slug.json))
+        const cleaned = raw
+          .replace(/^[✗✓⚠🚫✅]\s*/,'')
+          .replace(/\s*\(([^)]+\.json)\)\s*$/,'')
+          .trim();
+    
+        // “raison principale” = première clause
+        const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
+    
+        return `<div class="line ${sev}" title="${cleaned}">
+                  <div class="reason">${icon} ${main}</div>
+                  <div class="small">${r.spot||''}</div>
+                </div>`;
+      }).join('');
+    
+      reasonsDiv.innerHTML = rowsHTML;
     } else {
       reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
     }
@@ -534,6 +561,7 @@
   
   // Boucle de vie
   await updateDashboard();
+  fitToViewport();
   let countdown = REFRESH_INTERVAL_SECONDS;
   setInterval(()=>{ countdown=(countdown<=1)?REFRESH_INTERVAL_SECONDS:countdown-1; $('#refresh-timer').textContent=t('next_refresh',countdown); },1000);
   setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS*1000);

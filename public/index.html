@@ -52,17 +52,10 @@
     #dashboard-content{transition:opacity .5s ease-in-out}
     #dashboard-content.updating{opacity:.3}
 
-    .layout-grid{display:grid;grid-template-columns:2fr 1fr; gap:16px}
+    .layout-grid{ display:grid; gap:16px; }
     .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     .card h3{font-size:1.15rem; color:var(--section); display:flex; align-items:center; gap:8px; justify-content: space-between;}
-    .card.wins{ max-height:22vh; overflow:auto; }
-    .card.conditions{ max-height:24vh; overflow:auto; }
-    /* Sur mobile on laisse respirer */
-    @media (max-width:900px){
-      .card.wins, .card.conditions{ max-height:none; }
-    }
-
-
+   
     .window-line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
     .window-line .title{font-weight:700; font-size: 1.1rem; display:flex; align-items:center}
     .go{display:inline-block;border-radius:10px;padding:2px 8px;margin-left:8px;font-weight:800}
@@ -74,20 +67,22 @@
     .conditions .line.ok{   border-left-color: var(--ok); }
     .conditions .line.warn{ border-left-color: var(--warn); }
     .conditions .line.bad{  border-left-color: var(--bad); }
-    /* Couleurs du statut (table "Radar des Spots") */
-    .status-val{ font-weight:600; }            /* optionnel: un peu plus lisible */
-    .status-val.ok   { color: var(--ok); }
-    .status-val.warn { color: var(--warn); }
-    .status-val.bad  { color: var(--bad); }    /* pas encore utilisé mais prêt si besoin */
-    .table-wrap .status-val.ok   { color: var(--ok); }
-    .table-wrap .status-val.warn { color: var(--warn); }
-    .table-wrap .status-val.bad  { color: var(--bad); }
-
-
 
     .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
     table{width:100%; border-collapse:collapse}
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
+    /* Fix: les liens visités restaient mauves (couleur navigateur) */
+    a:visited, a:active { color: var(--link); }
+    
+    /* Couleurs du statut dans le tableau (Fresh/Stale) */
+    .status-val{ font-weight:600; }
+    .status-val.ok   { color: var(--ok); }
+    .status-val.warn { color: var(--warn); }
+    .status-val.bad  { color: var(--bad); }
+    .table-wrap .status-val.ok   { color: var(--ok) !important; }
+    .table-wrap .status-val.warn { color: var(--warn) !important; }
+    .table-wrap .status-val.bad  { color: var(--bad) !important; }
+
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
 
     .tip{position:absolute; z-index:9999; max-width:360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow:var(--shadow); font-size:.9rem}
@@ -114,6 +109,12 @@
 
     /* Corridors / ancrage */
     .anchor-badge{background:var(--pill-bg);border:1px solid var(--br);color:var(--fg);padding:2px 6px;border-radius:999px;font-size:.8rem;box-shadow:var(--shadow)}
+    /* Leaflet DivIcon par défaut : retirer fond/bordure */
+    .leaflet-div-icon{
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
 
     /* Toggle pill (thème & langue) */
     .toggle{display:inline-flex;border:1px solid var(--br);border-radius:999px;overflow:hidden;background:var(--pill-bg)}
@@ -124,6 +125,12 @@
     /* Alerte douce */
     @keyframes flashPulse{0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)}100%{box-shadow:0 0 0 18px rgba(76,201,240,0)}}
     .card.flash{animation:flashPulse .8s ease-out 1}
+
+    @keyframes okPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(45,212,191,.55); }
+      100% { box-shadow: 0 0 0 18px rgba(45,212,191,0); }
+    }
+    .status.ok.pulse { animation: okPulse .9s ease-out 1; }
 
     /* AR lisible */
     :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
@@ -140,48 +147,71 @@
       z-index: 0;
     }
 
+    /* Grille 3 colonnes sur desktop */
+    .layout-grid.threecol{
+      display:grid;
+      grid-template-columns: 1.2fr 1.2fr 1.4fr; /* Fenêtres | Avertissements | Radar */
+      gap:16px;
+    }
+    
+    /* Cartes bornées en hauteur pour éviter le scroll de page */
+    .card.wins{       max-height: 28vh; overflow:auto; }
+    .card.conditions{ max-height: 28vh; overflow:auto; }
+    .card.radar{      max-height: 28vh; overflow:auto; }
+    
+    /* Empilement sur mobile/tablette */
+    @media (max-width: 1100px){
+      .layout-grid.threecol{ grid-template-columns:1fr; }
+      .card.wins, .card.conditions, .card.radar{ max-height:none; }
+    }
 
-    @media (max-width:900px){ .layout-grid{grid-template-columns:1fr} .spark{display:none} }
   </style>
 </head>
 <body>
 <header>
   <h1>🧭 FABLE: Tableau de Bord</h1>
   <span class="spacer"></span>
+  <!-- Updated -->
   <span id="gen" class="pill" aria-live="polite"></span>
-  <span id="hc" class="status warn" role="status">Statut: …</span>
+
+  <!-- Boutons au centre-droit -->
   <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
   <div id="themeToggle" class="toggle" title="Thème">
     <button data-theme="dark" aria-pressed="false">🌙</button>
     <button data-theme="nautical" aria-pressed="false">⚓</button>
   </div>
-  <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
   <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
   <div id="langToggle" class="toggle" title="Langue">
     <button data-lang="fr" aria-pressed="false">FR</button>
     <button data-lang="en" aria-pressed="false">EN</button>
   </div>
+
+  <!-- Status collé à droite, puis plein écran le plus à droite -->
+  <span id="hc" class="status warn" role="status">Statut: …</span>
+  <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
 </header>
 
 <div id="dashboard-content">
   <div id="map" aria-label="Carte des spots"></div>
 
-  <div class="layout-grid">
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card wins">
-        <h3>
-          <span>🪟 Fenêtres de Navigation</span>
-          <button id="resetMapBtnTop" class="btn" title="Vue initiale">🧭</button>
-        </h3>
-        <div id="wins">Chargement…</div>
-      </div>
-      <div class="card conditions expert-only">
-        <h3><span>🚦 Avertissements (No-GO)</span></h3>
-        <div id="reasons">Chargement…</div>
-      </div>
+  <div class="layout-grid threecol">
+    <!-- 1) Fenêtres -->
+    <div class="card wins">
+      <h3>
+        <span>🪟 Fenêtres de Navigation</span>
+        <button id="resetMapBtnTop" class="btn" title="Vue initiale">🧭</button>
+      </h3>
+      <div id="wins">Chargement…</div>
     </div>
-
-    <div class="card expert-only">
+  
+    <!-- 2) Avertissements (No-GO) -->
+    <div class="card conditions">
+      <h3><span>🚦 Avertissements (No-GO)</span></h3>
+      <div id="reasons">Chargement…</div>
+    </div>
+  
+    <!-- 3) Radar des Spots -->
+    <div class="card radar expert-only">
       <h3>
         <span>📡 Radar des Spots</span>
         <button id="resetMapBtn" class="btn" title="Vue initiale">🔄</button>
@@ -196,9 +226,9 @@
         <summary>📚 Données Brutes</summary>
         <ul id="raw-links-list"></ul>
       </details>
-    </div>
   </div>
 </div>
+</div> <!-- 🔧 ferme #dashboard-content -->
 
 <footer>
   <p><span id="tz" class="small"></span><span id="refresh-timer"></span></p>
@@ -369,6 +399,13 @@
     const ok = status && (status.all_fresh || status.status === 'ok');
     $('#hc').className = 'status ' + (ok ? 'ok' : 'warn');
     $('#hc').textContent = t(ok ? 'status_ok' : 'status_stale');
+    // Petit “pulse” visuel quand le statut est OK
+    if (ok) {
+      $('#hc').classList.remove('pulse'); // reset si encore présent
+      void $('#hc').offsetWidth;          // reflow pour relancer l'anim
+      $('#hc').classList.add('pulse');
+    }
+
     const gen = windows?.generated_at || status?.generated_at || null;
     $('#gen').textContent = `${t('updated')}: ${gen ? fmtLocal(gen) : '...'}`;
 
@@ -426,15 +463,15 @@
       const dest=spotConfig[slug]; if(!dest||!origin) return;
       L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
       const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-      L.marker(mid,{
-        icon: L.divIcon({
-          className: 'leaflet-div-icon anchor-badge',
-          html: '⚓ 1h',
-          iconSize: [36, 20],
-          iconAnchor: [18, 10]
-        }),
-        interactive: false
-      }).addTo(corridorLayer);
+      L.marker(mid, {
+      icon: L.divIcon({
+        className: 'anchor-badge',   // ❗️on garde uniquement notre classe
+        html: '⚓ 1h',
+        iconSize: [36, 20],
+        iconAnchor: [18, 10]
+      }),
+      interactive: false
+    }).addTo(corridorLayer);
     });
 
     // Avertissements (No-GO) — icône/sevérité + raison principale
@@ -531,9 +568,10 @@
     const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
     const createLink = f => `<li><span style="display:inline-block;width:1.5em;">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`;
     const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-    $('#raw-links-list').innerHTML = WANT_SPOTS.map(([,f])=>createLink(f)).join('')
-      + '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>'
-      + systemLinks.map(createLink).join('');
+    $('#raw-links-list').innerHTML =
+      WANT_SPOTS.map(([,f])=>createLink(f)).join('') +
+      '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>' +
+      systemLinks.map(createLink).join('');
 
     // Marqueurs carte
     const spotStatus = {};
@@ -581,17 +619,20 @@
       root.style.setProperty('--map-h', Math.max(240, mapH - overflow - 8) + 'px');
     }
   }
-  window.addEventListener('resize', ()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} });
-  document.addEventListener('fullscreenchange', ()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} });
-
+ 
   function tuneFullscreenOverflow(){
     const body = document.body;
     const needScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
     if (document.fullscreenElement && needScroll) body.style.overflow = 'auto';
     else body.style.overflow = '';
   }
-  window.addEventListener('resize', tuneFullscreenOverflow);
-  document.addEventListener('fullscreenchange', tuneFullscreenOverflow);
+  let _resizeT;
+  const safeResize = () => {
+    clearTimeout(_resizeT);
+    _resizeT = setTimeout(()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} }, 80);
+  };
+  window.addEventListener('resize', () => { tuneFullscreenOverflow(); safeResize(); });
+  document.addEventListener('fullscreenchange', () => { tuneFullscreenOverflow(); safeResize(); });
 
   tuneFullscreenOverflow();
 

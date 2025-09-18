@@ -62,7 +62,7 @@
     th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
     th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
 
-    .tip{position:absolute; z-index:9999; max-width:360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow:var(--shadow); font-size:.9rem}
+    .tip{position:absolute; z-index:9999; max-width:360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow:var(--shadow); font-size:.9rem; pointer-events:auto}
     .tip .hdr{font-weight:700; margin-bottom:4px} .tip .row{margin-top:4px}
 
     body.simplified-view .expert-only{display:none}
@@ -181,6 +181,7 @@
   let LANG = localStorage.getItem('lang') || 'fr';
   let muted = localStorage.getItem('mute') === '1';
   let lastWinsKey = new Set();
+  let reasonsByFile = new Map(); // rendu global pour tooltip
 
   const $ = sel => document.querySelector(sel);
   const t = (path,...args)=>{const d=I18N[LANG]||I18N.fr; const v=path.split('.').reduce((o,k)=>(o||{})[k],d); return typeof v==='function'?v(...args):(v??path);};
@@ -263,10 +264,78 @@
   // Reset map
   $('#resetMapBtn').addEventListener('click', ()=> map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true}));
 
-  // Tooltip
+  // ===== Tooltip robuste (Expert: bouton; Family: nom du spot) =====
   const tipEl = $('#tooltip');
-  const hideTip = ()=>{ tipEl.style.display='none'; };
-  document.addEventListener('scroll', hideTip, {passive:true});
+  let tipHideTimer = null;
+  const isExpertView = ()=> !document.body.classList.contains('simplified-view');
+
+  function positionTip(anchor){
+    const rect = anchor.getBoundingClientRect();
+    tipEl.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;
+    tipEl.style.top  = `${window.scrollY + rect.top - 6}px`;
+  }
+  function showTipFor(file, anchor){
+    const r = reasonsByFile.get(file);
+    tipEl.innerHTML = `
+      <div class="hdr">${(spotConfig[file]?.name || file)}</div>
+      <div class="row"><b>Family:</b> ${r?.family || '—'}</div>
+      <div class="row"><b>Expert:</b> ${r?.expert || '—'}</div>`;
+    positionTip(anchor);
+    tipEl.style.display = 'block';
+    tipEl.dataset.file = file;
+  }
+  function hideTipSoon(ms=160){
+    clearTimeout(tipHideTimer);
+    tipHideTimer = setTimeout(()=>{ tipEl.style.display='none'; tipEl.removeAttribute('data-file'); }, ms);
+  }
+  tipEl.addEventListener('mouseenter', ()=> clearTimeout(tipHideTimer));
+  tipEl.addEventListener('mouseleave', ()=> hideTipSoon());
+
+  const filesTbody = document.querySelector('#files tbody');
+
+  // Hover: expert -> bouton .why ou lien; family -> lien seulement
+  filesTbody.addEventListener('mouseover', (e) => {
+    const selector = isExpertView() ? 'button.why, a[data-file]' : 'a[data-file]';
+    const trg = e.target.closest(selector);
+    if (!trg) return;
+    const file = trg.dataset.file;
+    if (!file) return;
+    showTipFor(file, trg);
+  });
+  filesTbody.addEventListener('mouseout', (e) => {
+    if (e.target.closest('button.why, a[data-file]')) hideTipSoon();
+  });
+  // Focus clavier
+  filesTbody.addEventListener('focusin', (e) => {
+    const trg = e.target.closest('button.why, a[data-file]');
+    if (!trg) return;
+    const file = trg.dataset.file;
+    if (!file) return;
+    showTipFor(file, trg);
+  });
+  filesTbody.addEventListener('focusout', () => hideTipSoon());
+  // Click global: fermer si on clique ailleurs
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.tip, #files tbody a[data-file], #files tbody button.why')) hideTipSoon(0);
+  }, {capture:true});
+
+  // Délégation clic pour pan/tooltip
+  filesTbody.addEventListener('click',(e)=>{
+    const link=e.target.closest('a[data-file]');
+    if(!link) return;
+    const file = link.dataset.file;
+    if(!file) return;
+    e.preventDefault();
+    if (isExpertView()){
+      window.panToFile(file);
+    } else {
+      // En FAMILY: le nom du spot sert à afficher/masquer la bulle
+      if (tipEl.style.display==='block' && tipEl.dataset.file===file) hideTipSoon(0);
+      else showTipFor(file, link);
+    }
+  });
+
+  document.addEventListener('scroll', () => { if (tipEl.style.display==='block') hideTipSoon(0); }, {passive:true});
 
   // ===== Rendu principal =====
   async function updateDashboard(){
@@ -274,6 +343,16 @@
 
     const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
     const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotConfig)) : [];
+
+    // Construire la map fichier -> raisons (globale pour tooltip)
+    reasonsByFile = new Map(
+      (reasonsRows || [])
+        .map(r => {
+          const m=/\(([^)]+\.json)\)\s*$/.exec(r.spot||'');
+          return m ? [m[1], r] : null;
+        })
+        .filter(Boolean)
+    );
 
     // Header
     const ok = status && (status.all_fresh || status.status === 'ok');
@@ -382,42 +461,13 @@
       }catch{ el.innerHTML=''; }
     }
 
-    // Infobulles "Info..." (reasons mappés par fichier)
-    const reasonsByFile = new Map((reasonsRows||[]).map(r=>{
-      const m=/\(([^)]+\.json)\)\s*$/.exec(r.spot||''); return m ? [m[1], r] : [null,null];
-    }).filter(x=>x[0]));
-    const showTip = (btn)=>{
-      const file = btn.dataset.file;
-      const r = reasonsByFile.get(file);
-      tipEl.innerHTML = `<div class="hdr">${spotConfig[file]?.name||file}</div>
-                         <div class="row"><b>Family:</b> ${r?.family||'—'}</div>
-                         <div class="row"><b>Expert:</b> ${r?.expert||'—'}</div>`;
-      const rect = btn.getBoundingClientRect();
-      tipEl.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;
-      tipEl.style.top  = `${window.scrollY + rect.top - 6}px`;
-      tipEl.style.display = 'block';
-    };
-    document.querySelectorAll('button.why').forEach(btn=>{
-      btn.addEventListener('mouseenter', ()=>showTip(btn));
-      btn.addEventListener('mouseleave', hideTip);
-    });
-
-    // Liens bruts
-    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
-    const createLink = f => `<li><span style="display:inline-block;width:1.5em;">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`;
-    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-    $('#raw-links-list').innerHTML = WANT_SPOTS.map(([,f])=>createLink(f)).join('')
-      + '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>'
-      + systemLinks.map(createLink).join('');
-
-    // Marqueurs carte
+    // Marqueurs carte (on ne supprime que les markers, pas les tuiles/corridors)
+    map.eachLayer(l=>{ if (l instanceof L.Marker) map.removeLayer(l); });
     const spotStatus = {};
     (windows?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
     Object.keys(spotConfig).forEach(file=>{
       if(spotStatus[file]!=='green'){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = isFresh(entry,gen) ? 'yellow' : 'red'; }
     });
-
-    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); }); // on garde tuiles + corridors
     const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
     for(const file in spotConfig){
       const s=spotConfig[file], isMain = file==='gammarth-port.json', st = spotStatus[file];
@@ -428,11 +478,6 @@
 
     $('#dashboard-content').classList.remove('updating');
   }
-
-  // Délégation clics dans le tableau (pan sur spot)
-  $('#files tbody').addEventListener('click',(e)=>{
-    const a=e.target.closest('a[data-file]'); if(a){ e.preventDefault(); window.panToFile(a.dataset.file); }
-  });
 
   // Boucle de vie
   await updateDashboard();

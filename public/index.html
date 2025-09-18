@@ -87,6 +87,12 @@
     /* Corridors / ancrage */
     .anchor-badge{background:var(--pill-bg);border:1px solid var(--br);color:var(--fg);padding:2px 6px;border-radius:999px;font-size:.8rem;box-shadow:var(--shadow)}
 
+    /* Toggle pill (thème & langue) */
+    .toggle{display:inline-flex;border:1px solid var(--br);border-radius:999px;overflow:hidden;background:var(--pill-bg)}
+    .toggle button{padding:4px 10px;font-weight:700;border:0;background:transparent;color:var(--muted);cursor:pointer}
+    .toggle button.active{background:var(--accent); color:#041019}
+    .toggle button:not(.active):hover{background:rgba(255,255,255,.06)}
+
     /* Alerte douce */
     @keyframes flashPulse{0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)}100%{box-shadow:0 0 0 18px rgba(76,201,240,0)}}
     .flash{animation:flashPulse .8s ease-out 1}
@@ -105,7 +111,10 @@
   <span id="gen" class="pill" aria-live="polite"></span>
   <span id="hc" class="status warn" role="status">Statut: …</span>
   <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
-  <button id="themeBtn" class="btn" title="Changer le thème">🎨</button>
+  <div id="themeToggle" class="toggle" title="Thème">
+    <button data-theme="dark" aria-pressed="false">🌙</button>
+    <button data-theme="nautical" aria-pressed="false">⚓</button>
+  </div>
   <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
   <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
   <button id="langBtn" class="btn" title="Langue">FR</button>
@@ -168,11 +177,11 @@
 
   // Spots & config
   const spotConfig = {
-    'gammarth-port.json':{name:'Gammarth Port',lat:36.903,lon:10.323},
-    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.871,lon:10.349},
-    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.168,lon:10.194},
-    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.612},
-    'el-haouaria.json':{name:'El Haouaria',lat:37.054,lon:11.042}
+    'gammarth-port.json':{name:'Gammarth Port',lat:36.921,lon:10.310},
+    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.865,lon:10.351},
+    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.177,lon:10.280},
+    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613},
+    'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008}
   };
   const WANT_SPOTS = Object.entries(spotConfig).map(([file,{name}]) => [name,file]);
   const INITIAL_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
@@ -245,10 +254,25 @@
   setMuteUI(muted);
   btnMute.addEventListener('click', ()=> setMuteUI(!muted));
 
-  // Thème
-  const themes=['dark','light','nautical']; let themeIdx = themes.indexOf(localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'dark'); if(themeIdx<0) themeIdx=0;
-  document.documentElement.setAttribute('data-theme', themes[themeIdx]);
-  $('#themeBtn').addEventListener('click', ()=>{ themeIdx=(themeIdx+1)%themes.length; const th=themes[themeIdx]; document.documentElement.setAttribute('data-theme', th); localStorage.setItem('theme', th); });
+  // Thème (Dark/Nautical uniquement)
+  const themes=['dark','nautical'];
+  let theme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'dark';
+  if(!themes.includes(theme)) theme='dark';
+  const themeToggle = $('#themeToggle');
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    themeToggle.querySelectorAll('button').forEach(b=>{
+      const isActive = b.dataset.theme===t;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', isActive?'true':'false');
+    });
+  }
+  themeToggle.addEventListener('click', e=>{
+    const btn=e.target.closest('button[data-theme]'); if(!btn) return;
+    applyTheme(btn.dataset.theme);
+  });
+  applyTheme(theme);
 
   // Plein écran
   $('#fullscreenBtn').addEventListener('click', ()=> document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());

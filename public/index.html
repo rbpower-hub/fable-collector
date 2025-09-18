@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b1020" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  .anchor-badge{ pointer-events:none; }
   <style>
     :root{
       --bg:#0b1020; --fg:#e8eef6; --muted:#a6b7c9; --accent:#4cc9f0;
@@ -39,8 +40,13 @@
     .status{display:inline-block;border-radius:8px;padding:4px 10px;margin-left:8px;font-weight:700}
     .status.ok{background:var(--ok); color:#081019 !important} .status.warn{background:var(--warn); color:#081019 !important}
     #gen.pill{border:1px solid var(--br); border-radius:999px; padding:6px 12px; font-weight:800; color:var(--muted); background:var(--pill-bg);}
-
-    #map{height:450px;border-radius:14px;background:var(--card);border:1px solid var(--br);margin-bottom:16px;z-index:0}
+    
+    :root{ --map-h:450px; }
+    #map{height:var(--map-h); border-radius:14px; background:var(--card); border:1px solid var(--br); margin-bottom:16px; z-index:0}
+    @media (display-mode:fullscreen){
+      body{ margin:16px; }
+    }
+    
     #dashboard-content{transition:opacity .5s ease-in-out}
     #dashboard-content.updating{opacity:.3}
 
@@ -117,7 +123,10 @@
   </div>
   <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
   <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
-  <button id="langBtn" class="btn" title="Langue">FR</button>
+  <div id="langToggle" class="toggle" title="Langue">
+    <button data-lang="fr" aria-pressed="false">FR</button>
+    <button data-lang="en" aria-pressed="false">EN</button>
+  </div>
 </header>
 
 <div id="dashboard-content">
@@ -126,7 +135,10 @@
   <div class="layout-grid">
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card wins">
-        <h3><span>🪟 Fenêtres de Navigation</span></h3>
+        <h3>
+          <span>🪟 Fenêtres de Navigation</span>
+          <button id="resetMapBtnTop" class="btn" title="Vue initiale">🧭</button>
+        </h3>
         <div id="wins">Chargement…</div>
       </div>
       <div class="card conditions expert-only">
@@ -171,9 +183,8 @@
   const I18N = {
     fr:{status_ok:"Statut: OK",status_stale:"Statut: Données anciennes",updated:"Mise à jour",reasons_unavailable:"Raisons indisponibles.",none_windows:'Aucune fenêtre "GO" détectée.',fresh:"Frais",stale:"Ancien",next_refresh:s=>`Prochaine MAJ dans ${s}s.`,principal_port:"Port Principal",go_popup:{green:"Fenêtre 'GO' !",yellow:"Données à jour",red:"Données anciennes"},conf_title:(t,s)=>`Confiance: ${t}${s!=null?' · '+s+'%':''}`},
     en:{status_ok:"Status: OK",status_stale:"Status: Stale data",updated:"Updated",reasons_unavailable:"Reasons unavailable.",none_windows:'No "GO" window detected.',fresh:"Fresh",stale:"Stale",next_refresh:s=>`Next refresh in ${s}s.`,principal_port:"Main Port",go_popup:{green:"GO window!",yellow:"Data up to date",red:"Stale data"},conf_title:(t,s)=>`Confidence: ${t}${s!=null?' · '+s+'%':''}`},
-    ar:{status_ok:"الحالة: جيد",status_stale:"الحالة: بيانات قديمة",updated:"آخر تحديث",reasons_unavailable:"الأسباب غير متاحة.",none_windows:'لا توجد نافذة "GO".',fresh:"محدث",stale:"قديم",next_refresh:s=>`التحديث القادم خلال ${s}ث`,principal_port:"الميناء الرئيسي",go_popup:{green:"نافذة GO!",yellow:"البيانات محدثة",red:"البيانات قديمة"},conf_title:(t,s)=>`ثقة التنبؤات: ${t}${s!=null?' · '+s+'%':''}`}
   };
-  const LOCALES = { fr:'fr-FR', en:'en-GB', ar:'ar-TN' };
+  const LOCALES = { fr:'fr-FR', en:'en-GB' };
 
   // Spots & config
   const spotConfig = {
@@ -242,11 +253,26 @@
   // ===== UI setup =====
   $('#tz').textContent = `Affichage en ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
 
-  // Langue
-  const btnLang = $('#langBtn');
-  const setLangUI = l => { LANG=l; localStorage.setItem('lang',l); document.documentElement.lang=l; document.documentElement.dir=(l==='ar'?'rtl':'ltr'); btnLang.textContent=l.toUpperCase(); };
+  // Langue (FR/EN uniquement)
+  const langToggle = $('#langToggle');
+  const languages = ['fr','en'];
+  if(!languages.includes(LANG)) LANG='fr';
+  function setLangUI(l){
+    LANG=l; localStorage.setItem('lang', l);
+    document.documentElement.lang = l;
+    document.documentElement.dir  = 'ltr';
+    langToggle.querySelectorAll('button').forEach(b=>{
+      const on = b.dataset.lang===l;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on?'true':'false');
+    });
+  }
+  langToggle.addEventListener('click', e=>{
+    const btn=e.target.closest('button[data-lang]'); if(!btn) return;
+    setLangUI(btn.dataset.lang);
+    updateDashboard();
+  });
   setLangUI(LANG);
-  btnLang.addEventListener('click', ()=>{ setLangUI(LANG==='fr'?'en':LANG==='en'?'ar':'fr'); updateDashboard(); });
 
   // Son
   const btnMute = $('#muteBtn');
@@ -285,8 +311,9 @@
   });
 
   // Reset map
-  $('#resetMapBtn').addEventListener('click', ()=> map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true}));
-
+  $('#resetMapBtnTop').addEventListener('click', ()=> 
+    map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true})
+  );
   // Tooltip
   const tipEl = $('#tooltip');
   const hideTip = ()=>{ tipEl.style.display='none'; };
@@ -360,7 +387,15 @@
       const dest=spotConfig[slug]; if(!dest||!origin) return;
       L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
       const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-      L.marker(mid,{icon:L.divIcon({className:'anchor-badge',html:'⚓ 1h'})}).addTo(corridorLayer);
+      L.marker(mid,{
+        icon: L.divIcon({
+          className: 'leaflet-div-icon anchor-badge',
+          html: '⚓ 1h',
+          iconSize: [36, 20],
+          iconAnchor: [18, 10]
+        }),
+        interactive: false
+      }).addTo(corridorLayer);
     });
 
     // Avertissements (No-GO)
@@ -458,6 +493,18 @@
     const a=e.target.closest('a[data-file]'); if(a){ e.preventDefault(); window.panToFile(a.dataset.file); }
   });
 
+  function adjustLayoutForViewport(){
+    const vh = window.innerHeight;
+    const headerH = document.querySelector('header')?.offsetHeight || 0;
+    const footerH = document.querySelector('footer')?.offsetHeight || 0;
+    const available = vh - headerH - footerH - 48; // marge/carte/espaces
+    const mapH = Math.max(320, Math.min(520, Math.round(available * 0.45)));
+    document.documentElement.style.setProperty('--map-h', mapH + 'px');
+  }
+  window.addEventListener('resize', adjustLayoutForViewport);
+  adjustLayoutForViewport();
+
+  
   // Boucle de vie
   await updateDashboard();
   let countdown = REFRESH_INTERVAL_SECONDS;

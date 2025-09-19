@@ -69,7 +69,10 @@
     .wins-tabs{display:flex;gap:8px;margin-bottom:8px}
     .wins-tabs button{flex:1;padding:6px 10px;border:1px solid var(--br);background:var(--pill-bg);color:var(--muted);border-radius:8px;cursor:pointer;font-weight:600}
     .wins-tabs button.active{background:var(--accent);color:#041019}
-  </style>
+      /* Spot header (group title) and tighter title layout */
+    .dest-title{font-weight:800;color:var(--section)}
+    .window-line .title{justify-content:flex-start;gap:6px}
+</style>
 </head>
 <body>
 <header class="app-header">
@@ -181,50 +184,178 @@ window.renderWindows=function(windows){
     expHTML+=items.filter(r=>!isFamilyWindow(r.seg.start,r.seg.end)).map(renderWin).join('');
   });
   winsFamily.innerHTML=famHTML||'<span class="small">Aucune fenêtre</span>';
-  winsExpert.innerHTML=expHTML||'<span class="small">Aucune fenêtre</span>';
-}
-</script>
-<script>
-(function(){
-  const REFRESH_INTERVAL_SECONDS = 600;
-  const MOCK = new URLSearchParams(location.search).has('mock');
-  const I18N = {fr:{status_ok:"Statut: OK",status_stale:"Statut: Données anciennes",updated:"Mise à jour",reasons_unavailable:"Raisons indisponibles.",none_windows:'Aucune fenêtre "GO" détectée.',fresh:"Frais",stale:"Ancien",next_refresh:s=>`Prochaine MAJ dans ${s}s.`,principal_port:"Port Principal",go_popup:{green:"Fenêtre 'GO' !",yellow:"Données à jour",red:"Données anciennes"},conf_title:(t,s)=>`Confiance: ${t}${s!=null?' · '+s+'%':''}`},en:{status_ok:"Status: OK",status_stale:"Status: Stale data",updated:"Updated",reasons_unavailable:"Reasons unavailable.",none_windows:'No "GO" window detected.',fresh:"Fresh",stale:"Stale",next_refresh:s=>`Next refresh in ${s}s.`,principal_port:"Main Port",go_popup:{green:"GO window!",yellow:"Data up to date",red:"Stale data"},conf_title:(t,s)=>`Confidence: ${t}${s!=null?' · '+s+'%':''}`},};
-  const LOCALES = { fr:'fr-FR', en:'en-GB' };
-  const spotConfig = {'gammarth-port.json':{name:'Gammarth Port',lat:36.921,lon:10.310},'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.865,lon:10.351},'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.177,lon:10.280},'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613},'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008}};
-  const INITIAL_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
-  let LANG = localStorage.getItem('lang') || 'fr'; let muted = localStorage.getItem('mute')==='1';
-  const $=s=>document.querySelector(s); const t=(path,...args)=>{const d=I18N[LANG]||I18N.fr; const v=path.split('.').reduce((o,k)=>(o||{})[k],d); return typeof v==='function'?v(...args):(v??path);};
-  const fmtLocal=iso=> iso? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-  const fmtFriendly=iso=> iso? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}):'';
-  const fetchJSON=async(path)=>{ try{ const r=await fetch(path,{cache:'no-store'}); if(r.ok) return r.json(); }catch{} if(!MOCK) return null; if(path.endsWith('status.json')){ return { status:'ok', all_fresh:true, generated_at:new Date().toISOString(), files:[{path:'gammarth-port.json',modified:new Date(Date.now()-5*60*1000).toISOString()},{path:'sidi-bou-said.json',modified:new Date(Date.now()-30*60*1000).toISOString()},{path:'ghar-el-melh.json',modified:new Date(Date.now()-150*60*1000).toISOString()},{path:'ras-fartass.json',modified:new Date(Date.now()-10*60*1000).toISOString()},{path:'el-haouaria.json',modified:new Date(Date.now()-240*60*1000).toISOString()}]}; } if(path.endsWith('windows.json')){ const now=Date.now(), iso=t=>new Date(t).toISOString(); return { generated_at: iso(now), windows:[{dest_name:'Sidi Bou Saïd',dest_slug:'sidi-bou-said.json',windows:[{start:iso(now+1*3600e3),end:iso(now+3*3600e3),confidence:'high',confidence_score:0.92,models:['GFS','WW3'],spreads:{wind_kmh:5,hs_m:0.2}},{start:iso(now+6*3600e3),end:iso(now+8*3600e3),confidence:'medium',confidence_score:0.70}]},{dest_name:'Ghar el Melh',dest_slug:'ghar-el-melh.json',windows:[{start:iso(now+2*3600e3),end:iso(now+5*3600e3),confidence:'low',confidence_score:0.45}]},{dest_name:'El Haouaria',dest_slug:'el-haouaria.json',windows:[{start:iso(now+9*3600e3),end:iso(now+12*3600e3),confidence:'high',confidence_score:0.88}]}]}; } if(/\.json$/.test(path)){ const hours=[...Array(12)].map((_,i)=>({wind_kmh:12+Math.round(6*Math.sin(i/2)), gust_kmh:18+Math.round(8*Math.cos(i/3)), hs_m:+(0.6+0.2*Math.sin(i/4)).toFixed(2)})); return {hours}; } return null; };
-  // Map
-  const map=L.map('map').setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
-  const corridorLayer=L.layerGroup().addTo(map);
-  // Basic controls
-  $('#tz').textContent=`Affichage en ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
-  (function(){ const langToggle=$('#langToggle'); const setLangUI=l=>{ LANG=l; localStorage.setItem('lang',l); document.documentElement.lang=l; document.documentElement.dir='ltr'; langToggle?.querySelectorAll('button').forEach(b=>{const on=b.dataset.lang===l; b.classList.toggle('active',on); b.setAttribute('aria-pressed',on?'true':'false');}); }; langToggle?.addEventListener('click',e=>{const btn=e.target.closest('button[data-lang]'); if(!btn) return; setLangUI(btn.dataset.lang); updateDashboard();}); setLangUI(LANG); })();
-  (function(){ const btn=$('#muteBtn'); const setUI=m=>{ muted=m; localStorage.setItem('mute',m?'1':'0'); if(btn) btn.textContent=m?'🔕':'🔔'; }; setUI(muted); btn?.addEventListener('click',()=>setUI(!muted));})();
-  (function(){ const themes=['dark','nautical']; let theme=localStorage.getItem('theme')||document.documentElement.getAttribute('data-theme')||'dark'; if(!themes.includes(theme)) theme='dark'; const toggle=$('#themeToggle'); function apply(t){ document.documentElement.setAttribute('data-theme',t); localStorage.setItem('theme',t); toggle?.querySelectorAll('button').forEach(b=>{const on=b.dataset.theme===t; b.classList.toggle('active',on); b.setAttribute('aria-pressed',on?'true':'false');}); } toggle?.addEventListener('click',e=>{ const b=e.target.closest('button[data-theme]'); if(!b) return; apply(b.dataset.theme); }); apply(theme); })();
-  $('#fullscreenBtn')?.addEventListener('click',()=> document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
-  $('#viewToggleBtn')?.addEventListener('click',()=>{ const s=document.body.classList.toggle('simplified-view'); $('#viewToggleBtn').textContent=s?'Vue Experte':'Vue Simplifiée'; updateDashboard(); });
-  document.getElementById('resetMapBtnTop')?.addEventListener('click',()=> map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true}));
-  document.getElementById('resetMapBtn')?.addEventListener('click',()=> map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true}));
+  winsExpert.innerHTML=expHTML.join('')||`<span class=\"small\">${t('none_windows')}</span>`;
+  // ---- Radar des Spots (table) ----
+  const filesTbody = document.querySelector('#files tbody');
+  if (filesTbody) {
+    filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+      const entry = status?.files?.find(s=>s.path===file);
+      const fresh = !!entry; // simple proxy with mock or presence
+      return `<tr data-file="${file}">
+        <td><a href="#" data-file="${file}"><strong>${name}</strong></a></td>
+        <td><span class="status-val ${fresh?'ok':'warn'}" title="${fmtLocal(entry?.modified)}">${t(fresh?'fresh':'stale')}</span></td>
+      </tr>`;
+    }).join('');
+  
+    // Pan map to marker on click
+    filesTbody.addEventListener('click',(e)=>{
+      const a=e.target.closest('a[data-file]');
+      if(!a) return;
+      e.preventDefault();
+      const s=spotConfig[a.dataset.file];
+      if (s) map.setView([s.lat,s.lon], 12, {animate:true});
+    });
+  }
+  
+  // ---- Données Brutes (links) ----
+  const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
+  const createLink = f => `<li><span style="display:inline-block;width:1.5em;">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`;
+  const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
+  const rawList = document.getElementById('raw-links-list');
+  if (rawList) {
+    rawList.innerHTML =
+      Object.keys(spotConfig).map(f=>createLink(f)).join('') +
+      '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>' +
+      systemLinks.map(createLink).join('');
+  }
+  
+  // ---- Map markers + corridors ----
+  const origin = spotConfig['gammarth-port.json'];
+  const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
+  
+  const seenSlugs = new Set();
+  (windows?.windows||[]).forEach(d => { if (d.windows?.length) seenSlugs.add(d.dest_slug); });
+  
+  // draw corridors (limit 3)
+  corridorLayer.clearLayers();
+  Array.from(seenSlugs).slice(0,3).forEach(slug=>{
+    const dest=spotConfig[slug]; if(!dest||!origin) return;
+    L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
+  });
+  
+  // remove old markers (keep tiles + corridors)
+  map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
+  
+  // markers by status (main port accent; green if any GO; else yellow/red)
+  const createIcon=(color,isMain)=> L.divIcon({
+    className:`custom-div-icon ${isMain?'main-port-icon':''}`,
+    html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`,
+    iconSize:[30,42], iconAnchor:[15,42]
+  });
+  
+  const spotStatus = {};
+  (windows?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
+  Object.keys(spotConfig).forEach(file=>{
+    if (!spotStatus[file]) {
+      const entry = status?.files?.find(s=>s.path===file);
+      spotStatus[file] = entry ? 'yellow' : 'red';
+    }
+  });
+  
+  for (const file in spotConfig){
+    const s=spotConfig[file], isMain=(file==='gammarth-port.json'), st=spotStatus[file];
+    const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
+    const text  = isMain ? t('principal_port') : t(`go_popup.${st}`);
+    L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0})
+      .addTo(map)
+      .bindPopup(`<b>${s.name}</b><br>${text}`);
+  }
+  
+  // help Leaflet recompute layout after DOM changes (TV/FullScreen)
+  setTimeout(()=>{ try{ map.invalidateSize(); }catch{} }, 50);
 
-  async function updateDashboard(){
-    const winsFamily=document.getElementById('winsFamily');
-    const winsExpert=document.getElementById('winsExpert');
-    const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
-    const ok = status && (status.all_fresh || status.status==='ok');
-    const hc=document.getElementById('hc'); if(hc){ hc.className='status '+(ok?'ok':'warn'); hc.textContent=t(ok?'status_ok':'status_stale'); }
-    const gen=windows?.generated_at || status?.generated_at || null; document.getElementById('gen').textContent=`${t('updated')}: ${gen?fmtLocal(gen):'...'}`;
-    const grouped=new Map(); (windows?.windows||[]).forEach(dest=>{ const items=(dest.windows||[]).map(seg=>({dest,seg})); grouped.set(dest.dest_name,(grouped.get(dest.dest_name)||[]).concat(items)); });
-    const renderWin=({dest,seg})=>{ const family=(function(startIso,endIso){ const s=new Date(startIso), e=new Date(endIso); if(isNaN(s)||isNaN(e)) return true; for(let d=new Date(s); d<=e; d.setHours(d.getHours()+1)){const h=d.getHours(); if(h<8||h>=21) return false;} return true; })(seg.start,seg.end); const confKey=((seg.confidence||dest.confidence)||'').toLowerCase(); const confText=confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':''; const score=(typeof seg.confidence_score==='number')?Math.round((seg.confidence_score<=1? seg.confidence_score*100 : seg.confidence_score)):null; const confBadge=confText?`<span class=\"conf ${confKey}\" title=\"${t('conf_title',confText,score)}\">${confText}${score!=null?' · '+score:''}</span>`:''; return {family,slug:dest.dest_slug, html:`<div class=\"window-line ${!family?'expert-only':''}\"><div class=\"title\">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h ${confBadge}</div></div>`}; };
-    const famHTML=[]; const expHTML=[]; const seenSlugs=new Set();
-    grouped.forEach((items,destName)=>{ const r=items.map(renderWin); const fam=r.filter(x=>x.family); const exp=r.filter(x=>!x.family); const header=`<div class=\"window-line\" style=\"border-style:dashed\"><div class=\"title\">${destName}</div></div>`; if(fam.length) famHTML.push(header + fam.map(x=>x.html).join('')); if(exp.length) expHTML.push(header + exp.map(x=>x.html).join('')); r.forEach(x=>{ if(x.slug) seenSlugs.add(x.slug); }); });
-    winsFamily.innerHTML=famHTML.join('')||`<span class=\"small\">${t('none_windows')}</span>`;
-    winsExpert.innerHTML=expHTML.join('')||`<span class=\"small\">${t('none_windows')}</span>`;
-    // corridors
+    // ---- Radar des Spots (table) ----
+    const filesTbody = document.querySelector('#files tbody');
+    if (filesTbody) {
+      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+        const entry = status?.files?.find(s=>s.path===file);
+        const fresh = !!entry; // simple proxy with mock
+        return `<tr data-file=\"${file}\">\n          <td><a href=\"#\" data-file=\"${file}\"><strong>${name}</strong></a></td>\n          <td><span class=\"status-val ${fresh?'ok':'warn'}\" title=\"${fmtLocal(entry?.modified)}\">${t(fresh?'fresh':'stale')}</span></td>\n        </tr>`;
+      }).join('');
+      filesTbody.addEventListener('click',(e)=>{
+        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
+      });
+    }
+
+    // ---- Données Brutes (links) ----
+    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
+    const createLink = f => `<li><span style=\\\"display:inline-block;width:1.5em;\\\">${ICON[f]||'•'}</span><a href=\\\"./${f}\\\">${f}</a></li>`;
+    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
+    const rawList = document.getElementById('raw-links-list');
+    if (rawList) {
+      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\\\"border-top:1px solid var(--br);margin:6px 0;\\\"></li>' + systemLinks.map(createLink).join('');
+    }
+
+    // ---- Map markers + corridors ----
+    const origin = spotConfig['gammarth-port.json'];
+    const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
+
+    const seenSlugs = new Set();
+    (windows?.windows||[]).forEach(d=>{ if(d.windows?.length) seenSlugs.add(d.dest_slug); });
+    Array.from(seenSlugs).slice(0,3).forEach(slug=>{
+      const dest=spotConfig[slug]; if(!dest||!origin) return;
+      L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
+    });
+
+    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
+    const createIcon=(color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style=\\\"background-color:${color};\\\" class=\\\"marker-pin\\\"></div><div class=\\\"marker-pulse\\\"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+
+    const spotStatus={};
+    (windows?.windows||[]).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
+    Object.keys(spotConfig).forEach(file=>{ if(!spotStatus[file]){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = entry ? 'yellow' : 'red'; } });
+
+    for(const file in spotConfig){ const s=spotConfig[file], isMain=(file==='gammarth-port.json'), st=spotStatus[file]; const color=isMain?'var(--accent)':(st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)')); const text=isMain?t('principal_port'):t(`go_popup.${st}`); L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${text}`); }
+
+    setTimeout(()=>{ try{ map.invalidateSize(); }catch{} }, 50);
+
+    corridorLayer.clearLayers(); const filesTbody = document.querySelector('#files tbody');
+    if (filesTbody) {
+      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+        const entry = status?.files?.find(s=>s.path===file);
+        const fresh = !!entry; // simple proxy with mock
+        return `<tr data-file="${file}">
+          <td><a href="#" data-file="${file}"><strong>${name}</strong></a></td>
+          <td><span class="status-val ${fresh?'ok':'warn'}" title="${fmtLocal(entry?.modified)}">${t(fresh?'fresh':'stale')}</span></td>
+        </tr>`;
+      }).join('');
+      filesTbody.addEventListener('click',(e)=>{
+        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
+      });
+    }
+
+    // ---- Données Brutes (links) ----
+    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
+    const createLink = f => `<li><span style=\"display:inline-block;width:1.5em;\">${ICON[f]||'•'}</span><a href=\"./${f}\">${f}</a></li>`;
+    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
+    const rawList = document.getElementById('raw-links-list');
+    if (rawList) {
+      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\"border-top:1px solid var(--br);margin:6px 0;\"></li>' + systemLinks.map(createLink).join('');
+    }
+
+    // ---- Map markers + corridors ----
+    corridorLayer.clearLayers();
+    const origin = spotConfig['gammarth-port.json'];
+    const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
+
+    const seenSlugs = new Set();
+    (windows?.windows||[]).forEach(d=>{ if(d.windows?.length) seenSlugs.add(d.dest_slug); });
+    Array.from(seenSlugs).slice(0,3).forEach(slug=>{
+      const dest=spotConfig[slug]; if(!dest||!origin) return;
+      L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
+    });
+
+    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
+    const createIcon=(color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style=\"background-color:${color};\" class=\"marker-pin\"></div><div class=\"marker-pulse\"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+
+    const spotStatus={};
+    (windows?.windows||[]).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
+    Object.keys(spotConfig).forEach(file=>{ if(!spotStatus[file]){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = entry ? 'yellow' : 'red'; } });
+
+    for(const file in spotConfig){ const s=spotConfig[file], isMain=(file==='gammarth-port.json'), st=spotStatus[file]; const color=isMain?'var(--accent)':(st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)')); const text=isMain?t('principal_port'):t(`go_popup.${st}`); L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset=isMain?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${text}`); }
+
+    setTimeout(()=>{ try{ map.invalidateSize(); }catch{} }, 50);
+
+    // corridors/ corridors
     corridorLayer.clearLayers(); const origin=spotConfig['gammarth-port.json']; const ACCENT=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#4cc9f0'; Array.from(seenSlugs).slice(0,3).forEach(slug=>{ const dest=spotConfig[slug]; if(!dest||!origin) return; L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer); });
   }
   updateDashboard();
@@ -232,3 +363,51 @@ window.renderWindows=function(windows){
 </script>
 </body>
 </html>
+// ---- Radar des Spots (table) ----
+    const filesTbody = document.querySelector('#files tbody');
+    if (filesTbody) {
+      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+        const entry = status?.files?.find(s=>s.path===file);
+        const fresh = !!entry; // simple proxy with mock
+        return `<tr data-file=\"${file}\">\n          <td><a href=\"#\" data-file=\"${file}\"><strong>${name}</strong></a></td>\n          <td><span class=\"status-val ${fresh?'ok':'warn'}\" title=\"${fmtLocal(entry?.modified)}\">${t(fresh?'fresh':'stale')}</span></td>\n        </tr>`;
+      }).join('');
+      filesTbody.addEventListener('click',(e)=>{
+        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
+      });
+    }
+
+    // ---- Données Brutes (links) ----
+    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
+    const createLink = f => `<li><span style=\\\"display:inline-block;width:1.5em;\\\">${ICON[f]||'•'}</span><a href=\\\"./${f}\\\">${f}</a></li>`;
+    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
+    const rawList = d// ---- Radar des Spots (table) ----
+    const filesTbody = document.querySelector('#files tbody');
+    if (filesTbody) {
+      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+        const entry = status?.files?.find(s=>s.path===file);
+        const fresh = !!entry; // simple proxy with mock
+        return `<tr data-file=\"${file}\">\n          <td><a href=\"#\" data-file=\"${file}\"><strong>${name}</strong></a></td>\n          <td><span class=\"status-val ${fresh?'ok':'warn'}\" title=\"${fmtLocal(entry?.modified)}\">${t(fresh?'fresh':'stale')}</span></td>\n        </tr>`;
+      }).join('');
+      filesTbody.addEventListener('click',(e)=>{
+        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
+      });
+    }
+
+    // ---- Données Brutes (links) ----
+    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
+    const createLink = f => `<li><span style=\\\"display:inline-block;width:1.5em;\\\">${ICON[f]||'•'}</span><a href=\\\"./${f}\\\">${f}</a></li>`;
+    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
+    const rawList = document.getElementById('raw-links-list');
+    if (rawList) {
+      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\\\"border-top:1px solid var(--br);margin:6px 0;\\\"></li>' + systemLinks.map(createLink).join('');
+    }
+
+    // proceed to clear and rebuild corridors / markers
+    corridorLayer.clearLayers();links-list');
+    if (rawList) {
+      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\\\"border-top:1px solid var(--br);margin:6px 0;\\\"></li>' + systemLinks.map(createLink).join('');
+    }
+
+    // ---- Map markers + corridors ----
+    
+// corridors

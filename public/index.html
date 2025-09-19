@@ -155,9 +155,9 @@
     }
     
     /* Cartes bornées en hauteur pour éviter le scroll de page */
-    .card.wins{       max-height: 28vh; overflow:auto; }
-    .card.conditions{ max-height: 28vh; overflow:auto; }
-    .card.radar{      max-height: 28vh; overflow:auto; }
+    .card.wins{       max-height: 30vh; overflow:auto; }
+    .card.conditions{ max-height: 30vh; overflow:auto; }
+    .card.radar{      max-height: 30vh; overflow:auto; }
     
     /* Empilement sur mobile/tablette */
     @media (max-width: 1100px){
@@ -169,28 +169,30 @@
 </head>
 <body>
 <header>
-  <h1>🧭 FABLE: Tableau de Bord</h1>
-  <span class="spacer"></span>
-  <!-- Updated -->
-  <span id="gen" class="pill" aria-live="polite"></span>
-
-  <!-- Boutons au centre-droit -->
-  <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
-  <div id="themeToggle" class="toggle" title="Thème">
-    <button data-theme="dark" aria-pressed="false">🌙</button>
-    <button data-theme="nautical" aria-pressed="false">⚓</button>
-  </div>
-  <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
-  <div id="langToggle" class="toggle" title="Langue">
-    <button data-lang="fr" aria-pressed="false">FR</button>
-    <button data-lang="en" aria-pressed="false">EN</button>
-  </div>
-
-  <!-- Status collé à droite, puis plein écran le plus à droite -->
-  <span id="hc" class="status warn" role="status">Statut: …</span>
-  <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
-</header>
-
+   <header class="app-header">
+    <h1>🧭 FABLE: Tableau de Bord</h1>
+  
+    <div class="hdr-tools">
+      <span id="gen" class="pill" aria-live="polite"></span>
+  
+      <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
+  
+      <div id="themeToggle" class="toggle" title="Thème">
+        <button data-theme="dark" aria-pressed="false">🌙</button>
+        <button data-theme="nautical" aria-pressed="false">⚓</button>
+      </div>
+  
+      <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
+  
+      <div id="langToggle" class="toggle" title="Langue">
+        <button data-lang="fr" aria-pressed="false">FR</button>
+        <button data-lang="en" aria-pressed="false">EN</button>
+      </div>
+  
+      <span id="hc" class="status warn" role="status">Statut: …</span>
+      <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
+    </div>
+  </header>
 <div id="dashboard-content">
   <div id="map" aria-label="Carte des spots"></div>
 

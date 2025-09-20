@@ -1152,8 +1152,8 @@ for site in selected_sites:
     
         fam_cons = []; exp_cons = []
         for i in range(n):
-            fam_ok = bool(fam_p[i])
-            exp_ok = bool(exp_p[i])
+            fam_cons.append(bool(fam_p[i]))  # suit le primaire
+            exp_cons.append(bool(exp_p[i]))
             fam_cons.append(fam_ok); exp_cons.append(exp_ok)
             if not fam_ok:
                 try:
@@ -1168,48 +1168,82 @@ for site in selected_sites:
     
         def seg_conf(segs, idx):
             out = []
-            total_models = len(model_flags)
+            T = len(times)
+            W = len(wind)
+            H = len(hs)
             for a, b in segs:
-                L = b - a + 1
+                # clamp dans [0, T-1] pour l'accès aux timestamps
+                if T == 0: 
+                    continue
+                aa = max(0, min(a, T-1))
+                bb = max(aa, min(b, T-1))
+        
+                # votes de consensus (protégés)
                 agree = 0
-                for i in range(a, b + 1):
-                    votes = sum(int(flags[idx][i]) for flags in model_flags if i < len(flags[idx]))
-                    if votes >= 2: agree += 1
+                L = bb - aa + 1
+                for i in range(aa, bb + 1):
+                    votes = 0
+                    for flags in model_flags:
+                        arr = flags[idx]
+                        if i < len(arr) and arr[i]:
+                            votes += 1
+                    if votes >= 2:
+                        agree += 1
                 conf = "medium" if (agree / max(1, L)) >= 0.8 else "low"
+        
+                # promotion "sécurité" si toutes les heures sont calmes, avec garde d’index
                 if conf == "low":
-                    try:
-                        if all(float(wind[i]) <= safe_w_cap and float(hs[i]) <= safe_hs_cap for i in range(a, b + 1)):
-                            conf = "medium"
-                    except Exception:
-                        pass
-                out.append({"start_idx": a, "end_idx": b, "confidence": conf})
+                    safe_all = True
+                    for i in range(aa, bb + 1):
+                        wi = float(wind[i]) if (i < W and wind[i] is not None) else None
+                        hi = float(hs[i])   if (i < H and hs[i] is not None)   else None
+                        if wi is None or hi is None or wi > safe_w_cap or hi > safe_hs_cap:
+                            safe_all = False
+                            break
+                    if safe_all:
+                        conf = "medium"
+        
+                out.append({"start_idx": aa, "end_idx": bb, "confidence": conf})
             return out
+
     
         fam_out = seg_conf(fam_segs, 0)
         exp_out = seg_conf(exp_segs, 1)
     
         def to_iso(seg):
+            T = len(times)
+            if T == 0:
+                return None
             a, b = seg["start_idx"], seg["end_idx"]
+            a = max(0, min(a, T-1))
+            b = max(a, min(b, T-1))
             return {"start": times[a], "end": times[b], "confidence": seg["confidence"]}
-    
+            
+        fam_iso = [x for x in (to_iso(s) for s in fam_out) if x is not None]
+        exp_iso = [x for x in (to_iso(s) for s in exp_out) if x is not None]
+        
         return {
             "dest_slug": f"{spot['meta']['slug']}.json",
             "dest_name": spot["meta"]["name"],
             "windows": [
-                {"class": "Family", "segments": [to_iso(s) for s in fam_out]},
-                {"class": "Expert", "segments": [to_iso(s) for s in exp_out]},
+                {"class": "Family", "segments": fam_iso},
+                {"class": "Expert", "segments": exp_iso},
             ],
         }
     
     def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
         entries = []
+        SKIP = {"windows.json", "index.json", "status.json"}
         for p in sorted(spots_dir.glob("*.json")):
+            if p.name in SKIP:
+                continue
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
                 if isinstance(data, dict) and "meta" in data and "forecast_primary" in data:
                     entries.append(_aggregate_one_spot(data, rules))
             except Exception as e:
                 log.warning("skip %s: %s", p, e)
+    
         payload = {
             "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
             "windows": entries,
@@ -1225,7 +1259,9 @@ for site in selected_sites:
             except Exception: pass
         else:
             os.replace(tmp, out_path)  # atomique
+    
         return payload
+
     # --- Construction du payload JSON ---
 
 
@@ -1342,4 +1378,13 @@ try:
 except Exception as e:
     log.error("windows.json build failed: %s", e)
 
+status_payload = {
+    "status": "ok",
+    "generated_at": dt.datetime.now(TZ).isoformat(),
+    "all_fresh": True
+}
+(PUBLIC / "status.json").write_text(
+    json.dumps(status_payload, ensure_ascii=False, separators=(",", ":")),
+    encoding="utf-8"
+)
 # ---------------------------------------------------------------

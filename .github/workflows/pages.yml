@@ -39,7 +39,7 @@ on:
       - "sites.yaml"
       - "rules.yaml"
       - "stats/index.html"    # ← pour relancer le workflow si tu modifies le fichier statique
-      - "public/index.html"    # ← déclenche aussi sur la vraie page publique
+      - "Public/index.html"    # ← déclenche aussi sur la vraie page publique
 permissions:
   contents: read
   pages: write
@@ -130,7 +130,7 @@ jobs:
       - name: Clean debug artifacts (optional)
         if: steps.gate.outputs.should_run == 'true'
         run: |
-          rm -f public/_debug-* || true
+          rm -f Public/_debug-* || true
 
       # --- Sanity check: sites.yaml ---
       - name: Sanity check — sites.yaml
@@ -302,14 +302,14 @@ jobs:
           }
 
           # écrire un artefact de debug (et pour les étapes suivantes si utile)
-          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
+          pub = pathlib.Path("Public"); pub.mkdir(exist_ok=True)
           (pub/"rules.normalized.json").write_text(
             json.dumps(normalized, ensure_ascii=False, indent=2),
             encoding="utf-8"
           )
 
           # log utile
-          print("ℹ️  rules.yaml (flat) chargé et normalisé → public/rules.normalized.json")
+          print("ℹ️  rules.yaml (flat) chargé et normalisé → Public/rules.normalized.json")
           print("   - Family hours:", normalized["family"]["hours_local"])
           print("   - Window hours:", normalized["family"]["window_hours"])
           print("   - Wind thresholds:", normalized["family"]["thresholds"]["wind"])
@@ -375,7 +375,7 @@ jobs:
           import os, json, pathlib, datetime
           from zoneinfo import ZoneInfo
           tz = ZoneInfo(os.environ.get("TZ_EFFECTIVE","Africa/Tunis"))
-          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
+          pub = pathlib.Path("Public"); pub.mkdir(exist_ok=True)
           files = []
           for p in sorted(pub.glob("*.json")):
               if p.name in ("catalog.json",):
@@ -397,10 +397,10 @@ jobs:
           READER_HOME: ${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}
         run: |
           import json, os, sys, pathlib
-          pub = pathlib.Path('public')
+          pub = pathlib.Path('Public')
           cat = pub / 'catalog.json'
           if not cat.exists():
-              print('❌ public/catalog.json manquant'); sys.exit(1)
+              print('❌ Public/catalog.json manquant'); sys.exit(1)
           data = json.loads(cat.read_text(encoding='utf-8'))
           files = data.get('files', [])
           if not files:
@@ -423,7 +423,7 @@ jobs:
         shell: python
         run: |
           import json, pathlib, sys, datetime
-          pub = pathlib.Path('public')
+          pub = pathlib.Path('Public')
           files = [pub/f['path'] for f in json.loads((pub/'catalog.json').read_text(encoding='utf-8')).get('files',[])]
           if not files:
               print('❌ Aucun spot détecté'); sys.exit(1)
@@ -441,13 +441,13 @@ jobs:
       - name: Show one site JSON (debug)
         if: steps.gate.outputs.should_run == 'true'
         run: |
-          echo "==== public listing ===="
-          ls -lah public || true
+          echo "==== Public listing ===="
+          ls -lah Public || true
           echo "==== head of ${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }} ===="
-          head -c 1500 "public/${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}" || true
+          head -c 1500 "Public/${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}" || true
           echo
 
-      # --- Reader FABLE -> public/windows.json ---
+      # --- Reader FABLE -> Public/windows.json ---
       - name: Run FABLE reader (detect Family GO)
         if: steps.gate.outputs.should_run == 'true'
         env:
@@ -455,8 +455,8 @@ jobs:
         run: |
           set -e
           python reader.py \
-            --from-dir public \
-            --out public \
+            --from-dir Public \
+            --out Public \
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
 
       # --- Vérifier windows.json ---
@@ -465,9 +465,9 @@ jobs:
         shell: python
         run: |
           import json, pathlib, sys
-          p = pathlib.Path('public/windows.json')
+          p = pathlib.Path('Public/windows.json')
           if not p.exists():
-              print('❌ public/windows.json manquant'); sys.exit(1)
+              print('❌ Public/windows.json manquant'); sys.exit(1)
           d = json.loads(p.read_text(encoding='utf-8'))
           if 'windows' not in d:
               print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
@@ -482,7 +482,7 @@ jobs:
         run: |
           import os, json, pathlib, datetime
           from zoneinfo import ZoneInfo
-          pub = pathlib.Path('public')
+          pub = pathlib.Path('Public')
           d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
           tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
           ts = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M %Z')
@@ -497,7 +497,7 @@ jobs:
                 lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
               lines.append('')
           (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
-          print('✅ public/windows.md généré')
+          print('✅ Public/windows.md généré')
 
       
       # --- .nojekyll pour GitHub Pages ---
@@ -506,23 +506,23 @@ jobs:
         shell: bash
         run: |
           set -e
-          mkdir -p public
-          : > public/.nojekyll
+          mkdir -p Public
+          : > Public/.nojekyll
           
-      # --- Fallback : copier static/index.html si public/index.html manque ---
+      # --- Fallback : copier static/index.html si Public/index.html manque ---
       - name: Fallback static index.html (if missing)
         if: steps.gate.outputs.should_run == 'true'
         shell: bash
         run: |
           set -e
-          if [ -s public/index.html ]; then
-            echo "public/index.html présent — je le conserve."
+          if [ -s Public/index.html ]; then
+            echo "Public/index.html présent — je le conserve."
           elif [ -s static/index.html ]; then
-            cp -f static/index.html public/index.html
-            echo "Copié static/index.html -> public/index.html"
+            cp -f static/index.html Public/index.html
+            echo "Copié static/index.html -> Public/index.html"
           else
             echo "⚠️ static/index.html introuvable — création d'un placeholder minimal."
-            printf '<!doctype html><meta charset="utf-8"><title>fable-collector</title><p>Dashboard placeholder</p>' > public/index.html
+            printf '<!doctype html><meta charset="utf-8"><title>fable-collector</title><p>Dashboard placeholder</p>' > Public/index.html
           fi
           
       # --- Copier d'autres assets statiques sans écraser les JSON ---
@@ -532,14 +532,14 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "Copying static assets from static/ to public/…"
+          echo "Copying static assets from static/ to Public/…"
           shopt -s nullglob
-          mkdir -p public
+          mkdir -p Public
           files=(static/*)
           for f in "${files[@]}"; do
             base="$(basename "$f")"
-            [[ "$base" == "index.html" ]] && continue   # ne pas écraser public/index.html
-            cp -v "$f" public/
+            [[ "$base" == "index.html" ]] && continue   # ne pas écraser Public/index.html
+            cp -v "$f" Public/
           done
 
       # --- Résumé ---
@@ -548,7 +548,7 @@ jobs:
         shell: python
         run: |
           import os, json, pathlib
-          p = pathlib.Path('public/windows.json')
+          p = pathlib.Path('Public/windows.json')
           if not p.exists():
               raise SystemExit(0)
           d = json.loads(p.read_text(encoding='utf-8'))
@@ -569,18 +569,18 @@ jobs:
         if: steps.gate.outputs.should_run == 'true'
         run: |
           set -e
-          test -s public/index.json   || (echo 'index.json manquant ou vide' && exit 1)
-          test -s public/catalog.json || (echo 'catalog.json manquant ou vide' && exit 1)
-          test -s public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
-          test -s public/windows.md   || (echo 'windows.md manquant ou vide' && exit 1)
-          test -s public/index.html   || (echo 'index.html manquant ou vide' && exit 1)
+          test -s Public/index.json   || (echo 'index.json manquant ou vide' && exit 1)
+          test -s Public/catalog.json || (echo 'catalog.json manquant ou vide' && exit 1)
+          test -s Public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
+          test -s Public/windows.md   || (echo 'windows.md manquant ou vide' && exit 1)
+          test -s Public/index.html   || (echo 'index.html manquant ou vide' && exit 1)
           echo '✅ Sorties prêtes à publier.'
 
-      - name: List public artifacts
+      - name: List Public artifacts
         if: steps.gate.outputs.should_run == 'true'
         run: |
-          echo "==== public ===="
-          ls -lah public || true
+          echo "==== Public ===="
+          ls -lah Public || true
           echo "==============="
 
       # --- Publication Pages ---
@@ -597,7 +597,7 @@ jobs:
           import json, pathlib, datetime
           from zoneinfo import ZoneInfo
           tz = ZoneInfo("${{ steps.gate.outputs.tz_effective }}")
-          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
+          pub = pathlib.Path("Public"); pub.mkdir(exist_ok=True)
           cat = json.loads((pub/"catalog.json").read_text(encoding="utf-8"))
           files = cat.get("files", [])
           # Fraîcheur: on considère "frais" si tous les JSON ont < 3h
@@ -632,7 +632,7 @@ jobs:
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: ./Public
 
   deploy:
     needs: build

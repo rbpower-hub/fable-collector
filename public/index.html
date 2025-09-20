@@ -27,72 +27,203 @@
       --section:#005b96; --shadow: 0 4px 12px rgba(10,34,64,.08);
       --link:#0077b6; --pill-bg:#f0f5fa;
     }
-
+    
+    /* éviter le scroll induit par margin+height:100% */
     html,body{min-height:100%}
     body{
       font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;
-      margin:0;
-      padding:24px;
+      margin:0;                /* <- plus de margin */
+      padding:24px;            /* <- padding à la place */
       background:var(--bg);
       color:var(--fg);
       font-size: 1.05rem;
-      min-height:100vh;
+      min-height:100vh;        /* tient sur la hauteur du viewport */
     }
-    @supports (height: 100dvh) { body{ min-height:100dvh; } }
-
-    html:fullscreen body{ padding:16px; overflow:auto; }
-
+    @supports (height: 100dvh) {
+      body{ min-height:100dvh; }  /* viewport dynamique si dispo */
+    }
+    
+    /* plein écran via Fullscreen API : html est l’élément en fullscreen */
+    html:fullscreen body{
+      padding:16px;       /* un peu moins de padding en FS */
+      overflow:auto;    /* laisse scroller si le contenu dépasse */
+    }
+    
     #dashboard-content{transition:opacity .5s ease-in-out}
     #dashboard-content.updating{opacity:.3}
 
     .layout-grid{ display:grid; gap:16px; }
-    .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow); overflow-y:auto; scrollbar-width:thin; }
+    .card{border:1px solid var(--br);background:var(--card);padding:16px;border-radius:14px; box-shadow: var(--shadow)}
     .card h3{font-size:1.15rem; color:var(--section); display:flex; align-items:center; gap:8px; justify-content: space-between;}
-
-    /* scrollbar customisation */
-    .card::-webkit-scrollbar{width:6px}
-    .card::-webkit-scrollbar-thumb{background:var(--muted);border-radius:6px}
-
+   
     .window-line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
-    .window-line .title{font-weight:700; font-size: 1.05rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .window-line .title{font-weight:700; font-size: 1.1rem; display:flex; align-items:center}
     .go{display:inline-block;border-radius:10px;padding:2px 8px;margin-left:8px;font-weight:800}
     .go.family{background:var(--ok); color:#04110a}
     .go.expert{background:#f59e0b; color:#160f04}
     .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted);white-space:nowrap}
     .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
+    .conditions .line{border-left:4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
+    .conditions .line.ok{   border-left-color: var(--ok); }
+    .conditions .line.warn{ border-left-color: var(--warn); }
+    .conditions .line.bad{  border-left-color: var(--bad); }
 
-    /* header layout */
-    .app-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
-    .hdr-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
+    table{width:100%; border-collapse:collapse}
+    th,td{padding:10px 12px; border-bottom:1px solid var(--br); font-size:.95rem}
+    /* Fix: les liens visités restaient mauves (couleur navigateur) */
+    a:visited, a:active { color: var(--link); }
+    
+    /* Couleurs du statut dans le tableau (Fresh/Stale) */
+    .status-val{ font-weight:600; }
+    .status-val.ok   { color: var(--ok); }
+    .status-val.warn { color: var(--warn); }
+    .status-val.bad  { color: var(--bad); }
+    .table-wrap .status-val.ok   { color: var(--ok) !important; }
+    .table-wrap .status-val.warn { color: var(--warn) !important; }
+    .table-wrap .status-val.bad  { color: var(--bad) !important; }
 
-    /* Fenêtres split */
-    .wins-tabs{display:flex;gap:8px;margin-bottom:8px}
-    .wins-tabs button{flex:1;padding:6px 10px;border:1px solid var(--br);background:var(--pill-bg);color:var(--muted);border-radius:8px;cursor:pointer;font-weight:600}
-    .wins-tabs button.active{background:var(--accent);color:#041019}
-      /* Spot header (group title) and tighter title layout */
-    .dest-title{font-weight:800;color:var(--section)}
-    .window-line .title{justify-content:flex-start;gap:6px}
+    th{text-align:left;color:var(--muted); position:sticky; top:0; background:var(--card)}
+
+    .tip{position:absolute; z-index:9999; max-width:360px; padding:8px 10px; border-radius:10px; background:var(--card); border:1px solid var(--br); box-shadow:var(--shadow); font-size:.9rem}
+    .tip .hdr{font-weight:700; margin-bottom:4px} .tip .row{margin-top:4px}
+
+    body.simplified-view .expert-only{display:none}
+
+    footer{margin-top:24px;color:var(--muted);font-size:.9rem}
+    #refresh-timer{font-size:.85rem;color:var(--muted);margin-left:16px}
+
+    .marker-pin{width:30px; height:30px; border-radius:50% 50% 50% 0; position:absolute; transform:rotate(-45deg); left:50%; top:50%; margin:-15px 0 0 -15px}
+    .marker-pin::after{content:''; width:14px; height:14px; margin:8px 0 0 8px; background:#fff; position:absolute; border-radius:50%}
+    .marker-pulse:after{content:""; border-radius:50%; height:40px; width:40px; position:absolute; margin:-13px 0 0 -13px; animation:pulsate 1.5s ease-out infinite; opacity:0; box-shadow:0 0 1px 2px var(--accent); border:3px solid rgba(255,255,255,0.3)}
+    @keyframes pulsate{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.2);opacity:0}}
+    .main-port-icon .marker-pulse:after{animation-name:pulsate-main; animation-duration:1.2s; box-shadow:0 0 2px 3px var(--accent); border:3px solid rgba(76,201,240,0.5)}
+    @keyframes pulsate-main{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.5);opacity:0}}
+
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace}
+    .small{font-size:.92rem;color:var(--muted)}
+
+    /* Sparklines */
+    .spark{width:120px;height:24px;display:inline-block;vertical-align:middle;margin-left:8px}
+    .spark svg{width:100%;height:100%}
+
+    /* Corridors / ancrage */
+    .anchor-badge{background:var(--pill-bg);border:1px solid var(--br);color:var(--fg);padding:2px 6px;border-radius:999px;font-size:.8rem;box-shadow:var(--shadow)}
+    /* Leaflet DivIcon par défaut : retirer fond/bordure */
+    .leaflet-div-icon{
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Toggle pill (thème & langue) */
+    .toggle{display:inline-flex;border:1px solid var(--br);border-radius:999px;overflow:hidden;background:var(--pill-bg)}
+    .toggle button{padding:4px 10px;font-weight:700;border:0;background:transparent;color:var(--muted);cursor:pointer}
+    .toggle button.active{background:var(--accent); color:#041019}
+    .toggle button:not(.active):hover{background:rgba(255,255,255,.06)}
+
+    /* Alerte douce */
+    @keyframes flashPulse{0%{box-shadow:0 0 0 0 rgba(76,201,240,.6)}100%{box-shadow:0 0 0 18px rgba(76,201,240,0)}}
+    .card.flash{animation:flashPulse .8s ease-out 1}
+
+    @keyframes okPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(45,212,191,.55); }
+      100% { box-shadow: 0 0 0 18px rgba(45,212,191,0); }
+    }
+    .status.ok.pulse { animation: okPulse .9s ease-out 1; }
+
+    /* AR lisible */
+    :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
+    :root[dir="rtl"] h1, :root[dir="rtl"] h3 { letter-spacing:.2px }
+    :root{ --map-h: 450px; }
+
+    #map{
+      height: var(--map-h);
+      min-height: 260px;        /* garde-fou */
+      border-radius: 14px;
+      background: var(--card);
+      border: 1px solid var(--br);
+      margin-bottom: 16px;
+      z-index: 0;
+    }
+
+    /* Grille 3 colonnes sur desktop */
+    .layout-grid.threecol{
+      display:grid;
+      grid-template-columns: 1.2fr 1.2fr 1.4fr; /* Fenêtres | Avertissements | Radar */
+      gap:16px;
+    }
+    
+    /* Cartes bornées en hauteur pour éviter le scroll de page */
+    .card.wins{       max-height: 30vh; overflow:auto; }
+    .card.conditions{ max-height: 30vh; overflow:auto; }
+    .card.radar{      max-height: 30vh; overflow:auto; }
+    
+    /* Empilement sur mobile/tablette */
+    @media (max-width: 1100px){
+      .layout-grid.threecol{ grid-template-columns:1fr; }
+      .card.wins, .card.conditions, .card.radar{ max-height:none; }
+    }
+
+    /* Header layout & buttons */
+  .app-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .app-header h1{margin:0;font-size:1.5rem;white-space:nowrap}
+  .hdr-tools{display:flex;align-items:center;gap:10px;margin-left:auto}
+  .btn{border:1px solid var(--br);background:var(--pill-bg);padding:6px 10px;border-radius:999px;color:var(--fg);cursor:pointer}
+  .btn:hover{filter:brightness(1.05)}
+  .btn-mini{border:1px solid var(--br);background:transparent;padding:2px 6px;border-radius:8px;color:var(--muted);cursor:pointer}
+
+  /* Slim scrollbars for scrollable cards */
+  .card.wins, .card.conditions, .card.radar{
+    scrollbar-width: thin;                /* Firefox */
+    scrollbar-color: var(--br) transparent;
+  }
+  .card.wins::-webkit-scrollbar,
+  .card.conditions::-webkit-scrollbar,
+  .card.radar::-webkit-scrollbar{        /* WebKit */
+    width: 8px;
+    height: 8px;
+  }
+  .card.wins::-webkit-scrollbar-track,
+  .card.conditions::-webkit-scrollbar-track,
+  .card.radar::-webkit-scrollbar-track{
+    background: transparent;
+  }
+  .card.wins::-webkit-scrollbar-thumb,
+  .card.conditions::-webkit-scrollbar-thumb,
+  .card.radar::-webkit-scrollbar-thumb{
+    background: var(--br);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
 </style>
 </head>
 <body>
 <header class="app-header">
-  <h1>🧭 FABLE: Tableau de Bord</h1>
-  <div class="hdr-tools">
-    <span id="gen" class="pill" aria-live="polite"></span>
-    <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
-    <div id="themeToggle" class="toggle" title="Thème">
-      <button data-theme="dark" aria-pressed="false">🌙</button>
-      <button data-theme="nautical" aria-pressed="false">⚓</button>
+    <h1>🧭 FABLE: Tableau de Bord</h1>
+  
+    <div class="hdr-tools">
+      <span id="gen" class="pill" aria-live="polite"></span>
+  
+      <button id="viewToggleBtn" class="btn">Vue Simplifiée</button>
+  
+      <div id="themeToggle" class="toggle" title="Thème">
+        <button data-theme="dark" aria-pressed="false">🌙</button>
+        <button data-theme="nautical" aria-pressed="false">⚓</button>
+      </div>
+  
+      <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
+  
+      <div id="langToggle" class="toggle" title="Langue">
+        <button data-lang="fr" aria-pressed="false">FR</button>
+        <button data-lang="en" aria-pressed="false">EN</button>
+      </div>
+  
+      <span id="hc" class="status warn" role="status">Statut: …</span>
+      <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
     </div>
-    <button id="muteBtn" class="btn" title="Alerte sonore">🔔</button>
-    <div id="langToggle" class="toggle" title="Langue">
-      <button data-lang="fr" aria-pressed="false">FR</button>
-      <button data-lang="en" aria-pressed="false">EN</button>
-    </div>
-    <span id="hc" class="status warn" role="status">Statut: …</span>
-    <button id="fullscreenBtn" class="btn" title="Plein écran">⛶</button>
-  </div>
-</header>
+  </header>
 <div id="dashboard-content">
   <div id="map" aria-label="Carte des spots"></div>
 
@@ -103,20 +234,15 @@
         <span>🪟 Fenêtres de Navigation</span>
         <button id="resetMapBtnTop" class="btn" title="Vue initiale">🧭</button>
       </h3>
-      <div class="wins-tabs">
-        <button id="tabFamily" class="active">FAMILY GO</button>
-        <button id="tabExpert">EXPERT GO</button>
-      </div>
-      <div id="winsFamily">Chargement…</div>
-      <div id="winsExpert" style="display:none">Chargement…</div>
+      <div id="wins">Chargement…</div>
     </div>
-
+  
     <!-- 2) Avertissements (No-GO) -->
     <div class="card conditions">
       <h3><span>🚦 Avertissements (No-GO)</span></h3>
       <div id="reasons">Chargement…</div>
     </div>
-
+  
     <!-- 3) Radar des Spots -->
     <div class="card radar expert-only">
       <h3>
@@ -133,9 +259,9 @@
         <summary>📚 Données Brutes</summary>
         <ul id="raw-links-list"></ul>
       </details>
-    </div>
   </div>
 </div>
+</div> <!-- 🔧 ferme #dashboard-content -->
 
 <footer>
   <p><span id="tz" class="small"></span><span id="refresh-timer"></span></p>
@@ -145,269 +271,411 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
+
 <script>
-// Tab switching
-const tabFamily=document.getElementById('tabFamily');
-const tabExpert=document.getElementById('tabExpert');
-const winsFamily=document.getElementById('winsFamily');
-const winsExpert=document.getElementById('winsExpert');
-function activate(tab){
-  const fam=tab==='family';
-  tabFamily.classList.toggle('active',fam);
-  tabExpert.classList.toggle('active',!fam);
-  winsFamily.style.display=fam?'block':'none';
-  winsExpert.style.display=fam?'none':'block';
-}
+(async function main() {
+  const REFRESH_INTERVAL_SECONDS = 600;
 
-tabFamily?.addEventListener('click',()=>activate('family'));
-tabExpert?.addEventListener('click',()=>activate('expert'));
-
-// Hook into updateDashboard after fetch
-window.renderWindows=function(windows){
-  const grouped=new Map();
-  (windows||[]).forEach(dest=>{
-    const list=(dest.windows||[]).map(seg=>({dest,seg}));
-    if(!grouped.has(dest.dest_name)) grouped.set(dest.dest_name,[]);
-    grouped.get(dest.dest_name).push(...list);
-  });
-  const renderWin=({dest,seg})=>{
-    const family=isFamilyWindow(seg.start,seg.end);
-    const confKey=((seg.confidence||dest.confidence)||'').toLowerCase();
-    const confText=confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
-    const confScore=(typeof seg.confidence_score==='number')?Math.round((seg.confidence_score<=1? seg.confidence_score*100:seg.confidence_score)):null;
-    const confBadge=confText?`<span class="conf ${confKey}">${confText}${confScore!=null?' · '+confScore:''}</span>`:'';
-    return `<div class="window-line"><div class="title">${dest.dest_name} ${confBadge}</div><div class="small">${seg.start} → ${seg.end}</div></div>`;
+  // ===== I18N =====
+  const I18N = {
+    fr:{status_ok:"Statut: OK",status_stale:"Statut: Données anciennes",updated:"Mise à jour",reasons_unavailable:"Raisons indisponibles.",none_windows:'Aucune fenêtre "GO" détectée.',fresh:"Frais",stale:"Ancien",next_refresh:s=>`Prochaine MAJ dans ${s}s.`,principal_port:"Port Principal",go_popup:{green:"Fenêtre 'GO' !",yellow:"Données à jour",red:"Données anciennes"},conf_title:(t,s)=>`Confiance: ${t}${s!=null?' · '+s+'%':''}`},
+    en:{status_ok:"Status: OK",status_stale:"Status: Stale data",updated:"Updated",reasons_unavailable:"Reasons unavailable.",none_windows:'No "GO" window detected.',fresh:"Fresh",stale:"Stale",next_refresh:s=>`Next refresh in ${s}s.`,principal_port:"Main Port",go_popup:{green:"GO window!",yellow:"Data up to date",red:"Stale data"},conf_title:(t,s)=>`Confidence: ${t}${s!=null?' · '+s+'%':''}`},
   };
-  let famHTML='',expHTML='';
-  grouped.forEach((items)=>{
-    famHTML+=items.filter(r=>isFamilyWindow(r.seg.start,r.seg.end)).map(renderWin).join('');
-    expHTML+=items.filter(r=>!isFamilyWindow(r.seg.start,r.seg.end)).map(renderWin).join('');
-  });
-  winsFamily.innerHTML=famHTML||'<span class="small">Aucune fenêtre</span>';
-  winsExpert.innerHTML=expHTML.join('')||`<span class=\"small\">${t('none_windows')}</span>`;
-  // ---- Radar des Spots (table) ----
-  const filesTbody = document.querySelector('#files tbody');
-  if (filesTbody) {
-    filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
-      const entry = status?.files?.find(s=>s.path===file);
-      const fresh = !!entry; // simple proxy with mock or presence
-      return `<tr data-file="${file}">
-        <td><a href="#" data-file="${file}"><strong>${name}</strong></a></td>
-        <td><span class="status-val ${fresh?'ok':'warn'}" title="${fmtLocal(entry?.modified)}">${t(fresh?'fresh':'stale')}</span></td>
-      </tr>`;
-    }).join('');
-  
-    // Pan map to marker on click
-    filesTbody.addEventListener('click',(e)=>{
-      const a=e.target.closest('a[data-file]');
-      if(!a) return;
-      e.preventDefault();
-      const s=spotConfig[a.dataset.file];
-      if (s) map.setView([s.lat,s.lon], 12, {animate:true});
+  const LOCALES = { fr:'fr-FR', en:'en-GB' };
+
+  // Spots & config
+  const spotConfig = {
+    'gammarth-port.json':{name:'Gammarth Port',lat:36.921,lon:10.310},
+    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.865,lon:10.351},
+    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.177,lon:10.280},
+    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613},
+    'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008}
+  };
+  const WANT_SPOTS = Object.entries(spotConfig).map(([file,{name}]) => [name,file]);
+  const INITIAL_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
+
+  // ===== State & helpers =====
+  let LANG = localStorage.getItem('lang') || 'fr';
+  let muted = localStorage.getItem('mute') === '1';
+  let lastWinsKey = new Set();
+
+  const $ = sel => document.querySelector(sel);
+  const t = (path,...args)=>{const d=I18N[LANG]||I18N.fr; const v=path.split('.').reduce((o,k)=>(o||{})[k],d); return typeof v==='function'?v(...args):(v??path);};
+  const fmtLocal = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
+  const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
+
+  const isFamilyWindow = (startIso,endIso) => { const s=new Date(startIso), e=new Date(endIso); if(isNaN(s)||isNaN(e)) return true; for(let d=new Date(s); d<=e; d.setHours(d.getHours()+1)){const h=d.getHours(); if(h<8||h>=21) return false;} return true; };
+  const isFresh = (entry,genIso) => { const T=180; if(!entry) return false; if(typeof entry.fresh==='boolean') return entry.fresh; if(entry.modified){const age=(Date.now()-new Date(entry.modified))/60000; if(isFinite(age)) return age<=T;} if(genIso){const age=(Date.now()-new Date(genIso))/60000; if(isFinite(age)) return age<=T;} return false; };
+
+  const ding = ()=>{ if(muted) return; try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(), o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(0.0001,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.05,ctx.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.22); o.start(); o.stop(ctx.currentTime+0.25);}catch{} };
+  const flash = el => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
+
+  const sparklineSVG = (seriesList, opts={})=>{
+    const W=120,H=24,p=2;
+    const flat = seriesList.flat().map(Number).filter(Number.isFinite);
+    const min = (opts.min ?? Math.min(...flat, 0));
+    const max = (opts.max ?? Math.max(...flat, 1));
+    const span = (max - min) || 1;
+    const path = v=>{
+      const values=v.map(Number).filter(Number.isFinite);
+      if(!values.length) return '';
+      const n=values.length;
+      return values.map((val,i)=>{
+        const x=p+(W-2*p)*(n===1?1:i/(n-1));
+        const y=p+(H-2*p)*(1-(val-min)/span);
+        return `${i?'L':'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ');
+    };
+    const colors = opts.colors || ['currentColor','rgba(255,255,255,.6)'];
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      ${seriesList.map((s,i)=>`<path d="${path(s)}" fill="none" stroke="${colors[i%colors.length]}" stroke-width="${i===0?1.8:1.2}" stroke-linecap="round"/>`).join('')}
+    </svg>`;
+  };
+
+  // Map
+  const map = L.map('map').setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+  const corridorLayer = L.layerGroup().addTo(map);
+  window.panToFile = (file)=>{ const s=spotConfig[file]; if(s) map.setView([s.lat,s.lon],12,{animate:true}); };
+
+  // ===== KIOSK =====
+  setTimeout(()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); }, 5000);
+  let cursorTimer; const hideCursor=()=>document.body.style.cursor='none';
+  const showCursor=()=>{document.body.style.cursor='';clearTimeout(cursorTimer);cursorTimer=setTimeout(hideCursor,5000);};
+  ['mousemove','keydown','click','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,showCursor,{passive:true}));
+  showCursor();
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ updateDashboard(); if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); } });
+
+  // ===== UI setup =====
+  $('#tz').textContent = `Affichage en ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
+
+  // Langue (FR/EN uniquement)
+  const langToggle = $('#langToggle');
+  const languages = ['fr','en'];
+  if(!languages.includes(LANG)) LANG='fr';
+  function setLangUI(l){
+    LANG=l; localStorage.setItem('lang', l);
+    document.documentElement.lang = l;
+    document.documentElement.dir  = 'ltr';
+    langToggle.querySelectorAll('button').forEach(b=>{
+      const on = b.dataset.lang===l;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on?'true':'false');
     });
   }
-  
-  // ---- Données Brutes (links) ----
-  const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
-  const createLink = f => `<li><span style="display:inline-block;width:1.5em;">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`;
-  const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-  const rawList = document.getElementById('raw-links-list');
-  if (rawList) {
-    rawList.innerHTML =
-      Object.keys(spotConfig).map(f=>createLink(f)).join('') +
-      '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>' +
-      systemLinks.map(createLink).join('');
-  }
-  
-  // ---- Map markers + corridors ----
-  const origin = spotConfig['gammarth-port.json'];
-  const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
-  
-  const seenSlugs = new Set();
-  (windows?.windows||[]).forEach(d => { if (d.windows?.length) seenSlugs.add(d.dest_slug); });
-  
-  // draw corridors (limit 3)
-  corridorLayer.clearLayers();
-  Array.from(seenSlugs).slice(0,3).forEach(slug=>{
-    const dest=spotConfig[slug]; if(!dest||!origin) return;
-    L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
+  langToggle.addEventListener('click', e=>{
+    const btn=e.target.closest('button[data-lang]'); if(!btn) return;
+    setLangUI(btn.dataset.lang);
+    updateDashboard();
   });
-  
-  // remove old markers (keep tiles + corridors)
-  map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
-  
-  // markers by status (main port accent; green if any GO; else yellow/red)
-  const createIcon=(color,isMain)=> L.divIcon({
-    className:`custom-div-icon ${isMain?'main-port-icon':''}`,
-    html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`,
-    iconSize:[30,42], iconAnchor:[15,42]
-  });
-  
-  const spotStatus = {};
-  (windows?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
-  Object.keys(spotConfig).forEach(file=>{
-    if (!spotStatus[file]) {
-      const entry = status?.files?.find(s=>s.path===file);
-      spotStatus[file] = entry ? 'yellow' : 'red';
-    }
-  });
-  
-  for (const file in spotConfig){
-    const s=spotConfig[file], isMain=(file==='gammarth-port.json'), st=spotStatus[file];
-    const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
-    const text  = isMain ? t('principal_port') : t(`go_popup.${st}`);
-    L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0})
-      .addTo(map)
-      .bindPopup(`<b>${s.name}</b><br>${text}`);
-  }
-  
-  // help Leaflet recompute layout after DOM changes (TV/FullScreen)
-  setTimeout(()=>{ try{ map.invalidateSize(); }catch{} }, 50);
+  setLangUI(LANG);
 
-    // ---- Radar des Spots (table) ----
-    const filesTbody = document.querySelector('#files tbody');
-    if (filesTbody) {
-      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
-        const entry = status?.files?.find(s=>s.path===file);
-        const fresh = !!entry; // simple proxy with mock
-        return `<tr data-file=\"${file}\">\n          <td><a href=\"#\" data-file=\"${file}\"><strong>${name}</strong></a></td>\n          <td><span class=\"status-val ${fresh?'ok':'warn'}\" title=\"${fmtLocal(entry?.modified)}\">${t(fresh?'fresh':'stale')}</span></td>\n        </tr>`;
-      }).join('');
-      filesTbody.addEventListener('click',(e)=>{
-        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
-      });
-    }
+  // Son
+  const btnMute = $('#muteBtn');
+  const setMuteUI = m => { muted=m; localStorage.setItem('mute', m?'1':'0'); btnMute.textContent = m?'🔕':'🔔'; };
+  setMuteUI(muted);
+  btnMute.addEventListener('click', ()=> setMuteUI(!muted));
 
-    // ---- Données Brutes (links) ----
-    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
-    const createLink = f => `<li><span style=\\\"display:inline-block;width:1.5em;\\\">${ICON[f]||'•'}</span><a href=\\\"./${f}\\\">${f}</a></li>`;
-    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-    const rawList = document.getElementById('raw-links-list');
-    if (rawList) {
-      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\\\"border-top:1px solid var(--br);margin:6px 0;\\\"></li>' + systemLinks.map(createLink).join('');
-    }
-
-    // ---- Map markers + corridors ----
-    const origin = spotConfig['gammarth-port.json'];
-    const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
-
-    const seenSlugs = new Set();
-    (windows?.windows||[]).forEach(d=>{ if(d.windows?.length) seenSlugs.add(d.dest_slug); });
-    Array.from(seenSlugs).slice(0,3).forEach(slug=>{
-      const dest=spotConfig[slug]; if(!dest||!origin) return;
-      L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
+  // Thème (Dark/Nautical uniquement)
+  const themes=['dark','nautical'];
+  let theme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'dark';
+  if(!themes.includes(theme)) theme='dark';
+  const themeToggle = $('#themeToggle');
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    themeToggle.querySelectorAll('button').forEach(b=>{
+      const isActive = b.dataset.theme===t;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', isActive?'true':'false');
     });
+  }
+  themeToggle.addEventListener('click', e=>{
+    const btn=e.target.closest('button[data-theme]'); if(!btn) return;
+    applyTheme(btn.dataset.theme);
+  });
+  applyTheme(theme);
 
-    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
-    const createIcon=(color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style=\\\"background-color:${color};\\\" class=\\\"marker-pin\\\"></div><div class=\\\"marker-pulse\\\"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+  // Plein écran
+  $('#fullscreenBtn').addEventListener('click', ()=> document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
 
-    const spotStatus={};
-    (windows?.windows||[]).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
-    Object.keys(spotConfig).forEach(file=>{ if(!spotStatus[file]){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = entry ? 'yellow' : 'red'; } });
+  // Vue simplifiée
+  $('#viewToggleBtn').addEventListener('click', ()=>{
+    const s=document.body.classList.toggle('simplified-view');
+    $('#viewToggleBtn').textContent = s ? 'Vue Experte' : 'Vue Simplifiée';
+    updateDashboard();
+  });
 
-    for(const file in spotConfig){ const s=spotConfig[file], isMain=(file==='gammarth-port.json'), st=spotStatus[file]; const color=isMain?'var(--accent)':(st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)')); const text=isMain?t('principal_port'):t(`go_popup.${st}`); L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${text}`); }
+  // Reset map
+  document.getElementById('resetMapBtnTop')?.addEventListener('click', () =>
+    map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true})
+  );
+  
+  // Reset map (bouton 🔄 dans "Radar des Spots")
+  document.getElementById('resetMapBtn')?.addEventListener('click', () =>
+    map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, { animate: true })
+  );
+  // Tooltip
+  const tipEl = $('#tooltip');
+  const hideTip = ()=>{ tipEl.style.display='none'; };
+  document.addEventListener('scroll', hideTip, {passive:true});
 
-    setTimeout(()=>{ try{ map.invalidateSize(); }catch{} }, 50);
+  // ===== Rendu principal =====
+  async function updateDashboard(){
+    $('#dashboard-content').classList.add('updating');
 
-    corridorLayer.clearLayers(); const filesTbody = document.querySelector('#files tbody');
-    if (filesTbody) {
-      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
-        const entry = status?.files?.find(s=>s.path===file);
-        const fresh = !!entry; // simple proxy with mock
-        return `<tr data-file="${file}">
-          <td><a href="#" data-file="${file}"><strong>${name}</strong></a></td>
-          <td><span class="status-val ${fresh?'ok':'warn'}" title="${fmtLocal(entry?.modified)}">${t(fresh?'fresh':'stale')}</span></td>
-        </tr>`;
-      }).join('');
-      filesTbody.addEventListener('click',(e)=>{
-        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
-      });
+    const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
+    const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotConfig)) : [];
+
+    // Header
+    const ok = status && (status.all_fresh || status.status === 'ok');
+    $('#hc').className = 'status ' + (ok ? 'ok' : 'warn');
+    $('#hc').textContent = t(ok ? 'status_ok' : 'status_stale');
+    // Petit “pulse” visuel quand le statut est OK
+    if (ok) {
+      $('#hc').classList.remove('pulse'); // reset si encore présent
+      void $('#hc').offsetWidth;          // reflow pour relancer l'anim
+      $('#hc').classList.add('pulse');
     }
 
-    // ---- Données Brutes (links) ----
-    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
-    const createLink = f => `<li><span style=\"display:inline-block;width:1.5em;\">${ICON[f]||'•'}</span><a href=\"./${f}\">${f}</a></li>`;
-    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-    const rawList = document.getElementById('raw-links-list');
-    if (rawList) {
-      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\"border-top:1px solid var(--br);margin:6px 0;\"></li>' + systemLinks.map(createLink).join('');
-    }
+    const gen = windows?.generated_at || status?.generated_at || null;
+    $('#gen').textContent = `${t('updated')}: ${gen ? fmtLocal(gen) : '...'}`;
 
-    // ---- Map markers + corridors ----
+    // Fenêtres GO + badges sources/spreads
+    const winsDiv = $('#wins');
+    const isSimplified = document.body.classList.contains('simplified-view');
+    const winsCard = document.querySelector('.card.wins');
+    const nowWinsKey = new Set();
+
+    const winItems = (windows?.windows || [])
+      .flatMap(dest => (dest.windows||[]).map(seg => {
+        const family = isFamilyWindow(seg.start, seg.end);
+        const confKey = ((seg.confidence || dest.confidence) || '').toLowerCase();
+        const confText = confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
+        const confScore = (typeof seg.confidence_score==='number') ? Math.round((seg.confidence_score<=1? seg.confidence_score*100 : seg.confidence_score)) : null;
+        const confBadge = confText ? `<span class="conf ${confKey}" title="${t('conf_title',confText,confScore)}">${confText}${confScore!=null?' · '+confScore:''}</span>` : '';
+
+        // sources/spreads
+        const models = seg.models || dest.models || [];
+        const spreads = seg.spreads || dest.spreads || {};
+        const spreadsTxt = [];
+        if (typeof spreads.wind_kmh === 'number') spreadsTxt.push(`±${spreads.wind_kmh} km/h`);
+        if (typeof spreads.hs_m === 'number')     spreadsTxt.push(`±${spreads.hs_m} m`);
+        const srcBadge = (models.length||spreadsTxt.length)
+          ? `<div class="small" style="margin-top:4px;opacity:.9">${models.length?('<b>Src:</b> '+models.join('/')):''}${spreadsTxt.length?(' &nbsp; <b>Δ:</b> '+spreadsTxt.join(' / ')):''}</div>`
+          : '';
+
+        const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
+        nowWinsKey.add(key);
+
+        return {
+          isFamily: family,
+          dest_slug: dest.dest_slug,
+          html: `<div class="window-line ${!family?'expert-only':''}">
+                  <div class="title">${dest.dest_name} <span class="go ${family?'family':'expert'}">${family?'FAMILY GO':'EXPERT GO'}</span> ${confBadge}</div>
+                  <div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
+                  ${srcBadge}
+                </div>`
+        };
+      }))
+      .filter(x => isSimplified ? x.isFamily : true);
+
+    winsDiv.innerHTML = winItems.length ? winItems.map(x=>x.html).join('') : `<span class="small">${t('none_windows')}</span>`;
+
+    // Alerte douce si nouvelles fenêtres
+    let hasNew=false; nowWinsKey.forEach(k=>{ if(!lastWinsKey.has(k)) hasNew=true; });
+    lastWinsKey = nowWinsKey;
+    if(hasNew && winItems.length){ ding(); flash(winsCard); }
+
+    // Corridors (limités à 3)
     corridorLayer.clearLayers();
     const origin = spotConfig['gammarth-port.json'];
     const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
-
-    const seenSlugs = new Set();
-    (windows?.windows||[]).forEach(d=>{ if(d.windows?.length) seenSlugs.add(d.dest_slug); });
-    Array.from(seenSlugs).slice(0,3).forEach(slug=>{
+    [...new Set(winItems.map(x=>x.dest_slug))].filter(Boolean).slice(0,3).forEach(slug=>{
       const dest=spotConfig[slug]; if(!dest||!origin) return;
       L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
+      const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
+      L.marker(mid, {
+      icon: L.divIcon({
+        className: 'anchor-badge',   // ❗️on garde uniquement notre classe
+        html: '⚓ 1h',
+        iconSize: [36, 20],
+        iconAnchor: [18, 10]
+      }),
+      interactive: false
+    }).addTo(corridorLayer);
     });
 
-    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
-    const createIcon=(color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style=\"background-color:${color};\" class=\"marker-pin\"></div><div class=\"marker-pulse\"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+    // Avertissements (No-GO) — icône/sevérité + raison principale
+    const reasonsDiv = $('#reasons');
+    if (Array.isArray(reasonsRows) && reasonsRows.length) {
+      const rowsHTML = reasonsRows.map(r=>{
+        const raw = String((r.family || r.expert || '')).trim();
+    
+        // Sévérité + icône à partir du premier symbole
+        let sev = 'warn', icon = '⚠️';
+        if (/^[✗🚫]/.test(raw)) { sev='bad';  icon='🚫'; }
+        else if (/^[✓✅]/.test(raw)) { sev='ok'; icon='✅'; }
+    
+        // Nettoyage du préfixe et du suffixe (… (slug.json))
+        const cleaned = raw
+          .replace(/^[✗✓⚠🚫✅]\s*/,'')
+          .replace(/\s*\(([^)]+\.json)\)\s*$/,'')
+          .trim();
+    
+        // “raison principale” = première clause
+        const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
+    
+        return `<div class="line ${sev}" title="${cleaned}">
+                  <div class="reason">${icon} ${main}</div>
+                  <div class="small">${r.spot||''}</div>
+                </div>`;
+      }).join('');
+    
+      reasonsDiv.innerHTML = rowsHTML;
+    } else {
+      reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
+    }
 
-    const spotStatus={};
-    (windows?.windows||[]).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
-    Object.keys(spotConfig).forEach(file=>{ if(!spotStatus[file]){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = entry ? 'yellow' : 'red'; } });
+    // Radar des spots + sparklines + bouton Info...
+    const filesTableBody = $('#files tbody');
+    filesTableBody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+      const entry = status?.files?.find(s=>s.path===file);
+      const fresh = isFresh(entry, gen);
+      return `<tr data-file="${file}">
+        <td>
+          <a href="#" data-file="${file}">${name}</a>
+          <button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button>
+          <span class="spark expert-only" data-file="${file}"></span>
+        </td>
+        <td>
+          <span class="status-val ${fresh?'ok':'warn'}" title="${fmtLocal(entry?.modified)}">
+            ${t(fresh?'fresh':'stale')}
+          </span>
+        </td>
+      </tr>`;
+    }).join('');
 
-    for(const file in spotConfig){ const s=spotConfig[file], isMain=(file==='gammarth-port.json'), st=spotStatus[file]; const color=isMain?'var(--accent)':(st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)')); const text=isMain?t('principal_port'):t(`go_popup.${st}`); L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset=isMain?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${text}`); }
 
-    setTimeout(()=>{ try{ map.invalidateSize(); }catch{} }, 50);
+    // Rendu sparklines (séquentiel pour éviter les freezes)
+    for(const el of document.querySelectorAll('.spark[data-file]')){
+      try{
+        const js = await fetchJSON(el.dataset.file);
+        const hours = Array.isArray(js?.hours) ? js.hours.slice(-12) : [];
+        if(!hours.length){ el.innerHTML=''; continue; }
+        const wind = hours.map(h=>h?.wind_kmh);
+        const gust = hours.map(h=>h?.gust_kmh);
+        const hs   = hours.map(h=>h?.hs_m);
+        const vmax = Math.max(...wind.map(Number).filter(Number.isFinite), ...gust.map(Number).filter(Number.isFinite), 1);
+        el.innerHTML = sparklineSVG([wind,gust],{max:vmax,colors:['var(--fg)','var(--muted)']})
+                     + sparklineSVG([hs],{colors:['var(--accent)']});
+        const lw = wind.map(Number).filter(Number.isFinite).slice(-1)[0];
+        const lg = gust.map(Number).filter(Number.isFinite).slice(-1)[0];
+        const lh =  hs.map(Number).filter(Number.isFinite).slice(-1)[0];
+        el.title = [Number.isFinite(lw)?`Vent: ${lw} km/h`:null, Number.isFinite(lg)?`Raf.: ${lg} km/h`:null, Number.isFinite(lh)?`Hs: ${lh} m`:null].filter(Boolean).join(' · ');
+      }catch{ el.innerHTML=''; }
+    }
 
-    // corridors/ corridors
-    corridorLayer.clearLayers(); const origin=spotConfig['gammarth-port.json']; const ACCENT=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#4cc9f0'; Array.from(seenSlugs).slice(0,3).forEach(slug=>{ const dest=spotConfig[slug]; if(!dest||!origin) return; L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer); });
+    // Infobulles "Info..." (reasons mappés par fichier)
+    const reasonsByFile = new Map((reasonsRows||[]).map(r=>{
+      const m=/\(([^)]+\.json)\)\s*$/.exec(r.spot||''); return m ? [m[1], r] : [null,null];
+    }).filter(x=>x[0]));
+    const showTip = (btn)=>{
+      const file = btn.dataset.file;
+      const r = reasonsByFile.get(file);
+      tipEl.innerHTML = `<div class="hdr">${spotConfig[file]?.name||file}</div>
+                         <div class="row"><b>Family:</b> ${r?.family||'—'}</div>
+                         <div class="row"><b>Expert:</b> ${r?.expert||'—'}</div>`;
+      const rect = btn.getBoundingClientRect();
+      tipEl.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;
+      tipEl.style.top  = `${window.scrollY + rect.top - 6}px`;
+      tipEl.style.display = 'block';
+    };
+    document.querySelectorAll('button.why').forEach(btn=>{
+      btn.addEventListener('mouseenter', ()=>showTip(btn));
+      btn.addEventListener('mouseleave', hideTip);
+    });
+
+    // Liens bruts
+    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
+    const createLink = f => `<li><span style="display:inline-block;width:1.5em;">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`;
+    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
+    $('#raw-links-list').innerHTML =
+      WANT_SPOTS.map(([,f])=>createLink(f)).join('') +
+      '<li style="border-top:1px solid var(--br);margin:6px 0;"></li>' +
+      systemLinks.map(createLink).join('');
+
+    // Marqueurs carte
+    const spotStatus = {};
+    (windows?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
+    Object.keys(spotConfig).forEach(file=>{
+      if(spotStatus[file]!=='green'){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = isFresh(entry,gen) ? 'yellow' : 'red'; }
+    });
+
+    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); }); // on garde tuiles + corridors
+    const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+    for(const file in spotConfig){
+      const s=spotConfig[file], isMain = file==='gammarth-port.json', st = spotStatus[file];
+      const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
+      const text  = isMain ? t('principal_port') : t(`go_popup.${st}`);
+      L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${text}`);
+    }
+
+    $('#dashboard-content').classList.remove('updating');
+    fitToViewport();
+    map.invalidateSize();  // important quand la hauteur de la carte change
   }
-  updateDashboard();
+
+  // Délégation clics dans le tableau (pan sur spot)
+  $('#files tbody').addEventListener('click',(e)=>{
+    const a=e.target.closest('a[data-file]'); if(a){ e.preventDefault(); window.panToFile(a.dataset.file); }
+  });
+
+  // Ajuste la mise en page pour que la page tienne sans scroll
+  function fitToViewport(){
+    const root   = document.documentElement;
+    const vh     = window.innerHeight;
+    const header = document.querySelector('header')?.offsetHeight || 0;
+    const footer = document.querySelector('footer')?.offsetHeight || 0;
+  
+    // Hauteur dispo pour (carte + cards)
+    const available = Math.max(300, vh - header - footer - 28);
+    // ~45% pour la carte, bornée
+    const targetMap = Math.round(available * 0.45);
+    const mapH = Math.max(260, Math.min(520, targetMap));
+    root.style.setProperty('--map-h', mapH + 'px');
+  
+    // Si un petit overflow persiste, on compense
+    const overflow = document.documentElement.scrollHeight - vh;
+    if (overflow > 0) {
+      root.style.setProperty('--map-h', Math.max(240, mapH - overflow - 8) + 'px');
+    }
+  }
+ 
+  function tuneFullscreenOverflow(){
+    const body = document.body;
+    const needScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
+    if (document.fullscreenElement && needScroll) body.style.overflow = 'auto';
+    else body.style.overflow = '';
+  }
+  let _resizeT;
+  const safeResize = () => {
+    clearTimeout(_resizeT);
+    _resizeT = setTimeout(()=>{ fitToViewport(); try{ map.invalidateSize(); }catch{} }, 80);
+  };
+  window.addEventListener('resize', () => { tuneFullscreenOverflow(); safeResize(); });
+  document.addEventListener('fullscreenchange', () => { tuneFullscreenOverflow(); safeResize(); });
+
+  tuneFullscreenOverflow();
+
+  // Boucle de vie
+  await updateDashboard();
+  fitToViewport();
+  let countdown = REFRESH_INTERVAL_SECONDS;
+  setInterval(()=>{ countdown=(countdown<=1)?REFRESH_INTERVAL_SECONDS:countdown-1; $('#refresh-timer').textContent=t('next_refresh',countdown); },1000);
+  setInterval(updateDashboard, REFRESH_INTERVAL_SECONDS*1000);
 })();
 </script>
 </body>
 </html>
-// ---- Radar des Spots (table) ----
-    const filesTbody = document.querySelector('#files tbody');
-    if (filesTbody) {
-      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
-        const entry = status?.files?.find(s=>s.path===file);
-        const fresh = !!entry; // simple proxy with mock
-        return `<tr data-file=\"${file}\">\n          <td><a href=\"#\" data-file=\"${file}\"><strong>${name}</strong></a></td>\n          <td><span class=\"status-val ${fresh?'ok':'warn'}\" title=\"${fmtLocal(entry?.modified)}\">${t(fresh?'fresh':'stale')}</span></td>\n        </tr>`;
-      }).join('');
-      filesTbody.addEventListener('click',(e)=>{
-        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
-      });
-    }
-
-    // ---- Données Brutes (links) ----
-    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
-    const createLink = f => `<li><span style=\\\"display:inline-block;width:1.5em;\\\">${ICON[f]||'•'}</span><a href=\\\"./${f}\\\">${f}</a></li>`;
-    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-    const rawList = d// ---- Radar des Spots (table) ----
-    const filesTbody = document.querySelector('#files tbody');
-    if (filesTbody) {
-      filesTbody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
-        const entry = status?.files?.find(s=>s.path===file);
-        const fresh = !!entry; // simple proxy with mock
-        return `<tr data-file=\"${file}\">\n          <td><a href=\"#\" data-file=\"${file}\"><strong>${name}</strong></a></td>\n          <td><span class=\"status-val ${fresh?'ok':'warn'}\" title=\"${fmtLocal(entry?.modified)}\">${t(fresh?'fresh':'stale')}</span></td>\n        </tr>`;
-      }).join('');
-      filesTbody.addEventListener('click',(e)=>{
-        const a=e.target.closest('a[data-file]'); if(!a) return; e.preventDefault(); const s=spotConfig[a.dataset.file]; if(s) map.setView([s.lat,s.lon],12,{animate:true});
-      });
-    }
-
-    // ---- Données Brutes (links) ----
-    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️' };
-    const createLink = f => `<li><span style=\\\"display:inline-block;width:1.5em;\\\">${ICON[f]||'•'}</span><a href=\\\"./${f}\\\">${f}</a></li>`;
-    const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json'];
-    const rawList = document.getElementById('raw-links-list');
-    if (rawList) {
-      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\\\"border-top:1px solid var(--br);margin:6px 0;\\\"></li>' + systemLinks.map(createLink).join('');
-    }
-
-    // proceed to clear and rebuild corridors / markers
-    corridorLayer.clearLayers();links-list');
-    if (rawList) {
-      rawList.innerHTML = Object.keys(spotConfig).map(f=>createLink(f)).join('') + '<li style=\\\"border-top:1px solid var(--br);margin:6px 0;\\\"></li>' + systemLinks.map(createLink).join('');
-    }
-
-    // ---- Map markers + corridors ----
-    
-// corridors

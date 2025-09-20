@@ -1150,18 +1150,26 @@ for site in selected_sites:
         hs   = marine.get("wave_height") or marine.get("hs") or []
         times = hourly_p.get("time") or []
     
-        fam_cons = []; exp_cons = []
+        fam_cons = []
+        exp_cons = []
         for i in range(n):
-            fam_cons.append(bool(fam_p[i]))  # suit le primaire
-            exp_cons.append(bool(exp_p[i]))
-            fam_cons.append(fam_ok); exp_cons.append(exp_ok)
+            # Base on primary model’s flags
+            fam_ok = bool(fam_p[i])
+            exp_ok = bool(exp_p[i])
+        
+            # Safety promotion for Family (wind ≤ 12 km/h and Hs ≤ 0.4 m)
             if not fam_ok:
                 try:
-                    if float(wind[i]) <= safe_w_cap and float(hs[i]) <= safe_hs_cap:
+                    wi = float(wind[i]) if (i < len(wind) and wind[i] is not None) else None
+                    hi = float(hs[i])   if (i < len(hs)   and hs[i]   is not None) else None
+                    if wi is not None and hi is not None and wi <= safe_w_cap and hi <= safe_hs_cap:
                         fam_ok = True
                 except Exception:
                     pass
-            fam_cons.append(fam_ok); exp_cons.append(exp_ok)
+        
+            fam_cons.append(fam_ok)
+            exp_cons.append(exp_ok)
+
     
         fam_segs = _iter_segments(fam_cons)
         exp_segs = _iter_segments(exp_cons)

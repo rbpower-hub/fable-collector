@@ -1,4 +1,4 @@
-<!doctype html>
+a<!doctype html>
 <html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8" />
@@ -165,42 +165,11 @@
       .card.wins, .card.conditions, .card.radar{ max-height:none; }
     }
 
-    /* Header layout & buttons */
-  .app-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
-  .app-header h1{margin:0;font-size:1.5rem;white-space:nowrap}
-  .hdr-tools{display:flex;align-items:center;gap:10px;margin-left:auto}
-  .btn{border:1px solid var(--br);background:var(--pill-bg);padding:6px 10px;border-radius:999px;color:var(--fg);cursor:pointer}
-  .btn:hover{filter:brightness(1.05)}
-  .btn-mini{border:1px solid var(--br);background:transparent;padding:2px 6px;border-radius:8px;color:var(--muted);cursor:pointer}
-
-  /* Slim scrollbars for scrollable cards */
-  .card.wins, .card.conditions, .card.radar{
-    scrollbar-width: thin;                /* Firefox */
-    scrollbar-color: var(--br) transparent;
-  }
-  .card.wins::-webkit-scrollbar,
-  .card.conditions::-webkit-scrollbar,
-  .card.radar::-webkit-scrollbar{        /* WebKit */
-    width: 8px;
-    height: 8px;
-  }
-  .card.wins::-webkit-scrollbar-track,
-  .card.conditions::-webkit-scrollbar-track,
-  .card.radar::-webkit-scrollbar-track{
-    background: transparent;
-  }
-  .card.wins::-webkit-scrollbar-thumb,
-  .card.conditions::-webkit-scrollbar-thumb,
-  .card.radar::-webkit-scrollbar-thumb{
-    background: var(--br);
-    border-radius: 999px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-  }
-</style>
+  </style>
 </head>
 <body>
-<header class="app-header">
+<header>
+   <header class="app-header">
     <h1>🧭 FABLE: Tableau de Bord</h1>
   
     <div class="hdr-tools">
@@ -426,30 +395,6 @@
     $('#dashboard-content').classList.add('updating');
 
     const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
-    // Fallback: si windows.json est vide, synthétiser depuis meta.window des spots
-    let winData = windows;
-    if (!winData || !Array.isArray(winData.windows) || winData.windows.length === 0) {
-      const synthesized = [];
-      for (const file of Object.keys(spotConfig)) {
-        const js = await fetchJSON(file);
-        const w  = js?.meta?.window;
-        if (w?.start_local && w?.end_local) {
-          synthesized.push({
-            dest_slug: file,
-            dest_name: spotConfig[file]?.name || file,
-            windows: [{
-              start: w.start_local,
-              end:   w.end_local,
-              confidence: 'medium',
-              confidence_score: null,
-              models: js?.meta?.sources ? Object.keys(js.meta.sources) : []
-            }]
-          });
-        }
-      }
-      winData = { generated_at: new Date().toISOString(), windows: synthesized };
-    }
-
     const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotConfig)) : [];
 
     // Header
@@ -463,7 +408,7 @@
       $('#hc').classList.add('pulse');
     }
 
-    const gen = winData?.generated_at || status?.generated_at || null;
+    const gen = windows?.generated_at || status?.generated_at || null;
     $('#gen').textContent = `${t('updated')}: ${gen ? fmtLocal(gen) : '...'}`;
 
     // Fenêtres GO + badges sources/spreads
@@ -472,7 +417,7 @@
     const winsCard = document.querySelector('.card.wins');
     const nowWinsKey = new Set();
 
-    const winItems = (winData?.windows || [])
+    const winItems = (windows?.windows || [])
       .flatMap(dest => (dest.windows||[]).map(seg => {
         const family = isFamilyWindow(seg.start, seg.end);
         const confKey = ((seg.confidence || dest.confidence) || '').toLowerCase();
@@ -557,11 +502,7 @@
                 </div>`;
       }).join('');
     
-      // Filtrer les entrées ✓ OK afin de ne montrer que les avertissements
-      const _tmp = document.createElement('div');
-      _tmp.innerHTML = rowsHTML;
-      _tmp.querySelectorAll('.line.ok').forEach(n=>n.remove());
-      reasonsDiv.innerHTML = _tmp.innerHTML;
+      reasonsDiv.innerHTML = rowsHTML;
     } else {
       reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
     }
@@ -707,3 +648,7 @@
 </script>
 </body>
 </html>
+
+
+
+

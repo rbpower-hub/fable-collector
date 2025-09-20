@@ -1225,7 +1225,7 @@ for site in selected_sites:
             except Exception: pass
         else:
             os.replace(tmp, out_path)  # atomique
-
+        return payload
     # --- Construction du payload JSON ---
 
 

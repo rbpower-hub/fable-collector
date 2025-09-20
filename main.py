@@ -1337,7 +1337,7 @@ else:
     index_target.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 # --- build windows.json (agrégat) ---
 try:
-    build_windows_json(PUBLIC, / "windows.json", RULES)
+    build_windows_json(PUBLIC, PUBLIC / "windows.json", RULES)
     log.info("windows.json built at %s", (PUBLIC / "windows.json").as_posix())
 except Exception as e:
     log.error("windows.json build failed: %s", e)

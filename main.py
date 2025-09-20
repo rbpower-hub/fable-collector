@@ -20,9 +20,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
-import urllib.request
-import requests
-# import math
+import requests  # urllib.request est inutile ici, tu peux le retirer si non utilisé
 
 # -----------------------
 # Config & budgets
@@ -35,21 +33,24 @@ MODEL_ORDER          = [m.strip() for m in os.getenv(
 SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "90"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
 
+# Logger (unique)
 log = logging.getLogger("fable-collector")
 if not logging.getLogger().handlers:
     logging.basicConfig(
         level=getattr(logging, os.getenv("LOGLEVEL","INFO"), "INFO"),
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
-    
+
+# Dossier public : auto-détection + unification
 _PUBLIC_ENV = os.getenv("FABLE_PUBLIC_DIR")
 if _PUBLIC_ENV:
     PUBLIC_DIR = Path(_PUBLIC_ENV)
 else:
     PUBLIC_DIR = Path("public") if Path("public").exists() else Path("Public")
 
-
-log = logging.getLogger("fable-collector")
+# On unifie tout le code sur un alias unique
+PUBLIC = PUBLIC_DIR
+PUBLIC.mkdir(parents=True, exist_ok=True)  # à la place de ensure_dir(PUBLIC)
 
 # Modèles parallèles à tenter (en plus du primaire choisi pour hourly)
 PARALLEL_MODELS        = [m.strip() for m in os.getenv(

@@ -533,7 +533,11 @@
                 </div>`;
       }).join('');
     
-      reasonsDiv.innerHTML = rowsHTML;
+      // Filtrer les entrées ✓ OK afin de ne montrer que les avertissements
+      const _tmp = document.createElement('div');
+      _tmp.innerHTML = rowsHTML;
+      _tmp.querySelectorAll('.line.ok').forEach(n=>n.remove());
+      reasonsDiv.innerHTML = _tmp.innerHTML;
     } else {
       reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
     }

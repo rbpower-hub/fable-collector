@@ -17,10 +17,11 @@ import os, sys, json, time, yaml, random, logging
 import hashlib
 import datetime as dt
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 import urllib.request
+import requests
 # import math
 
 # -----------------------
@@ -34,10 +35,20 @@ MODEL_ORDER          = [m.strip() for m in os.getenv(
 SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "90"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
 
+log = logging.getLogger("fable-collector")
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=getattr(logging, os.getenv("LOGLEVEL","INFO"), "INFO"))
+    
+_PUBLIC_ENV = os.getenv("FABLE_PUBLIC_DIR")
+if _PUBLIC_ENV:
+    PUBLIC_DIR = Path(_PUBLIC_ENV)
+else:
+    PUBLIC_DIR = Path("public") if Path("public").exists() else Path("Public")
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
+
 log = logging.getLogger("fable-collector")
 
 # Modèles parallèles à tenter (en plus du primaire choisi pour hourly)
@@ -76,23 +87,38 @@ def slugify(name: str) -> str:
     s = re.sub(r"-{2,}", "-", s)
     return s
 
-def http_get_json(url: str, retry: int = HTTP_RETRIES, timeout: int = HTTP_TIMEOUT_S) -> Dict[str, Any]:
+# --- HTTP robuste: Session + connect/read timeouts + backoff 0.5→1→2→4 ---
+SESSION = requests.Session()
+
+def http_get_json(url: str, retry: int | None = None, timeout: int | float | None = None):
+    # fallback si les constantes ne sont pas encore définies
+    try:
+        _retries = retry if retry is not None else int(os.getenv("FABLE_HTTP_RETRIES", "1"))
+    except Exception:
+        _retries = 1
+    try:
+        _timeout = float(timeout if timeout is not None else os.getenv("FABLE_HTTP_TIMEOUT_S", "10"))
+    except Exception:
+        _timeout = 10.0
+
+    backoffs = [0.5, 1.0, 2.0, 4.0]
+    connect_read = (3.0, _timeout)
     last_err = None
-    for attempt in range(retry + 1):
+    for attempt in range(min(_retries + 1, len(backoffs) + 1)):
         try:
-            req = urllib.request.Request(
-                url, headers={"User-Agent": "fable-collector/1.4 (+github actions)"}
+            r = SESSION.get(
+                url,
+                timeout=connect_read,
+                headers={"User-Agent": "fable-collector/1.5 (+github actions)"}
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                if resp.status != 200:
-                    raise RuntimeError(f"HTTP {resp.status}")
-                return json.loads(resp.read().decode("utf-8"))
+            r.raise_for_status()
+            return r.json()
         except Exception as e:
             last_err = e
-            if attempt < retry:
-                sleep_s = 0.8 + attempt * 1.2 + random.random() * 0.5
-                log.warning("GET failed (%s). retry in %.1fs ...", e, sleep_s)
-                time.sleep(sleep_s)
+            if attempt < len(backoffs):
+                time.sleep(backoffs[attempt])
+            else:
+                break
     raise RuntimeError(f"GET failed after retries: {last_err}")
 
 def ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
@@ -1164,5 +1190,164 @@ if index_target.exists():
     alt.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 else:
     index_target.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+# --- build windows.json (agrégat) ---
+try:
+    build_windows_json(PUBLIC_DIR, PUBLIC_DIR / "windows.json", RULES)
+    log.info("windows.json built at %s", (PUBLIC_DIR / "windows.json").as_posix())
+except Exception as e:
+    log.error("windows.json build failed: %s", e)
+
+
+def _hysteresis(prev_ok: bool, value: float, cap: float, hys: float) -> bool:
+    return value <= (cap + hys) if prev_ok else value <= cap
+
+def _iter_segments(flags: List[bool]) -> List[Tuple[int, int]]:
+    segs = []; cur = None
+    for i, ok in enumerate(flags):
+        if ok:
+            if cur is None:
+                cur = [i, i]
+            else:
+                cur[1] = i
+        else:
+            if cur is not None:
+                segs.append((cur[0], cur[1])); cur = None
+    if cur is not None:
+        segs.append((cur[0], cur[1]))
+    return segs
+
+def _local_hour_from_iso(iso: str) -> int:
+    # Les JSON spots ont déjà des heures locales "YYYY-MM-DDTHH:MM"
+    try:
+        return int(iso[11:13])
+    except Exception:
+        return 0
+
+def _class_flags_for_model(hourly: Dict[str, Any],
+                           marine: Dict[str, Any],
+                           rules: Dict[str, Any]) -> Tuple[List[bool], List[bool]]:
+    times = (hourly or {}).get("time") or []
+    wind  = (hourly or {}).get("wind_speed_10m") or []
+    gust  = (hourly or {}).get("wind_gusts_10m") or []
+    hs    = (marine or {}).get("wave_height") or (marine or {}).get("hs") or []
+
+    fam_w   = (rules.get("wind") or {}).get("family_max_kmh", 20.0)
+    fam_hs  = (rules.get("sea")  or {}).get("family_max_hs_m", 0.5)
+    exp_w, exp_hs = 25.0, 0.8
+    exp_gust = (rules.get("shelter") or {}).get("anchor_gusts_allow_up_to_kmh", 34.0)
+    hys_w  = (rules.get("hysteresis") or {}).get("wind_kmh", 1.0)
+    hys_hs = (rules.get("hysteresis") or {}).get("hs_m", 0.05)
+    fam_h1 = (rules.get("family_hours_local") or {}).get("start_h", 8)
+    fam_h2 = (rules.get("family_hours_local") or {}).get("end_h", 21)
+
+    fam_flags = []; exp_flags = []
+    prev_fam = False; prev_exp = False
+    n = min(len(times), len(wind), len(gust), len(hs))
+    for i in range(n):
+        hh = _local_hour_from_iso(times[i])
+        ok_hour = (fam_h1 <= hh <= fam_h2)
+        fam_ok = ok_hour and _hysteresis(prev_fam, float(wind[i]), float(fam_w), hys_w) \
+                         and _hysteresis(prev_fam, float(hs[i]),   float(fam_hs), hys_hs)
+        exp_ok = (float(gust[i]) <= float(exp_gust)) \
+                 and _hysteresis(prev_exp, float(wind[i]), float(exp_w), hys_w) \
+                 and _hysteresis(prev_exp, float(hs[i]),   float(exp_hs), hys_hs)
+        fam_flags.append(bool(fam_ok)); exp_flags.append(bool(exp_ok))
+        prev_fam = bool(fam_ok); prev_exp = bool(exp_ok)
+    return fam_flags, exp_flags
+
+def _aggregate_one_spot(spot: Dict[str, Any], rules: Dict[str, Any]) -> Dict[str, Any]:
+    primary = (spot.get("forecast_primary") or {})
+    hourly_p = (primary.get("hourly") or {})
+    marine   = (spot.get("marine") or {})
+
+    fam_p, exp_p = _class_flags_for_model(hourly_p, marine, rules)
+    model_flags = [(fam_p, exp_p)]
+    for _, m in (spot.get("models") or {}).items():
+        fam_m, exp_m = _class_flags_for_model((m or {}).get("hourly") or {}, marine, rules)
+        model_flags.append((fam_m, exp_m))
+
+    n = len(fam_p)
+    safe_w_cap = 12.0  # tolérance sécurité (ton choix)
+    safe_hs_cap = 0.4
+    wind = hourly_p.get("wind_speed_10m") or []
+    hs   = marine.get("wave_height") or marine.get("hs") or []
+    times = hourly_p.get("time") or []
+
+    fam_cons = []; exp_cons = []
+    for i in range(n):
+        fam_votes = sum(int(f[i]) for f,_ in model_flags if i < len(f))
+        exp_votes = sum(int(e[i]) for _,e in model_flags if i < len(e))
+        fam_ok = (fam_votes >= 2)
+        exp_ok = (exp_votes >= 2)
+        if not fam_ok:
+            try:
+                if float(wind[i]) <= safe_w_cap and float(hs[i]) <= safe_hs_cap:
+                    fam_ok = True
+            except Exception:
+                pass
+        fam_cons.append(fam_ok); exp_cons.append(exp_ok)
+
+    fam_segs = _iter_segments(fam_cons)
+    exp_segs = _iter_segments(exp_cons)
+
+    def seg_conf(segs, idx):
+        out = []
+        total_models = len(model_flags)
+        for a, b in segs:
+            L = b - a + 1
+            agree = 0
+            for i in range(a, b + 1):
+                votes = sum(int(flags[idx][i]) for flags in model_flags if i < len(flags[idx]))
+                if votes >= 2: agree += 1
+            conf = "medium" if (agree / max(1, L)) >= 0.8 else "low"
+            if conf == "low":
+                try:
+                    if all(float(wind[i]) <= safe_w_cap and float(hs[i]) <= safe_hs_cap for i in range(a, b + 1)):
+                        conf = "medium"
+                except Exception:
+                    pass
+            out.append({"start_idx": a, "end_idx": b, "confidence": conf})
+        return out
+
+    fam_out = seg_conf(fam_segs, 0)
+    exp_out = seg_conf(exp_segs, 1)
+
+    def to_iso(seg):
+        a, b = seg["start_idx"], seg["end_idx"]
+        return {"start": times[a], "end": times[b], "confidence": seg["confidence"]}
+
+    return {
+        "dest_slug": f"{spot['meta']['slug']}.json",
+        "dest_name": spot["meta"]["name"],
+        "windows": [
+            {"class": "Family", "segments": [to_iso(s) for s in fam_out]},
+            {"class": "Expert", "segments": [to_iso(s) for s in exp_out]},
+        ],
+    }
+
+def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
+    entries = []
+    for p in sorted(spots_dir.glob("*.json")):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "meta" in data and "forecast_primary" in data:
+                entries.append(_aggregate_one_spot(data, rules))
+        except Exception as e:
+            log.warning("skip %s: %s", p, e)
+    payload = {
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "windows": entries,
+    }
+    tmp = out_path.with_suffix(".tmp.json")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    total_segments = sum(len(c.get("segments", [])) for e in entries for c in e.get("windows", []))
+    if total_segments == 0 and out_path.exists():
+        log.warning("windows aggregate empty — keeping last-known file")
+    else:
+        os.replace(tmp, out_path)  # atomique
+
+    return payload
 
 # ---------------------------------------------------------------

@@ -21,6 +21,38 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate windows.json (non-empty & ISO)
+        shell: python
+        run: |
+          import json, os, sys, datetime, pathlib
+          pdirs = [pathlib.Path(os.getenv("FABLE_PUBLIC_DIR") or "public"), pathlib.Path("Public")]
+          pub = next((d for d in pdirs if d.exists()), pathlib.Path("public"))
+          p = pub / "windows.json"
+          ok=True; logs=[]
+          if not p.exists():
+            logs.append(f"❌ {p} manquant"); ok=False
+          else:
+            try:
+              data=json.loads(p.read_text(encoding="utf-8"))
+              entries=data.get("windows",[])
+              total=sum(len(c.get("segments",[])) for e in entries for c in e.get("windows",[]))
+              if total==0:
+                logs.append("❌ windows.json vide (0 segments)"); ok=False
+              for e in entries:
+                for cls in e.get("windows",[]):
+                  for seg in cls.get("segments",[]):
+                    for key in ("start","end"):
+                      try:
+                        datetime.datetime.fromisoformat(seg[key]+":00")
+                      except Exception:
+                        logs.append(f"❌ {e.get('dest_slug')}: segment {key} non ISO"); ok=False
+            except Exception as ex:
+              logs.append(f"❌ lecture windows.json échouée: {ex}"); ok=False
+          summary=("\n".join(logs) or "✅ windows.json OK")
+          print(summary)
+          open(os.environ.get('GITHUB_STEP_SUMMARY','/tmp/summary'),"a").write(summary+"\n")
+          sys.exit(0 if ok else 1)
+
       - name: Run validator against Pages
         env:
           INDEX_URL: "https://rbpower-hub.github.io/fable-collector/index.json"

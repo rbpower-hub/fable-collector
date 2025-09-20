@@ -42,14 +42,11 @@ if not logging.getLogger().handlers:
     )
 
 # Dossier public : auto-détection + unification
-_PUBLIC_ENV = os.getenv("FABLE_PUBLIC_DIR")
-if _PUBLIC_ENV:
-    PUBLIC_DIR = Path(_PUBLIC_ENV)
-else:
-    PUBLIC_DIR = Path("public") if Path("public").exists() else Path("Public")
+ROOT = Path(__file__).resolve().parent
+PUBLIC = ROOT / "Public"
+PUBLIC.mkdir(parents=True, exist_ok=True)
 
 # On unifie tout le code sur un alias unique
-PUBLIC = PUBLIC_DIR
 PUBLIC.mkdir(parents=True, exist_ok=True)  # à la place de ensure_dir(PUBLIC)
 
 # Modèles parallèles à tenter (en plus du primaire choisi pour hourly)
@@ -121,8 +118,6 @@ def http_get_json(url: str, retry: int | None = None, timeout: int | float | Non
             else:
                 break
     raise RuntimeError(f"GET failed after retries: {last_err}")
-
-def ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
 
 def csv_to_set(s: str) -> Optional[set]:
     if not s: return None
@@ -975,8 +970,6 @@ def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
 # -----------------------
 # Collecte
 # -----------------------
-PUBLIC  = ROOT / "Public"
-ensure_dir(PUBLIC)
 
 results = []
 t0_global = time.monotonic()
@@ -1344,13 +1337,9 @@ else:
     index_target.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 # --- build windows.json (agrégat) ---
 try:
-    build_windows_json(PUBLIC_DIR, PUBLIC_DIR / "windows.json", RULES)
-    log.info("windows.json built at %s", (PUBLIC_DIR / "windows.json").as_posix())
+    build_windows_json(PUBLIC, / "windows.json", RULES)
+    log.info("windows.json built at %s", (PUBLIC / "windows.json").as_posix())
 except Exception as e:
     log.error("windows.json build failed: %s", e)
-
-
-
-    return payload
 
 # ---------------------------------------------------------------

@@ -24,76 +24,109 @@ jobs:
       - name: Run validator against Pages
         env:
           INDEX_URL: "https://rbpower-hub.github.io/fable-collector/index.json"
+          WINDOWS_URL: "https://rbpower-hub.github.io/fable-collector/windows.json"
           REQUIRED: "gammarth-port.json,sidi-bou-said.json,ghar-el-melh.json,ras-fartass.json,el-haouaria.json"
           ALIASES: "sidi-bou-said.json=sidi-bou-sa-d.json"
           LOCAL_TZ: "Africa/Tunis"
           LEEWAY_MIN: "25"
           MIN_HOURS: "48"
+          MIN_SEGMENTS_TOTAL: "1"      # au moins 1 segment global
         run: |
           python - << 'PY'
-          import json, sys, urllib.request, datetime as dt
+          import json, sys, os, urllib.request, datetime as dt
           from zoneinfo import ZoneInfo
 
-          IX = urllib.request.urlopen("${INDEX_URL}").read().decode("utf-8")
-          idx = json.loads(IX)
-          tz = ZoneInfo("${LOCAL_TZ}")
+          def GET(url):
+              with urllib.request.urlopen(url, timeout=20) as r:
+                  return r.read().decode("utf-8")
+
+          tz = ZoneInfo(os.environ["LOCAL_TZ"])
+          idx = json.loads(GET(os.environ["INDEX_URL"]))
+          base = os.environ["INDEX_URL"].rsplit("/",1)[0] + "/"
+
+          # 1) Fraîcheur index.json
           gen = dt.datetime.fromisoformat(idx["generated_at"].replace("Z","+00:00")).astimezone(tz)
           now = dt.datetime.now(tz)
-          leeway = dt.timedelta(minutes=int("${LEEWAY_MIN}"))
-          ok = True
-          logs = []
-
-          # Freshness
-          if (now - gen) > dt.timedelta(hours=2):  # garde-fou large
-              logs.append(f"❌ generated_at trop ancien: {gen.isoformat()} vs now {now.isoformat()}")
+          ok, logs = True, []
+          if (now - gen) > dt.timedelta(hours=2):
+              logs.append(f"❌ index.json trop ancien: {gen.isoformat()} (now {now.isoformat()})")
               ok = False
 
-          # Presence
+          # 2) Présence des spots requis (avec alias éventuels)
           files = {f["path"]: f for f in idx.get("files", [])}
-          req = "${REQUIRED}".split(",") if "${REQUIRED}" else []
+          req = [x for x in os.environ.get("REQUIRED","").split(",") if x]
           alias_map = {}
-          for pair in ("${ALIASES}".split(",") if "${ALIASES}" else []):
+          for pair in (os.environ.get("ALIASES","").split(",") if os.environ.get("ALIASES") else []):
               if "=" in pair:
                   k,v = pair.split("=",1); alias_map[k]=v
-
           for r in req:
               if r in files: continue
               if r in alias_map and alias_map[r] in files:
-                  logs.append(f"ℹ️ alias utilisé pour {r}: {alias_map[r]}")
+                  logs.append(f"ℹ️ alias pour {r}: {alias_map[r]}")
                   continue
-              logs.append(f"❌ manquant dans index.json: {r}")
-              ok = False
+              logs.append(f"❌ manquant dans index.json: {r}"); ok=False
 
-          # Spot shallow checks
-          def load(url): 
-              return json.loads(urllib.request.urlopen(url).read().decode("utf-8"))
-          base = "${INDEX_URL}".rsplit("/",1)[0] + "/"
+          # 3) Qualité minimale des séries horaires
+          MIN_H = int(os.environ.get("MIN_HOURS","48"))
+          def load_json(path):
+              return json.loads(GET(base + path))
+          have_meta_window = set()
           for logical in req:
-              p = logical
-              if p not in files and logical in alias_map and alias_map[logical] in files:
-                  p = alias_map[logical]
+              p = logical if logical in files else alias_map.get(logical, logical)
               if p not in files: 
                   continue
               try:
-                  d = load(base + p)
+                  d = load_json(p)
                   h = d.get("hourly",{})
-                  T = h.get("time") or []
+                  T  = h.get("time") or []
                   HS = h.get("hs") or h.get("wave_height") or []
                   TP = h.get("tp") or h.get("wave_period") or []
-                  if not (len(T)>=int("${MIN_HOURS}") and len(HS)>=int("${MIN_HOURS}") and len(TP)>=int("${MIN_HOURS}")):
-                      logs.append(f"❌ {p}: séries < {${MIN_HOURS}} h")
-                      ok=False
-                  # quick time parse sanity on first/last
-                  import itertools
-                  for t in itertools.islice(T,0,1):
-                      dt.datetime.fromisoformat(t.replace("Z","+00:00"))
+                  if not (len(T)>=MIN_H and len(HS)>=MIN_H and len(TP)>=MIN_H):
+                      logs.append(f"❌ {p}: séries < {MIN_H} h"); ok=False
+                  # parse 1er timestamp (sanity)
+                  if T:
+                      dt.datetime.fromisoformat((T[0]+"+00:00").replace("Z","+00:00"))
+                  # garder trace des spots qui annoncent un meta.window (horizon dispo)
+                  w = (d.get("meta") or {}).get("window") or {}
+                  if w.get("start_local") and w.get("end_local"):
+                      have_meta_window.add(p)
               except Exception as e:
-                  logs.append(f"❌ lecture {p} échouée: {e}")
-                  ok=False
+                  logs.append(f"❌ lecture {p} échouée: {e}"); ok=False
 
-          summary = ("\n".join(logs) or "✅ Collector OK (fraîcheur + fichiers + forme minimale)")
+          # 4) Cohérence de windows.json (agrégat)
+          try:
+              W = json.loads(GET(os.environ["WINDOWS_URL"]))
+              entries = W.get("windows") or []
+              seg_total = sum(len(e.get("windows") or []) for e in entries)
+              if seg_total < int(os.environ.get("MIN_SEGMENTS_TOTAL","1")):
+                  logs.append("❌ windows.json vide: aucun segment agrégé")
+                  ok = False
+
+              # 4.a) Au moins 1 segment pour tout spot ayant un meta.window déclaré
+              by_slug = {e.get("dest_slug"): e for e in entries}
+              for p in sorted(have_meta_window):
+                  if p not in by_slug or len(by_slug[p].get("windows") or []) == 0:
+                      logs.append(f"❌ {p}: meta.window présent mais aucun segment dans windows.json")
+                      ok = False
+
+              # 4.b) Sanity des segments (start < end, ISO parse OK)
+              from dateutil.parser import isoparse
+              for e in entries:
+                  for s in (e.get("windows") or []):
+                      try:
+                          a, b = isoparse(s["start"]), isoparse(s["end"])
+                          if not (a < b):
+                              logs.append(f"❌ {e.get('dest_slug')}: segment avec start>=end")
+                              ok = False
+                      except Exception:
+                          logs.append(f"❌ {e.get('dest_slug')}: segment non ISO-parseable")
+                          ok = False
+          except Exception as e:
+              logs.append(f"❌ lecture windows.json échouée: {e}")
+              ok = False
+
+          summary = ("\n".join(logs) or "✅ Healthcheck OK (fraîcheur + spots + séries + agrégat)")
           print(summary)
-          # Step Summary in Actions UI
           open(os.environ.get('GITHUB_STEP_SUMMARY','/tmp/summary'),"a").write(summary+"\n")
           sys.exit(0 if ok else 1)
           PY

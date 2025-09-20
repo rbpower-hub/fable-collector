@@ -48,11 +48,6 @@ if _PUBLIC_ENV:
 else:
     PUBLIC_DIR = Path("public") if Path("public").exists() else Path("Public")
 
-# Unifie tout le code sur un seul alias:
-PUBLIC = PUBLIC_DIR
-ensure_dir(PUBLIC)
-
-)
 
 log = logging.getLogger("fable-collector")
 
@@ -979,7 +974,7 @@ def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
 # -----------------------
 # Collecte
 # -----------------------
-PUBLIC  = ROOT / "public"
+PUBLIC  = ROOT / "Public"
 ensure_dir(PUBLIC)
 
 results = []

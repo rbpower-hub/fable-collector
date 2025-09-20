@@ -25,9 +25,7 @@ jobs:
         shell: python
         run: |
           import json, os, sys, datetime, pathlib
-          pdirs = [pathlib.Path(os.getenv("FABLE_PUBLIC_DIR") or "public"), pathlib.Path("Public")]
-          pub = next((d for d in pdirs if d.exists()), pathlib.Path("public"))
-          p = pub / "windows.json"
+          p = pathlib.Path("Public") / "windows.json"
           ok=True; logs=[]
           if not p.exists():
             logs.append(f"❌ {p} manquant"); ok=False
@@ -50,7 +48,6 @@ jobs:
               logs.append(f"❌ lecture windows.json échouée: {ex}"); ok=False
           summary=("\n".join(logs) or "✅ windows.json OK")
           print(summary)
-          open(os.environ.get('GITHUB_STEP_SUMMARY','/tmp/summary'),"a").write(summary+"\n")
           sys.exit(0 if ok else 1)
 
       - name: Run validator against Pages

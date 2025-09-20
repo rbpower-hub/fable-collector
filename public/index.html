@@ -426,6 +426,30 @@
     $('#dashboard-content').classList.add('updating');
 
     const [status, windows] = await Promise.all([ fetchJSON('status.json'), fetchJSON('windows.json') ]);
+    // Fallback: si windows.json est vide, synthétiser depuis meta.window des spots
+    let winData = windows;
+    if (!winData || !Array.isArray(winData.windows) || winData.windows.length === 0) {
+      const synthesized = [];
+      for (const file of Object.keys(spotConfig)) {
+        const js = await fetchJSON(file);
+        const w  = js?.meta?.window;
+        if (w?.start_local && w?.end_local) {
+          synthesized.push({
+            dest_slug: file,
+            dest_name: spotConfig[file]?.name || file,
+            windows: [{
+              start: w.start_local,
+              end:   w.end_local,
+              confidence: 'medium',
+              confidence_score: null,
+              models: js?.meta?.sources ? Object.keys(js.meta.sources) : []
+            }]
+          });
+        }
+      }
+      winData = { generated_at: new Date().toISOString(), windows: synthesized };
+    }
+
     const reasonsRows = (window.FABLE?.debugReasons) ? await FABLE.debugReasons(Object.keys(spotConfig)) : [];
 
     // Header
@@ -439,7 +463,7 @@
       $('#hc').classList.add('pulse');
     }
 
-    const gen = windows?.generated_at || status?.generated_at || null;
+    const gen = winData?.generated_at || status?.generated_at || null;
     $('#gen').textContent = `${t('updated')}: ${gen ? fmtLocal(gen) : '...'}`;
 
     // Fenêtres GO + badges sources/spreads
@@ -448,7 +472,7 @@
     const winsCard = document.querySelector('.card.wins');
     const nowWinsKey = new Set();
 
-    const winItems = (windows?.windows || [])
+    const winItems = (winData?.windows || [])
       .flatMap(dest => (dest.windows||[]).map(seg => {
         const family = isFamilyWindow(seg.start, seg.end);
         const confKey = ((seg.confidence || dest.confidence) || '').toLowerCase();

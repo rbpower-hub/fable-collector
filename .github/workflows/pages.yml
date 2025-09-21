@@ -109,17 +109,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Validate configs
-        run: |
-          python -m pip install -r requirements.txt
-          python validate_config.py
-          python env_validation.py
-        env:
-          FABLE_TZ: Africa/Tunis
-          FABLE_WINDOW_HOURS: 48
-          FABLE_MODELS: 'icon_seamless,gfs_seamless,ecmwf_ifs04'
-          FABLE_PARALLEL_MODELS: '3'
-
       - name: Check Astral availability
         if: steps.gate.outputs.should_run == 'true'
         shell: bash

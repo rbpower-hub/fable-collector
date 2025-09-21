@@ -1277,7 +1277,7 @@ for site in selected_sites:
    
     
     # ... after RULES is loaded:
-from shared import get_non_spot_json
+    from shared import get_non_spot_json
 
     # ... after RULES is loaded:
     SKIP = get_non_spot_json(RULES)

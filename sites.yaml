@@ -1,31 +1,29 @@
 # sites.yaml
+# Chaque site est un objet YAML (map) dans une liste (les "- " en tête de ligne).
+# name: libre (accents autorisés, mettez des guillemets)
+# lat/lon: en décimaux (Nord/Est positifs)
 
 - name: "Gammarth (port)"
-  slug: gammarth-port
   lat: 36.92030
   lon: 10.28460
   shelter_bonus_radius_km: 0.0
 
 - name: "Sidi Bou Saïd"
-  slug: sidi-bou-said
   lat: 36.87030
   lon: 10.34190
   shelter_bonus_radius_km: 0.0
 
 - name: "Ghar el Melh"
-  slug: ghar-el-melh
   lat: 37.17670
   lon: 10.17000
   shelter_bonus_radius_km: 0.0
 
 - name: "Ras Fartass"
-  slug: ras-fartass
   lat: 36.87740
   lon: 10.60320
   shelter_bonus_radius_km: 0.0
 
 - name: "El Haouaria"
-  slug: el-haouaria
   lat: 36.96430
   lon: 11.00900
   shelter_bonus_radius_km: 0.0

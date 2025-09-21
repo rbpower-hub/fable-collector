@@ -1272,67 +1272,49 @@ for site in selected_sites:
                 {"class": "Expert", "segments": exp_iso},
             ],
         }
-            
-    
+ 
     def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
         def _looks_like_spot(d: dict) -> bool:
-            # Schéma minimal attendu pour un "spot"
             if not isinstance(d, dict):
                 return False
-            meta   = d.get("meta") or {}
-            fp     = d.get("forecast_primary") or {}
+            meta = d.get("meta") or {}
+            fp   = d.get("forecast_primary") or {}
             marine = d.get("marine") or {}
-            h_fp   = fp.get("hourly") or {}
-    
-            # meta.name / meta.slug
-            if not isinstance(meta.get("name"), str):
-                return False
-            if not isinstance(meta.get("slug"), str):
-                return False
-    
-            # Axe horaire principal
+            h_fp = fp.get("hourly") or {}
+            if not isinstance(meta.get("name"), str): return False
+            if not isinstance(meta.get("slug"), str): return False
             t = h_fp.get("time")
-            if not (isinstance(t, list) and len(t) > 0):
-                return False
-    
-            # Marine: au moins une série houle/hauteur présente
-            hs = marine.get("wave_height") or marine.get("hs")
-            if not (isinstance(marine, dict) and isinstance(hs, list) and len(hs) > 0):
-                return False
-    
+            if not (isinstance(t, list) and len(t) > 0): return False
+            if not (isinstance(marine, dict) and (marine.get("wave_height") or marine.get("hs"))): return False
             return True
     
-        # Fichiers à ignorer (non-spots connus)
+        # Fichiers non-spots à ignorer (racine de l’artefact)
         SKIP = {
-            "windows.json",
-            "index.json",
-            "index.spots.json",
-            "status.json",
-            "catalog.json",
-            "rules.normalized.json",
+            "windows.json", "index.json", "index.spots.json", "status.json",
+            "catalog.json", "rules.normalized.json"
         }
     
-        entries: List[Dict[str, Any]] = []
-    
+        entries = []
         for p in sorted(spots_dir.glob("*.json")):
             if p.name in SKIP:
                 continue
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
+                if _looks_like_spot(data):
+                    entries.append(_aggregate_one_spot(data, rules))
+                else:
+                    log.debug("skip(non-spot) %s", p.name)
             except Exception as e:
                 log.warning("skip %s: %s", p, e)
-                continue
     
-            if _looks_like_spot(data):
-                try:
-                    entries.append(_aggregate_one_spot(data, rules))
-                except Exception as e:
-                    log.warning("aggregate fail %s: %s", p, e)
-            else:
-                log.debug("skip(non-spot) %s", p.name)
+        # home_slug : préféré si présent, sinon 1er spot
+        wanted = "gammarth-port.json"
+        slugs = {e["dest_slug"] for e in entries}
+        home_slug = wanted if wanted in slugs else (entries[0]["dest_slug"] if entries else None)
     
         payload = {
             "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "home_slug": home_slug,
             "windows": entries,
         }
     
@@ -1340,22 +1322,17 @@ for site in selected_sites:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     
-        # Ne remplace que si on a produit des segments, sinon conserve l’ancien fichier
-        total_segments = sum(
-            len(cls.get("segments", []))
-            for e in entries
-            for cls in e.get("windows", [])
-        )
+        total_segments = sum(len(c.get("segments", [])) for e in entries for c in e.get("windows", []))
         if total_segments == 0 and out_path.exists():
             log.warning("windows aggregate empty — keeping last-known file")
-            try:
-                tmp.unlink()
-            except Exception:
-                pass
+            try: tmp.unlink()
+            except Exception: pass
         else:
             os.replace(tmp, out_path)
     
+        log.info("windows.json: spots=%d, segments=%d, home=%s", len(entries), total_segments, home_slug)
         return payload
+
 
    
  

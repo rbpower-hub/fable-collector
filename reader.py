@@ -16,7 +16,8 @@ NOUVEAUTÉS :
   dans rules.yaml (rafales, squalls, Tp assoupli si Hs faible).
 
 Usage :
-    python reader.py --from-dir Public --out Public --home gammarth-port.json  --min-hours 4 --max-hours 6
+    python reader.py --from-dir public --out public \
+                     --home gammarth-port.json --min-hours 4 --max-hours 6
 """
 
 from __future__ import annotations
@@ -30,19 +31,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 import datetime as dt
 import os
-
-# --- juste après les imports
-def _smart_dir(p: Optional[Path]) -> Path:
-    if p is not None:
-        return p
-    # essaie Public/ puis public/ (sensibilité à la casse)
-    for cand in ("Public", "public"):
-        q = Path(cand)
-        if q.exists():
-            return q
-    # défaut si rien n'existe encore
-    return Path("Public")
-
 
 # --- PyYAML optionnel (fallback auto si absent) ---
 try:
@@ -650,32 +638,14 @@ class RunResult:
     generated_at: str
     home_slug: str
     windows: List[Dict[str, Any]]
-# =========================
-# Exécution principale
-# =========================
-@dataclass
-class RunResult:
-    generated_at: str
-    home_slug: str
-    windows: List[Dict[str, Any]]
 
 def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
         min_h: int, max_h: int) -> Dict[str, Any]:
 
-    # (Re)charger les règles à l’exécution et propager aux constantes globales
-    from shared import get_non_spot_json
-    global RULES
-    RULES = load_rules()
-    _apply_rules_globals()
+    _apply_rules_globals()  # au cas où RULES a été modifié par l'env
 
-    SKIP = get_non_spot_json(RULES)
-
-    # Lister uniquement les spots (pas de non-spots, pas de fichiers cachés)
-    spots = sorted(
-        p for p in from_dir.glob("*.json")
-        if p.name not in SKIP and not p.name.startswith(".")
-    )
-
+    spots = sorted([p for p in from_dir.glob("*.json")
+                    if p.name not in ("index.json", "windows.json")])
     if not spots:
         raise SystemExit(f"Aucun JSON de spot trouvé dans {from_dir}")
 
@@ -723,10 +693,10 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="FABLE reader – détecteur de fenêtres Family GO")
-    ap.add_argument("--from-dir", default="Public", type=Path,
-                    help="Répertoire où se trouvent les JSON de spots (par défaut: Public).")
-    ap.add_argument("--out", default="Public", type=Path,
-                    help="Répertoire de sortie (windows.json) (par défaut: Public).")
+    ap.add_argument("--from-dir", default="public", type=Path,
+                    help="Répertoire où se trouvent les JSON de spots.")
+    ap.add_argument("--out", default="public", type=Path,
+                    help="Répertoire de sortie (windows.json).")
     ap.add_argument("--home", default=None,
                     help="Nom de fichier JSON du port d’attache (ex: gammarth-port.json).")
     ap.add_argument("--min-hours", default=DEFAULT_MIN_H, type=int,
@@ -735,7 +705,7 @@ def main() -> None:
                     help="Durée maximale d’une fenêtre (heures).")
     args = ap.parse_args()
 
-    # petit log utile en CI
-    print(f"[reader] from_dir={args.from_dir} out_dir={args.out} home={args.home}")
-
     run(args.from_dir, args.out, args.home, args.min_hours, args.max_hours)
+
+if __name__ == "__main__":
+    main()

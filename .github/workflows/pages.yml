@@ -358,6 +358,9 @@ jobs:
           FABLE_PARALLEL_MODELS: 'icon_seamless,gfs_seamless,ecmwf_ifs04'
           FABLE_PARALLEL_TIMEOUT_S: '12'
           FABLE_PARALLEL_RETRIES: '0'
+          FABLE_WRITE_WINDOWS_FROM_COLLECTOR: '1'
+          FABLE_WINDOWS_FILENAME: 'windows.collector.json'   # keep it off the main windows.json
+          
         run: |
           set -e
           echo "Using FABLE_TZ=$FABLE_TZ"

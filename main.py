@@ -46,9 +46,6 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "Public"
 PUBLIC.mkdir(parents=True, exist_ok=True)
 
-# On unifie tout le code sur un alias unique
-PUBLIC.mkdir(parents=True, exist_ok=True)  # à la place de ensure_dir(PUBLIC)
-
 # Modèles parallèles à tenter (en plus du primaire choisi pour hourly)
 PARALLEL_MODELS        = [m.strip() for m in os.getenv(
     "FABLE_PARALLEL_MODELS", "ecmwf_ifs04,icon_seamless,gfs_seamless"
@@ -197,7 +194,7 @@ def _normalize_daily_timezones_inplace(p: Dict[str, Any]) -> None:
 # Charger sites.yaml
 # -----------------------
 ROOT = Path(__file__).resolve().parent
-sites_yaml = ROOT / "sites.yaml"
+
 if not sites_yaml.exists():
     log.error("sites.yaml introuvable à la racine du repo."); sys.exit(1)
 try:
@@ -1106,31 +1103,58 @@ for site in selected_sites:
         times = (hourly or {}).get("time") or []
         wind  = (hourly or {}).get("wind_speed_10m") or []
         gust  = (hourly or {}).get("wind_gusts_10m") or []
-        hs    = (marine or {}).get("wave_height") or (marine or {}).get("hs") or []
+        hs    = (marine  or {}).get("wave_height") or (marine or {}).get("hs") or []
     
-        fam_w   = (rules.get("wind") or {}).get("family_max_kmh", 20.0)
-        fam_hs  = (rules.get("sea")  or {}).get("family_max_hs_m", 0.5)
+        # Caps & hysteresis depuis rules (cast sûr)
+        fam_w   = float((rules.get("wind") or {}).get("family_max_kmh", 20.0))
+        fam_hs  = float((rules.get("sea")  or {}).get("family_max_hs_m", 0.5))
         exp_w, exp_hs = 25.0, 0.8
-        exp_gust = (rules.get("shelter") or {}).get("anchor_gusts_allow_up_to_kmh", 34.0)
-        hys_w  = (rules.get("hysteresis") or {}).get("wind_kmh", 1.0)
-        hys_hs = (rules.get("hysteresis") or {}).get("hs_m", 0.05)
-        fam_h1 = (rules.get("family_hours_local") or {}).get("start_h", 8)
-        fam_h2 = (rules.get("family_hours_local") or {}).get("end_h", 21)
+        exp_gust = float((rules.get("shelter") or {}).get("anchor_gusts_allow_up_to_kmh", 34.0))
+        hys_w  = float((rules.get("hysteresis") or {}).get("wind_kmh", 1.0))
+        hys_hs = float((rules.get("hysteresis") or {}).get("hs_m", 0.05))
+        fam_h1 = int((rules.get("family_hours_local") or {}).get("start_h", 8))
+        fam_h2 = int((rules.get("family_hours_local") or {}).get("end_h", 21))
     
-        fam_flags = []; exp_flags = []
-        prev_fam = False; prev_exp = False
+        fam_flags: List[bool] = []
+        exp_flags: List[bool] = []
+        prev_fam = False
+        prev_exp = False
+    
         n = min(len(times), len(wind), len(gust), len(hs))
+        if n == 0:
+            return fam_flags, exp_flags
+    
+        import math
+        HUGE = 1e9
+    
+        def _f(x, default=HUGE) -> float:
+            """float(x) tolérant: None/NaN/erreur -> valeur très grande (→ faux par défaut)."""
+            try:
+                v = float(x)
+                return v if math.isfinite(v) else default
+            except Exception:
+                return default
+    
         for i in range(n):
             hh = _local_hour_from_iso(times[i])
             ok_hour = (fam_h1 <= hh <= fam_h2)
-            fam_ok = ok_hour and _hysteresis(prev_fam, float(wind[i]), float(fam_w), hys_w) \
-                             and _hysteresis(prev_fam, float(hs[i]),   float(fam_hs), hys_hs)
-            exp_ok = (float(gust[i]) <= float(exp_gust)) \
-                     and _hysteresis(prev_exp, float(wind[i]), float(exp_w), hys_w) \
-                     and _hysteresis(prev_exp, float(hs[i]),   float(exp_hs), hys_hs)
-            fam_flags.append(bool(fam_ok)); exp_flags.append(bool(exp_ok))
-            prev_fam = bool(fam_ok); prev_exp = bool(exp_ok)
+    
+            w  = _f(wind[i])   # None/NaN -> 1e9
+            g  = _f(gust[i])   # None/NaN -> 1e9
+            hs_i = _f(hs[i])   # None/NaN -> 1e9
+    
+            fam_ok = ok_hour and _hysteresis(prev_fam, w,    fam_w,  hys_w) \
+                             and _hysteresis(prev_fam, hs_i, fam_hs, hys_hs)
+            exp_ok = (g <= exp_gust) and _hysteresis(prev_exp, w,    exp_w,  hys_w) \
+                                    and _hysteresis(prev_exp, hs_i, exp_hs, hys_hs)
+    
+            fam_flags.append(bool(fam_ok))
+            exp_flags.append(bool(exp_ok))
+            prev_fam = bool(fam_ok)
+            prev_exp = bool(exp_ok)
+    
         return fam_flags, exp_flags
+
     
     def _aggregate_one_spot(spot: Dict[str, Any], rules: Dict[str, Any]) -> Dict[str, Any]:
         primary = (spot.get("forecast_primary") or {})
@@ -1168,6 +1192,11 @@ for site in selected_sites:
     
             fam_cons.append(fam_ok)
             exp_cons.append(exp_ok)
+            log.debug("flags primary: family=%d true, expert=%d true",
+                      sum(1 for v in fam_cons if v), sum(1 for v in exp_cons if v))
+            fam_segs = _iter_segments(fam_cons)
+            exp_segs = _iter_segments(exp_cons)
+
 
         def seg_conf(segs, idx):
             out = []
@@ -1234,8 +1263,9 @@ for site in selected_sites:
             ],
         }
             
-        def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
-            def _looks_like_spot(d: dict) -> bool:
+    
+    def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
+        def _looks_like_spot(d: dict) -> bool:
                 # Require the schema we actually emit for spot JSON files
                 if not isinstance(d, dict): return False
                 meta = d.get("meta") or {}
@@ -1288,7 +1318,8 @@ for site in selected_sites:
                 os.replace(tmp, out_path)  # atomic
         
             return payload
-
+   
+ 
 
     # --- Construction du payload JSON ---
 

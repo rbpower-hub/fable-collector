@@ -1447,11 +1447,16 @@ if index_target.exists():
 else:
     index_target.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 # --- build windows.json (agrégat) ---
-try:
-    build_windows_json(PUBLIC, PUBLIC / "windows.json", RULES)
-    log.info("windows.json built at %s", (PUBLIC / "windows.json").as_posix())
-except Exception as e:
-    log.error("windows.json build failed: %s", e)
+# --- build windows.json (agrégat) — désactivé par défaut, laissé au reader.py
+if os.getenv("FABLE_WRITE_WINDOWS_FROM_COLLECTOR", "0") == "1":
+    try:
+        target = PUBLIC / os.getenv("FABLE_WINDOWS_FILENAME", "windows.json")
+        build_windows_json(PUBLIC, target, RULES)
+        log.info("windows.json built at %s", target.as_posix())
+    except Exception as e:
+        log.error("windows.json build failed: %s", e)
+else:
+    log.info("Skipping windows.json build in collector (FABLE_WRITE_WINDOWS_FROM_COLLECTOR!=1). Reader will produce it.")
 
 status_payload = {
     "status": "ok",

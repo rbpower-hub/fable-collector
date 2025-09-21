@@ -1153,27 +1153,22 @@ for site in selected_sites:
         fam_cons = []
         exp_cons = []
         for i in range(n):
-            # Base on primary model’s flags
+            # Base decision on the primary model’s flags
             fam_ok = bool(fam_p[i])
             exp_ok = bool(exp_p[i])
-        
-            # Safety promotion for Family (wind ≤ 12 km/h and Hs ≤ 0.4 m)
-            if not fam_ok:
-                try:
-                    wi = float(wind[i]) if (i < len(wind) and wind[i] is not None) else None
-                    hi = float(hs[i])   if (i < len(hs)   and hs[i]   is not None) else None
-                    if wi is not None and hi is not None and wi <= safe_w_cap and hi <= safe_hs_cap:
-                        fam_ok = True
-                except Exception:
-                    pass
-        
+    
+            # Safety promotion for Family when calm (your policy)
+            try:
+                wi = float(wind[i]) if (i < len(wind) and wind[i] is not None) else None
+                hi = float(hs[i])   if (i < len(hs)   and hs[i]   is not None) else None
+            except Exception:
+                wi = hi = None
+            if (not fam_ok) and (wi is not None) and (hi is not None) and wi <= 12.0 and hi <= 0.4:
+                fam_ok = True
+    
             fam_cons.append(fam_ok)
             exp_cons.append(exp_ok)
 
-    
-        fam_segs = _iter_segments(fam_cons)
-        exp_segs = _iter_segments(exp_cons)
-    
         def seg_conf(segs, idx):
             out = []
             T = len(times)

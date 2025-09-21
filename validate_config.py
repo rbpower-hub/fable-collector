@@ -1,28 +1,38 @@
-# validate_config.py
 from __future__ import annotations
-import json, sys, yaml
-from jsonschema import validate, Draft202012Validator
+import json, sys
 from pathlib import Path
 
-def _load_yaml(p: Path): 
-    return yaml.safe_load(p.read_text(encoding="utf-8"))
+import yaml
+from jsonschema import Draft202012Validator
 
-def _load_json(p: Path):
-    return json.loads(p.read_text(encoding="utf-8"))
+ROOT = Path(__file__).parent
 
-def check(doc_path: str, schema_path: str):
-    doc = _load_yaml(Path(doc_path))
-    schema = _load_json(Path(schema_path))
+def load_yaml(p: Path):
+    try:
+        return yaml.safe_load(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        sys.exit(f"[YAML] Failed to read {p}: {e}")
+
+def load_json(p: Path):
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        sys.exit(f"[JSON] Failed to read {p}: {e}")
+
+def validate(doc_path: Path, schema_path: Path) -> int:
+    doc, schema = load_yaml(doc_path), load_json(schema_path)
     v = Draft202012Validator(schema)
-    errs = sorted(v.iter_errors(doc), key=lambda e: e.path)
+    errs = sorted(v.iter_errors(doc), key=lambda e: (list(e.path), e.message))
     if errs:
         for e in errs:
-            loc = "/".join([str(p) for p in e.path]) or "<root>"
+            loc = "/".join(str(p) for p in e.path) or "<root>"
             print(f"[SCHEMA] {doc_path}:{loc}: {e.message}")
-        sys.exit(2)
-    print(f"[OK] {doc_path} validated against {schema_path}")
+        return 2
+    print(f"[OK] {doc_path} ✓")
+    return 0
 
 if __name__ == "__main__":
-    base = Path(__file__).parent
-    check(base/"sites.yaml",  base/"schemas/sites.schema.json")
-    check(base/"rules.yaml",  base/"schemas/rules.schema.json")
+    rc = 0
+    rc |= validate(ROOT/"sites.yaml", ROOT/"schemas/sites.schema.json")
+    rc |= validate(ROOT/"rules.yaml", ROOT/"schemas/rules.schema.json")
+    sys.exit(rc)

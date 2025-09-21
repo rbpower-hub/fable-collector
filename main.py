@@ -21,9 +21,7 @@ from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 import urllib.request
-import math
-from validate_config import validate as _validate_conf
-from env_validation import validate_env as _validate_env
+# import math
 
 # -----------------------
 # Config & budgets
@@ -102,17 +100,6 @@ def ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
 def csv_to_set(s: str) -> Optional[set]:
     if not s: return None
     return {slugify(x.strip()) for x in s.split(",") if x.strip()}
-
-def _preflight():
-    root = Path(__file__).parent
-    rc1 = _validate_conf(root/"sites.yaml",  root/"schemas/sites.schema.json")
-    rc2 = _validate_conf(root/"rules.yaml",  root/"schemas/rules.schema.json")
-    if rc1 or rc2:
-        raise SystemExit(2)
-    _validate_env()
-
-if __name__ == "__main__":
-    _preflight()
 
 def parse_time_local(t_iso: str, tz: ZoneInfo) -> dt.datetime:
     try:

@@ -508,18 +508,6 @@ jobs:
               print("✅ windows.json present")
 
       # --- Vérifier windows.json ---
-      - name: Sanity check — windows.json
-        if: steps.gate.outputs.should_run == 'true'
-        shell: python
-        run: |
-          import json, pathlib, sys
-          p = pathlib.Path('Public/windows.json')
-          if not p.exists():
-              print('❌ Public/windows.json manquant'); sys.exit(1)
-          d = json.loads(p.read_text(encoding='utf-8'))
-          if 'windows' not in d:
-              print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
-          print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
       - name: Sanity check — windows.json (exists + shape)
         if: steps.gate.outputs.should_run == 'true'

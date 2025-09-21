@@ -656,8 +656,7 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
 
     _apply_rules_globals()  # au cas où RULES a été modifié par l'env
 
-    SKIP = {"index.json", "windows.json", "index.spots.json", "status.json",
-            "catalog.json", "rules.normalized.json"}
+    SKIP = {"index.json","windows.json","catalog.json","rules.normalized.json","status.json"}
 
     spots = sorted([p for p in from_dir.glob("*.json") if p.name not in SKIP])
                    

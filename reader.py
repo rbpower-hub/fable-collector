@@ -650,19 +650,32 @@ class RunResult:
     generated_at: str
     home_slug: str
     windows: List[Dict[str, Any]]
+# =========================
+# Exécution principale
+# =========================
+@dataclass
+class RunResult:
+    generated_at: str
+    home_slug: str
+    windows: List[Dict[str, Any]]
 
 def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
         min_h: int, max_h: int) -> Dict[str, Any]:
 
-    _apply_rules_globals()  # au cas où RULES a été modifié par l'env
-
+    # (Re)charger les règles à l’exécution et propager aux constantes globales
     from shared import get_non_spot_json
+    global RULES
     RULES = load_rules()
+    _apply_rules_globals()
+
     SKIP = get_non_spot_json(RULES)
 
-    spots = sorted(p for p in from_dir.glob("*.json") if p.name not in SKIP)
+    # Lister uniquement les spots (pas de non-spots, pas de fichiers cachés)
+    spots = sorted(
+        p for p in from_dir.glob("*.json")
+        if p.name not in SKIP and not p.name.startswith(".")
+    )
 
-                   
     if not spots:
         raise SystemExit(f"Aucun JSON de spot trouvé dans {from_dir}")
 
@@ -710,9 +723,9 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="FABLE reader – détecteur de fenêtres Family GO")
-    ap.add_argument("--from-dir", default=Path("Public"), type=Path,
+    ap.add_argument("--from-dir", default="Public", type=Path,
                     help="Répertoire où se trouvent les JSON de spots (par défaut: Public).")
-    ap.add_argument("--out", default=Path("Public"), type=Path,
+    ap.add_argument("--out", default="Public", type=Path,
                     help="Répertoire de sortie (windows.json) (par défaut: Public).")
     ap.add_argument("--home", default=None,
                     help="Nom de fichier JSON du port d’attache (ex: gammarth-port.json).")
@@ -722,10 +735,7 @@ def main() -> None:
                     help="Durée maximale d’une fenêtre (heures).")
     args = ap.parse_args()
 
-    from_dir = _smart_dir(args.from_dir)
-    out_dir  = _smart_dir(args.out)
-
     # petit log utile en CI
-    print(f"[reader] from_dir={from_dir} out_dir={out_dir} home={args.home}")
+    print(f"[reader] from_dir={args.from_dir} out_dir={args.out} home={args.home}")
 
-    run(from_dir, out_dir, args.home, args.min_hours, args.max_hours)
+    run(args.from_dir, args.out, args.home, args.min_hours, args.max_hours)

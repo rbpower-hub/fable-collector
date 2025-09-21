@@ -17,10 +17,11 @@ import os, sys, json, time, yaml, random, logging
 import hashlib
 import datetime as dt
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
-import requests  # urllib.request est inutile ici, tu peux le retirer si non utilisé
+import urllib.request
+# import math
 
 # -----------------------
 # Config & budgets
@@ -33,18 +34,11 @@ MODEL_ORDER          = [m.strip() for m in os.getenv(
 SITE_BUDGET_S        = int(os.getenv("FABLE_SITE_BUDGET_S", "90"))
 HARD_BUDGET_S        = int(os.getenv("FABLE_HARD_BUDGET_S", "240"))
 
-# Logger (unique)
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 log = logging.getLogger("fable-collector")
-if not logging.getLogger().handlers:
-    logging.basicConfig(
-        level=getattr(logging, os.getenv("LOGLEVEL","INFO"), "INFO"),
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-
-# Dossier public : auto-détection + unification
-ROOT = Path(__file__).resolve().parent
-PUBLIC = ROOT / "Public"
-PUBLIC.mkdir(parents=True, exist_ok=True)
 
 # Modèles parallèles à tenter (en plus du primaire choisi pour hourly)
 PARALLEL_MODELS        = [m.strip() for m in os.getenv(
@@ -82,39 +76,26 @@ def slugify(name: str) -> str:
     s = re.sub(r"-{2,}", "-", s)
     return s
 
-# --- HTTP robuste: Session + connect/read timeouts + backoff 0.5→1→2→4 ---
-SESSION = requests.Session()
-
-def http_get_json(url: str, retry: int | None = None, timeout: int | float | None = None):
-    # fallback si les constantes ne sont pas encore définies
-    try:
-        _retries = retry if retry is not None else int(os.getenv("FABLE_HTTP_RETRIES", "1"))
-    except Exception:
-        _retries = 1
-    try:
-        _timeout = float(timeout if timeout is not None else os.getenv("FABLE_HTTP_TIMEOUT_S", "10"))
-    except Exception:
-        _timeout = 10.0
-
-    backoffs = [0.5, 1.0, 2.0, 4.0]
-    connect_read = (3.0, _timeout)
+def http_get_json(url: str, retry: int = HTTP_RETRIES, timeout: int = HTTP_TIMEOUT_S) -> Dict[str, Any]:
     last_err = None
-    for attempt in range(min(_retries + 1, len(backoffs) + 1)):
+    for attempt in range(retry + 1):
         try:
-            r = SESSION.get(
-                url,
-                timeout=connect_read,
-                headers={"User-Agent": "fable-collector/1.5 (+github actions)"}
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "fable-collector/1.4 (+github actions)"}
             )
-            r.raise_for_status()
-            return r.json()
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status != 200:
+                    raise RuntimeError(f"HTTP {resp.status}")
+                return json.loads(resp.read().decode("utf-8"))
         except Exception as e:
             last_err = e
-            if attempt < len(backoffs):
-                time.sleep(backoffs[attempt])
-            else:
-                break
+            if attempt < retry:
+                sleep_s = 0.8 + attempt * 1.2 + random.random() * 0.5
+                log.warning("GET failed (%s). retry in %.1fs ...", e, sleep_s)
+                time.sleep(sleep_s)
     raise RuntimeError(f"GET failed after retries: {last_err}")
+
+def ensure_dir(p: Path): p.mkdir(parents=True, exist_ok=True)
 
 def csv_to_set(s: str) -> Optional[set]:
     if not s: return None
@@ -193,26 +174,16 @@ def _normalize_daily_timezones_inplace(p: Dict[str, Any]) -> None:
 # -----------------------
 # Charger sites.yaml
 # -----------------------
-# NOTE: on suppose que ROOT = Path(__file__).resolve().parent est déjà défini plus haut.
-# Évite toute redéfinition de ROOT ici pour ne pas écraser la version précédente.
-SITES_PATH = Path(os.getenv("FABLE_SITES_PATH", "sites.yaml"))
-if not SITES_PATH.is_absolute():
-    SITES_PATH = ROOT / SITES_PATH
-
-if not SITES_PATH.exists():
-    log.error("sites.yaml introuvable (%s).", SITES_PATH.as_posix())
-    sys.exit(1)
-
+ROOT = Path(__file__).resolve().parent
+sites_yaml = ROOT / "sites.yaml"
+if not sites_yaml.exists():
+    log.error("sites.yaml introuvable à la racine du repo."); sys.exit(1)
 try:
-    sites = yaml.safe_load(SITES_PATH.read_text(encoding="utf-8"))
-    log.debug("sites.yaml chargé depuis %s", SITES_PATH.as_posix())
+    sites = yaml.safe_load(sites_yaml.read_text(encoding="utf-8"))
 except Exception as e:
-    log.error("Impossible de lire sites.yaml (%s): %s", SITES_PATH.as_posix(), e)
-    sys.exit(1)
-
+    log.error("Impossible de lire sites.yaml: %s", e); sys.exit(1)
 if not isinstance(sites, list) or not sites:
-    log.error("sites.yaml mal formé ou vide (%s).", SITES_PATH.as_posix())
-    sys.exit(1)
+    log.error("sites.yaml mal formé ou vide."); sys.exit(1)
 
 # ➕ Exclusion définitive (politique FABLE)
 EXCLUDE_SLUGS = {"korbous", "kelibia", "kélibia"}
@@ -522,7 +493,6 @@ log.info("[rules] loaded digest=%s (squall_delta=%s, onshore=%s, family_hours=%s
 # --- feature flag (rules.yaml + ENV) pour couper l'HTTP astronomy ---
 DISABLE_ASTRONOMY_HTTP = bool(_dget(RULES, "http.disable_astronomy_http", False)) \
                          or (os.getenv("FABLE_DISABLE_ASTRONOMY_HTTP", "1") == "1")
-
 
 
 # PATCH astro/daily — fusion robuste + alignement par dates
@@ -978,6 +948,8 @@ def non_null_count(d: Dict[str, Any], keys: List[str]) -> Dict[str, int]:
 # -----------------------
 # Collecte
 # -----------------------
+PUBLIC  = ROOT / "public"
+ensure_dir(PUBLIC)
 
 results = []
 t0_global = time.monotonic()
@@ -1082,284 +1054,6 @@ for site in selected_sites:
     sea_keys_raw = sorted(list((sea.get("hourly") or {}).keys()))
     nn_ecmwf = non_null_count(ecmwf_slice, ["wind_speed_10m","wind_gusts_10m","wind_direction_10m","weather_code","visibility","surface_pressure","precipitation"])
     nn_marine = non_null_count(marine_slice, ["wave_height","wave_period","swell_wave_height","swell_wave_period"])
-    # -----
-    def _hysteresis(prev_ok: bool, value: float, cap: float, hys: float) -> bool:
-        return value <= (cap + hys) if prev_ok else value <= cap
-    
-    def _iter_segments(flags: List[bool]) -> List[Tuple[int, int]]:
-        segs = []; cur = None
-        for i, ok in enumerate(flags):
-            if ok:
-                if cur is None:
-                    cur = [i, i]
-                else:
-                    cur[1] = i
-            else:
-                if cur is not None:
-                    segs.append((cur[0], cur[1])); cur = None
-        if cur is not None:
-            segs.append((cur[0], cur[1]))
-        return segs
-    
-    def _local_hour_from_iso(iso: str) -> int:
-        # Les JSON spots ont déjà des heures locales "YYYY-MM-DDTHH:MM"
-        try:
-            return int(iso[11:13])
-        except Exception:
-            return 0
-    
-    def _class_flags_for_model(hourly: Dict[str, Any],
-                               marine: Dict[str, Any],
-                               rules: Dict[str, Any]) -> Tuple[List[bool], List[bool]]:
-        times = (hourly or {}).get("time") or []
-        wind  = (hourly or {}).get("wind_speed_10m") or []
-        gust  = (hourly or {}).get("wind_gusts_10m") or []
-        hs    = (marine  or {}).get("wave_height") or (marine or {}).get("hs") or []
-    
-        # Caps & hysteresis depuis rules (cast sûr)
-        fam_w   = float((rules.get("wind") or {}).get("family_max_kmh", 20.0))
-        fam_hs  = float((rules.get("sea")  or {}).get("family_max_hs_m", 0.5))
-        exp_w, exp_hs = 25.0, 0.8
-        exp_gust = float((rules.get("shelter") or {}).get("anchor_gusts_allow_up_to_kmh", 34.0))
-        hys_w  = float((rules.get("hysteresis") or {}).get("wind_kmh", 1.0))
-        hys_hs = float((rules.get("hysteresis") or {}).get("hs_m", 0.05))
-        fam_h1 = int((rules.get("family_hours_local") or {}).get("start_h", 8))
-        fam_h2 = int((rules.get("family_hours_local") or {}).get("end_h", 21))
-    
-        fam_flags: List[bool] = []
-        exp_flags: List[bool] = []
-        prev_fam = False
-        prev_exp = False
-    
-        n = min(len(times), len(wind), len(gust), len(hs))
-        if n == 0:
-            return fam_flags, exp_flags
-    
-        import math
-        HUGE = 1e9
-    
-        def _f(x, default=HUGE) -> float:
-            """float(x) tolérant: None/NaN/erreur -> valeur très grande (→ faux par défaut)."""
-            try:
-                v = float(x)
-                return v if math.isfinite(v) else default
-            except Exception:
-                return default
-    
-        for i in range(n):
-            hh = _local_hour_from_iso(times[i])
-            ok_hour = (fam_h1 <= hh <= fam_h2)
-    
-            w  = _f(wind[i])   # None/NaN -> 1e9
-            g  = _f(gust[i])   # None/NaN -> 1e9
-            hs_i = _f(hs[i])   # None/NaN -> 1e9
-    
-            fam_ok = ok_hour and _hysteresis(prev_fam, w,    fam_w,  hys_w) \
-                             and _hysteresis(prev_fam, hs_i, fam_hs, hys_hs)
-            exp_ok = (g <= exp_gust) and _hysteresis(prev_exp, w,    exp_w,  hys_w) \
-                                    and _hysteresis(prev_exp, hs_i, exp_hs, hys_hs)
-    
-            fam_flags.append(bool(fam_ok))
-            exp_flags.append(bool(exp_ok))
-            prev_fam = bool(fam_ok)
-            prev_exp = bool(exp_ok)
-    
-        return fam_flags, exp_flags
-
-    
-    def _aggregate_one_spot(spot: Dict[str, Any], rules: Dict[str, Any]) -> Dict[str, Any]:
-        primary = (spot.get("forecast_primary") or {})
-        hourly_p = (primary.get("hourly") or {})
-        marine   = (spot.get("marine") or {})
-    
-        fam_p, exp_p = _class_flags_for_model(hourly_p, marine, rules)
-        model_flags = [(fam_p, exp_p)]
-        for _, m in (spot.get("models") or {}).items():
-            fam_m, exp_m = _class_flags_for_model((m or {}).get("hourly") or {}, marine, rules)
-            model_flags.append((fam_m, exp_m))
-    
-        n = len(fam_p)
-        safe_w_cap = 12.0  # tolérance sécurité (ton choix)
-        safe_hs_cap = 0.4
-        wind = hourly_p.get("wind_speed_10m") or []
-        hs   = marine.get("wave_height") or marine.get("hs") or []
-        times = hourly_p.get("time") or []
-    
-        fam_cons = []
-        exp_cons = []
-        for i in range(n):
-            # Base decision on the primary model’s flags
-            fam_ok = bool(fam_p[i])
-            exp_ok = bool(exp_p[i])
-    
-            # Safety promotion for Family when calm (your policy)
-            try:
-                wi = float(wind[i]) if (i < len(wind) and wind[i] is not None) else None
-                hi = float(hs[i])   if (i < len(hs)   and hs[i]   is not None) else None
-            except Exception:
-                wi = hi = None
-            if (not fam_ok) and (wi is not None) and (hi is not None) and wi <= 12.0 and hi <= 0.4:
-                fam_ok = True
-    
-            fam_cons.append(fam_ok)
-            exp_cons.append(exp_ok)
-            log.debug("flags primary: family=%d true, expert=%d true",
-                      sum(1 for v in fam_cons if v), sum(1 for v in exp_cons if v))
-            fam_segs = _iter_segments(fam_cons)
-            exp_segs = _iter_segments(exp_cons)
-
-
-        def seg_conf(segs, idx):
-            out = []
-            T = len(times)
-            W = len(wind)
-            H = len(hs)
-            for a, b in segs:
-                # clamp dans [0, T-1] pour l'accès aux timestamps
-                if T == 0: 
-                    continue
-                aa = max(0, min(a, T-1))
-                bb = max(aa, min(b, T-1))
-        
-                # votes de consensus (protégés)
-                agree = 0
-                L = bb - aa + 1
-                for i in range(aa, bb + 1):
-                    votes = 0
-                    for flags in model_flags:
-                        arr = flags[idx]
-                        if i < len(arr) and arr[i]:
-                            votes += 1
-                    if votes >= 2:
-                        agree += 1
-                conf = "medium" if (agree / max(1, L)) >= 0.8 else "low"
-        
-                # promotion "sécurité" si toutes les heures sont calmes, avec garde d’index
-                if conf == "low":
-                    safe_all = True
-                    for i in range(aa, bb + 1):
-                        wi = float(wind[i]) if (i < W and wind[i] is not None) else None
-                        hi = float(hs[i])   if (i < H and hs[i] is not None)   else None
-                        if wi is None or hi is None or wi > safe_w_cap or hi > safe_hs_cap:
-                            safe_all = False
-                            break
-                    if safe_all:
-                        conf = "medium"
-        
-                out.append({"start_idx": aa, "end_idx": bb, "confidence": conf})
-            return out
-
-    
-        fam_out = seg_conf(fam_segs, 0)
-        exp_out = seg_conf(exp_segs, 1)
-    
-        def to_iso(seg):
-            T = len(times)
-            if T == 0:
-                return None
-            a, b = seg["start_idx"], seg["end_idx"]
-            a = max(0, min(a, T-1))
-            b = max(a, min(b, T-1))
-            return {"start": times[a], "end": times[b], "confidence": seg["confidence"]}
-            
-        fam_iso = [x for x in (to_iso(s) for s in fam_out) if x is not None]
-        exp_iso = [x for x in (to_iso(s) for s in exp_out) if x is not None]
-        
-        return {
-            "dest_slug": f"{spot['meta']['slug']}.json",
-            "dest_name": spot["meta"]["name"],
-            "windows": [
-                {"class": "Family", "segments": fam_iso},
-                {"class": "Expert", "segments": exp_iso},
-            ],
-        }
-
-   
-    
-    # ... after RULES is loaded:
-    from shared import get_non_spot_json
-
-    # ... after RULES is loaded:
-    SKIP = get_non_spot_json(RULES)
-    
-    def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
-        def _looks_like_spot(d: dict) -> bool:
-            # schema produit par le collector
-            if not isinstance(d, dict):
-                return False
-            meta   = d.get("meta") or {}
-            fp     = d.get("forecast_primary") or {}
-            marine = d.get("marine") or {}
-            h_fp   = fp.get("hourly") or {}
-    
-            # clés minimales
-            if not isinstance(meta.get("name"), str): return False
-            if not isinstance(meta.get("slug"), str): return False
-    
-            t = h_fp.get("time")
-            if not (isinstance(t, list) and len(t) > 0): return False
-    
-            if not (isinstance(marine, dict) and (marine.get("wave_height") or marine.get("hs"))):
-                return False
-    
-            return True
-    
-        # unified SKIP + protège le fichier qu’on est en train d’écrire
-        local_skip = set(SKIP) | {out_path.name}
-    
-        entries: List[Dict[str, Any]] = []
-        for p in sorted(spots_dir.glob("*.json")):
-            name = p.name
-    
-            # ignorer non-spots, le fichier cible lui-même, et fichiers cachés/temp
-            if name in local_skip or name.startswith("."):
-                continue
-    
-            try:
-                # évite les fichiers vides/tronqués
-                try:
-                    if p.stat().st_size < 32:
-                        log.debug("skip(small) %s", name)
-                        continue
-                except Exception:
-                    pass
-    
-                data = json.loads(p.read_text(encoding="utf-8"))
-                if _looks_like_spot(data):
-                    entries.append(_aggregate_one_spot(data, rules))
-                else:
-                    log.debug("skip(non-spot) %s", name)
-            except Exception as e:
-                log.warning("skip %s: %s", p, e)
-    
-        # home_slug : valeur préférée si présente, sinon 1er spot (ou None)
-        wanted = "gammarth-port.json"
-        slugs = {e["dest_slug"] for e in entries}
-        home_slug = wanted if wanted in slugs else (entries[0]["dest_slug"] if entries else None)
-    
-        payload = {
-            "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "home_slug": home_slug,
-            "windows": entries,
-        }
-    
-        tmp = out_path.with_suffix(".tmp.json")
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    
-        # ne remplace que si on a réellement quelque chose d’exploitable
-        total_segments = sum(len(c.get("segments", [])) for e in entries for c in e.get("windows", []))
-        if total_segments == 0 and out_path.exists():
-            log.warning("windows aggregate empty — keeping last-known file")
-            try:
-                tmp.unlink()
-            except Exception:
-                pass
-        else:
-            os.replace(tmp, out_path)  # atomic
-    
-        log.info("windows.json: spots=%d, segments=%d, home=%s", len(entries), total_segments, home_slug)
-        return payload
 
     # --- Construction du payload JSON ---
 
@@ -1470,27 +1164,5 @@ if index_target.exists():
     alt.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 else:
     index_target.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-# --- build windows.json (agrégat) ---
-# --- build windows aggregate (collector) — off by default; reader owns windows.json
-if os.getenv("FABLE_WRITE_WINDOWS_FROM_COLLECTOR", "0") == "1":
-    try:
-        # Default to a debug filename so we never overwrite the reader output
-        target = PUBLIC / os.getenv("FABLE_WINDOWS_FILENAME", "windows.collector.json")
-        build_windows_json(PUBLIC, target, RULES)
-        log.info("collector windows aggregate built at %s", target.as_posix())
-    except Exception as e:
-        log.error("collector windows build failed: %s", e)
-else:
-    log.info("Skipping windows aggregate in collector (FABLE_WRITE_WINDOWS_FROM_COLLECTOR!=1). Reader will produce Public/windows.json.")
 
-
-status_payload = {
-    "status": "ok",
-    "generated_at": dt.datetime.now(TZ).isoformat(),
-    "all_fresh": True
-}
-(PUBLIC / "status.json").write_text(
-    json.dumps(status_payload, ensure_ascii=False, separators=(",", ":")),
-    encoding="utf-8"
-)
 # ---------------------------------------------------------------

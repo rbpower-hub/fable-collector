@@ -1,0 +1,19 @@
+// schemas/sites.schema.json (minimal but useful)
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["name","slug","lat","lon"],
+    "properties": {
+      "name": {"type":"string", "minLength":1},
+      "slug": {"type":"string", "pattern":"^[a-z0-9-]+$"},
+      "lat":  {"type":"number", "minimum":-90, "maximum":90},
+      "lon":  {"type":"number", "minimum":-180, "maximum":180},
+      "shelter_bonus_radius_km": {"type":"number", "minimum":0},
+      "port": {"type":"boolean"},
+      "tags": {"type":"array","items":{"type":"string"}}
+    },
+    "additionalProperties": false
+  }
+}

@@ -33,14 +33,13 @@ on:
   push:
     paths:
       - ".github/workflows/pages.yml"
-      - ".github/workflows/pages.yaml"
       - "requirements.txt"
       - "main.py"
       - "reader.py"
       - "sites.yaml"
       - "rules.yaml"
       - "stats/index.html"    # ← pour relancer le workflow si tu modifies le fichier statique
-      - "Public/index.html"    # ← déclenche aussi sur la vraie page publique
+      - "public/index.html"    # ← déclenche aussi sur la vraie page publique
 permissions:
   contents: read
   pages: write
@@ -131,7 +130,7 @@ jobs:
       - name: Clean debug artifacts (optional)
         if: steps.gate.outputs.should_run == 'true'
         run: |
-          rm -f Public/_debug-* || true
+          rm -f public/_debug-* || true
 
       # --- Sanity check: sites.yaml ---
       - name: Sanity check — sites.yaml
@@ -303,58 +302,42 @@ jobs:
           }
 
           # écrire un artefact de debug (et pour les étapes suivantes si utile)
-          pub = pathlib.Path("Public"); pub.mkdir(exist_ok=True)
+          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
           (pub/"rules.normalized.json").write_text(
             json.dumps(normalized, ensure_ascii=False, indent=2),
             encoding="utf-8"
           )
 
           # log utile
-          print("ℹ️  rules.yaml (flat) chargé et normalisé → Public/rules.normalized.json")
+          print("ℹ️  rules.yaml (flat) chargé et normalisé → public/rules.normalized.json")
           print("   - Family hours:", normalized["family"]["hours_local"])
           print("   - Window hours:", normalized["family"]["window_hours"])
           print("   - Wind thresholds:", normalized["family"]["thresholds"]["wind"])
           print("   - Waves thresholds:", normalized["family"]["thresholds"]["waves"])
           print("✅ rules.yaml OK")
-    
+
       - name: Export flags from rules.yaml
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
-          import os
-          from pathlib import Path
-          import yaml
-      
-          # Load rules.yaml
-          raw = yaml.safe_load(Path("rules.yaml").read_text(encoding="utf-8")) or {}
+          import os, yaml, pathlib
+          raw = yaml.safe_load(pathlib.Path("rules.yaml").read_text(encoding="utf-8")) or {}
           http = raw.get("http") or {}
-      
-          # 1) Feature flags -> environment
-          val = str(http.get("disable_astronomy_http", "")).strip().lower()
-          if val in ("1", "true", "yes", "on"):
+
+          # Option A: couper totalement l'appel HTTP /v1/astronomy et forcer Astral
+          if str(http.get("disable_astronomy_http", "")).strip().lower() in ("1","true","yes","on"):
               with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
                   fh.write("FABLE_DISABLE_ASTRONOMY_HTTP=1\n")
               print("FABLE_DISABLE_ASTRONOMY_HTTP=1 (from rules.yaml)")
-      
-          mo = str(http.get("model_order", "")).strip()
+
+          # (optionnel) centraliser aussi l'ordre des modèles dans rules.yaml:
+          # http:
+          #   model_order: "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
+          mo = (http.get("model_order") or "").strip()
           if mo:
               with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
                   fh.write(f"FABLE_MODEL_ORDER={mo}\n")
               print(f"FABLE_MODEL_ORDER={mo} (from rules.yaml)")
-      
-          # 2) Unified non-spot JSON list (exported just for transparency / optional consumers)
-          default_non_spot = {
-              "index.json", "index.spots.json", "catalog.json", "status.json",
-              "rules.normalized.json", "windows.json", "windows.collector.json"
-          }
-          extra = set((raw.get("artifacts", {}) or {}).get("non_spot_json", []) or [])
-          extra = {str(x).strip() for x in extra if str(x).strip().endswith(".json")}
-          skip = sorted(default_non_spot | extra)
-      
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
-              fh.write("FABLE_NON_SPOT_JSON=" + ",".join(skip) + "\n")
-          print("FABLE_NON_SPOT_JSON:", ", ".join(skip))
-
 
       # --- Collecte JSON ---
       - name: Generate JSON (window, tz, targeting)
@@ -365,7 +348,7 @@ jobs:
           FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
           FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
           FABLE_ASTRAL_FALLBACK: '1'
-          LOGLEVEL: 'WARNING'
+          LOG_LEVEL: 'WARNING'
           FABLE_DEBUG_DUMP: '0'
           FABLE_INCLUDE_EXTRAS: '0'
           FABLE_HTTP_RETRIES: '3'
@@ -374,9 +357,6 @@ jobs:
           FABLE_PARALLEL_MODELS: 'icon_seamless,gfs_seamless,ecmwf_ifs04'
           FABLE_PARALLEL_TIMEOUT_S: '12'
           FABLE_PARALLEL_RETRIES: '0'
-          FABLE_WRITE_WINDOWS_FROM_COLLECTOR: '1'
-          FABLE_WINDOWS_FILENAME: 'windows.collector.json'   # keep it off the main windows.json
-          
         run: |
           set -e
           echo "Using FABLE_TZ=$FABLE_TZ"
@@ -395,7 +375,7 @@ jobs:
           import os, json, pathlib, datetime
           from zoneinfo import ZoneInfo
           tz = ZoneInfo(os.environ.get("TZ_EFFECTIVE","Africa/Tunis"))
-          pub = pathlib.Path("Public"); pub.mkdir(exist_ok=True)
+          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
           files = []
           for p in sorted(pub.glob("*.json")):
               if p.name in ("catalog.json",):
@@ -417,10 +397,10 @@ jobs:
           READER_HOME: ${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}
         run: |
           import json, os, sys, pathlib
-          pub = pathlib.Path('Public')
+          pub = pathlib.Path('public')
           cat = pub / 'catalog.json'
           if not cat.exists():
-              print('❌ Public/catalog.json manquant'); sys.exit(1)
+              print('❌ public/catalog.json manquant'); sys.exit(1)
           data = json.loads(cat.read_text(encoding='utf-8'))
           files = data.get('files', [])
           if not files:
@@ -443,7 +423,7 @@ jobs:
         shell: python
         run: |
           import json, pathlib, sys, datetime
-          pub = pathlib.Path('Public')
+          pub = pathlib.Path('public')
           files = [pub/f['path'] for f in json.loads((pub/'catalog.json').read_text(encoding='utf-8')).get('files',[])]
           if not files:
               print('❌ Aucun spot détecté'); sys.exit(1)
@@ -461,13 +441,13 @@ jobs:
       - name: Show one site JSON (debug)
         if: steps.gate.outputs.should_run == 'true'
         run: |
-          echo "==== Public listing ===="
-          ls -lah Public || true
+          echo "==== public listing ===="
+          ls -lah public || true
           echo "==== head of ${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }} ===="
-          head -c 1500 "Public/${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}" || true
+          head -c 1500 "public/${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}" || true
           echo
 
-      # --- Reader FABLE -> Public/windows.json ---
+      # --- Reader FABLE -> public/windows.json ---
       - name: Run FABLE reader (detect Family GO)
         if: steps.gate.outputs.should_run == 'true'
         env:
@@ -475,60 +455,23 @@ jobs:
         run: |
           set -e
           python reader.py \
-            --from-dir Public \
-            --out Public \
+            --from-dir public \
+            --out public \
             --home "${{ (github.event_name == 'workflow_dispatch' && inputs.reader_home) || 'gammarth-port.json' }}"
-      #
-      - name: Guard — ensure windows.json exists
-        if: steps.gate.outputs.should_run == 'true'
-        shell: python
-        run: |
-          from pathlib import Path
-          import json, datetime
-          pub = Path('Public')
-          out = pub / 'windows.json'
-          if not out.exists():
-              # Build a minimal placeholder from available spot files so later steps don’t fail
-              SKIP = {"index.json","windows.json","catalog.json","rules.normalized.json","status.json"}
-              spots = [p for p in sorted(pub.glob('*.json')) if p.name not in SKIP]
-              home = next((p.name for p in spots if p.name.startswith('gammarth-port')), (spots[0].name if spots else None))
-              entries = []
-              for p in spots:
-                  if p.name == home:
-                      continue
-                  entries.append({"dest_slug": p.name, "dest_name": p.stem.replace('-', ' ').title(), "windows": []})
-              payload = {
-                  "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
-                  "home_slug": home,
-                  "windows": entries
-              }
-              out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-              print("⚠️ reader didn’t produce windows.json — wrote a placeholder so pipeline can continue.")
-          else:
-              print("✅ windows.json present")
 
       # --- Vérifier windows.json ---
-
-      - name: Sanity check — windows.json (exists + shape)
+      - name: Sanity check — windows.json
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
           import json, pathlib, sys
-          p = pathlib.Path('Public/windows.json')
+          p = pathlib.Path('public/windows.json')
           if not p.exists():
-              print('❌ Public/windows.json manquant'); sys.exit(1)
-      
+              print('❌ public/windows.json manquant'); sys.exit(1)
           d = json.loads(p.read_text(encoding='utf-8'))
-          wins = d.get('windows')
-          if not isinstance(wins, list):
-              print('❌ windows.json: "windows" doit être une liste'); sys.exit(1)
-      
-          segs = sum(len(e.get('windows', [])) for e in wins)
-          dests = len(wins)
-          print(f"destinations={dests}, segments={segs}")
-          if segs == 0:
-              print('⚠️ Aucune fenêtre détectée (zéro segment). Ce n’est pas une erreur — météo/critères trop stricts ou horizon défavorable.')
-
+          if 'windows' not in d:
+              print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
+          print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
       # --- Générer windows.md lisible ---
       - name: Create windows.md from windows.json
@@ -537,25 +480,25 @@ jobs:
         env:
           TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import json, pathlib, sys
-          p = pathlib.Path('Public/windows.json')
-          d = json.loads(p.read_text(encoding='utf-8'))
+          import os, json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+          pub = pathlib.Path('public')
+          d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
+          tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
+          ts = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M %Z')
+          lines = ['# FABLE — Fenêtres Family GO','',f'Horodatage: {ts} ({tz.key})','']
           wins = d.get('windows', [])
-          n_dests = len(wins)
-          n_segments = 0
-          for w in wins:
-              blocks = w.get('windows', [])
-              for b in blocks:
-                  if isinstance(b, dict) and ('start' in b or 'begin' in b):
-                      n_segments += 1
-                  elif isinstance(b, dict) and isinstance(b.get('segments'), list):
-                      n_segments += len(b['segments'])
-          print(f'destinations={n_dests}, segments={n_segments}')
-          if n_dests == 0:
-              print('❌ Aucun destination dans windows.json'); sys.exit(1)
-          if n_segments == 0:
-              print('❌ Aucune fenêtre détectée (toutes vides)'); sys.exit(1)
-          print('✅ windows.json contient des fenêtres')
+          if not wins:
+            lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
+          else:
+            for w in wins:
+              lines.append(f"## {w.get('dest_name','?')} ({w.get('dest_slug','?')})")
+              for seg in w.get('windows', []):
+                lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
+              lines.append('')
+          (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
+          print('✅ public/windows.md généré')
+
       
       # --- .nojekyll pour GitHub Pages ---
       - name: Add .nojekyll (keep static index.html)
@@ -563,23 +506,23 @@ jobs:
         shell: bash
         run: |
           set -e
-          mkdir -p Public
-          : > Public/.nojekyll
+          mkdir -p public
+          : > public/.nojekyll
           
-      # --- Fallback : copier static/index.html si Public/index.html manque ---
+      # --- Fallback : copier static/index.html si public/index.html manque ---
       - name: Fallback static index.html (if missing)
         if: steps.gate.outputs.should_run == 'true'
         shell: bash
         run: |
           set -e
-          if [ -s Public/index.html ]; then
-            echo "Public/index.html présent — je le conserve."
+          if [ -s public/index.html ]; then
+            echo "public/index.html présent — je le conserve."
           elif [ -s static/index.html ]; then
-            cp -f static/index.html Public/index.html
-            echo "Copié static/index.html -> Public/index.html"
+            cp -f static/index.html public/index.html
+            echo "Copié static/index.html -> public/index.html"
           else
             echo "⚠️ static/index.html introuvable — création d'un placeholder minimal."
-            printf '<!doctype html><meta charset="utf-8"><title>fable-collector</title><p>Dashboard placeholder</p>' > Public/index.html
+            printf '<!doctype html><meta charset="utf-8"><title>fable-collector</title><p>Dashboard placeholder</p>' > public/index.html
           fi
           
       # --- Copier d'autres assets statiques sans écraser les JSON ---
@@ -589,14 +532,14 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "Copying static assets from static/ to Public/…"
+          echo "Copying static assets from static/ to public/…"
           shopt -s nullglob
-          mkdir -p Public
+          mkdir -p public
           files=(static/*)
           for f in "${files[@]}"; do
             base="$(basename "$f")"
-            [[ "$base" == "index.html" ]] && continue   # ne pas écraser Public/index.html
-            cp -v "$f" Public/
+            [[ "$base" == "index.html" ]] && continue   # ne pas écraser public/index.html
+            cp -v "$f" public/
           done
 
       # --- Résumé ---
@@ -605,7 +548,7 @@ jobs:
         shell: python
         run: |
           import os, json, pathlib
-          p = pathlib.Path('Public/windows.json')
+          p = pathlib.Path('public/windows.json')
           if not p.exists():
               raise SystemExit(0)
           d = json.loads(p.read_text(encoding='utf-8'))
@@ -626,18 +569,18 @@ jobs:
         if: steps.gate.outputs.should_run == 'true'
         run: |
           set -e
-          test -s Public/index.json   || (echo 'index.json manquant ou vide' && exit 1)
-          test -s Public/catalog.json || (echo 'catalog.json manquant ou vide' && exit 1)
-          test -s Public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
-          test -s Public/windows.md   || (echo 'windows.md manquant ou vide' && exit 1)
-          test -s Public/index.html   || (echo 'index.html manquant ou vide' && exit 1)
+          test -s public/index.json   || (echo 'index.json manquant ou vide' && exit 1)
+          test -s public/catalog.json || (echo 'catalog.json manquant ou vide' && exit 1)
+          test -s public/windows.json || (echo 'windows.json manquant ou vide' && exit 1)
+          test -s public/windows.md   || (echo 'windows.md manquant ou vide' && exit 1)
+          test -s public/index.html   || (echo 'index.html manquant ou vide' && exit 1)
           echo '✅ Sorties prêtes à publier.'
 
-      - name: List Public artifacts
+      - name: List public artifacts
         if: steps.gate.outputs.should_run == 'true'
         run: |
-          echo "==== Public ===="
-          ls -lah Public || true
+          echo "==== public ===="
+          ls -lah public || true
           echo "==============="
 
       # --- Publication Pages ---
@@ -654,7 +597,7 @@ jobs:
           import json, pathlib, datetime
           from zoneinfo import ZoneInfo
           tz = ZoneInfo("${{ steps.gate.outputs.tz_effective }}")
-          pub = pathlib.Path("Public"); pub.mkdir(exist_ok=True)
+          pub = pathlib.Path("public"); pub.mkdir(exist_ok=True)
           cat = json.loads((pub/"catalog.json").read_text(encoding="utf-8"))
           files = cat.get("files", [])
           # Fraîcheur: on considère "frais" si tous les JSON ont < 3h
@@ -689,36 +632,8 @@ jobs:
         if: steps.gate.outputs.should_run == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./Public
+          path: public
 
-      - name: Show windows.json head (debug)
-        if: steps.gate.outputs.should_run == 'true'
-        run: |
-          head -c 2000 Public/windows.json || true
-
-      - name: Debug — spot data coverage
-        if: steps.gate.outputs.should_run == 'true'
-        shell: python
-        run: |
-          import json, pathlib
-          pub = pathlib.Path('Public')
-          w = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
-          def nn(a): return sum(x is not None for x in (a or []))
-          for row in w.get('windows', []):
-              slug = row.get('dest_slug')
-              p = pub/slug
-              if not p.exists(): 
-                  print('skip', slug, '(file missing)'); 
-                  continue
-              d = json.loads(p.read_text(encoding='utf-8'))
-              h = d.get('hourly', {})
-              n = len(h.get('time', []) or [])
-              hs = h.get('hs') or h.get('wave_height') or []
-              tp = h.get('tp') or h.get('wave_period') or []
-              ws = h.get('wind_speed_10m') or []
-              gu = h.get('wind_gusts_10m') or []
-              print(f"{slug}: hours={n} nn(hs)={nn(hs)} nn(tp)={nn(tp)} nn(ws)={nn(ws)} nn(gu)={nn(gu)}")
- 
   deploy:
     needs: build
     if: needs.build.outputs.should_run == 'true'

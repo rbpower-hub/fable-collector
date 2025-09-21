@@ -118,20 +118,8 @@ window.FABLE = window.FABLE || {};
         expert: expFail ? `✗ ${expFail}` : "✓ fenêtre possible"
       });
     }
-    // --- Filtrage anti "✓" : ne montrer que les raisons d'échec ---
-    const filtered = rows
-      .map(r => ({
-        ...r,
-        family: (typeof r.family === 'string' && r.family.trim().startsWith('✓')) ? '' : r.family,
-        expert: (typeof r.expert === 'string' && r.expert.trim().startsWith('✓')) ? '' : r.expert,
-      }))
-      // Garder uniquement les lignes où au moins un champ contient une raison (≠ "✓ …")
-      .filter(r =>
-        (r.family && !r.family.trim().startsWith('✓')) ||
-        (r.expert && !r.expert.trim().startsWith('✓'))
-      );
-
-    console.table(filtered);
-    return filtered;
+    console.table(rows);
+    return rows;
+  };
 
 })(window.FABLE);

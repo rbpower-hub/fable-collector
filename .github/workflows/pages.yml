@@ -321,9 +321,19 @@ jobs:
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
-          import os, yaml, pathlib
-          raw = yaml.safe_load(pathlib.Path("rules.yaml").read_text(encoding="utf-8")) or {}
-          http = raw.get("http") or {}
+          # inside a python step in pages.yml
+          import yaml, pathlib, json
+          from pathlib import Path
+          DEFAULT = {
+              "index.json","index.spots.json","catalog.json","status.json",
+              "rules.normalized.json","windows.json","windows.collector.json"
+          }
+          raw = yaml.safe_load(Path("rules.yaml").read_text(encoding="utf-8")) or {}
+          extra = set((raw.get("artifacts",{}) or {}).get("non_spot_json", []) or [])
+          SKIP = DEFAULT | {str(x).strip() for x in extra if str(x).strip().endswith(".json")}
+          pub = Path("Public")
+          spot_files = sorted(p for p in pub.glob("*.json") if p.name not in SKIP)
+
 
           # Option A: couper totalement l'appel HTTP /v1/astronomy et forcer Astral
           if str(http.get("disable_astronomy_http", "")).strip().lower() in ("1","true","yes","on"):

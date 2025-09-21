@@ -33,6 +33,7 @@ on:
   push:
     paths:
       - ".github/workflows/pages.yml"
+      - ".github/workflows/pages.yaml"
       - "requirements.txt"
       - "main.py"
       - "reader.py"
@@ -348,7 +349,7 @@ jobs:
           FABLE_START_ISO: ${{ github.event_name == 'workflow_dispatch' && inputs.start_iso || '' }}
           FABLE_ONLY_SITES: ${{ github.event_name == 'workflow_dispatch' && inputs.only_sites || '' }}
           FABLE_ASTRAL_FALLBACK: '1'
-          LOG_LEVEL: 'WARNING'
+          LOGLEVEL: 'WARNING'
           FABLE_DEBUG_DUMP: '0'
           FABLE_INCLUDE_EXTRAS: '0'
           FABLE_HTTP_RETRIES: '3'
@@ -472,6 +473,23 @@ jobs:
           if 'windows' not in d:
               print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
+
+      - name: Sanity check — windows.json (non-empty windows)
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        run: |
+          import json, pathlib, sys
+          p = pathlib.Path('Public/windows.json')
+          d = json.loads(p.read_text(encoding='utf-8'))
+          wins = d.get('windows', [])
+          n_dests = len(wins)
+          n_segments = sum(len(w.get('windows', [])) for w in wins)
+          print(f'destinations={n_dests}, segments={n_segments}')
+          if n_dests == 0:
+              print('❌ Aucun destination dans windows.json'); sys.exit(1)
+          if n_segments == 0:
+              print('❌ Aucune fenêtre détectée (toutes vides)'); sys.exit(1)
+          print('✅ windows.json contient des fenêtres')
 
       # --- Générer windows.md lisible ---
       - name: Create windows.md from windows.json
@@ -633,6 +651,11 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./Public
+
+      - name: Show windows.json head (debug)
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          head -c 2000 Public/windows.json || true
 
   deploy:
     needs: build

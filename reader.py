@@ -656,9 +656,12 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
 
     _apply_rules_globals()  # au cas où RULES a été modifié par l'env
 
-    SKIP = {"index.json","windows.json","catalog.json","rules.normalized.json","status.json"}
+    from shared import get_non_spot_json
+    RULES = load_rules()
+    SKIP = get_non_spot_json(RULES)
 
-    spots = sorted([p for p in from_dir.glob("*.json") if p.name not in SKIP])
+    spots = sorted(p for p in from_dir.glob("*.json") if p.name not in SKIP)
+
                    
     if not spots:
         raise SystemExit(f"Aucun JSON de spot trouvé dans {from_dir}")

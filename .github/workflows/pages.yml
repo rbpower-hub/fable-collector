@@ -498,25 +498,25 @@ jobs:
         env:
           TZ_EFFECTIVE: ${{ steps.gate.outputs.tz_effective }}
         run: |
-          import os, json, pathlib, datetime
-          from zoneinfo import ZoneInfo
-          pub = pathlib.Path('Public')
-          d = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
-          tz = ZoneInfo(os.environ.get('TZ_EFFECTIVE','Africa/Tunis'))
-          ts = datetime.datetime.now(tz).strftime('%Y-%m-%d %H:%M %Z')
-          lines = ['# FABLE — Fenêtres Family GO','',f'Horodatage: {ts} ({tz.key})','']
+          import json, pathlib, sys
+          p = pathlib.Path('Public/windows.json')
+          d = json.loads(p.read_text(encoding='utf-8'))
           wins = d.get('windows', [])
-          if not wins:
-            lines.append('- Aucune fenêtre Family GO détectée dans l’horizon analysé.')
-          else:
-            for w in wins:
-              lines.append(f"## {w.get('dest_name','?')} ({w.get('dest_slug','?')})")
-              for seg in w.get('windows', []):
-                lines.append(f"- {seg['start']} → {seg['end']} ({seg['hours']} h)")
-              lines.append('')
-          (pub/'windows.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
-          print('✅ Public/windows.md généré')
-
+          n_dests = len(wins)
+          n_segments = 0
+          for w in wins:
+              blocks = w.get('windows', [])
+              for b in blocks:
+                  if isinstance(b, dict) and ('start' in b or 'begin' in b):
+                      n_segments += 1
+                  elif isinstance(b, dict) and isinstance(b.get('segments'), list):
+                      n_segments += len(b['segments'])
+          print(f'destinations={n_dests}, segments={n_segments}')
+          if n_dests == 0:
+              print('❌ Aucun destination dans windows.json'); sys.exit(1)
+          if n_segments == 0:
+              print('❌ Aucune fenêtre détectée (toutes vides)'); sys.exit(1)
+          print('✅ windows.json contient des fenêtres')
       
       # --- .nojekyll pour GitHub Pages ---
       - name: Add .nojekyll (keep static index.html)

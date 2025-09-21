@@ -1298,6 +1298,7 @@ for site in selected_sites:
         # --- fichiers non-spots à ignorer ---
         BASE_SKIP = {
             "windows.json",
+            "windows.collector.json",
             "index.json",
             "index.spots.json",
             "status.json",
@@ -1475,16 +1476,18 @@ if index_target.exists():
 else:
     index_target.write_text(json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 # --- build windows.json (agrégat) ---
-# --- build windows.json (agrégat) — désactivé par défaut, laissé au reader.py
+# --- build windows aggregate (collector) — off by default; reader owns windows.json
 if os.getenv("FABLE_WRITE_WINDOWS_FROM_COLLECTOR", "0") == "1":
     try:
-        target = PUBLIC / os.getenv("FABLE_WINDOWS_FILENAME", "windows.json")
+        # Default to a debug filename so we never overwrite the reader output
+        target = PUBLIC / os.getenv("FABLE_WINDOWS_FILENAME", "windows.collector.json")
         build_windows_json(PUBLIC, target, RULES)
-        log.info("windows.json built at %s", target.as_posix())
+        log.info("collector windows aggregate built at %s", target.as_posix())
     except Exception as e:
-        log.error("windows.json build failed: %s", e)
+        log.error("collector windows build failed: %s", e)
 else:
-    log.info("Skipping windows.json build in collector (FABLE_WRITE_WINDOWS_FROM_COLLECTOR!=1). Reader will produce it.")
+    log.info("Skipping windows aggregate in collector (FABLE_WRITE_WINDOWS_FROM_COLLECTOR!=1). Reader will produce Public/windows.json.")
+
 
 status_payload = {
     "status": "ok",

@@ -1238,37 +1238,62 @@ for site in selected_sites:
                 {"class": "Expert", "segments": exp_iso},
             ],
         }
-    
-    def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
-        entries = []
-        SKIP = {"windows.json", "index.json", "status.json"}
-        for p in sorted(spots_dir.glob("*.json")):
-            if p.name in SKIP:
-                continue
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-                if isinstance(data, dict) and "meta" in data and "forecast_primary" in data:
-                    entries.append(_aggregate_one_spot(data, rules))
-            except Exception as e:
-                log.warning("skip %s: %s", p, e)
-    
-        payload = {
-            "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "windows": entries,
-        }
-        tmp = out_path.with_suffix(".tmp.json")
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    
-        total_segments = sum(len(c.get("segments", [])) for e in entries for c in e.get("windows", []))
-        if total_segments == 0 and out_path.exists():
-            log.warning("windows aggregate empty — keeping last-known file")
-            try: tmp.unlink()
-            except Exception: pass
-        else:
-            os.replace(tmp, out_path)  # atomique
-    
-        return payload
+            
+        def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
+            def _looks_like_spot(d: dict) -> bool:
+                # Require the schema we actually emit for spot JSON files
+                if not isinstance(d, dict): return False
+                meta = d.get("meta") or {}
+                fp   = d.get("forecast_primary") or {}
+                marine = d.get("marine") or {}
+                h_fp = fp.get("hourly") or {}
+                # Minimal keys: meta.name/slug, time axis in primary hourly, and some marine series present
+                if not isinstance(meta.get("name"), str): return False
+                if not isinstance(meta.get("slug"), str): return False
+                t = h_fp.get("time")
+                if not (isinstance(t, list) and len(t) > 0): return False
+                if not (isinstance(marine, dict) and (marine.get("wave_height") or marine.get("hs"))): return False
+                return True
+        
+            # Skip well-known non-spot json files
+            SKIP = {
+                "windows.json", "index.json", "index.spots.json", "status.json",
+                "catalog.json", "rules.normalized.json"
+            }
+        
+            entries = []
+            for p in sorted(spots_dir.glob("*.json")):
+                if p.name in SKIP:
+                    continue
+                try:
+                    data = json.loads(p.read_text(encoding="utf-8"))
+                    if _looks_like_spot(data):
+                        entries.append(_aggregate_one_spot(data, rules))
+                    else:
+                        log.debug("skip(non-spot) %s", p.name)
+                except Exception as e:
+                    log.warning("skip %s: %s", p, e)
+        
+            payload = {
+                "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "windows": entries,
+            }
+        
+            tmp = out_path.with_suffix(".tmp.json")
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        
+            # Only replace if we actually produced segments; otherwise keep last-known file
+            total_segments = sum(len(c.get("segments", [])) for e in entries for c in e.get("windows", []))
+            if total_segments == 0 and out_path.exists():
+                log.warning("windows aggregate empty — keeping last-known file")
+                try: tmp.unlink()
+                except Exception: pass
+            else:
+                os.replace(tmp, out_path)  # atomic
+        
+            return payload
+
 
     # --- Construction du payload JSON ---
 

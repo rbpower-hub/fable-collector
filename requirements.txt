@@ -2,5 +2,3 @@ requests
 pyyaml>=6.0
 astral>=3.2,<4
 tzdata>=2024.1
-jsonschema>=4.21
-Unidecode>=1.3

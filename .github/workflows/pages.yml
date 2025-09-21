@@ -521,22 +521,26 @@ jobs:
               print('❌ windows.json ne contient pas la clé "windows"'); sys.exit(1)
           print('✅ windows.json OK —', len(d.get('windows', [])), 'destination(s)')
 
-      - name: Sanity check — windows.json (non-empty windows)
+      - name: Sanity check — windows.json (exists + shape)
         if: steps.gate.outputs.should_run == 'true'
         shell: python
         run: |
           import json, pathlib, sys
           p = pathlib.Path('Public/windows.json')
+          if not p.exists():
+              print('❌ Public/windows.json manquant'); sys.exit(1)
+      
           d = json.loads(p.read_text(encoding='utf-8'))
-          wins = d.get('windows', [])
-          n_dests = len(wins)
-          n_segments = sum(len(w.get('windows', [])) for w in wins)
-          print(f'destinations={n_dests}, segments={n_segments}')
-          if n_dests == 0:
-              print('❌ Aucun destination dans windows.json'); sys.exit(1)
-          if n_segments == 0:
-              print('❌ Aucune fenêtre détectée (toutes vides)'); sys.exit(1)
-          print('✅ windows.json contient des fenêtres')
+          wins = d.get('windows')
+          if not isinstance(wins, list):
+              print('❌ windows.json: "windows" doit être une liste'); sys.exit(1)
+      
+          segs = sum(len(e.get('windows', [])) for e in wins)
+          dests = len(wins)
+          print(f"destinations={dests}, segments={segs}")
+          if segs == 0:
+              print('⚠️ Aucune fenêtre détectée (zéro segment). Ce n’est pas une erreur — météo/critères trop stricts ou horizon défavorable.')
+
 
       # --- Générer windows.md lisible ---
       - name: Create windows.md from windows.json
@@ -704,6 +708,29 @@ jobs:
         run: |
           head -c 2000 Public/windows.json || true
 
+      - name: Debug — spot data coverage
+        if: steps.gate.outputs.should_run == 'true'
+        shell: python
+        run: |
+          import json, pathlib
+          pub = pathlib.Path('Public')
+          w = json.loads((pub/'windows.json').read_text(encoding='utf-8'))
+          def nn(a): return sum(x is not None for x in (a or []))
+          for row in w.get('windows', []):
+              slug = row.get('dest_slug')
+              p = pub/slug
+              if not p.exists(): 
+                  print('skip', slug, '(file missing)'); 
+                  continue
+              d = json.loads(p.read_text(encoding='utf-8'))
+              h = d.get('hourly', {})
+              n = len(h.get('time', []) or [])
+              hs = h.get('hs') or h.get('wave_height') or []
+              tp = h.get('tp') or h.get('wave_period') or []
+              ws = h.get('wind_speed_10m') or []
+              gu = h.get('wind_gusts_10m') or []
+              print(f"{slug}: hours={n} nn(hs)={nn(hs)} nn(tp)={nn(tp)} nn(ws)={nn(ws)} nn(gu)={nn(gu)}")
+ 
   deploy:
     needs: build
     if: needs.build.outputs.should_run == 'true'

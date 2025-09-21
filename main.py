@@ -193,16 +193,26 @@ def _normalize_daily_timezones_inplace(p: Dict[str, Any]) -> None:
 # -----------------------
 # Charger sites.yaml
 # -----------------------
-ROOT = Path(__file__).resolve().parent
+# NOTE: on suppose que ROOT = Path(__file__).resolve().parent est déjà défini plus haut.
+# Évite toute redéfinition de ROOT ici pour ne pas écraser la version précédente.
+SITES_PATH = Path(os.getenv("FABLE_SITES_PATH", "sites.yaml"))
+if not SITES_PATH.is_absolute():
+    SITES_PATH = ROOT / SITES_PATH
 
-if not sites_yaml.exists():
-    log.error("sites.yaml introuvable à la racine du repo."); sys.exit(1)
+if not SITES_PATH.exists():
+    log.error("sites.yaml introuvable (%s).", SITES_PATH.as_posix())
+    sys.exit(1)
+
 try:
-    sites = yaml.safe_load(sites_yaml.read_text(encoding="utf-8"))
+    sites = yaml.safe_load(SITES_PATH.read_text(encoding="utf-8"))
+    log.debug("sites.yaml chargé depuis %s", SITES_PATH.as_posix())
 except Exception as e:
-    log.error("Impossible de lire sites.yaml: %s", e); sys.exit(1)
+    log.error("Impossible de lire sites.yaml (%s): %s", SITES_PATH.as_posix(), e)
+    sys.exit(1)
+
 if not isinstance(sites, list) or not sites:
-    log.error("sites.yaml mal formé ou vide."); sys.exit(1)
+    log.error("sites.yaml mal formé ou vide (%s).", SITES_PATH.as_posix())
+    sys.exit(1)
 
 # ➕ Exclusion définitive (politique FABLE)
 EXCLUDE_SLUGS = {"korbous", "kelibia", "kélibia"}

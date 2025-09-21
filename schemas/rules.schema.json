@@ -1,0 +1,37 @@
+// schemas/rules.schema.json (capture current structure, keep room to grow)
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object",
+  "required":["overrides","wind","sea","tp_matrix"],
+  "properties":{
+    "overrides":{
+      "type":"object",
+      "properties":{
+        "thunder_wmo":{"type":"array","items":{"type":"integer"}},
+        "gusts_hard_nogo_kmh":{"type":"number"},
+        "squall_delta_kmh":{"type":"number"}
+      },
+      "additionalProperties":true
+    },
+    "wind":{
+      "type":"object",
+      "properties":{
+        "family_max_kmh":{"type":"number"},
+        "nogo_min_kmh":{"type":"number"},
+        "onshore_degrade_kmh":{"type":"number"}
+      },
+      "additionalProperties":true
+    },
+    "sea":{
+      "type":"object",
+      "properties":{
+        "family_max_hs_m":{"type":"number"},
+        "nogo_min_hs_m":{"type":"number"}
+      },
+      "additionalProperties":true
+    },
+    "tp_matrix":{"type":"object"},
+    "tolerances":{"type":"object"}
+  },
+  "additionalProperties":true
+}

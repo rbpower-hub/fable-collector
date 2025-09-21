@@ -1,4 +1,3 @@
-// schemas/sites.schema.json (minimal but useful)
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "array",

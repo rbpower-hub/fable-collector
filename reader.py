@@ -16,8 +16,7 @@ NOUVEAUTÉS :
   dans rules.yaml (rafales, squalls, Tp assoupli si Hs faible).
 
 Usage :
-    python reader.py --from-dir public --out public \
-                     --home gammarth-port.json --min-hours 4 --max-hours 6
+    python reader.py --from-dir Public --out Public --home gammarth-port.json  --min-hours 4 --max-hours 6
 """
 
 from __future__ import annotations
@@ -31,6 +30,19 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 import datetime as dt
 import os
+
+# --- juste après les imports
+def _smart_dir(p: Optional[Path]) -> Path:
+    if p is not None:
+        return p
+    # essaie Public/ puis public/ (sensibilité à la casse)
+    for cand in ("Public", "public"):
+        q = Path(cand)
+        if q.exists():
+            return q
+    # défaut si rien n'existe encore
+    return Path("Public")
+
 
 # --- PyYAML optionnel (fallback auto si absent) ---
 try:
@@ -644,8 +656,11 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
 
     _apply_rules_globals()  # au cas où RULES a été modifié par l'env
 
-    spots = sorted([p for p in from_dir.glob("*.json")
-                    if p.name not in ("index.json", "windows.json")])
+    SKIP = {"index.json", "windows.json", "index.spots.json", "status.json",
+            "catalog.json", "rules.normalized.json"}
+
+    spots = sorted([p for p in from_dir.glob("*.json") if p.name not in SKIP])
+                   
     if not spots:
         raise SystemExit(f"Aucun JSON de spot trouvé dans {from_dir}")
 
@@ -693,10 +708,10 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="FABLE reader – détecteur de fenêtres Family GO")
-    ap.add_argument("--from-dir", default="public", type=Path,
-                    help="Répertoire où se trouvent les JSON de spots.")
-    ap.add_argument("--out", default="public", type=Path,
-                    help="Répertoire de sortie (windows.json).")
+    ap.add_argument("--from-dir", default=Path("Public"), type=Path,
+                    help="Répertoire où se trouvent les JSON de spots (par défaut: Public).")
+    ap.add_argument("--out", default=Path("Public"), type=Path,
+                    help="Répertoire de sortie (windows.json) (par défaut: Public).")
     ap.add_argument("--home", default=None,
                     help="Nom de fichier JSON du port d’attache (ex: gammarth-port.json).")
     ap.add_argument("--min-hours", default=DEFAULT_MIN_H, type=int,
@@ -705,7 +720,10 @@ def main() -> None:
                     help="Durée maximale d’une fenêtre (heures).")
     args = ap.parse_args()
 
-    run(args.from_dir, args.out, args.home, args.min_hours, args.max_hours)
+    from_dir = _smart_dir(args.from_dir)
+    out_dir  = _smart_dir(args.out)
 
-if __name__ == "__main__":
-    main()
+    # petit log utile en CI
+    print(f"[reader] from_dir={from_dir} out_dir={out_dir} home={args.home}")
+
+    run(from_dir, out_dir, args.home, args.min_hours, args.max_hours)

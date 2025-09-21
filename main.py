@@ -524,6 +524,7 @@ DISABLE_ASTRONOMY_HTTP = bool(_dget(RULES, "http.disable_astronomy_http", False)
                          or (os.getenv("FABLE_DISABLE_ASTRONOMY_HTTP", "1") == "1")
 
 
+
 # PATCH astro/daily — fusion robuste + alignement par dates
 def _attach_daily_best_effort(p: Dict[str, Any], lat: float, lon: float) -> None:
     """
@@ -1272,7 +1273,15 @@ for site in selected_sites:
                 {"class": "Expert", "segments": exp_iso},
             ],
         }
- 
+
+   
+    
+    # ... after RULES is loaded:
+from shared import get_non_spot_json
+
+    # ... after RULES is loaded:
+    SKIP = get_non_spot_json(RULES)
+    
     def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
         def _looks_like_spot(d: dict) -> bool:
             # schema produit par le collector
@@ -1295,35 +1304,22 @@ for site in selected_sites:
     
             return True
     
-        # --- fichiers non-spots à ignorer ---
-        BASE_SKIP = {
-            "windows.json",
-            "windows.collector.json",
-            "index.json",
-            "index.spots.json",
-            "status.json",
-            "catalog.json",
-            "rules.normalized.json",
-        }
+        # unified SKIP + protège le fichier qu’on est en train d’écrire
+        local_skip = set(SKIP) | {out_path.name}
     
-        def _skip_name(name: str) -> bool:
-            if name in BASE_SKIP:
-                return True
-            if name.startswith(".") or name.startswith("_"):   # tmp/hidden
-                return True
-            if name.endswith(".tmp.json"):
-                return True
-            return False
-    
-        entries = []
+        entries: List[Dict[str, Any]] = []
         for p in sorted(spots_dir.glob("*.json")):
-            if _skip_name(p.name):
+            name = p.name
+    
+            # ignorer non-spots, le fichier cible lui-même, et fichiers cachés/temp
+            if name in local_skip or name.startswith("."):
                 continue
+    
             try:
+                # évite les fichiers vides/tronqués
                 try:
-                    # évite les fichiers vides/tronqués
                     if p.stat().st_size < 32:
-                        log.debug("skip(small) %s", p.name)
+                        log.debug("skip(small) %s", name)
                         continue
                 except Exception:
                     pass
@@ -1332,7 +1328,7 @@ for site in selected_sites:
                 if _looks_like_spot(data):
                     entries.append(_aggregate_one_spot(data, rules))
                 else:
-                    log.debug("skip(non-spot) %s", p.name)
+                    log.debug("skip(non-spot) %s", name)
             except Exception as e:
                 log.warning("skip %s: %s", p, e)
     
@@ -1364,7 +1360,6 @@ for site in selected_sites:
     
         log.info("windows.json: spots=%d, segments=%d, home=%s", len(entries), total_segments, home_slug)
         return payload
-
 
     # --- Construction du payload JSON ---
 

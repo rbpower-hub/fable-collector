@@ -66,6 +66,16 @@ corridor:
     anchor_max: 4
     transit_back: 1-1.5
 
+artifacts:
+  non_spot_json:
+    - index.json
+    - index.spots.json
+    - catalog.json
+    - status.json
+    - rules.normalized.json
+    - windows.json
+    - windows.collector.json
+
 family_hours_local:
   start_h: 8
   end_h: 21

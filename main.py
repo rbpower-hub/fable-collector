@@ -1275,30 +1275,58 @@ for site in selected_sites:
  
     def build_windows_json(spots_dir: Path, out_path: Path, rules: Dict[str, Any]) -> Dict[str, Any]:
         def _looks_like_spot(d: dict) -> bool:
+            # schema produit par le collector
             if not isinstance(d, dict):
                 return False
-            meta = d.get("meta") or {}
-            fp   = d.get("forecast_primary") or {}
+            meta   = d.get("meta") or {}
+            fp     = d.get("forecast_primary") or {}
             marine = d.get("marine") or {}
-            h_fp = fp.get("hourly") or {}
+            h_fp   = fp.get("hourly") or {}
+    
+            # clés minimales
             if not isinstance(meta.get("name"), str): return False
             if not isinstance(meta.get("slug"), str): return False
+    
             t = h_fp.get("time")
             if not (isinstance(t, list) and len(t) > 0): return False
-            if not (isinstance(marine, dict) and (marine.get("wave_height") or marine.get("hs"))): return False
+    
+            if not (isinstance(marine, dict) and (marine.get("wave_height") or marine.get("hs"))):
+                return False
+    
             return True
     
-        # Fichiers non-spots à ignorer (racine de l’artefact)
-        SKIP = {
-            "windows.json", "index.json", "index.spots.json", "status.json",
-            "catalog.json", "rules.normalized.json"
+        # --- fichiers non-spots à ignorer ---
+        BASE_SKIP = {
+            "windows.json",
+            "index.json",
+            "index.spots.json",
+            "status.json",
+            "catalog.json",
+            "rules.normalized.json",
         }
+    
+        def _skip_name(name: str) -> bool:
+            if name in BASE_SKIP:
+                return True
+            if name.startswith(".") or name.startswith("_"):   # tmp/hidden
+                return True
+            if name.endswith(".tmp.json"):
+                return True
+            return False
     
         entries = []
         for p in sorted(spots_dir.glob("*.json")):
-            if p.name in SKIP:
+            if _skip_name(p.name):
                 continue
             try:
+                try:
+                    # évite les fichiers vides/tronqués
+                    if p.stat().st_size < 32:
+                        log.debug("skip(small) %s", p.name)
+                        continue
+                except Exception:
+                    pass
+    
                 data = json.loads(p.read_text(encoding="utf-8"))
                 if _looks_like_spot(data):
                     entries.append(_aggregate_one_spot(data, rules))
@@ -1307,7 +1335,7 @@ for site in selected_sites:
             except Exception as e:
                 log.warning("skip %s: %s", p, e)
     
-        # home_slug : préféré si présent, sinon 1er spot
+        # home_slug : valeur préférée si présente, sinon 1er spot (ou None)
         wanted = "gammarth-port.json"
         slugs = {e["dest_slug"] for e in entries}
         home_slug = wanted if wanted in slugs else (entries[0]["dest_slug"] if entries else None)
@@ -1322,20 +1350,20 @@ for site in selected_sites:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     
+        # ne remplace que si on a réellement quelque chose d’exploitable
         total_segments = sum(len(c.get("segments", [])) for e in entries for c in e.get("windows", []))
         if total_segments == 0 and out_path.exists():
             log.warning("windows aggregate empty — keeping last-known file")
-            try: tmp.unlink()
-            except Exception: pass
+            try:
+                tmp.unlink()
+            except Exception:
+                pass
         else:
-            os.replace(tmp, out_path)
+            os.replace(tmp, out_path)  # atomic
     
         log.info("windows.json: spots=%d, segments=%d, home=%s", len(entries), total_segments, home_slug)
         return payload
 
-
-   
- 
 
     # --- Construction du payload JSON ---
 

@@ -676,8 +676,6 @@ def run(from_dir: Path, out_dir: Path, home_slug: Optional[str],
     }
 
     for slug, dest in sites.items():
-        if slug == home_slug:
-            continue
         wins = detect_windows(home, dest, min_h=min_h, max_h=max_h)
         out["windows"].append({
             "dest_slug": slug,

@@ -16,7 +16,7 @@
       --link:#7dd3fc; --pill-bg:#0d1a2b;
     }
     [data-theme="nautical"]{
-      --bg:#f7fbff; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
+      --bg:#ebedf0; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9; //--bg:#f7fbff
       --ok:#2dd4bf; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
       --section:#0ea5e9; --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
       --link:#0284c7; --pill-bg:#f1f5f9;
@@ -91,6 +91,8 @@
     .tip .hdr{font-weight:700; margin-bottom:4px} .tip .row{margin-top:4px}
 
     body.simplified-view .expert-only{display:none}
+    /* En vue simplifiée, on cache le Radar (et donc Données Brutes) */
+    body.simplified-view .card.radar{ display:none; }
 
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     #refresh-timer{font-size:.85rem;color:var(--muted);margin-left:16px}
@@ -493,8 +495,9 @@
     const winItems = (winData?.windows || [])
       .flatMap(dest => (dest.windows||[]).map(seg => {
         const cat = String(seg.category || dest.category || '').toLowerCase();
-        const isFamily = cat ? (cat === 'family' || cat === 'off_hours') : isFamilyWindow(seg.start, seg.end);
+        const isFamilyDay  = cat ? (cat === 'family')     : isFamilyWindow(seg.start, seg.end);
         const isOffHours = (cat === 'off_hours');
+        const isFamilyAny  = isFamilyDay || isOffHours;
         const confKey = ((seg.confidence || dest.confidence) || '').toLowerCase();
         const confText = confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
         const confScore = (typeof seg.confidence_score==='number') ? Math.round((seg.confidence_score<=1? seg.confidence_score*100 : seg.confidence_score)) : null;
@@ -511,22 +514,23 @@
           : '';
 
         const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
-        const goTxt = isFamily ? `FAMILY GO${isOffHours?' (hors horaires)':''}` : 'EXPERT GO';
-        const goCls = isFamily ? 'family' : 'expert';
+        const goTxt = isOffHours ? 'GO (hors horaires)' : (isFamilyDay ? 'FAMILY GO' : 'EXPERT GO');
+        const goCls = isOffHours ? 'family' : (isFamilyDay ? 'family' : 'expert');
         nowWinsKey.add(key);
         
         return {
-          isFamily,
+          isFamilyDay,
+          isOffHours,
           dest_slug: dest.dest_slug,
-          html: `<div class="window-line ${!isFamily?'expert-only':''}">
+          html: `<div class="window-line ${(!isFamilyDay)?'expert-only':''}">
                   <div class="title">${dest.dest_name} <span class="go ${goCls}">${goTxt}</span> ${confBadge}</div>
                   <div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
                   ${srcBadge}
                 </div>`
         };
       }))
-      .filter(x => isSimplified ? x.isFamily : true);
-
+      .filter(x => isSimplified ? x.isFamilyDay : true);
+    
     winsDiv.innerHTML = winItems.length ? winItems.map(x=>x.html).join('') : `<span class="small">${t('none_windows')}</span>`;
 
     // Alerte douce si nouvelles fenêtres
@@ -553,28 +557,50 @@
     }).addTo(corridorLayer);
     });
 
+    // Index "flags par spot" pour clarifier les avertissements
+    const spotFlags = new Map();
+    (winData?.windows || []).forEach(dest=>{
+      (dest.windows || []).forEach(seg=>{
+        const cat = String(seg.category || dest.category || '').toLowerCase();
+        const slug = dest.dest_slug;
+        if (!slug) return;
+        const f = spotFlags.get(slug) || { day:false, off:false };
+        if (cat === 'off_hours') f.off = true;
+        else if (cat === 'family' || isFamilyWindow(seg.start, seg.end)) f.day = true;
+        spotFlags.set(slug, f);
+      });
+    });
+    
     // Avertissements (No-GO) — icône/sevérité + raison principale
     const reasonsDiv = $('#reasons');
     if (Array.isArray(reasonsRows) && reasonsRows.length) {
       const rowsHTML = reasonsRows.map(r=>{
-        const raw = String((r.family || r.expert || '')).trim();
-    
-        // Sévérité + icône à partir du premier symbole
+        // on préfère la ligne Family si elle existe
+        const familyRaw = String(r.family||'').trim();
+        const expertRaw = String(r.expert||'').trim();
+        const useFamily = !!familyRaw;
+        const raw = useFamily ? familyRaw : expertRaw;
+
+        // fichier (pour retrouver les flags)
+        const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot||'');
+        const file = m ? m[1] : null;
+        const flags = file ? spotFlags.get(file) : null;
+
+        // Sévérité + icône
         let sev = 'warn', icon = '⚠️';
         if (/^[✗🚫]/.test(raw)) { sev='bad';  icon='🚫'; }
         else if (/^[✓✅]/.test(raw)) { sev='ok'; icon='✅'; }
-    
-        // Nettoyage du préfixe et du suffixe (… (slug.json))
-        const cleaned = raw
-          .replace(/^[✗✓⚠🚫✅]\s*/,'')
-          .replace(/\s*\(([^)]+\.json)\)\s*$/,'')
-          .trim();
-    
-        // “raison principale” = première clause
+
+        // Nettoyage du texte
+        const cleaned = raw.replace(/^[✗✓⚠🚫✅]\s*/,'').replace(/\s*\(([^)]+\.json)\)\s*$/,'').trim();
         const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
-    
-        return `<div class="line ${sev}" title="${cleaned}">
-                  <div class="reason">${icon} ${main}</div>
+
+        // Suffixe de portée
+        const scope = useFamily ? ' (journée 08–21)' : ' (expert)';
+        const offNote = (useFamily && flags?.off) ? ' · fenêtres hors horaires disponibles' : '';
+
+        return `<div class="line ${sev}" title="${cleaned}${scope}${offNote}">
+                  <div class="reason">${icon} ${main}${scope}${offNote}</div>
                   <div class="small">${r.spot||''}</div>
                 </div>`;
       }).join('');

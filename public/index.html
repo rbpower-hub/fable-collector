@@ -150,14 +150,14 @@
     /* Grille 3 colonnes sur desktop */
     .layout-grid.threecol{
       display:grid;
-      grid-template-columns: 1.2fr 1.2fr 1.4fr; /* Fenêtres | Avertissements | Radar */
+      grid-template-columns: 1.2fr 1.2fr 2fr; /* Fenêtres | Avertissements | Radar */
       gap:16px;
     }
     
     /* Cartes bornées en hauteur pour éviter le scroll de page */
     .card.wins{       max-height: 30vh; overflow:auto; }
-    .card.conditions{ max-height: 30vh; overflow:auto; }
-    .card.radar{      max-height: 30vh; overflow:auto; }
+    .card.conditions{ max-height: 28vh; overflow:auto; }
+    .card.radar{      max-height: 42vh; overflow:auto; }
     
     /* Empilement sur mobile/tablette */
     @media (max-width: 1100px){

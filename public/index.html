@@ -689,13 +689,16 @@
       if(spotStatus[file]!=='green'){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = isFresh(entry,gen) ? 'yellow' : 'red'; }
     });
 
-    map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); }); // on garde tuiles + corridors
+    // après la carte
+    const corridorLayer = L.layerGroup().addTo(map);
+    const spotsLayer    = L.layerGroup().addTo(map);   // ← NOUVEAU
+    spotsLayer.clearLayers();
     const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
     for(const file in spotConfig){
       const s=spotConfig[file], isMain = file==='gammarth-port.json', st = spotStatus[file];
       const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
       const text  = isMain ? t('principal_port') : t(`go_popup.${st}`);
-      L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(map).bindPopup(`<b>${s.name}</b><br>${text}`);
+      L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(spotsLayer).bindPopup(`<b>${s.name}</b><br>${text}`);
     }
 
     $('#dashboard-content').classList.remove('updating');

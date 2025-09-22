@@ -180,7 +180,7 @@ _apply_rules_globals()
 
 # Fenêtres
 DEFAULT_MIN_H = 4
-DEFAULT_MAX_H = 6
+DEFAULT_MAX_H = 8
 
 # =========================
 # Structures utiles

@@ -112,7 +112,18 @@
     .spark svg{width:100%;height:100%}
 
     /* Corridors / ancrage */
-    .anchor-badge{background:var(--pill-bg);border:1px solid var(--br);color:var(--fg);padding:2px 6px;border-radius:999px;font-size:.8rem;box-shadow:var(--shadow);pointer-events:none}
+    .anchor-badge{
+      background: var(--card);
+      border: 1px solid var(--br);
+      color: var(--fg);
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: .85rem;
+      font-weight: 700;
+      box-shadow: var(--shadow);
+      pointer-events: none;
+    }
+
     .leaflet-div-icon{
       background: transparent !important;
       border: none !important;
@@ -357,6 +368,7 @@
   const map = L.map('map').setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
   const corridorLayer = L.layerGroup().addTo(map);
+  const spotsLayer    = L.layerGroup().addTo(map);
   window.panToFile = (file)=>{ const s=spotConfig[file]; if(s) map.setView([s.lat,s.lon],12,{animate:true}); };
 
   // ===== KIOSK =====
@@ -539,22 +551,36 @@
     if(hasNew && winItems.length){ ding(); flash(winsCard); }
 
     // Corridors (limités à 3)
+    // Corridors (limités à 3)
     corridorLayer.clearLayers();
     const origin = spotConfig['gammarth-port.json'];
     const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
-    [...new Set(winItems.map(x=>x.dest_slug))].filter(Boolean).slice(0,3).forEach(slug=>{
-      const dest=spotConfig[slug]; if(!dest||!origin) return;
-      L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'}).addTo(corridorLayer);
-      const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-      L.marker(mid, {
-      icon: L.divIcon({
-        className: 'anchor-badge',   // ❗️on garde uniquement notre classe
-        html: '⚓ 1h',
-        iconSize: [36, 20],
-        iconAnchor: [18, 10]
-      }),
-      interactive: false
-    }).addTo(corridorLayer);
+    
+    [...new Set(winItems.map(x=>x.dest_slug))]
+      .filter(Boolean)
+      .slice(0,3)
+      .forEach(slug=>{
+        const dest = spotConfig[slug]; if(!dest || !origin) return;
+    
+        // Ligne aller-retour
+        L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]], {
+          color: ACCENT, weight: 3, opacity: .9, dashArray: '6,6'
+        }).addTo(corridorLayer);
+    
+        // Badge ⚓ au milieu
+        const mid = [(origin.lat+dest.lat)/2, (origin.lon+dest.lon)/2];
+        const m = L.marker(mid, {
+          icon: L.divIcon({
+            className: 'anchor-badge',
+            html: '⚓ 1h',
+            iconSize: [42, 22],
+            iconAnchor: [21, 11]
+          }),
+          interactive: false
+        }).addTo(corridorLayer);
+    
+        // S'assure d'être au-dessus des polylines
+        m.setZIndexOffset(500);
     });
 
     // Index "flags par spot" pour clarifier les avertissements
@@ -690,8 +716,6 @@
     });
 
     // après la carte
-    const corridorLayer = L.layerGroup().addTo(map);
-    const spotsLayer    = L.layerGroup().addTo(map);   // ← NOUVEAU
     spotsLayer.clearLayers();
     const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
     for(const file in spotConfig){

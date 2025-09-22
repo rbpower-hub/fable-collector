@@ -209,7 +209,7 @@ jobs:
           tmin,tmax = _parse_leg_span(leg.get("transit_out","1-1.5"), 1.0, 1.5)
           bmin,bmax = _parse_leg_span(leg.get("transit_back","1-1.5"), 1.0, 1.5)
           amin = float(leg.get("anchor_min", 2))
-          amax = float(leg.get("anchor_max", 4))
+          amax = float(leg.get("anchor_max", 8))
           win_min = int(round(tmin + amin + bmin))
           win_max = int(round(tmax + amax + bmax))
           # garde-barrières Family (on force 4–6 si valeurs aberrantes)

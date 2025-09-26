@@ -137,13 +137,14 @@
     .anchor-badge.trip .h { font-weight: 800; margin-bottom: 2px; }
     .anchor-badge.trip .m { opacity: .9; }
 
-
     .leaflet-div-icon{
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
     }
 
+
+    
     /* fenêtre sélectionnée */
     .window-line.select { outline:2px solid var(--accent); box-shadow:0 0 0 4px rgba(76,201,240,.15) }
     /* curseur cliquable */
@@ -248,6 +249,19 @@
   .card.radar::-webkit-scrollbar-track{
     background: transparent;
   }
+
+  /* Trip summary pill inside a selected window */
+  .tripline{
+    margin-top:8px;
+    padding:8px 10px;
+    border:1px dashed var(--br);
+    border-radius:10px;
+    background: rgb(from var(--pill-bg) r g b / .65);
+  }
+  .tripline .row{display:flex;gap:8px;align-items:center;margin-top:4px}
+  .tripline .k{font-weight:800}
+  .tripline .v{opacity:.95}
+
   .card.wins::-webkit-scrollbar-thumb,
   .card.conditions::-webkit-scrollbar-thumb,
   .card.radar::-webkit-scrollbar-thumb{
@@ -403,18 +417,27 @@
   }
   // petite anim le long d'une ligne (interpolation linéaire)
   let _animTimer=null;
-  function animateAlong(line){
-    if(_animTimer){ clearInterval(_animTimer); _animTimer=null; }
-    const latlngs = line.getLatLngs();
-    const A = latlngs[0], B = latlngs[1];
-    const marker = L.circleMarker(A, {radius:5, weight:2, color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()}).addTo(corridorLayer);
-    let t=0;
-    _animTimer = setInterval(()=>{
-      t += 0.02; if(t>1){ clearInterval(_animTimer); _animTimer=null; return; }
-      const lat = A.lat + (B.lat - A.lat)*t;
-      const lon = A.lng + (B.lng - A.lng)*t;
-      marker.setLatLng([lat,lon]);
-    }, 20);
+  async function animateAlong(line, {speed=0.02, stepMs=20}={}) {
+    if (_animTimer) { clearInterval(_animTimer); _animTimer=null; }
+    return new Promise(resolve=>{
+      const [A,B] = line.getLatLngs();
+      const color = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      const marker = L.circleMarker(A, {radius:5, weight:2, color}).addTo(corridorLayer);
+      let t = 0;
+      _animTimer = setInterval(()=>{
+        t += speed;
+        if (t >= 1) {
+          marker.setLatLng(B);
+          clearInterval(_animTimer); _animTimer=null;
+          resolve();
+          return;
+        }
+        marker.setLatLng([
+          A.lat + (B.lat - A.lat)*t,
+          A.lng + (B.lng - A.lng)*t
+        ]);
+      }, stepMs);
+    });
   }
 
   // ===== State & helpers =====
@@ -662,7 +685,7 @@
       const cardEl = e.target.closest('.window-line');
       if(!cardEl) return;
     
-      // visual selection + keep it in view
+      // selection + keep in view
       document.querySelectorAll('.window-line.select').forEach(n=>n.classList.remove('select'));
       cardEl.classList.add('select');
       cardEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
@@ -672,18 +695,18 @@
       const end   = cardEl.dataset.end;
       if(!slug || !start || !end) return;
     
-      const originFile = 'gammarth-port.json';
+      const originFile='gammarth-port.json';
       const origin = spotConfig[originFile];
       const dest   = spotConfig[slug];
       if(!origin || !dest) return;
     
       corridorLayer.clearLayers();
     
-      // Clicking the home port: no corridor, just a note
+      // Clicking home: no corridor, just a local note
       if (slug === originFile) {
         document.querySelectorAll('.tripline').forEach(n=>n.remove());
         cardEl.insertAdjacentHTML('beforeend',
-          `<div class="small tripline">Sortie locale depuis le port (pas de transit)</div>`
+          `<div class="small tripline"><div class="row">⚓ <span class="k">Sortie locale</span> <span class="v">depuis le port (pas de transit)</span></div></div>`
         );
         map.setView([origin.lat, origin.lon], 14, {animate:true});
         return;
@@ -691,20 +714,24 @@
     
       const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
     
-      // Corridor line
-      const line = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
+      // Single dashed corridor
+      const lineAB = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
         color:ACCENT, weight:3, opacity:.9, dashArray:'6,6'
       }).addTo(corridorLayer);
     
-      // Midpoint for the badge
-      const mid = [(origin.lat + dest.lat)/2, (origin.lon + dest.lon)/2];
+      // Neutral midpoint badge only
+      const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
+      L.marker(mid,{
+        icon: L.divIcon({ className:'anchor-badge', html:'⛵ 1–1.5 h (transit)', iconSize:[120,24], iconAnchor:[60,12] }),
+        interactive:false
+      }).addTo(corridorLayer);
     
       // Distance + winds
       const dkm = distKm(origin, dest);
       const dnm = dkm / KM_PER_NM;
     
-      const wGo  = await windAt(slug, start);        // wind at destination (start time)
-      const wRet = await windAt(originFile, end);     // wind at port (end time)
+      const wGo  = await windAt(slug, start);        // wind at destination (start)
+      const wRet = await windAt(originFile, end);     // wind at port (end)
     
       const arrowFor = c => ({N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'})[c] || '•';
       const windTxt = (o)=>{
@@ -717,37 +744,27 @@
         return `${spd}${deg}${lab?` (${arr} ${lab})`:''}`.trim();
       };
     
-      const originName = spotConfig[originFile].name;
-      const badgeHTML = `
-        <div class="h">⛵ 1–1.5 h • ${originName} → ${dest.name}</div>
-        <div class="m">📏 ${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM</div>
-        <div class="m">🟢 Aller (spot): ${windTxt(wGo)}</div>
-        <div class="m">🔵 Retour (port): ${windTxt(wRet)}</div>
-      `;
-    
-      // Badge with full summary at the midpoint
-      L.marker(mid,{
-        icon: L.divIcon({
-          className:'anchor-badge trip',
-          html: badgeHTML,
-          iconSize:[220,10],
-          iconAnchor:[110,16]   // tweak if you want it higher/lower
-        }),
-        interactive:false
-      }).addTo(corridorLayer);
-    
-      // Mirror summary in the selected card (remove old ones first)
+      // Rich summary inside the selected card (remove any previous)
       document.querySelectorAll('.tripline').forEach(n=>n.remove());
-      cardEl.insertAdjacentHTML('beforeend',
-        `<div class="small tripline">
-           ⛵ <b>1–1.5 h</b> • <b>${originName} → ${dest.name}</b> — ${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM<br>
-           Aller (spot): ${windTxt(wGo)} · Retour (port): ${windTxt(wRet)}
-         </div>`
-      );
+      const originName = spotConfig[originFile].name;
+      cardEl.insertAdjacentHTML('beforeend', `
+        <div class="tripline">
+          <div class="row">⛵ <span class="k">1–1.5 h</span> <span class="v">• <b>${originName} → ${dest.name}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM</span></div>
+          <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windTxt(wGo)}</span></div>
+          <div class="row">🔵 <span class="k">Retour</span> <span class="v">${windTxt(wRet)}</span></div>
+        </div>
+      `);
     
-      map.fitBounds(line.getBounds(), {padding:[30,30]});
-      animateAlong(line);
+      // viewport + animation out & back
+      map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
+      await animateAlong(lineAB);                          // aller
+      const lineBA = L.polyline([[dest.lat,dest.lon],[origin.lat,origin.lon]],{
+        color:ACCENT, weight:3, opacity:.35, dashArray:'6,6'
+      }).addTo(corridorLayer);
+      await new Promise(r=>setTimeout(r, 300));            // tiny pause
+      await animateAlong(lineBA);                          // retour
     });
+
       
     }
     
@@ -772,34 +789,48 @@
     const reasonsDiv = $('#reasons');
     if (Array.isArray(reasonsRows) && reasonsRows.length) {
       const rowsHTML = reasonsRows.map(r=>{
-        // on préfère la ligne Family si elle existe
-        const familyRaw = String(r.family||'').trim();
-        const expertRaw = String(r.expert||'').trim();
-        const useFamily = !!familyRaw;
-        const raw = useFamily ? familyRaw : expertRaw;
+       // prefer Family line if present
+      const familyRaw = String(r.family||'').trim();
+      const expertRaw = String(r.expert||'').trim();
+      const useFamily = !!familyRaw;
+      const raw = useFamily ? familyRaw : expertRaw;
+      
+      // Pretty ISO → "samedi 11:00" / "Saturday 11:00" (capitalized)
+      const prettifyDates = s =>
+        s.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/g, iso => {
+          const d = new Date(iso);
+          if (isNaN(d)) return iso;
+          const str = d.toLocaleString(LOCALES[LANG]||'fr-FR',
+            { weekday:'long', hour:'2-digit', minute:'2-digit', hour12:false });
+          return str.replace(/^\p{L}/u, ch => ch.toUpperCase());
+        });
+      
+      // cleanse + pretty
+      const cleanedBase = raw.replace(/^[✗✓⚠🚫✅]\s*/,'')
+                             .replace(/\s*\(([^)]+\.json)\)\s*$/,'')
+                             .trim();
+      const cleaned = prettifyDates(cleanedBase);
+      const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
+      
+      // file (to read flags)
+      const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot||'');
+      const file = m ? m[1] : null;
+      const flags = file ? spotFlags.get(file) : null;
+      
+      // severity + icon (check original raw)
+      let sev = 'warn', icon = '⚠️';
+      if (/^[✗🚫]/.test(raw)) { sev='bad';  icon='🚫'; }
+      else if (/^[✓✅]/.test(raw)) { sev='ok'; icon='✅'; }
+      
+      // scope label
+      const scope = useFamily ? ' (journée 08h–21h)' : ' (expert)';
+      const offNote = (useFamily && flags?.off) ? ' · fenêtres hors horaires disponibles' : '';
+      
+      return `<div class="line ${sev}" title="${cleaned}${scope}${offNote}">
+                <div class="reason">${icon} ${main}${scope}${offNote}</div>
+                <div class="small">${r.spot||''}</div>
+              </div>`;
 
-        // fichier (pour retrouver les flags)
-        const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot||'');
-        const file = m ? m[1] : null;
-        const flags = file ? spotFlags.get(file) : null;
-
-        // Sévérité + icône
-        let sev = 'warn', icon = '⚠️';
-        if (/^[✗🚫]/.test(raw)) { sev='bad';  icon='🚫'; }
-        else if (/^[✓✅]/.test(raw)) { sev='ok'; icon='✅'; }
-
-        // Nettoyage du texte
-        const cleaned = raw.replace(/^[✗✓⚠🚫✅]\s*/,'').replace(/\s*\(([^)]+\.json)\)\s*$/,'').trim();
-        const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
-
-        // Suffixe de portée
-        const scope = useFamily ? ' (journée 08–21)' : ' (expert)';
-        const offNote = (useFamily && flags?.off) ? ' · fenêtres hors horaires disponibles' : '';
-
-        return `<div class="line ${sev}" title="${cleaned}${scope}${offNote}">
-                  <div class="reason">${icon} ${main}${scope}${offNote}</div>
-                  <div class="small">${r.spot||''}</div>
-                </div>`;
       }).join('');
     
       // Filtrer les entrées ✓ OK afin de ne montrer que les avertissements

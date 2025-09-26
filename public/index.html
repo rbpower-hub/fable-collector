@@ -16,7 +16,7 @@
       --link:#7dd3fc; --pill-bg:#0d1a2b;
     }
     [data-theme="nautical"]{
-      --bg:#ebedf0; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9; //--bg:#f7fbff
+      --bg:#ebedf0; --fg:#0b1424; --muted:#475569; --accent:#0ea5e9;
       --ok:#2dd4bf; --warn:#b45309; --bad:#b91c1c; --card:#ffffff; --br:#d9e1ea;
       --section:#0ea5e9; --shadow: 0 1px 0 rgba(0,0,0,.03) inset, 0 6px 18px rgba(2,6,23,.08);
       --link:#0284c7; --pill-bg:#f1f5f9;
@@ -130,6 +130,11 @@
       box-shadow: none !important;
     }
 
+    /* fenêtre sélectionnée */
+    .window-line.select { outline:2px solid var(--accent); box-shadow:0 0 0 4px rgba(76,201,240,.15) }
+    /* curseur cliquable */
+    .window-line { cursor:pointer }
+    /* tooltip joli pour la ligne */
     .leaflet-tooltip{
       background: var(--card);
       color: var(--fg);
@@ -333,6 +338,66 @@
   };
   const WANT_SPOTS = Object.entries(spotConfig).map(([file,{name}]) => [name,file]);
   const INITIAL_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
+  
+  // --- Corridor helpers (cache + séries + vent au plus proche) ---
+  const SPOT_CACHE = new Map();
+  async function loadSpotJSON(file){
+    if(SPOT_CACHE.has(file)) return SPOT_CACHE.get(file);
+    const js = await fetchJSON(file);
+    SPOT_CACHE.set(file, js||{});
+    return js||{};
+  }
+  function seriesFromSpot(js){
+    const h = js?.hourly || {};
+    const alt = Array.isArray(js?.hours) ? js.hours : null;
+    return {
+      time:      h.time || (alt ? alt.map(r=>r.time) : []),
+      wind:      h.wind_speed_10m || (alt ? alt.map(r=>r.wind_kmh) : []),
+      gusts:     h.wind_gusts_10m || (alt ? alt.map(r=>r.gust_kmh) : []),
+      wind_dir:  h.wind_direction_10m || (alt ? alt.map(r=>r.wind_dir_deg ?? r.wind_dir) : []),
+    };
+  }
+  function nearestIdx(times, iso){
+    const t = new Date(iso).getTime(); let best=1e15, idx=-1;
+    times.forEach((s,i)=>{ const d=Math.abs(new Date(s).getTime()-t); if(d<best){best=d; idx=i;} });
+    return idx;
+  }
+  async function windAt(file, iso){
+    const js = await loadSpotJSON(file);
+    const s = seriesFromSpot(js);
+    if(!s.time?.length) return {dir:null, spd:null, gst:null};
+    const i = nearestIdx(s.time, iso);
+    return { dir: s.wind_dir?.[i] ?? null, spd: s.wind?.[i] ?? null, gst: s.gusts?.[i] ?? null };
+  }
+  function degToCardinal(d){
+    if(d==null||!isFinite(d)) return '—';
+    const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(((d%360)+360)%360/22.5)%16];
+  }
+  // petite haversine
+  const R_EARTH = 6371, KM_PER_NM = 1.852;
+  const toRad = d=>d*Math.PI/180;
+  function distKm(a,b){
+    const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
+    const la1=toRad(a.lat), la2=toRad(b.lat);
+    const x=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+    return 2*R_EARTH*Math.asin(Math.sqrt(x));
+  }
+  // petite anim le long d'une ligne (interpolation linéaire)
+  let _animTimer=null;
+  function animateAlong(line){
+    if(_animTimer){ clearInterval(_animTimer); _animTimer=null; }
+    const latlngs = line.getLatLngs();
+    const A = latlngs[0], B = latlngs[1];
+    const marker = L.circleMarker(A, {radius:5, weight:2, color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()}).addTo(corridorLayer);
+    let t=0;
+    _animTimer = setInterval(()=>{
+      t += 0.02; if(t>1){ clearInterval(_animTimer); _animTimer=null; return; }
+      const lat = A.lat + (B.lat - A.lat)*t;
+      const lon = A.lng + (B.lng - A.lng)*t;
+      marker.setLatLng([lat,lon]);
+    }, 20);
+  }
 
   // ===== State & helpers =====
   let LANG = localStorage.getItem('lang') || 'fr';
@@ -462,6 +527,10 @@
   const hideTip = ()=>{ tipEl.style.display='none'; };
   document.addEventListener('scroll', hideTip, {passive:true});
 
+  ['.card.wins','.card.conditions','.card.radar'].forEach(sel=>{
+    document.querySelector(sel)?.addEventListener('scroll', hideTip, {passive:true});
+  });
+  
   // ===== Rendu principal =====
   async function updateDashboard(){
     $('#dashboard-content').classList.add('updating');
@@ -543,7 +612,8 @@
           isFamilyDay,
           isOffHours,
           dest_slug: dest.dest_slug,
-          html: `<div class="window-line ${(!isFamilyDay)?'expert-only':''}">
+          html: `<div class="window-line ${(!isFamilyDay)?'expert-only':''}"
+                          data-slug="${dest.dest_slug||''}" data-start="${seg.start||''}" data-end="${seg.end||''}">
                   <div class="title">${dest.dest_name} <span class="go ${goCls}">${goTxt}</span> ${confBadge}</div>
                   <div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
                   ${srcBadge}
@@ -553,140 +623,83 @@
       .filter(x => isSimplified ? x.isFamilyDay : true);
     
     winsDiv.innerHTML = winItems.length ? winItems.map(x=>x.html).join('') : `<span class="small">${t('none_windows')}</span>`;
-
     // Alerte douce si nouvelles fenêtres
     let hasNew=false; nowWinsKey.forEach(k=>{ if(!lastWinsKey.has(k)) hasNew=true; });
     lastWinsKey = nowWinsKey;
     if(hasNew && winItems.length){ ding(); flash(winsCard); }
-
-    // Corridors (limités à 3)
-    // Corridors (limités à 3) + tooltips distance & vent (départ/retour)
+    
+    /* ──────────────────────────────────────────────────────────
+       Corridors : mode "focus sur clic"
+       - aucun corridor par défaut
+       - 1 seul corridor quand on clique une .window-line
+       - tooltip : distance km/NM + vent aller/retour
+       - petite animation le long de la ligne
+       ────────────────────────────────────────────────────────── */
     corridorLayer.clearLayers();
-    const originFile = 'gammarth-port.json';
-    const origin = spotConfig[originFile];
-    if (origin) {
-      const ACCENT = getComputedStyle(document.documentElement)
-        .getPropertyValue('--accent').trim() || '#4cc9f0';
     
-      // --- helpers locaux ---
-      const R = 6371;                              // rayon terre (km)
-      const KM_PER_NM = 1.852;                     // 1 NM = 1.852 km
-      const toRad = d => d*Math.PI/180;
-      const distKm = (a,b)=>{
-        const dLat = toRad(b.lat-a.lat), dLon = toRad(b.lon-a.lon);
-        const la1 = toRad(a.lat), la2 = toRad(b.lat);
-        const x = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
-        return 2*R*Math.asin(Math.sqrt(x));
-      };
-      const degToCardinal = d=>{
-        if(d==null||!isFinite(d)) return '—';
-        const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-        return dirs[Math.round(((d%360)+360)%360/22.5)%16];
-      };
-      const spotCache = new Map();
-      const loadSpot = async (file)=>{
-        if(spotCache.has(file)) return spotCache.get(file);
-        const js = await fetchJSON(file);
-        spotCache.set(file, js||{});
-        return js||{};
-      };
-      const seriesFromSpot = (js)=>{
-        // tolère schema "hourly.*" (ECMWF) ou "hours[]"
-        const h = js?.hourly || {};
-        const alt = Array.isArray(js?.hours) ? js.hours : null;
-        return {
-          time:      h.time || (alt ? alt.map(r=>r.time) : []),
-          wind:      h.wind_speed_10m || (alt ? alt.map(r=>r.wind_kmh)     : []),
-          gusts:     h.wind_gusts_10m || (alt ? alt.map(r=>r.gust_kmh)     : []),
-          wind_dir:  h.wind_direction_10m || (alt ? alt.map(r=>r.wind_dir_deg ?? r.wind_dir) : []),
-        };
-      };
-      const nearestIdx = (times, iso)=>{
-        const t = new Date(iso).getTime(); let best=1e15, idx=-1;
-        times.forEach((s,i)=>{ const d=Math.abs(new Date(s).getTime()-t); if(d<best){best=d; idx=i;} });
-        return idx;
-      };
-      const windAt = async (file, iso)=>{
-        const js = await loadSpot(file);
-        const s = seriesFromSpot(js);
-        if(!s.time?.length) return {dir:null,spd:null,gst:null};
-        const i = nearestIdx(s.time, iso);
-        return {
-          dir: (s.wind_dir?.[i] ?? null),
-          spd: (s.wind?.[i] ?? null),
-          gst: (s.gusts?.[i] ?? null),
-        };
-      };
+    // Binder une seule fois le handler sur #wins
+    if (!winsDiv.dataset.corridorBound) {
+      winsDiv.dataset.corridorBound = '1';
     
-      // On part des fenêtres effectivement affichées (après filtre simple/expert)
-      // 1) pas de corridor vers le home
-      // 2) trier par distance décroissante (les plus LOIN d’abord)
-      let slugs = [...new Set(winItems.map(x => x.dest_slug))]
-        .filter(Boolean)
-        .filter(s => s !== originFile)
-        .sort((a,b)=>{
-          const da = spotConfig[a] ? distKm(origin, spotConfig[a]) : -1;
-          const db = spotConfig[b] ? distKm(origin, spotConfig[b]) : -1;
-          return db - da; // DESC
-        })
-        .slice(0,3);
     
-      // pour récupérer l'horaire de départ/retour de la fenêtre utilisée
-      const findSegForSlug = slug=>{
-        for (const d of (winData?.windows||[])) {
-          if (d.dest_slug === slug && Array.isArray(d.windows) && d.windows.length) {
-            // prend la première fenêtre de ce spot (celle visible en liste au-dessus)
-            return d.windows[0];
-          }
-        }
-        return null;
-      };
+      winsDiv.addEventListener('click', async (e)=>{
+        const card = e.target.closest('.window-line');
+        if(!card) return;
     
-      // dessine les corridors + tooltips enrichis
-      for (const slug of slugs) {
-        const dest = spotConfig[slug]; if (!dest) continue;
+        // visuel de sélection
+        document.querySelectorAll('.window-line.select').forEach(n=>n.classList.remove('select'));
+        card.classList.add('select');
     
-        // géométrie
+        const slug  = card.dataset.slug;
+        const start = card.dataset.start;
+        const end   = card.dataset.end;
+        if(!slug || !start || !end) return;
+    
+        corridorLayer.clearLayers();
+    
+        const originFile='gammarth-port.json';
+        const origin = spotConfig[originFile];
+        const dest   = spotConfig[slug];
+        if(!origin || !dest) return;
+    
+        const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
+        // ligne
         const line = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
-          color:ACCENT,weight:3,opacity:.9,dashArray:'6,6'
+          color:ACCENT, weight:3, opacity:.9, dashArray:'6,6'
         }).addTo(corridorLayer);
     
+        // badge neutre
         const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-        const badge = L.marker(mid,{
-          icon: L.divIcon({
-            className:'anchor-badge',
-            html:'⛵ 1–1.5 h (transit)',
-            iconSize:[120,24], iconAnchor:[60,12]
-          }),
+        L.marker(mid,{
+          icon: L.divIcon({ className:'anchor-badge', html:'⛵ 1–1.5 h (transit)', iconSize:[120,24], iconAnchor:[60,12] }),
           interactive:false
         }).addTo(corridorLayer);
-        badge.setZIndexOffset(500);
     
-        // tooltip : distance + vent au départ/retour (à Gammarth)
+        // distances + vent aller (spot) / retour (port)
         const dkm = distKm(origin, dest);
         const dnm = dkm / KM_PER_NM;
     
-        const seg = findSegForSlug(slug);
-        let tooltipHtml = `<b>${spotConfig[originFile].name} ➜ ${dest.name}</b><br>`
-                        + `${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM`;
+        const wGo  = await windAt(slug, start);        // vent au spot à l'heure de départ
+        const wRet = await windAt(originFile, end);     // vent au port à l'heure d'arrivée
     
-        if (seg?.start && seg?.end) {
-          const dep = await windAt(originFile, seg.start);
-          const ret = await windAt(originFile, seg.end);
-          const depTxt = (dep.spd!=null||dep.dir!=null)
-            ? `Aller (départ): ${dep.spd!=null?Math.round(dep.spd)+' km/h':''} @ ${dep.dir!=null?Math.round(dep.dir)+'° ('+degToCardinal(dep.dir)+')':''}`
-            : null;
-          const retTxt = (ret.spd!=null||ret.dir!=null)
-            ? `Retour: ${ret.spd!=null?Math.round(ret.spd)+' km/h':''} @ ${ret.dir!=null?Math.round(ret.dir)+'° ('+degToCardinal(ret.dir)+')':''}`
-            : null;
-          tooltipHtml += `<br>${[depTxt, retTxt].filter(Boolean).join('<br>')}`;
-        }
+        const toTxt = o => (o && (o.spd!=null || o.dir!=null))
+          ? `${o.spd!=null?Math.round(o.spd)+' km/h':''} @ ${o.dir!=null?Math.round(o.dir)+'° ('+degToCardinal(o.dir)+')':''}`
+          : '—';
     
-        line.bindTooltip(tooltipHtml, {sticky:true, direction:'top', opacity:0.95, className:'leaflet-tooltip'});
-      }
+        const tip = `<b>${spotConfig[originFile].name} ➜ ${dest.name}</b><br>${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM`
+                  + `<br>Aller (spot): ${toTxt(wGo)}`
+                  + `<br>Retour (port): ${toTxt(wRet)}`;
+    
+        line.bindTooltip(tip, {sticky:true, direction:'top', opacity:.95, className:'leaflet-tooltip'});
+    
+        map.fitBounds(line.getBounds(), {padding:[30,30]});
+        animateAlong(line);
+      });
     }
-
-    // Index "flags par spot" pour clarifier les avertissements
+    
+    /* ──────────────────────────────────────────────────────────
+       Index "flags par spot" pour clarifier les avertissements
+       ────────────────────────────────────────────────────────── */
     const spotFlags = new Map();
     (winData?.windows || []).forEach(dest=>{
       (dest.windows || []).forEach(seg=>{
@@ -699,6 +712,7 @@
         spotFlags.set(slug, f);
       });
     });
+
     
     // Avertissements (No-GO) — icône/sevérité + raison principale
     const reasonsDiv = $('#reasons');
@@ -813,7 +827,7 @@
 
     // Marqueurs carte
     const spotStatus = {};
-    (windows?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
+    (winData?.windows || []).forEach(dest=>{ if(dest.windows?.length>0) spotStatus[dest.dest_slug]='green'; });
     Object.keys(spotConfig).forEach(file=>{
       if(spotStatus[file]!=='green'){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = isFresh(entry,gen) ? 'yellow' : 'red'; }
     });

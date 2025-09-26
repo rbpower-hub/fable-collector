@@ -60,6 +60,16 @@
    
     .window-line{padding:10px 12px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px}
     .window-line .title{font-weight:700; font-size: 1.1rem; display:flex; align-items:center}
+    .window-line .tripline { margin-top:6px; opacity:.9 }
+    // Also mirror this info inside the selected window card (no hover needed)
+    card.querySelector('.tripline')?.remove(); // clean any previous summary
+    const infoHTML = `<div class="small tripline">
+      <b>${spotConfig[originFile].name} ➜ ${dest.name}</b> — ${dkm.toFixed(1)} km • ${(dkm / KM_PER_NM).toFixed(1)} NM<br>
+      Aller (spot): ${toTxt(wGo)} · Retour (port): ${toTxt(wRet)}
+    </div>`;
+    card.insertAdjacentHTML('beforeend', infoHTML);
+
+
     .go{display:inline-block;border-radius:10px;padding:2px 8px;margin-left:8px;font-weight:800}
     .go.family{background:var(--ok); color:#04110a}
     .go.expert{background:#f59e0b; color:#160f04}
@@ -338,7 +348,11 @@
   };
   const WANT_SPOTS = Object.entries(spotConfig).map(([file,{name}]) => [name,file]);
   const INITIAL_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
-  
+  // Where to pin the transit badge instead of the midpoint
+  const TRANSIT_BADGE_ANCHOR = {
+    'gammarth-port.json': [36.916486, 10.312356]
+  };
+
   // --- Corridor helpers (cache + séries + vent au plus proche) ---
   const SPOT_CACHE = new Map();
   async function loadSpotJSON(file){
@@ -649,6 +663,8 @@
         // visuel de sélection
         document.querySelectorAll('.window-line.select').forEach(n=>n.classList.remove('select'));
         card.classList.add('select');
+        card.scrollIntoView({ block:'nearest', behavior:'smooth' });
+
     
         const slug  = card.dataset.slug;
         const start = card.dataset.start;
@@ -669,8 +685,8 @@
         }).addTo(corridorLayer);
     
         // badge neutre
-        const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-        L.marker(mid,{
+        const anchor = TRANSIT_BADGE_ANCHOR[originFile] || [(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
+        L.marker(anchor,{
           icon: L.divIcon({ className:'anchor-badge', html:'⛵ 1–1.5 h (transit)', iconSize:[120,24], iconAnchor:[60,12] }),
           interactive:false
         }).addTo(corridorLayer);

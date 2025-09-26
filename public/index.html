@@ -136,14 +136,23 @@
     }
     .anchor-badge.trip .h { font-weight: 800; margin-bottom: 2px; }
     .anchor-badge.trip .m { opacity: .9; }
-
+  
+    /* Boat marker for the animation */
+    .boat-icon{
+      font-size: 22px;                 /* readable on TV/desktop */
+      line-height: 1;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
+    }
+    @media (max-width: 600px){
+      .boat-icon{ font-size: 18px; }   /* phone */
+    }
+    
     .leaflet-div-icon{
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
     }
-
-
     
     /* fenêtre sélectionnée */
     .window-line.select { outline:2px solid var(--accent); box-shadow:0 0 0 4px rgba(76,201,240,.15) }
@@ -417,28 +426,30 @@
   }
   // petite anim le long d'une ligne (interpolation linéaire)
   let _animTimer=null;
-  async function animateAlong(line, {speed=0.02, stepMs=20}={}) {
-    if (_animTimer) { clearInterval(_animTimer); _animTimer=null; }
-    return new Promise(resolve=>{
-      const [A,B] = line.getLatLngs();
-      const color = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-      const marker = L.circleMarker(A, {radius:5, weight:2, color}).addTo(corridorLayer);
-      let t = 0;
-      _animTimer = setInterval(()=>{
-        t += speed;
-        if (t >= 1) {
-          marker.setLatLng(B);
-          clearInterval(_animTimer); _animTimer=null;
-          resolve();
-          return;
-        }
-        marker.setLatLng([
-          A.lat + (B.lat - A.lat)*t,
-          A.lng + (B.lng - A.lng)*t
-        ]);
-      }, stepMs);
-    });
-  }
+  // ⛵ animate from A→B or B→A; returns a Promise (finishes ~1.3s = 30% slower)
+  function animateBoat(line, { direction = 1, duration = 1300 } = {}){
+      return new Promise(resolve=>{
+        const [A,B] = line.getLatLngs();
+        const start = (direction===1)? A : B;
+        const end   = (direction===1)? B : A;
+    
+        const icon = L.divIcon({ className:'boat-icon', html:'⛵' });
+        const boat = L.marker(start, { icon, interactive:false }).addTo(corridorLayer);
+    
+        const t0 = performance.now();
+        const step = (now)=>{
+          const u = Math.min(1, (now - t0) / duration);          // 0→1
+          const lat = start.lat + (end.lat - start.lat) * u;
+          const lng = start.lng + (end.lng - start.lng) * u;
+          boat.setLatLng([lat, lng]);
+    
+          if(u < 1) requestAnimationFrame(step);
+          else { corridorLayer.removeLayer(boat); resolve(); }
+        };
+        requestAnimationFrame(step);
+      });
+    }
+
 
   // ===== State & helpers =====
   let LANG = localStorage.getItem('lang') || 'fr';

@@ -126,6 +126,18 @@
       pointer-events: none;
     }
 
+    /* bigger, multi-line corridor badge */
+    .anchor-badge.trip {
+      padding: 8px 10px;
+      font-size: .9rem;
+      line-height: 1.25;
+      white-space: normal;       /* allow wrap */
+      max-width: 260px;          /* keep it compact */
+    }
+    .anchor-badge.trip .h { font-weight: 800; margin-bottom: 2px; }
+    .anchor-badge.trip .m { opacity: .9; }
+
+
     .leaflet-div-icon{
       background: transparent !important;
       border: none !important;
@@ -646,92 +658,97 @@
     // Binder une seule fois le handler sur #wins
     if (!winsDiv.dataset.corridorBound) {
       winsDiv.dataset.corridorBound = '1';
+    winsDiv.addEventListener('click', async (e)=>{
+      const cardEl = e.target.closest('.window-line');
+      if(!cardEl) return;
     
+      // visual selection + keep it in view
+      document.querySelectorAll('.window-line.select').forEach(n=>n.classList.remove('select'));
+      cardEl.classList.add('select');
+      cardEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
     
-      winsDiv.addEventListener('click', async (e)=>{
-        const card = e.target.closest('.window-line');
-        if(!card) return;
-      
-        // visual selection + keep it in view
-        document.querySelectorAll('.window-line.select').forEach(n=>n.classList.remove('select'));
-        card.classList.add('select');
-        card.scrollIntoView({ block:'nearest', behavior:'smooth' });
-      
-        const slug  = card.dataset.slug;
-        const start = card.dataset.start;
-        const end   = card.dataset.end;
-        if(!slug || !start || !end) return;
-      
-        const originFile = 'gammarth-port.json';
-        const origin = spotConfig[originFile];
-        const dest   = spotConfig[slug];
-        if(!origin || !dest) return;
-      
-        corridorLayer.clearLayers();
-      
-        // Special case: clicking Gammarth (home) -> no corridor, no badge
-        if (slug === originFile) {
-          card.querySelector('.tripline')?.remove();
-          card.insertAdjacentHTML(
-            'beforeend',
-            `<div class="small tripline">Sortie locale depuis le port (pas de transit)</div>`
-          );
-          map.setView([origin.lat, origin.lon], 14, {animate:true});
-          return;
-        }
-      
-        const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
-      
-        // Corridor line
-        const line = L.polyline(
-          [[origin.lat,origin.lon],[dest.lat,dest.lon]],
-          { color:ACCENT, weight:3, opacity:.9, dashArray:'6,6' }
-        ).addTo(corridorLayer);
-      
-        // Transit badge at fixed anchor for Gammarth, otherwise midpoint
-        const anchor = (TRANSIT_BADGE_ANCHOR[originFile])
-          || [(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-      
-        L.marker(anchor, {
-          icon: L.divIcon({
-            className:'anchor-badge',
-            html:'⛵ 1–1.5 h (transit)',
-            iconSize:[120,24], iconAnchor:[60,12]
-          }),
-          interactive:false
-        }).addTo(corridorLayer);
-      
-        // Distances + winds (spot at start, port at end)
-        const dkm = distKm(origin, dest);
-        const dnm = dkm / KM_PER_NM;
-      
-        const wGo  = await windAt(slug, start);
-        const wRet = await windAt(originFile, end);
-      
-        const toTxt = o => (o && (o.spd!=null || o.dir!=null))
-          ? `${o.spd!=null?Math.round(o.spd)+' km/h':''} @ ${o.dir!=null?Math.round(o.dir)+'° ('+degToCardinal(o.dir)+')':''}`
-          : '—';
-      
-        const tip = `<b>${spotConfig[originFile].name} ➜ ${dest.name}</b><br>${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM`
-                  + `<br>Aller (spot): ${toTxt(wGo)}`
-                  + `<br>Retour (port): ${toTxt(wRet)}`;
-      
-        line.bindTooltip(tip, {sticky:true, direction:'top', opacity:.95, className:'leaflet-tooltip'}).openTooltip();
-      
-        // Mirror the same info inside the selected card
-        card.querySelector('.tripline')?.remove();
-        card.insertAdjacentHTML(
-          'beforeend',
-          `<div class="small tripline">
-             <b>${spotConfig[originFile].name} ➜ ${dest.name}</b> — ${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM<br>
-             Aller (spot): ${toTxt(wGo)} · Retour (port): ${toTxt(wRet)}
-           </div>`
+      const slug  = cardEl.dataset.slug;
+      const start = cardEl.dataset.start;
+      const end   = cardEl.dataset.end;
+      if(!slug || !start || !end) return;
+    
+      const originFile = 'gammarth-port.json';
+      const origin = spotConfig[originFile];
+      const dest   = spotConfig[slug];
+      if(!origin || !dest) return;
+    
+      corridorLayer.clearLayers();
+    
+      // Clicking the home port: no corridor, just a note
+      if (slug === originFile) {
+        document.querySelectorAll('.tripline').forEach(n=>n.remove());
+        cardEl.insertAdjacentHTML('beforeend',
+          `<div class="small tripline">Sortie locale depuis le port (pas de transit)</div>`
         );
+        map.setView([origin.lat, origin.lon], 14, {animate:true});
+        return;
+      }
+    
+      const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
+    
+      // Corridor line
+      const line = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
+        color:ACCENT, weight:3, opacity:.9, dashArray:'6,6'
+      }).addTo(corridorLayer);
+    
+      // Midpoint for the badge
+      const mid = [(origin.lat + dest.lat)/2, (origin.lon + dest.lon)/2];
+    
+      // Distance + winds
+      const dkm = distKm(origin, dest);
+      const dnm = dkm / KM_PER_NM;
+    
+      const wGo  = await windAt(slug, start);        // wind at destination (start time)
+      const wRet = await windAt(originFile, end);     // wind at port (end time)
+    
+      const arrowFor = c => ({N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'})[c] || '•';
+      const windTxt = (o)=>{
+        if(!o || (o.spd==null && o.dir==null)) return '—';
+        const cardinal = o.dir!=null ? degToCardinal(o.dir) : null;
+        const arr  = cardinal ? arrowFor(cardinal) : '';
+        const deg  = o.dir!=null ? ` ${Math.round(o.dir)}°` : '';
+        const lab  = cardinal ? ` ${cardinal}` : '';
+        const spd  = o.spd!=null ? `${Math.round(o.spd)} km/h` : '';
+        return `${spd}${deg}${lab?` (${arr} ${lab})`:''}`.trim();
+      };
+    
+      const originName = spotConfig[originFile].name;
+      const badgeHTML = `
+        <div class="h">⛵ 1–1.5 h • ${originName} → ${dest.name}</div>
+        <div class="m">📏 ${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM</div>
+        <div class="m">🟢 Aller (spot): ${windTxt(wGo)}</div>
+        <div class="m">🔵 Retour (port): ${windTxt(wRet)}</div>
+      `;
+    
+      // Badge with full summary at the midpoint
+      L.marker(mid,{
+        icon: L.divIcon({
+          className:'anchor-badge trip',
+          html: badgeHTML,
+          iconSize:[220,10],
+          iconAnchor:[110,16]   // tweak if you want it higher/lower
+        }),
+        interactive:false
+      }).addTo(corridorLayer);
+    
+      // Mirror summary in the selected card (remove old ones first)
+      document.querySelectorAll('.tripline').forEach(n=>n.remove());
+      cardEl.insertAdjacentHTML('beforeend',
+        `<div class="small tripline">
+           ⛵ <b>1–1.5 h</b> • <b>${originName} → ${dest.name}</b> — ${dkm.toFixed(1)} km • ${dnm.toFixed(1)} NM<br>
+           Aller (spot): ${windTxt(wGo)} · Retour (port): ${windTxt(wRet)}
+         </div>`
+      );
+    
+      map.fitBounds(line.getBounds(), {padding:[30,30]});
+      animateAlong(line);
+    });
       
-        map.fitBounds(line.getBounds(), {padding:[30,30]});
-        animateAlong(line);
-      });
-
     }
     
     /* ──────────────────────────────────────────────────────────

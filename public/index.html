@@ -216,6 +216,18 @@
       z-index: 0;
     }
 
+    /* ⛵ for the animation */
+    .boat-icon{
+      font-size:22px;
+      line-height:1;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
+    }
+    @media (max-width:600px){
+      .boat-icon{ font-size:18px; }
+    }
+
+    
     /* Grille 3 colonnes sur desktop */
     .layout-grid.threecol{
       display:grid;
@@ -732,11 +744,7 @@
     
       // Neutral midpoint badge only
       const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-      L.marker(mid,{
-        icon: L.divIcon({ className:'anchor-badge', html:'⛵ 1–1.5 h (transit)', iconSize:[120,24], iconAnchor:[60,12] }),
-        interactive:false
-      }).addTo(corridorLayer);
-    
+      
       // Distance + winds
       const dkm = distKm(origin, dest);
       const dnm = dkm / KM_PER_NM;
@@ -765,20 +773,27 @@
           <div class="row">🔵 <span class="k">Retour</span> <span class="v">${windTxt(wRet)}</span></div>
         </div>
       `);
-    
-      // viewport + animation out & back
-      map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
-      await animateAlong(lineAB);                          // aller
-      const lineBA = L.polyline([[dest.lat,dest.lon],[origin.lat,origin.lon]],{
-        color:ACCENT, weight:3, opacity:.35, dashArray:'6,6'
-      }).addTo(corridorLayer);
-      await new Promise(r=>setTimeout(r, 300));            // tiny pause
-      await animateAlong(lineBA);                          // retour
-    });
 
+      map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
       
-    }
-    
+      // ⛵ animate there and back, 30% slower
+      await animateBoat(lineAB, { direction: 1, duration: 1300 });   // Aller
+      await new Promise(r=>setTimeout(r, 250));                        // tiny pause
+      await animateBoat(lineAB, { direction: -1, duration: 1300 });  // Retour
+      
+      // Show the simple transit badge AFTER animation
+      L.marker(mid,{
+        icon: L.divIcon({
+          className:'anchor-badge',
+          html:'⛵ 1–1.5 h (transit)',
+          iconSize:[120,24], iconAnchor:[60,12]
+        }),
+        interactive:false
+      }).addTo(corridorLayer);
+
+      }
+
+
     /* ──────────────────────────────────────────────────────────
        Index "flags par spot" pour clarifier les avertissements
        ────────────────────────────────────────────────────────── */

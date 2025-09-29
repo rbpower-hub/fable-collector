@@ -216,17 +216,6 @@
       z-index: 0;
     }
 
-    /* ⛵ for the animation */
-    .boat-icon{
-      font-size:22px;
-      line-height:1;
-      transform: translate(-50%, -50%);
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
-    }
-    @media (max-width:600px){
-      .boat-icon{ font-size:18px; }
-    }
-
     
     /* Grille 3 colonnes sur desktop */
     .layout-grid.threecol{
@@ -436,8 +425,7 @@
     const x=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
     return 2*R_EARTH*Math.asin(Math.sqrt(x));
   }
-  // petite anim le long d'une ligne (interpolation linéaire)
-  let _animTimer=null;
+  
   // ⛵ animate from A→B or B→A; returns a Promise (finishes ~1.3s = 30% slower)
   function animateBoat(line, { direction = 1, duration = 1300 } = {}){
       return new Promise(resolve=>{
@@ -741,17 +729,17 @@
       const lineAB = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
         color:ACCENT, weight:3, opacity:.9, dashArray:'6,6'
       }).addTo(corridorLayer);
-    
-      // Neutral midpoint badge only
+      
+      // Midpoint for the final badge
       const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
       
       // Distance + winds
       const dkm = distKm(origin, dest);
       const dnm = dkm / KM_PER_NM;
-    
-      const wGo  = await windAt(slug, start);        // wind at destination (start)
-      const wRet = await windAt(originFile, end);     // wind at port (end)
-    
+      
+      const wGo  = await windAt(slug, start);      // wind at destination (start)
+      const wRet = await windAt(originFile, end);  // wind at port (end)
+      
       const arrowFor = c => ({N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'})[c] || '•';
       const windTxt = (o)=>{
         if(!o || (o.spd==null && o.dir==null)) return '—';
@@ -762,7 +750,7 @@
         const spd  = o.spd!=null ? `${Math.round(o.spd)} km/h` : '';
         return `${spd}${deg}${lab?` (${arr} ${lab})`:''}`.trim();
       };
-    
+      
       // Rich summary inside the selected card (remove any previous)
       document.querySelectorAll('.tripline').forEach(n=>n.remove());
       const originName = spotConfig[originFile].name;
@@ -773,12 +761,12 @@
           <div class="row">🔵 <span class="k">Retour</span> <span class="v">${windTxt(wRet)}</span></div>
         </div>
       `);
-
+      
       map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
       
-      // ⛵ animate there and back, 30% slower
+      // ⛵ animate there and back (≈30% slower than before)
       await animateBoat(lineAB, { direction: 1, duration: 1300 });   // Aller
-      await new Promise(r=>setTimeout(r, 250));                        // tiny pause
+      await new Promise(r=>setTimeout(r, 250));                       // tiny pause
       await animateBoat(lineAB, { direction: -1, duration: 1300 });  // Retour
       
       // Show the simple transit badge AFTER animation
@@ -790,8 +778,8 @@
         }),
         interactive:false
       }).addTo(corridorLayer);
-
-      }
+    }); // ← closes winsDiv.addEventListener
+  }     // ← closes if (!winsDiv.dataset.corridorBound)
 
 
     /* ──────────────────────────────────────────────────────────

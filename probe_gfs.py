@@ -5,7 +5,7 @@
 probe_gfs.py — offline tester for adding Open-Meteo GFS as a secondary model.
 
 Usage examples:
-  python probe_gfs.py --lat 36.877 --lon 10.613 --spot "ras-fartass (1).json" --hours 6 --tz "Africa/Tunis"
+  python probe_gfs.py --lat 36.877 --lon 10.613 --spot "ras-fartass.json" --hours 6 --tz "Africa/Tunis"
   python probe_gfs.py --lat 37.063 --lon 11.008 --spot "el-haouaria.json" --start "2025-09-27T11:00" --hours 9
 
 No changes to your pipeline. Just prints a report.

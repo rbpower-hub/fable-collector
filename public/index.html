@@ -28,14 +28,13 @@
       --link:#0077b6; --pill-bg:#f0f5fa;
     }
     
-    /* éviter le scroll induit par margin+height:100% */
+    /* Default: allow page scroll */
     html,body{min-height:100%}
-    /* TV mode: no page scroll, only cards can scroll */
-    html, body { overflow: hidden; }
+    html, body { overflow: auto; }
     body{
       font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;
       margin:0;                /* <- plus de margin */
-      padding:24px;            /* <- padding à la place */
+      padding: calc(24px + env(safe-area-inset-top)) 24px 24px 24px; /* safe area for notches */
       background:var(--bg);
       color:var(--fg);
       font-size: 1.05rem;
@@ -497,8 +496,8 @@
   const spotsLayer    = L.layerGroup().addTo(map);
   window.panToFile = (file)=>{ const s=spotConfig[file]; if(s) map.setView([s.lat,s.lon],12,{animate:true}); };
 
-  // ===== KIOSK =====
-  setTimeout(()=>{ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); }, 5000);
+  // ===== KIOSK (manual via button only) =====
+  
   let cursorTimer; const hideCursor=()=>document.body.style.cursor='none';
   const showCursor=()=>{document.body.style.cursor='';clearTimeout(cursorTimer);cursorTimer=setTimeout(hideCursor,5000);};
   ['mousemove','keydown','click','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,showCursor,{passive:true}));
@@ -961,26 +960,15 @@
     // Hauteur dispo pour (carte + cards)
     const available = Math.max(300, vh - header - footer - 28);
     // ~45% pour la carte, bornée
-    const targetMap = Math.round(available * 0.45);
+    const targetMap = Math.round(available * 0.40);
     const mapH = Math.max(260, Math.min(520, targetMap));
     root.style.setProperty('--map-h', mapH + 'px');
   
-    // Si un petit overflow persiste, on compense
-    const overflow = document.documentElement.scrollHeight - vh;
-    if (overflow > 0) {
-      root.style.setProperty('--map-h', Math.max(240, mapH - overflow - 8) + 'px');
-    }
   }
  
   function tuneFullscreenOverflow(){
-    const body = document.body;
-    const needScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
-     if (document.fullscreenElement) {
-      body.style.overflow = needScroll ? 'auto' : 'hidden';
-    } else {
-      // On the TV (non-fullscreen), we never want the page scrollbar
-      body.style.overflow = 'hidden';
-    }
+    // Always let the page decide; scrolling is allowed by default now.
+    document.body.style.overflow = '';
   }
   let _resizeT;
   const safeResize = () => {

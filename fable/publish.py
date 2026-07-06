@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from .config import load_sites
 from .status import build_catalog, build_status, build_status_html, build_windows_md, final_check
+from .util import enable_utf8_stdio
 
 log = logging.getLogger("fable.publish")
 
@@ -39,6 +40,7 @@ def run_publish(root: Path, public: Path) -> int:
 
 
 if __name__ == "__main__":
+    enable_utf8_stdio()
     logging.basicConfig(level="INFO", format="%(levelname)s %(name)s: %(message)s")
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
     sys.exit(run_publish(root, root / "public"))

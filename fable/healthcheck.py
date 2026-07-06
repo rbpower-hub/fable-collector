@@ -14,6 +14,7 @@ import urllib.request
 from typing import Any
 
 from . import USER_AGENT
+from .util import enable_utf8_stdio
 
 DEFAULT_BASE = "https://rbpower-hub.github.io/fable-collector"
 MAX_AGE_MIN = 95           # hourly cadence + leeway
@@ -93,4 +94,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    enable_utf8_stdio()
     sys.exit(main())

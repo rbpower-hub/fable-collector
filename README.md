@@ -56,7 +56,8 @@ GitHub Pages  ◄──  .github/workflows/collect.yml (cron horaire + keepalive
 
 Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
 Audit et corrections v2 : [`docs/AUDIT-2026-07.md`](docs/AUDIT-2026-07.md) ·
-Mise en production : [`docs/DEPLOY.md`](docs/DEPLOY.md)
+Mise en production : [`docs/DEPLOY.md`](docs/DEPLOY.md) ·
+Exploitation : [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
 
 ---
 
@@ -81,7 +82,7 @@ L'ancien format v1 (liste simple) reste accepté.
 ## Exécution locale
 
 ```bash
-pip install -r requirements.txt
+SETUP-LOCAL.bat
 python -m fable.preflight        # valide la config
 python collect.py                # collecte -> public/*.json
 python reader.py                 # fenêtres -> public/windows.json
@@ -95,13 +96,15 @@ Variables d'env utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS` (48), `FABLE_START_ISO
 ## Tests
 
 ```bash
-pip install pytest ruff
-ruff check .
-pytest
+CHECK-LOCAL.bat
 ```
 
+`SETUP-LOCAL.bat` crée `.venv`, installe les dépendances runtime + dev
+(`requirements.txt`, `requirements-dev.txt`), puis `CHECK-LOCAL.bat` exécute
+`fable.preflight`, `ruff check .` et `pytest -q`.
+
 41 tests hors-ligne (fixtures d'API enregistrées + scénarios synthétiques
-calme/tempête/orage) — aucun appel réseau nécessaire.
+calme/tempête/orage) — aucun appel réseau nécessaire après installation.
 
 ---
 

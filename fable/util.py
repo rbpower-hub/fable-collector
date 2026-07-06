@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+import sys
 import unicodedata
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -90,3 +91,15 @@ def angle_in_ranges(angle: float, ranges) -> bool:
         elif angle >= a or angle <= b:
             return True
     return False
+
+
+def enable_utf8_stdio() -> None:
+    """Best-effort UTF-8 console output for Windows and legacy terminals."""
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass

@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from .config import load_rules, load_sites, normalize_rules, rules_digest, validate_rules, window_bounds
+from .util import enable_utf8_stdio
 
 log = logging.getLogger("fable.preflight")
 
@@ -73,6 +74,7 @@ def run_preflight(root: Path, public: Path) -> int:
 
 
 if __name__ == "__main__":
+    enable_utf8_stdio()
     logging.basicConfig(level="INFO", format="%(levelname)s %(name)s: %(message)s")
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
     sys.exit(run_preflight(root, root / "public"))

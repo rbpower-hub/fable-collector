@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-from tests.helpers import TZ_NAME
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0 — 2026-07-06
+- **Version dédiée board** pour l’évolution UI, afin de pouvoir revenir facilement à la version précédente si besoin.
+- **Board branché sur `sites.normalized.json`** : spots, port principal et métadonnées de site ne sont plus figés dans le HTML.
+- **Board branché sur `rules.normalized.json`** : heures Family et fenêtre mini ne reposent plus sur des constantes locales du board.
+- **Confiance enrichie dans l’UI** : affichage des sources, modèles utilisés, nombre minimal de sources de houle et spread Hs.
+- **Santé live enrichie** : statut du board basé sur `stale_after`, `build_ok`, `missing_spots` et `collector_version`.
+- **Nettoyage produit du faux mode Expert** : l’UI ne présente plus `EXPERT GO` comme une capacité backend active.
+- **Avertissements debug alignés** sur les règles et sites publiés, au lieu d’une duplication locale dans `reasons-debug.js`.
+
 ## 2.1.0 — 2026-07-05
 - **Houle multi-modèles** (Open-Meteo Marine `models=`) : MFWAM 0.08°
   primaire avec fallback GFS-Wave 0.25° → ECMWF WAM 0.25° → défaut ;

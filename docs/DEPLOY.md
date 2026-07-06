@@ -1,4 +1,4 @@
-# Mise en production — v2.0.0
+# Mise en production — v2.1.0
 
 ## 1. Pousser le code
 
@@ -14,12 +14,16 @@ git checkout -b v2-pro
 # ras-fartass.json (racine), stats/, scripts/, .github/workflows/pages.yml.
 # Puis :
 git add -A
-git commit -m "v2.0.0 — refonte professionnelle (audit 2026-07)"
+git commit -m "v2.1.0 — refonte professionnelle + houle multi-modeles (audit 2026-07)"
 git push -u origin v2-pro
 ```
 
 Ouvrir une PR et merger dans `main` (la CI ruff+pytest doit passer), ou
 pousser directement sur `main` si tu préfères.
+
+Les workflows GitHub Actions sont désormais alignés sur les actions récentes
+compatibles Node 24 (`actions/checkout@v6`, `actions/setup-python@v6`) :
+le warning historique Node 20 observé sur certains anciens runs peut être ignoré.
 
 ## 2. Réactiver les workflows (IMPORTANT)
 

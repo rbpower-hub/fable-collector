@@ -1,0 +1,11 @@
+Copyright (c) 2025-2026 RB Power Consulting — Rami Barrani.
+All rights reserved.
+
+This software and its outputs (collected datasets, detected windows,
+published feeds) are proprietary. No permission is granted to use, copy,
+modify, or distribute this software or its outputs, in whole or in part,
+without prior written authorization from the copyright holder.
+
+Weather data is sourced from Open-Meteo (https://open-meteo.com), used under
+their free API terms (non-commercial use; attribution required). Review
+Open-Meteo's licensing before any commercial deployment.

@@ -12,6 +12,9 @@ wind:
 http:
   disable_astronomy_http: true
   model_order: "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
+  # Modèles de vagues Open-Meteo Marine (MFWAM primaire, fallbacks + parallèles)
+  marine_model_order: "meteofrance_wave,ncep_gfswave025,ecmwf_wam025,default"
+  marine_parallel_models: "ncep_gfswave025,ecmwf_wam025"
 
 
 sea:
@@ -52,6 +55,7 @@ confidence:
   high:
     wind_spread_kmh_lt: 5
     hs_spread_m_lt: 0.2
+    min_wave_sources: 2          # ≥2 modèles de houle concordants requis pour High
   medium:
     same_band_minor_disagreement: true
   low:

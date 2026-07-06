@@ -1,0 +1,68 @@
+# Healthcheck EXTERNE : vérifie le déploiement Pages en production.
+#
+# v1 : ce fichier était à la racine du repo (jamais exécuté) et sa logique
+# lisait index.json avec le schéma de catalog.json. v2 : il tourne toutes
+# les 6 h, indépendamment du build, et ouvre/commente une issue GitHub en
+# cas de panne (pas de secrets SMTP à configurer).
+name: Healthcheck (fable-collector)
+
+on:
+  schedule:
+    - cron: "41 */6 * * *"   # toutes les 6 h, minute décalée
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check live Pages deployment
+        id: check
+        run: |
+          set +e
+          python -m fable.healthcheck "https://rbpower-hub.github.io/fable-collector" > /tmp/health.log 2>&1
+          code=$?
+          cat /tmp/health.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Open/update issue on failure
+        if: steps.check.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/health.log', 'utf8');
+            const title = '🔴 Healthcheck: production Pages stale or broken';
+            const {data: issues} = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'healthcheck'
+            });
+            const body = `Healthcheck du ${new Date().toISOString()} :\n\n\`\`\`\n${log}\n\`\`\`\n` +
+              `➡️ Vérifier l'onglet **Actions** (workflow *Collect & Deploy*) — ` +
+              `cron désactivé, quota, ou API Open-Meteo en panne.`;
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issues[0].number, body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['healthcheck']
+              });
+            }
+
+      - name: Fail job if unhealthy (badge rouge)
+        if: steps.check.outputs.exit_code != '0'
+        run: exit 1

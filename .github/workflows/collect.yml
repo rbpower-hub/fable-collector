@@ -1,0 +1,157 @@
+# Collecte horaire + déploiement GitHub Pages.
+#
+# v2 : remplace pages.yml. Changements clés :
+# - cron horaire direct (le gate "heure locale" v1 sautait des collectes dès
+#   que le cron GitHub avait du retard, et gaspillait 20 runs/jour) ;
+# - toute la logique Python vit dans le package fable/ (testée), plus
+#   d'inline scripts de 600 lignes dans le YAML ;
+# - job keepalive hebdomadaire : commit vide pour empêcher GitHub de
+#   désactiver le cron après 60 jours sans activité (cause de la panne
+#   de décembre 2025).
+name: Collect & Deploy (fable-collector)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tz:
+        description: "IANA timezone (ex: Africa/Tunis)"
+        default: "Africa/Tunis"
+      window_hours:
+        description: "Horizon de prévision en heures"
+        default: "48"
+      start_iso:
+        description: "Optionnel: début ISO (YYYY-MM-DDTHH:MM)"
+        required: false
+      only_sites:
+        description: "Optionnel: restreindre à certains sites (CSV de slugs)"
+        required: false
+      reader_home:
+        description: "Optionnel: JSON du port d'attache (défaut: home de sites.yaml)"
+        required: false
+
+  schedule:
+    - cron: "7 * * * *"    # collecte horaire (minute 7 pour éviter la congestion GitHub)
+    - cron: "23 3 * * 0"   # keepalive hebdomadaire (dimanche 03:23 UTC)
+
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/collect.yml"
+      - "requirements.txt"
+      - "fable/**"
+      - "collect.py"
+      - "reader.py"
+      - "sites.yaml"
+      - "rules.yaml"
+      - "public/index.html"
+      - "public/reasons-debug.js"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------
+  # Empêche la désactivation automatique du cron (60 j d'inactivité)
+  # --------------------------------------------------------------
+  keepalive:
+    if: github.event_name == 'schedule' && github.event.schedule == '23 3 * * 0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Empty keepalive commit
+        run: |
+          git config user.name "fable-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive — prevent scheduled workflow auto-disable [skip ci]"
+          git push
+
+  # --------------------------------------------------------------
+  # Collecte + build + déploiement
+  # --------------------------------------------------------------
+  build:
+    if: github.event_name != 'schedule' || github.event.schedule == '7 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Preflight (validate sites.yaml + rules.yaml, export normalized)
+        run: python -m fable.preflight
+
+      - name: Collect (Open-Meteo -> public/*.json + index.json)
+        env:
+          FABLE_TZ: ${{ inputs.tz || 'Africa/Tunis' }}
+          FABLE_WINDOW_HOURS: ${{ inputs.window_hours || '48' }}
+          FABLE_START_ISO: ${{ inputs.start_iso || '' }}
+          FABLE_ONLY_SITES: ${{ inputs.only_sites || '' }}
+          FABLE_HTTP_RETRIES: "3"
+          FABLE_HTTP_TIMEOUT_S: "12"
+          FABLE_PARALLEL_MODELS: "icon_seamless,gfs_seamless,ecmwf_ifs04"
+          FABLE_PARALLEL_TIMEOUT_S: "12"
+          FABLE_ASTRAL_FALLBACK: "1"
+          FABLE_RULES_PATH: rules.yaml
+          LOG_LEVEL: INFO
+        run: |
+          python collect.py || (echo "Collector failed once, retrying in 10s..." && sleep 10 && python collect.py)
+
+      - name: Detect Family GO windows
+        env:
+          FABLE_RULES_PATH: rules.yaml
+        run: |
+          if [ -n "${{ inputs.reader_home }}" ]; then
+            python reader.py --from-dir public --out public --home "${{ inputs.reader_home }}"
+          else
+            python reader.py --from-dir public --out public
+          fi
+
+      - name: Publish (catalog, status, windows.md, final checks)
+        run: python -m fable.publish
+
+      - name: Job summary
+        run: |
+          echo "## FABLE — fenêtres Family GO" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat public/windows.md >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

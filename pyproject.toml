@@ -1,0 +1,28 @@
+[project]
+name = "fable-collector"
+version = "2.1.0"
+description = "Collecteur météo marine Open-Meteo + détection de fenêtres Family GO pour ports tunisiens (FABLE AI)"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+    "astral>=3.2,<4",
+    "tzdata>=2024.1",
+]
+
+[tool.ruff]
+line-length = 118
+target-version = "py310"
+exclude = ["tools", "public"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",    # long lines tolerated where readability wins
+    "SIM105",  # try/except/pass is deliberate in best-effort paths
+    "E702",    # `ok = False; reasons.append(...)` idiom kept from v1 for diffability
+    "E701",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -p no:cacheprovider"

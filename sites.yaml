@@ -1,29 +1,48 @@
-# sites.yaml
-# Chaque site est un objet YAML (map) dans une liste (les "- " en tête de ligne).
-# name: libre (accents autorisés, mettez des guillemets)
-# lat/lon: en décimaux (Nord/Est positifs)
+# sites.yaml — schéma v2 (multi-port)
+# ------------------------------------------------------------------
+# home     : slug du port d'attache (départ/retour des sorties)
+# exclude  : spots ignorés par le collecteur (politique FABLE)
+# defaults : valeurs appliquées aux sites qui ne les précisent pas
+# sites[]  : name (libre, accents OK), lat/lon décimaux (N/E positifs),
+#            onshore_sectors : secteurs de vent d'affalement [de, à] en degrés
+#            (wrap-around supporté : [330, 360] + [0, 70]),
+#            shelter_bonus_radius_km : rayon du bonus mouillage abrité.
+#
+# Pour déployer sur un autre port : changer home + la liste des sites.
+# L'ancien format v1 (liste simple) reste accepté (rétro-compatibilité).
+# ------------------------------------------------------------------
+version: 2
+tz: Africa/Tunis
+home: gammarth-port
 
-- name: "Gammarth (port)"
-  lat: 36.92030
-  lon: 10.28460
-  shelter_bonus_radius_km: 0.0
+exclude: [korbous, kelibia]
 
-- name: "Sidi Bou Saïd"
-  lat: 36.87030
-  lon: 10.34190
+defaults:
   shelter_bonus_radius_km: 0.0
+  onshore_sectors: [[20, 160]]
 
-- name: "Ghar el Melh"
-  lat: 37.17670
-  lon: 10.17000
-  shelter_bonus_radius_km: 0.0
+sites:
+  - name: "Gammarth (port)"
+    lat: 36.92030
+    lon: 10.28460
+    onshore_sectors: [[30, 150]]
 
-- name: "Ras Fartass"
-  lat: 36.87740
-  lon: 10.60320
-  shelter_bonus_radius_km: 0.0
+  - name: "Sidi Bou Saïd"
+    lat: 36.87030
+    lon: 10.34190
+    onshore_sectors: [[30, 150]]
 
-- name: "El Haouaria"
-  lat: 36.96430
-  lon: 11.00900
-  shelter_bonus_radius_km: 0.0
+  - name: "Ghar el Melh"
+    lat: 37.17670
+    lon: 10.17000
+    onshore_sectors: [[10, 130]]
+
+  - name: "Ras Fartass"
+    lat: 36.87740
+    lon: 10.60320
+    onshore_sectors: [[330, 360], [0, 70]]
+
+  - name: "El Haouaria"
+    lat: 36.96430
+    lon: 11.00900
+    onshore_sectors: [[330, 360], [0, 70]]

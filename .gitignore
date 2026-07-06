@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.idea/
+.vscode/
+
+# Sorties générées par le pipeline (produites par Actions, jamais commitées)
+public/*.json
+public/windows.md
+public/status.html
+public/.nojekyll
+public/_debug-*
+
+# Les assets statiques restent versionnés
+!public/index.html
+!public/reasons-debug.js

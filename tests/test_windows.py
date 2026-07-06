@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from fable.config import DEFAULT_RULES
 from fable.windows import Thresholds, detect_windows, load_site, run_reader
-from tests.conftest import TZ_NAME, make_spot_json
+from tests.helpers import TZ_NAME, make_spot_json
 
 TZ = ZoneInfo(TZ_NAME)
 TH = Thresholds.from_rules(DEFAULT_RULES)

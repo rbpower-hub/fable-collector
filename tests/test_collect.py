@@ -13,7 +13,7 @@ from fable.collect import (
     slice_by_indices,
 )
 from fable.openmeteo import normalize_hourly_keys
-from tests.conftest import TZ_NAME, make_forecast_payload, make_marine_payload
+from tests.helpers import TZ_NAME, make_forecast_payload, make_marine_payload
 
 TZ = ZoneInfo(TZ_NAME)
 START = dt.datetime(2026, 7, 6, 0, 0, tzinfo=TZ)

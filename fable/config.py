@@ -321,11 +321,29 @@ def _norm_sectors(raw: Any) -> list[tuple[int, int]] | None:
     return out or None
 
 
+def _norm_minmax(raw: Any) -> tuple[float, float] | None:
+    if isinstance(raw, dict):
+        lo = raw.get("min")
+        hi = raw.get("max")
+    elif isinstance(raw, (list, tuple)) and len(raw) == 2:
+        lo, hi = raw
+    else:
+        return None
+    try:
+        lo_f, hi_f = float(lo), float(hi)
+    except Exception:
+        return None
+    lo_f, hi_f = min(lo_f, hi_f), max(lo_f, hi_f)
+    if lo_f <= 0 or hi_f <= 0:
+        return None
+    return lo_f, hi_f
+
+
 class SitesConfig:
     """Parsed sites.yaml (v1 list or v2 mapping)."""
 
     def __init__(self, sites: list[dict[str, Any]], home: str, tz: str, exclude: set, version: int):
-        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, shelter_bonus_radius_km, onshore_sectors
+        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, transit_speed_kts, shelter_bonus_radius_km, onshore_sectors
         self.home = home            # home-port slug
         self.tz = tz
         self.exclude = exclude
@@ -362,6 +380,7 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
 
     default_sectors = _norm_sectors(defaults.get("onshore_sectors")) or None
     default_shelter = float(defaults.get("shelter_bonus_radius_km", 0.0))
+    default_transit_speed = _norm_minmax(defaults.get("transit_speed_kts"))
 
     sites: list[dict[str, Any]] = []
     for s in raw_sites:
@@ -393,6 +412,7 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
             if not (-90 <= map_lat <= 90 and -180 <= map_lon <= 180):
                 log.warning("Out-of-range map coordinates for %s — using forecast coordinates.", name)
                 map_lat, map_lon = lat, lon
+        transit_speed = _norm_minmax(s.get("transit_speed_kts")) or default_transit_speed
         sectors = _norm_sectors(s.get("onshore_sectors")) or default_sectors \
             or LEGACY_ONSHORE_SECTORS.get(slug, DEFAULT_ONSHORE_SECTORS)
         sites.append({
@@ -402,6 +422,9 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
             "lon": lon,
             "map_lat": map_lat,
             "map_lon": map_lon,
+            "transit_speed_kts": (
+                {"min": transit_speed[0], "max": transit_speed[1]} if transit_speed else None
+            ),
             "shelter_bonus_radius_km": float(s.get("shelter_bonus_radius_km", default_shelter)),
             "onshore_sectors": sectors,
         })

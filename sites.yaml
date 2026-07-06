@@ -5,6 +5,7 @@
 # defaults : valeurs appliquées aux sites qui ne les précisent pas
 # sites[]  : name (libre, accents OK), lat/lon décimaux (N/E positifs),
 #            map_lat/map_lon optionnels pour la position visuelle exacte sur la carte
+#            transit_speed_kts optionnel {min,max} pour estimer la durée de traversée
 #            onshore_sectors : secteurs de vent d'affalement [de, à] en degrés
 #            (wrap-around supporté : [330, 360] + [0, 70]),
 #            shelter_bonus_radius_km : rayon du bonus mouillage abrité.
@@ -20,6 +21,7 @@ exclude: [korbous, kelibia]
 
 defaults:
   shelter_bonus_radius_km: 0.0
+  transit_speed_kts: {min: 16, max: 24}
   onshore_sectors: [[20, 160]]
 
 sites:

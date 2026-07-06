@@ -75,6 +75,7 @@ def test_load_sites_v2(repo_root):
     assert cfg.onshore_sectors("gammarth-port") == [(30, 150)]
     assert cfg.site("gammarth-port")["map_lat"] == pytest.approx(36.921)
     assert cfg.site("gammarth-port")["map_lon"] == pytest.approx(10.31)
+    assert cfg.site("gammarth-port")["transit_speed_kts"] == {"min": 16.0, "max": 24.0}
 
 
 def test_load_sites_v1_legacy(tmp_path):
@@ -118,6 +119,27 @@ def test_load_sites_invalid_map_coords_fallback(tmp_path):
     site = cfg.site("spot-a")
     assert site["map_lat"] == pytest.approx(36.9)
     assert site["map_lon"] == pytest.approx(10.2)
+
+
+def test_load_sites_transit_speed_override(tmp_path):
+    p = tmp_path / "sites.yaml"
+    p.write_text(textwrap.dedent("""
+        version: 2
+        home: spot-a
+        defaults:
+          transit_speed_kts: {min: 14, max: 22}
+        sites:
+          - name: Spot A
+            lat: 36.9
+            lon: 10.2
+          - name: Spot B
+            lat: 37.0
+            lon: 10.3
+            transit_speed_kts: {min: 18, max: 28}
+    """), encoding="utf-8")
+    cfg = load_sites(p)
+    assert cfg.site("spot-a")["transit_speed_kts"] == {"min": 14.0, "max": 22.0}
+    assert cfg.site("spot-b")["transit_speed_kts"] == {"min": 18.0, "max": 28.0}
 
 
 def test_load_sites_malformed(tmp_path):

@@ -16,6 +16,7 @@ def test_preflight_ok_on_repo(repo_root, tmp_path, capsys):
     assert len(sn["sites"]) == 5
     assert sn["sites"][0]["map_lat"] == 36.921
     assert sn["sites"][0]["map_lon"] == 10.31
+    assert sn["sites"][0]["transit_speed_kts"] == {"min": 16.0, "max": 24.0}
     assert sn["sites"][0]["onshore_sectors"]
 
 

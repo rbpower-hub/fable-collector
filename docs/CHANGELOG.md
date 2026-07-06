@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0 — 2026-07-06
+- **Durée de traversée pilotée par une hypothèse bateau** : le board n’utilise plus une durée fixe identique pour toutes les routes, mais une estimation calculée depuis la distance et `transit_speed_kts`.
+- **Hypothèse de vitesse explicite dans l’UI** : le résumé corridor affiche maintenant la fourchette retenue en nœuds, pour pouvoir l’ajuster facilement au bateau réel.
+- **`sites.yaml` enrichi** avec `defaults.transit_speed_kts`, publié dans `sites.normalized.json` pour garder la logique de durée côté config.
+- **Ras Fartass réaligné produit** : avec le profil par défaut actuel, la traversée affichée retombe dans un ordre de grandeur cohérent avec un semi-rigide rapide.
+- **Pantelleria évaluée** : ajout pur de destination possible plus tard, mais le moteur reste aujourd’hui orienté sortie home→destination Family Day et n’implémente pas encore de vrai corridor offshore.
+
 ## 2.4.0 — 2026-07-06
 - **Carte découplée des coordonnées météo** : `sites.yaml` accepte désormais `map_lat` / `map_lon` pour garder une position visuelle exacte sans bouger le point de collecte.
 - **Position précise restaurée pour Gammarth** et anciennes positions carte réinjectées dans la configuration des spots actuels.

@@ -384,12 +384,13 @@
   const LOCALES = { fr:'fr-FR', en:'en-GB' };
 
   // Spots & config
+  const DEFAULT_TRANSIT_SPEED_KTS = { min: 16, max: 24 };
   const DEFAULT_SPOT_CONFIG = {
-    'gammarth-port.json':{name:'Gammarth Port',lat:36.921,lon:10.310,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0},
-    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.865,lon:10.351,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0},
-    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.177,lon:10.280,onshore_sectors:[[10,130]],shelter_bonus_radius_km:0},
-    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0},
-    'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0}
+    'gammarth-port.json':{name:'Gammarth Port',lat:36.921,lon:10.310,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
+    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.865,lon:10.351,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
+    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.177,lon:10.280,onshore_sectors:[[10,130]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
+    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
+    'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS}
   };
   let spotConfig = { ...DEFAULT_SPOT_CONFIG };
   let homeFile = 'gammarth-port.json';
@@ -497,8 +498,8 @@
   const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const mapCopy = ()=> LANG==='en'
-    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure' }
-    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale' };
+    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt' }
+    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds' };
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
@@ -519,19 +520,45 @@
     };
   }
   const corridorRequiresReturn = ()=> Boolean(corridorRules().validate_departure_and_return ?? true);
-  function formatHourValue(value){
-    const numeric = Number(value);
-    if(!Number.isFinite(numeric)) return '';
-    return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(1).replace(/\.0$/,'');
+  function normalizeSpeedRange(range){
+    const rawMin = Number(range?.min ?? DEFAULT_TRANSIT_SPEED_KTS.min);
+    const rawMax = Number(range?.max ?? DEFAULT_TRANSIT_SPEED_KTS.max);
+    const min = Number.isFinite(rawMin) && rawMin > 0 ? rawMin : DEFAULT_TRANSIT_SPEED_KTS.min;
+    const max = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : DEFAULT_TRANSIT_SPEED_KTS.max;
+    return { min: Math.min(min, max), max: Math.max(min, max) };
   }
-  function formatHourSpan(range){
+  function formatDurationValue(hours){
+    const numeric = Number(hours);
+    if(!Number.isFinite(numeric) || numeric < 0) return '';
+    const minutes = Math.max(0, Math.round((numeric * 60) / 5) * 5);
+    if(minutes < 60) return `${minutes} min`;
+    const hh = Math.floor(minutes / 60);
+    const mm = minutes % 60;
+    return mm ? `${hh} h ${String(mm).padStart(2,'0')}` : `${hh} h`;
+  }
+  function formatDurationSpan(range){
     const min = Number(range?.min);
     const max = Number(range?.max);
     if(!Number.isFinite(min) && !Number.isFinite(max)) return '1-1.5 h';
-    if(!Number.isFinite(max) || min === max) return `${formatHourValue(min)} h`;
-    return `${formatHourValue(min)}-${formatHourValue(max)} h`;
+    if(!Number.isFinite(max) || Math.abs(min - max) < 0.05) return formatDurationValue(min);
+    return `${formatDurationValue(min)}–${formatDurationValue(max)}`;
   }
-  const corridorLegLabel = key => formatHourSpan(corridorLegs()[key]);
+  function formatSpeedSpan(range){
+    const speed = normalizeSpeedRange(range);
+    const copy = mapCopy();
+    return `${Math.round(speed.min)}–${Math.round(speed.max)} ${copy.knots}`;
+  }
+  const corridorLegLabel = key => formatDurationSpan(corridorLegs()[key]);
+  function routeTransitHours(origin, dest){
+    if(!origin || !dest || origin === dest) return { min: 0, max: 0, speed_kts: null };
+    const speed = normalizeSpeedRange(dest.transit_speed_kts);
+    const distanceNm = distKm(origin, dest) / KM_PER_NM;
+    return {
+      min: distanceNm / speed.max,
+      max: distanceNm / speed.min,
+      speed_kts: speed
+    };
+  }
   function currentSpotLatLngs(){
     return Object.values(spotConfig)
       .filter(s => Number.isFinite(s?.lat) && Number.isFinite(s?.lon))
@@ -563,6 +590,7 @@
         lon: Number(site.map_lon ?? site.lon),
         onshore_sectors: Array.isArray(site.onshore_sectors) ? site.onshore_sectors : [],
         shelter_bonus_radius_km: Number(site.shelter_bonus_radius_km || 0),
+        transit_speed_kts: normalizeSpeedRange(site.transit_speed_kts),
       };
     });
     if(!Object.keys(next).length) return;
@@ -890,8 +918,10 @@
       const origin = spotConfig[originFile];
       const dest   = spotConfig[slug];
       if(!origin || !dest) return;
-      const transitOutLabel = corridorLegLabel('transit_out');
-      const transitBackLabel = corridorLegLabel('transit_back');
+      const transitProfile = routeTransitHours(origin, dest);
+      const transitOutLabel = formatDurationSpan(transitProfile);
+      const transitBackLabel = transitOutLabel;
+      const transitSpeedLabel = formatSpeedSpan(transitProfile.speed_kts);
       const anchorLabel = corridorLegLabel('anchor');
       const requiresReturn = corridorRequiresReturn();
     
@@ -943,6 +973,7 @@
       cardEl.insertAdjacentHTML('beforeend', `
         <div class="tripline">
           <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${originName} → ${dest.name}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM</span></div>
+          <div class="row">🧭 <span class="k">${escapeHtml(copy.speed)}</span> <span class="v">${escapeHtml(transitSpeedLabel)}</span></div>
           <div class="row">⚓ <span class="k">${escapeHtml(anchorLabel)}</span> <span class="v">fenetre cible sur zone</span></div>
           <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windTxt(wGo)}</span></div>
           ${requiresReturn
@@ -953,7 +984,7 @@
       setMapSummary(
         `⛵ <strong>${escapeHtml(copy.corridor)}</strong> · ${escapeHtml(originName)} → ${escapeHtml(dest.name)} · ` +
         `${dkm.toFixed(1)} km · ${escapeHtml(copy.transit)} ${escapeHtml(transitOutLabel)} · ` +
-        `${escapeHtml(copy.anchor)} ${escapeHtml(anchorLabel)}` +
+        `${escapeHtml(copy.speed)} ${escapeHtml(transitSpeedLabel)} · ${escapeHtml(copy.anchor)} ${escapeHtml(anchorLabel)}` +
         `${requiresReturn ? ` · ${escapeHtml(copy.ret)} ${escapeHtml(transitBackLabel)}` : ''}`
       );
       

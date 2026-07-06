@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0 — 2026-07-06
+- **Version dédiée corridor + carte** pour garder un rollback simple après la phase board `2.2.0`.
+- **`rules.normalized.json` enrichi** avec `family.corridor.leg_structure_hours`, pour publier les durées transit aller, mouillage et retour au lieu de les recoder côté UI.
+- **Carte pilotée par `sites.normalized.json`** pour le cadrage initial et le reset, y compris quand la liste de spots évolue.
+- **Corridor piloté par `rules.normalized.json`** : résumé transit, badge de durée et animation aller/retour suivent la règle active publiée par le backend.
+- **Liens bruts simplifiés** : les icônes des spots ne dépendent plus d'une liste de fichiers codée en dur.
+
 ## 2.2.0 — 2026-07-06
 - **Version dédiée board** pour l’évolution UI, afin de pouvoir revenir facilement à la version précédente si besoin.
 - **Board branché sur `sites.normalized.json`** : spots, port principal et métadonnées de site ne sont plus figés dans le HTML.

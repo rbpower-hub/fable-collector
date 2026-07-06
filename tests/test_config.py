@@ -38,6 +38,20 @@ def test_window_bounds_clamped():
     assert window_bounds({"window_hours": {"min": 5, "max": 6}}) == (5, 6)
 
 
+def test_window_bounds_derived_from_corridor():
+    rules = {
+        "corridor": {
+            "leg_structure_hours": {
+                "transit_out": "1-1.5",
+                "anchor_min": 2,
+                "anchor_max": 4,
+                "transit_back": "1.5-2",
+            }
+        }
+    }
+    assert window_bounds(rules) == (4, 6)
+
+
 def test_normalize_rules_schema(repo_root):
     rules = load_rules(repo_root / "rules.yaml")
     n = normalize_rules(rules)
@@ -45,6 +59,9 @@ def test_normalize_rules_schema(repo_root):
     assert n["family"]["window_hours"] == {"min": 4, "max": 6}
     assert n["family"]["thresholds"]["wind"]["family_max_kmh"] == 20.0
     assert n["family"]["thresholds"]["waves"]["tp_min_at_hs_lt_0_4_s"] == 3.2
+    assert n["family"]["corridor"]["leg_structure_hours"]["transit_out"] == {"min": 1.0, "max": 1.5}
+    assert n["family"]["corridor"]["leg_structure_hours"]["anchor"] == {"min": 2.0, "max": 4.0}
+    assert n["family"]["corridor"]["leg_structure_hours"]["transit_back"] == {"min": 1.0, "max": 1.5}
     assert n["confidence"]["min_wind_models_for_not_low"] == 2
 
 

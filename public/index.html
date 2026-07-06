@@ -380,17 +380,21 @@
   let rulesNormalized = {
     family: {
       hours_local: { start: 8, end: 21 },
-      window_hours: { min: 4, max: 6 }
+      window_hours: { min: 4, max: 6 },
+      corridor: {
+        validate_departure_and_return: true,
+        leg_structure_hours: {
+          transit_out: { min: 1, max: 1.5 },
+          anchor: { min: 2, max: 4 },
+          transit_back: { min: 1, max: 1.5 }
+        }
+      }
     },
     confidence: {
       high: { min_wave_sources: 2 }
     }
   };
-  const INITIAL_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
-  // Where to pin the transit badge instead of the midpoint
-  const TRANSIT_BADGE_ANCHOR = {
-    'gammarth-port.json': [36.916486, 10.312356]
-  };
+  const DEFAULT_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
 
   // --- Corridor helpers (cache + séries + vent au plus proche) ---
   const SPOT_CACHE = new Map();
@@ -476,6 +480,41 @@
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
+  const corridorRules = ()=> rulesNormalized?.family?.corridor || {};
+  function normalizeHourRange(range, fallback){
+    const rawMin = Number(range?.min ?? fallback.min);
+    const rawMax = Number(range?.max ?? fallback.max);
+    const min = Number.isFinite(rawMin) ? rawMin : fallback.min;
+    const max = Number.isFinite(rawMax) ? rawMax : fallback.max;
+    return { min: Math.min(min, max), max: Math.max(min, max) };
+  }
+  function corridorLegs(){
+    const legs = corridorRules().leg_structure_hours || {};
+    return {
+      transit_out: normalizeHourRange(legs.transit_out, { min: 1, max: 1.5 }),
+      anchor: normalizeHourRange(legs.anchor, { min: 2, max: 4 }),
+      transit_back: normalizeHourRange(legs.transit_back, { min: 1, max: 1.5 })
+    };
+  }
+  const corridorRequiresReturn = ()=> Boolean(corridorRules().validate_departure_and_return ?? true);
+  function formatHourValue(value){
+    const numeric = Number(value);
+    if(!Number.isFinite(numeric)) return '';
+    return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(1).replace(/\.0$/,'');
+  }
+  function formatHourSpan(range){
+    const min = Number(range?.min);
+    const max = Number(range?.max);
+    if(!Number.isFinite(min) && !Number.isFinite(max)) return '1-1.5 h';
+    if(!Number.isFinite(max) || min === max) return `${formatHourValue(min)} h`;
+    return `${formatHourValue(min)}-${formatHourValue(max)} h`;
+  }
+  const corridorLegLabel = key => formatHourSpan(corridorLegs()[key]);
+  function currentSpotLatLngs(){
+    return Object.values(spotConfig)
+      .filter(s => Number.isFinite(s?.lat) && Number.isFinite(s?.lon))
+      .map(s => [s.lat, s.lon]);
+  }
   function applySitesNormalized(data){
     if(!data || !Array.isArray(data.sites) || !data.sites.length) return;
     const next = {};
@@ -544,11 +583,28 @@
   };
 
   // Map
-  const map = L.map('map').setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom);
+  const map = L.map('map').setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
   const corridorLayer = L.layerGroup().addTo(map);
   const spotsLayer    = L.layerGroup().addTo(map);
-  window.panToFile = (file)=>{ const s=spotConfig[file]; if(s) map.setView([s.lat,s.lon],12,{animate:true}); };
+  function resetMapView(options={}){
+    const animate = options.animate !== false;
+    const points = currentSpotLatLngs();
+    if(!points.length){
+      map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom, { animate });
+      return;
+    }
+    if(points.length === 1){
+      map.setView(points[0], 11, { animate });
+      return;
+    }
+    map.fitBounds(L.latLngBounds(points).pad(0.18), { animate, maxZoom: 10 });
+  }
+  window.panToFile = (file)=>{
+    const s=spotConfig[file];
+    if(s) map.flyTo([s.lat,s.lon], Math.max(map.getZoom(), 12), { animate:true });
+  };
+  resetMapView({ animate:false });
 
   // ===== KIOSK (manual via button only) =====
   
@@ -619,14 +675,10 @@
   });
 
   // Reset map
-  document.getElementById('resetMapBtnTop')?.addEventListener('click', () =>
-    map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, {animate:true})
-  );
+  document.getElementById('resetMapBtnTop')?.addEventListener('click', () => resetMapView({ animate:true }));
   
   // Reset map (bouton 🔄 dans "Radar des Spots")
-  document.getElementById('resetMapBtn')?.addEventListener('click', () =>
-    map.setView(INITIAL_MAP_VIEW.center, INITIAL_MAP_VIEW.zoom, { animate: true })
-  );
+  document.getElementById('resetMapBtn')?.addEventListener('click', () => resetMapView({ animate:true }));
   // Tooltip
   const tipEl = $('#tooltip');
   const hideTip = ()=>{ tipEl.style.display='none'; };
@@ -800,6 +852,10 @@
       const origin = spotConfig[originFile];
       const dest   = spotConfig[slug];
       if(!origin || !dest) return;
+      const transitOutLabel = corridorLegLabel('transit_out');
+      const transitBackLabel = corridorLegLabel('transit_back');
+      const anchorLabel = corridorLegLabel('anchor');
+      const requiresReturn = corridorRequiresReturn();
     
       corridorLayer.clearLayers();
     
@@ -807,7 +863,7 @@
       if (slug === originFile) {
         document.querySelectorAll('.tripline').forEach(n=>n.remove());
         cardEl.insertAdjacentHTML('beforeend',
-          `<div class="small tripline"><div class="row">⚓ <span class="k">Sortie locale</span> <span class="v">depuis le port (pas de transit)</span></div></div>`
+          `<div class="small tripline"><div class="row">⚓ <span class="k">Sortie locale</span> <span class="v">depuis ${origin.name} (pas de transit)</span></div></div>`
         );
         map.setView([origin.lat, origin.lon], 14, {animate:true});
         return;
@@ -828,7 +884,7 @@
       const dnm = dkm / KM_PER_NM;
       
       const wGo  = await windAt(slug, start);      // wind at destination (start)
-      const wRet = await windAt(originFile, end);  // wind at port (end)
+      const wRet = requiresReturn ? await windAt(originFile, end) : null;  // wind at port (end)
       
       const arrowFor = c => ({N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'})[c] || '•';
       const windTxt = (o)=>{
@@ -846,25 +902,30 @@
       const originName = spotConfig[originFile].name;
       cardEl.insertAdjacentHTML('beforeend', `
         <div class="tripline">
-          <div class="row">⛵ <span class="k">1–1.5 h</span> <span class="v">• <b>${originName} → ${dest.name}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM</span></div>
+          <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${originName} → ${dest.name}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM</span></div>
+          <div class="row">⚓ <span class="k">${escapeHtml(anchorLabel)}</span> <span class="v">fenetre cible sur zone</span></div>
           <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windTxt(wGo)}</span></div>
-          <div class="row">🔵 <span class="k">Retour</span> <span class="v">${windTxt(wRet)}</span></div>
+          ${requiresReturn
+            ? `<div class="row">🔵 <span class="k">Retour (${escapeHtml(transitBackLabel)})</span> <span class="v">${windTxt(wRet)}</span></div>`
+            : `<div class="row">ℹ️ <span class="k">Retour</span> <span class="v">non requis par la règle active</span></div>`}
         </div>
       `);
       
       map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
       
-      // ⛵ animate there and back (≈30% slower than before)
+      // ⛵ animate according to the active corridor rule
       await animateBoat(lineAB, { direction: 1, duration: 1300 });   // Aller
-      await new Promise(r=>setTimeout(r, 250));                       // tiny pause
-      await animateBoat(lineAB, { direction: -1, duration: 1300 });  // Retour
+      if (requiresReturn) {
+        await new Promise(r=>setTimeout(r, 250));                     // tiny pause
+        await animateBoat(lineAB, { direction: -1, duration: 1300 });  // Retour
+      }
       
       // Show the simple transit badge AFTER animation
       L.marker(mid,{
         icon: L.divIcon({
-          className:'anchor-badge',
-          html:'⛵ 1–1.5 h (transit)',
-          iconSize:[120,24], iconAnchor:[60,12]
+          className:'anchor-badge trip',
+          html:`<div class="h">${escapeHtml(transitOutLabel)}</div><div class="m">${escapeHtml(requiresReturn ? `Retour ${transitBackLabel}` : 'Aller simple')}</div>`,
+          iconSize:[180,52], iconAnchor:[90,26]
         }),
         interactive:false
       }).addTo(corridorLayer);
@@ -1004,8 +1065,11 @@
     });
 
     // Liens bruts
-    const ICON = { 'gammarth-port.json':'⚓','sidi-bou-said.json':'⛵','ghar-el-melh.json':'🏝️','ras-fartass.json':'🌊','el-haouaria.json':'🪁','windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️','sites.normalized.json':'🧭','catalog.json':'🗂️' };
-    const createLink = f => `<li><span style="display:inline-block;width:1.5em;">${ICON[f]||'•'}</span><a href="./${f}">${f}</a></li>`;
+    const SYSTEM_ICON = { 'windows.json':'🪟','status.json':'📊','index.json':'📑','rules.normalized.json':'⚖️','sites.normalized.json':'🧭','catalog.json':'🗂️' };
+    const createLink = f => {
+      const icon = SYSTEM_ICON[f] || (f === homeFile ? '⚓' : (spotConfig[f] ? '⛵' : '•'));
+      return `<li><span style="display:inline-block;width:1.5em;">${icon}</span><a href="./${f}">${f}</a></li>`;
+    };
     const systemLinks = ['windows.json','status.json','index.json','rules.normalized.json','sites.normalized.json','catalog.json'];
     $('#raw-links-list').innerHTML =
       WANT_SPOTS.map(([,f])=>createLink(f)).join('') +

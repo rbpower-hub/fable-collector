@@ -10,6 +10,7 @@ def test_preflight_ok_on_repo(repo_root, tmp_path, capsys):
     assert "sites.yaml OK" in out and "rules.yaml OK" in out
     rn = json.loads((tmp_path / "rules.normalized.json").read_text(encoding="utf-8"))
     assert rn["family"]["window_hours"] == {"min": 4, "max": 6}
+    assert rn["family"]["corridor"]["leg_structure_hours"]["transit_out"] == {"min": 1.0, "max": 1.5}
     sn = json.loads((tmp_path / "sites.normalized.json").read_text(encoding="utf-8"))
     assert sn["home"] == "gammarth-port"
     assert len(sn["sites"]) == 5

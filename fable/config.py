@@ -161,6 +161,23 @@ def _parse_leg_span(span: Any, dmin: float, dmax: float) -> tuple[float, float]:
         return dmin, dmax
 
 
+def corridor_leg_structure(rules: dict[str, Any]) -> dict[str, dict[str, float]]:
+    """Normalized corridor leg spans from rules.yaml."""
+    leg = dget(rules, "corridor.leg_structure_hours", {}) or {}
+    tmin, tmax = _parse_leg_span(leg.get("transit_out", "1-1.5"), 1.0, 1.5)
+    bmin, bmax = _parse_leg_span(leg.get("transit_back", "1-1.5"), 1.0, 1.5)
+    amin = float(leg.get("anchor_min", 2))
+    amax = float(leg.get("anchor_max", 4))
+    tmin, tmax = min(tmin, tmax), max(tmin, tmax)
+    bmin, bmax = min(bmin, bmax), max(bmin, bmax)
+    amin, amax = min(amin, amax), max(amin, amax)
+    return {
+        "transit_out": {"min": tmin, "max": tmax},
+        "anchor": {"min": amin, "max": amax},
+        "transit_back": {"min": bmin, "max": bmax},
+    }
+
+
 def window_bounds(rules: dict[str, Any]) -> tuple[int, int]:
     """Family window min/max hours. Explicit window_hours wins; else derived
     from corridor legs; clamped to [4, 6] (phase design T-A...A-T)."""
@@ -169,11 +186,10 @@ def window_bounds(rules: dict[str, Any]) -> tuple[int, int]:
     if explicit_min is not None and explicit_max is not None:
         wmin, wmax = int(explicit_min), int(explicit_max)
     else:
-        leg = dget(rules, "corridor.leg_structure_hours", {}) or {}
-        tmin, tmax = _parse_leg_span(leg.get("transit_out", "1-1.5"), 1.0, 1.5)
-        bmin, bmax = _parse_leg_span(leg.get("transit_back", "1-1.5"), 1.0, 1.5)
-        amin = float(leg.get("anchor_min", 2))
-        amax = float(leg.get("anchor_max", 4))
+        legs = corridor_leg_structure(rules)
+        tmin, tmax = legs["transit_out"]["min"], legs["transit_out"]["max"]
+        bmin, bmax = legs["transit_back"]["min"], legs["transit_back"]["max"]
+        amin, amax = legs["anchor"]["min"], legs["anchor"]["max"]
         wmin = int(round(tmin + amin + bmin))
         wmax = int(round(tmax + amax + bmax))
     wmin = max(4, min(wmin, 6))
@@ -185,6 +201,7 @@ def normalize_rules(rules: dict[str, Any]) -> dict[str, Any]:
     """Flat rules.yaml -> normalized structure published as rules.normalized.json
     (consumed by FABLE AI / dashboard). Schema preserved from v1 pipeline."""
     win_min, win_max = window_bounds(rules)
+    corridor_legs = corridor_leg_structure(rules)
     return {
         "meta": {"version": 2, "tz_default": "Africa/Tunis", "source_schema": "flat"},
         "family": {
@@ -255,6 +272,7 @@ def normalize_rules(rules: dict[str, Any]) -> dict[str, Any]:
                 "buffer_km": 5,
                 "samples": int(dget(rules, "corridor.samples", 9)),
                 "validate_departure_and_return": bool(dget(rules, "corridor.validate_departure_and_return", True)),
+                "leg_structure_hours": corridor_legs,
             },
             "thunder_codes": [int(x) for x in dget(rules, "overrides.thunder_wmo", [95, 96, 99])],
         },

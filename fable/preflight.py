@@ -61,6 +61,7 @@ def run_preflight(root: Path, public: Path) -> int:
         "sites": [
             {
                 "name": s["name"], "slug": s["slug"], "lat": s["lat"], "lon": s["lon"],
+                "map_lat": s["map_lat"], "map_lon": s["map_lon"],
                 "shelter_bonus_radius_km": s["shelter_bonus_radius_km"],
                 "onshore_sectors": [list(t) for t in s["onshore_sectors"]],
                 "path": f"{s['slug']}.json",

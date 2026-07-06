@@ -73,6 +73,8 @@ def test_load_sites_v2(repo_root):
     assert slugs == {"gammarth-port", "sidi-bou-said", "ghar-el-melh", "ras-fartass", "el-haouaria"}
     assert cfg.onshore_sectors("el-haouaria") == [(330, 360), (0, 70)]
     assert cfg.onshore_sectors("gammarth-port") == [(30, 150)]
+    assert cfg.site("gammarth-port")["map_lat"] == pytest.approx(36.921)
+    assert cfg.site("gammarth-port")["map_lon"] == pytest.approx(10.31)
 
 
 def test_load_sites_v1_legacy(tmp_path):
@@ -98,6 +100,24 @@ def test_load_sites_invalid_coords_skipped(tmp_path):
     p.write_text("- name: Bad\n  lat: 999\n  lon: 10\n- name: Good\n  lat: 36.9\n  lon: 10.2\n", encoding="utf-8")
     cfg = load_sites(p)
     assert [s["slug"] for s in cfg.sites] == ["good"]
+
+
+def test_load_sites_invalid_map_coords_fallback(tmp_path):
+    p = tmp_path / "sites.yaml"
+    p.write_text(textwrap.dedent("""
+        version: 2
+        home: spot-a
+        sites:
+          - name: Spot A
+            lat: 36.9
+            lon: 10.2
+            map_lat: 999
+            map_lon: 999
+    """), encoding="utf-8")
+    cfg = load_sites(p)
+    site = cfg.site("spot-a")
+    assert site["map_lat"] == pytest.approx(36.9)
+    assert site["map_lon"] == pytest.approx(10.2)
 
 
 def test_load_sites_malformed(tmp_path):

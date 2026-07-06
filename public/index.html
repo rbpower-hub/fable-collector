@@ -214,6 +214,21 @@
       margin-bottom: 16px;
       z-index: 0;
     }
+    .map-toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin:-4px 0 16px;
+    }
+    .map-toolbar .chip{
+      border:1px solid var(--br);
+      background:var(--pill-bg);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:.92rem;
+      color:var(--muted);
+    }
+    .map-toolbar .chip strong{ color:var(--fg); }
 
     
     /* Grille 3 colonnes sur desktop */
@@ -308,6 +323,9 @@
   </header>
 <div id="dashboard-content">
   <div id="map" aria-label="Carte des spots"></div>
+  <div class="map-toolbar">
+    <div id="mapSummary" class="chip">⚓ <strong>Carte</strong> · corridor prêt</div>
+  </div>
 
   <div class="layout-grid threecol">
     <!-- 1) Fenêtres -->
@@ -472,11 +490,15 @@
   let lastWinsKey = new Set();
 
   const $ = sel => document.querySelector(sel);
+  const mapSummaryEl = $('#mapSummary');
   const t = (path,...args)=>{const d=I18N[LANG]||I18N.fr; const v=path.split('.').reduce((o,k)=>(o||{})[k],d); return typeof v==='function'?v(...args):(v??path);};
   const fmtLocal = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
   const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
   const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const mapCopy = ()=> LANG==='en'
+    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure' }
+    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale' };
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
@@ -515,6 +537,21 @@
       .filter(s => Number.isFinite(s?.lat) && Number.isFinite(s?.lon))
       .map(s => [s.lat, s.lon]);
   }
+  function setMapSummary(html){
+    if(mapSummaryEl) mapSummaryEl.innerHTML = html;
+  }
+  function resetMapSummary(){
+    const home = spotConfig[homeFile];
+    const copy = mapCopy();
+    setMapSummary(`⚓ <strong>${escapeHtml(home?.name || homeFile)}</strong> · ${escapeHtml(copy.hint)}`);
+  }
+  function focusWindowForFile(file){
+    const line = document.querySelector(`.window-line[data-slug="${file}"]`);
+    if(!line) return false;
+    line.click();
+    line.scrollIntoView({ block:'nearest', behavior:'smooth' });
+    return true;
+  }
   function applySitesNormalized(data){
     if(!data || !Array.isArray(data.sites) || !data.sites.length) return;
     const next = {};
@@ -522,8 +559,8 @@
       if(!site?.path || !Number.isFinite(site.lat) || !Number.isFinite(site.lon)) return;
       next[site.path] = {
         name: site.name || site.path.replace('.json',''),
-        lat: site.lat,
-        lon: site.lon,
+        lat: Number(site.map_lat ?? site.lat),
+        lon: Number(site.map_lon ?? site.lon),
         onshore_sectors: Array.isArray(site.onshore_sectors) ? site.onshore_sectors : [],
         shelter_bonus_radius_km: Number(site.shelter_bonus_radius_km || 0),
       };
@@ -556,6 +593,7 @@
   ]);
   applySitesNormalized(initialSitesConfig);
   applyRulesNormalized(initialRulesConfig);
+  resetMapSummary();
 
   const ding = ()=>{ if(muted) return; try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(), o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(0.0001,ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.05,ctx.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.22); o.start(); o.stop(ctx.currentTime+0.25);}catch{} };
   const flash = el => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); };
@@ -865,6 +903,7 @@
         cardEl.insertAdjacentHTML('beforeend',
           `<div class="small tripline"><div class="row">⚓ <span class="k">Sortie locale</span> <span class="v">depuis ${origin.name} (pas de transit)</span></div></div>`
         );
+        setMapSummary(`⚓ <strong>${escapeHtml(origin.name)}</strong> · ${escapeHtml(mapCopy().local)}`);
         map.setView([origin.lat, origin.lon], 14, {animate:true});
         return;
       }
@@ -900,6 +939,7 @@
       // Rich summary inside the selected card (remove any previous)
       document.querySelectorAll('.tripline').forEach(n=>n.remove());
       const originName = spotConfig[originFile].name;
+      const copy = mapCopy();
       cardEl.insertAdjacentHTML('beforeend', `
         <div class="tripline">
           <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${originName} → ${dest.name}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM</span></div>
@@ -910,6 +950,12 @@
             : `<div class="row">ℹ️ <span class="k">Retour</span> <span class="v">non requis par la règle active</span></div>`}
         </div>
       `);
+      setMapSummary(
+        `⛵ <strong>${escapeHtml(copy.corridor)}</strong> · ${escapeHtml(originName)} → ${escapeHtml(dest.name)} · ` +
+        `${dkm.toFixed(1)} km · ${escapeHtml(copy.transit)} ${escapeHtml(transitOutLabel)} · ` +
+        `${escapeHtml(copy.anchor)} ${escapeHtml(anchorLabel)}` +
+        `${requiresReturn ? ` · ${escapeHtml(copy.ret)} ${escapeHtml(transitBackLabel)}` : ''}`
+      );
       
       map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
       
@@ -1090,9 +1136,16 @@
       const s=spotConfig[file], isMain = file===homeFile, st = spotStatus[file];
       const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
       const text  = isMain ? t('principal_port') : t(`go_popup.${st}`);
-      L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(spotsLayer).bindPopup(`<b>${s.name}</b><br>${text}`);
+      const marker = L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(spotsLayer).bindPopup(`<b>${s.name}</b><br>${text}`);
+      marker.on('click', ()=>{
+        if (focusWindowForFile(file)) return;
+        window.panToFile(file);
+        if (file === homeFile) resetMapSummary();
+        else setMapSummary(`📍 <strong>${escapeHtml(s.name)}</strong>`);
+      });
     }
 
+    resetMapSummary();
     $('#dashboard-content').classList.remove('updating');
     fitToViewport();
     map.invalidateSize();  // important quand la hauteur de la carte change
@@ -1100,7 +1153,16 @@
 
   // Délégation clics dans le tableau (pan sur spot)
   $('#files tbody').addEventListener('click',(e)=>{
-    const a=e.target.closest('a[data-file]'); if(a){ e.preventDefault(); window.panToFile(a.dataset.file); }
+    const a=e.target.closest('a[data-file]');
+    if(a){
+      e.preventDefault();
+      const file = a.dataset.file;
+      if (!focusWindowForFile(file)) {
+        window.panToFile(file);
+        if (file === homeFile) resetMapSummary();
+        else setMapSummary(`📍 <strong>${escapeHtml(spotConfig[file]?.name || file)}</strong>`);
+      }
+    }
   });
 
   // Ajuste la mise en page pour que la page tienne sans scroll

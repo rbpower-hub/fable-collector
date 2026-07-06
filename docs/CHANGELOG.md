@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.0 — 2026-07-06
+- **Carte découplée des coordonnées météo** : `sites.yaml` accepte désormais `map_lat` / `map_lon` pour garder une position visuelle exacte sans bouger le point de collecte.
+- **Position précise restaurée pour Gammarth** et anciennes positions carte réinjectées dans la configuration des spots actuels.
+- **`sites.normalized.json` enrichi** avec les coordonnées de carte publiées par le backend pour éviter tout nouveau décalage côté UI.
+- **Carte et radar plus interactifs** : cliquer un spot ou la ligne radar ouvre directement le corridor correspondant quand une fenêtre existe.
+- **Résumé corridor sous la carte** : la vue garde un rappel lisible du trajet sélectionné, des durées de transit et de la phase mouillage.
+
 ## 2.3.0 — 2026-07-06
 - **Version dédiée corridor + carte** pour garder un rollback simple après la phase board `2.2.0`.
 - **`rules.normalized.json` enrichi** avec `family.corridor.leg_structure_hours`, pour publier les durées transit aller, mouillage et retour au lieu de les recoder côté UI.

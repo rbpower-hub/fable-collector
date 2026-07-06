@@ -325,7 +325,7 @@ class SitesConfig:
     """Parsed sites.yaml (v1 list or v2 mapping)."""
 
     def __init__(self, sites: list[dict[str, Any]], home: str, tz: str, exclude: set, version: int):
-        self.sites = sites          # each: name, slug, lat, lon, shelter_bonus_radius_km, onshore_sectors
+        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, shelter_bonus_radius_km, onshore_sectors
         self.home = home            # home-port slug
         self.tz = tz
         self.exclude = exclude
@@ -382,6 +382,17 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             log.warning("Out-of-range coordinates for %s — skipped.", name)
             continue
+        map_lat, map_lon = lat, lon
+        if s.get("map_lat") is not None or s.get("map_lon") is not None:
+            try:
+                map_lat = float(s.get("map_lat", lat))
+                map_lon = float(s.get("map_lon", lon))
+            except Exception:
+                log.warning("Invalid map coordinates for %s — using forecast coordinates.", name)
+                map_lat, map_lon = lat, lon
+            if not (-90 <= map_lat <= 90 and -180 <= map_lon <= 180):
+                log.warning("Out-of-range map coordinates for %s — using forecast coordinates.", name)
+                map_lat, map_lon = lat, lon
         sectors = _norm_sectors(s.get("onshore_sectors")) or default_sectors \
             or LEGACY_ONSHORE_SECTORS.get(slug, DEFAULT_ONSHORE_SECTORS)
         sites.append({
@@ -389,6 +400,8 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
             "slug": slug,
             "lat": lat,
             "lon": lon,
+            "map_lat": map_lat,
+            "map_lon": map_lon,
             "shelter_bonus_radius_km": float(s.get("shelter_bonus_radius_km", default_shelter)),
             "onshore_sectors": sectors,
         })

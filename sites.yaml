@@ -69,9 +69,6 @@ sites:
     map_lon: 11.09340
     transit_speed_kts: {min: 18, max: 24}
     route_points:
-      - name: "Ras Fartass"
-        lat: 36.87700
-        lon: 10.61300
       - name: "El Haouaria"
         lat: 37.06300
         lon: 11.00800

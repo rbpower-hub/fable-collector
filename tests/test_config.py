@@ -78,7 +78,7 @@ def test_load_sites_v2(repo_root):
     assert cfg.site("gammarth-port")["transit_speed_kts"] == {"min": 16.0, "max": 24.0}
     assert cfg.site("gammarth-port")["windows_enabled"] is True
     assert cfg.site("gammarth-port")["route_kind"] == "standard"
-    assert len(cfg.site("kelibia")["route_points"]) == 2
+    assert len(cfg.site("kelibia")["route_points"]) == 1
     assert cfg.site("pantelleria")["route_origin"] == "kelibia"
     assert cfg.site("pantelleria")["windows_enabled"] is True
     assert cfg.site("pantelleria")["beta"] is True

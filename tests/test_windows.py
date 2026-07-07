@@ -129,12 +129,10 @@ def test_run_reader_skips_windows_disabled_route(tmp_path):
 
 def test_run_reader_builds_composite_beta_window(tmp_path):
     write_spot(tmp_path, "Gammarth (port)", "gammarth-port")
-    write_spot(tmp_path, "Ras Fartass", "ras-fartass")
     write_spot(tmp_path, "El Haouaria", "el-haouaria")
     kelibia = make_spot_json("Kelibia", "kelibia", DAY, 12)
     kelibia["meta"]["transit_speed_kts"] = {"min": 18, "max": 24}
     kelibia["meta"]["route_points"] = [
-        {"name": "Ras Fartass", "lat": 36.8770, "lon": 10.6130},
         {"name": "El Haouaria", "lat": 37.0630, "lon": 11.0080},
     ]
     (tmp_path / "kelibia.json").write_text(json.dumps(kelibia), encoding="utf-8")
@@ -158,12 +156,10 @@ def test_run_reader_builds_composite_beta_window(tmp_path):
 
 def test_composite_beta_requires_transfer_window(tmp_path):
     write_spot(tmp_path, "Gammarth (port)", "gammarth-port")
-    write_spot(tmp_path, "Ras Fartass", "ras-fartass", wind=35.0, gusts=55.0, hs=1.4, tp=4.0)
-    write_spot(tmp_path, "El Haouaria", "el-haouaria")
+    write_spot(tmp_path, "El Haouaria", "el-haouaria", wind=35.0, gusts=55.0, hs=1.4, tp=4.0)
     kelibia = make_spot_json("Kelibia", "kelibia", DAY, 12)
     kelibia["meta"]["transit_speed_kts"] = {"min": 18, "max": 24}
     kelibia["meta"]["route_points"] = [
-        {"name": "Ras Fartass", "lat": 36.8770, "lon": 10.6130},
         {"name": "El Haouaria", "lat": 37.0630, "lon": 11.0080},
     ]
     (tmp_path / "kelibia.json").write_text(json.dumps(kelibia), encoding="utf-8")

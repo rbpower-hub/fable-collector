@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.2 — 2026-07-07
+- **Relais Kelibia simplifié** : l’itinéraire recommandé depuis Gammarth vers Kelibia ne passe plus par `Ras Fartass`.
+- **Route produit réalignée usage réel** : le trajet composite vers Pantelleria suit désormais `Gammarth → El Haouaria → Kelibia → Pantelleria`.
+- **Validation composite cohérente** : le contrôle backend et les tests utilisent maintenant `El Haouaria` comme point de passage météo du relais.
+
 ## 2.8.1 — 2026-07-07
 - **Fallback Pantelleria réaligné** : la configuration front embarquée reflète maintenant le vrai statut `composite_beta` actif, même avant chargement des fichiers normalisés.
 - **Corridor composite plus lisible** : la carte affiche désormais un badge dédié par étape pour les routes multi-legs, avec durée et distance de chaque segment.

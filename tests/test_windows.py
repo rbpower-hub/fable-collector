@@ -116,6 +116,17 @@ def test_run_reader_caps_max_hours(tmp_path):
             assert seg["hours"] <= 6
 
 
+def test_run_reader_skips_windows_disabled_route(tmp_path):
+    write_spot(tmp_path, "Gammarth (port)", "gammarth-port")
+    pantelleria = make_spot_json("Pantelleria", "pantelleria", DAY, 12)
+    pantelleria["meta"]["windows_enabled"] = False
+    pantelleria["meta"]["beta"] = True
+    (tmp_path / "pantelleria.json").write_text(json.dumps(pantelleria), encoding="utf-8")
+    out = run_reader(tmp_path, tmp_path, "gammarth-port.json", 4, 6, rules=DEFAULT_RULES)
+    dests = {w["dest_slug"] for w in out["windows"]}
+    assert "pantelleria.json" not in dests
+
+
 def test_reader_on_real_v1_payload(tmp_path, ras_fartass_payload):
     """Real recorded production payload (Oct 2025) must load & evaluate."""
     p = tmp_path / "ras-fartass.json"

@@ -343,7 +343,7 @@ class SitesConfig:
     """Parsed sites.yaml (v1 list or v2 mapping)."""
 
     def __init__(self, sites: list[dict[str, Any]], home: str, tz: str, exclude: set, version: int):
-        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, transit_speed_kts, shelter_bonus_radius_km, onshore_sectors
+        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, transit_speed_kts, windows_enabled, beta, route_kind, route_note, country, shelter_bonus_radius_km, onshore_sectors
         self.home = home            # home-port slug
         self.tz = tz
         self.exclude = exclude
@@ -425,6 +425,11 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
             "transit_speed_kts": (
                 {"min": transit_speed[0], "max": transit_speed[1]} if transit_speed else None
             ),
+            "windows_enabled": bool(s.get("windows_enabled", True)),
+            "beta": bool(s.get("beta", False)),
+            "route_kind": str(s.get("route_kind", "standard")).strip() or "standard",
+            "route_note": (str(s.get("route_note", "")).strip() or None),
+            "country": (str(s.get("country", "")).strip() or None),
             "shelter_bonus_radius_km": float(s.get("shelter_bonus_radius_km", default_shelter)),
             "onshore_sectors": sectors,
         })

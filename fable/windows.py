@@ -113,6 +113,7 @@ class Site:
     waves: dict[str, list[float | None]]
     waves_models: dict[str, dict[str, list[float | None]]]
     onshore_sectors: list[tuple[int, int]]
+    windows_enabled: bool
     path: Path
 
 
@@ -238,6 +239,7 @@ def load_site(path: Path) -> Site | None:
         },
         waves_models=waves_models,
         onshore_sectors=_sectors_from_meta(meta, slug),
+        windows_enabled=bool(meta.get("windows_enabled", True)),
         path=path,
     )
 
@@ -601,6 +603,9 @@ def run_reader(from_dir: Path, out_dir: Path, home_slug: str | None,
         pass
 
     for fname, dest in sites.items():
+        if fname != home_slug and not dest.windows_enabled:
+            log.info("skipped (windows disabled): %s", fname)
+            continue
         wins = detect_windows(home, dest, min_h=min_h, max_h=max_h, th=th)
         out["windows"].append({"dest_slug": fname, "dest_name": dest.name, "windows": wins})
 

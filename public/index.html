@@ -498,8 +498,8 @@
   const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const mapCopy = ()=> LANG==='en'
-    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt' }
-    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds' };
+    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Offshore beta', preview:'Route preview', goDisabled:'GO engine not active yet' }
+    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Beta offshore', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif' };
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
@@ -579,6 +579,49 @@
     line.scrollIntoView({ block:'nearest', behavior:'smooth' });
     return true;
   }
+  const isBetaRoute = file => Boolean(spotConfig[file]?.beta || spotConfig[file]?.windows_enabled === false || spotConfig[file]?.route_kind === 'offshore_beta');
+  function routeNote(file){
+    return spotConfig[file]?.route_note || (isBetaRoute(file) ? `${mapCopy().beta} — ${mapCopy().goDisabled}.` : '');
+  }
+  function showRoutePreview(file){
+    const origin = spotConfig[homeFile];
+    const dest = spotConfig[file];
+    if(!origin || !dest) return false;
+    corridorLayer.clearLayers();
+    if(file === homeFile){
+      resetMapSummary();
+      map.setView([origin.lat, origin.lon], 14, {animate:true});
+      return true;
+    }
+    const accentToken = isBetaRoute(file) ? '--warn' : '--accent';
+    const color = getComputedStyle(document.documentElement).getPropertyValue(accentToken).trim() || '#4cc9f0';
+    const lineAB = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
+      color, weight:3, opacity:.9, dashArray:'6,6'
+    }).addTo(corridorLayer);
+    const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
+    const dkm = distKm(origin, dest);
+    const transitProfile = routeTransitHours(origin, dest);
+    const transitLabel = formatDurationSpan(transitProfile);
+    const speedLabel = formatSpeedSpan(transitProfile.speed_kts);
+    const copy = mapCopy();
+    const note = routeNote(file);
+    setMapSummary(
+      `${isBetaRoute(file)?'🧪':'⛵'} <strong>${escapeHtml(isBetaRoute(file)?copy.beta:copy.preview)}</strong> · ` +
+      `${escapeHtml(origin.name)} → ${escapeHtml(dest.name)} · ${dkm.toFixed(1)} km · ` +
+      `${escapeHtml(copy.transit)} ${escapeHtml(transitLabel)} · ${escapeHtml(copy.speed)} ${escapeHtml(speedLabel)}` +
+      `${note ? ` · ${escapeHtml(note)}` : ''}`
+    );
+    L.marker(mid,{
+      icon: L.divIcon({
+        className:'anchor-badge trip',
+        html:`<div class="h">${escapeHtml(transitLabel)}</div><div class="m">${escapeHtml(isBetaRoute(file)?copy.beta:copy.preview)}</div>`,
+        iconSize:[180,52], iconAnchor:[90,26]
+      }),
+      interactive:false
+    }).addTo(corridorLayer);
+    map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
+    return true;
+  }
   function applySitesNormalized(data){
     if(!data || !Array.isArray(data.sites) || !data.sites.length) return;
     const next = {};
@@ -591,6 +634,11 @@
         onshore_sectors: Array.isArray(site.onshore_sectors) ? site.onshore_sectors : [],
         shelter_bonus_radius_km: Number(site.shelter_bonus_radius_km || 0),
         transit_speed_kts: normalizeSpeedRange(site.transit_speed_kts),
+        windows_enabled: site.windows_enabled !== false,
+        beta: Boolean(site.beta),
+        route_kind: String(site.route_kind || 'standard'),
+        route_note: site.route_note || '',
+        country: site.country || '',
       };
     });
     if(!Object.keys(next).length) return;
@@ -794,8 +842,9 @@
       winData = { generated_at: new Date().toISOString(), windows: synthesized };
     }
 
+    const activeWindowFiles = liveFiles.filter(file => spotConfig[file]?.windows_enabled !== false);
     const reasonsRows = (window.FABLE?.debugReasons)
-      ? await FABLE.debugReasons(liveFiles, { rulesNormalized, sitesNormalized })
+      ? await FABLE.debugReasons(activeWindowFiles, { rulesNormalized, sitesNormalized })
       : [];
 
     // Header
@@ -1084,12 +1133,20 @@
 
     // Radar des spots + sparklines + bouton Info...
     const filesTableBody = $('#files tbody');
-    filesTableBody.innerHTML = Object.entries(spotConfig).map(([file,{name}])=>{
+    filesTableBody.innerHTML = Object.entries(spotConfig).map(([file,{name,country}])=>{
       const entry = status?.files?.find(s=>s.path===file);
       const fresh = isFresh(entry, gen);
+      const beta = isBetaRoute(file);
+      const note = routeNote(file);
+      const betaMeta = [
+        beta ? `🧪 ${escapeHtml(mapCopy().beta)}` : '',
+        country ? escapeHtml(country) : '',
+      ].filter(Boolean).join(' · ');
       return `<tr data-file="${file}">
         <td>
           <a href="#" data-file="${file}">${name}</a>
+          ${betaMeta ? `<div class="small">${betaMeta}</div>` : ''}
+          ${beta && note ? `<div class="small">${escapeHtml(note)}</div>` : ''}
           <button class="btn-mini expert-only why" type="button" data-file="${file}">Info...</button>
           <span class="spark expert-only" data-file="${file}"></span>
         </td>
@@ -1128,9 +1185,14 @@
     const showTip = (btn)=>{
       const file = btn.dataset.file;
       const r = reasonsByFile.get(file);
+      const beta = isBetaRoute(file);
+      const note = routeNote(file);
+      const familyLine = beta
+        ? `${mapCopy().beta} — ${mapCopy().goDisabled}`
+        : (r?.family || '—');
       tipEl.innerHTML = `<div class="hdr">${spotConfig[file]?.name||file}</div>
-                         <div class="row"><b>Family:</b> ${r?.family||'—'}</div>
-                         <div class="row"><b>Note:</b> ${r?.note||'—'}</div>`;
+                         <div class="row"><b>Family:</b> ${familyLine}</div>
+                         <div class="row"><b>Note:</b> ${beta ? note : (r?.note || note || '—')}</div>`;
       const rect = btn.getBoundingClientRect();
       tipEl.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;
       tipEl.style.top  = `${window.scrollY + rect.top - 6}px`;
@@ -1166,13 +1228,14 @@
     for(const file in spotConfig){
       const s=spotConfig[file], isMain = file===homeFile, st = spotStatus[file];
       const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
-      const text  = isMain ? t('principal_port') : t(`go_popup.${st}`);
+      const text  = isMain
+        ? t('principal_port')
+        : (isBetaRoute(file) ? `${mapCopy().beta} · ${routeNote(file)}` : t(`go_popup.${st}`));
       const marker = L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(spotsLayer).bindPopup(`<b>${s.name}</b><br>${text}`);
       marker.on('click', ()=>{
         if (focusWindowForFile(file)) return;
+        if (showRoutePreview(file)) return;
         window.panToFile(file);
-        if (file === homeFile) resetMapSummary();
-        else setMapSummary(`📍 <strong>${escapeHtml(s.name)}</strong>`);
       });
     }
 
@@ -1189,9 +1252,8 @@
       e.preventDefault();
       const file = a.dataset.file;
       if (!focusWindowForFile(file)) {
+        if (showRoutePreview(file)) return;
         window.panToFile(file);
-        if (file === homeFile) resetMapSummary();
-        else setMapSummary(`📍 <strong>${escapeHtml(spotConfig[file]?.name || file)}</strong>`);
       }
     }
   });

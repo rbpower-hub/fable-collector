@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.0 — 2026-07-07
+- **Pantelleria beta publiée proprement** : la destination existe maintenant dans `sites.yaml`, est collectée, publiée dans les fichiers normalisés et visible dans le board.
+- **Beta offshore assumée côté produit** : Pantelleria est marquée `beta`, `offshore_beta` et `windows_enabled: false`, pour éviter de présenter de faux `GO` avant le vrai moteur offshore.
+- **Carte + corridor enrichis** : cliquer Pantelleria sur la carte ou dans le radar ouvre un aperçu de route avec distance, durée estimée et note produit, même sans fenêtre GO.
+- **Radar et infobulles clarifiés** : badge beta, pays, note de route et message explicite “moteur GO pas encore actif”.
+- **Reader debug protégé** : `reasons-debug.js` et le dashboard n’essaient plus d’évaluer les routes beta offshore comme des spots Family standards.
+
 ## 2.5.0 — 2026-07-06
 - **Durée de traversée pilotée par une hypothèse bateau** : le board n’utilise plus une durée fixe identique pour toutes les routes, mais une estimation calculée depuis la distance et `transit_speed_kts`.
 - **Hypothèse de vitesse explicite dans l’UI** : le résumé corridor affiche maintenant la fourchette retenue en nœuds, pour pouvoir l’ajuster facilement au bateau réel.

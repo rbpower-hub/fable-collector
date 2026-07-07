@@ -306,6 +306,11 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
             "name": site["name"], "slug": site["slug"], "lat": lat, "lon": lon, "tz": tz_name,
             "generated_at": dt.datetime.now(tz).isoformat(),
             "collector_version": __version__,
+            "windows_enabled": bool(site.get("windows_enabled", True)),
+            "beta": bool(site.get("beta", False)),
+            "route_kind": site.get("route_kind", "standard"),
+            "route_note": site.get("route_note"),
+            "country": site.get("country"),
             "window": {
                 "start_local": start_local.isoformat(),
                 "end_local": end_local.isoformat(),

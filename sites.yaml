@@ -59,3 +59,15 @@ sites:
     map_lat: 37.06300
     map_lon: 11.00800
     onshore_sectors: [[330, 360], [0, 70]]
+
+  - name: "Pantelleria"
+    lat: 36.83330
+    lon: 11.95000
+    map_lat: 36.83330
+    map_lon: 11.95000
+    country: Italy
+    beta: true
+    windows_enabled: false
+    route_kind: offshore_beta
+    route_note: "Beta offshore — météo brute et corridor visuel disponibles, moteur GO non encore activé."
+    transit_speed_kts: {min: 18, max: 24}

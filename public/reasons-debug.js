@@ -16,6 +16,7 @@ window.FABLE = window.FABLE || {};
 
   const rulesState = JSON.parse(JSON.stringify(DEFAULT_RULES));
   const siteRanges = new Map();
+  const siteMeta = new Map();
 
   async function loadJSON(path) {
     try {
@@ -67,13 +68,21 @@ window.FABLE = window.FABLE || {};
   function applySitesNormalized(normalized) {
     if (!normalized || !Array.isArray(normalized.sites)) return;
     siteRanges.clear();
+    siteMeta.clear();
     normalized.sites.forEach((site) => {
       const ranges = Array.isArray(site?.onshore_sectors) ? site.onshore_sectors : [[20, 160]];
       const path = String(site?.path || "");
       const slug = path.replace(/\.json$/i, "");
+      const meta = { windows_enabled: site?.windows_enabled !== false };
       if (path) siteRanges.set(path.toLowerCase(), ranges);
       if (slug) siteRanges.set(slug.toLowerCase(), ranges);
+      if (path) siteMeta.set(path.toLowerCase(), meta);
+      if (slug) siteMeta.set(slug.toLowerCase(), meta);
     });
+  }
+
+  function windowsEnabled(path) {
+    return siteMeta.get(String(path || "").toLowerCase())?.windows_enabled !== false;
   }
 
   NS.configure = function configure(options = {}) {
@@ -206,8 +215,9 @@ window.FABLE = window.FABLE || {};
 
   NS.debugReasons = async function debugReasons(paths, options = {}) {
     await ensureConfig(options);
-    const defaultPaths = Array.from(siteRanges.keys()).filter((key) => key.endsWith(".json"));
-    const list = paths && paths.length ? paths : defaultPaths;
+    const defaultPaths = Array.from(siteRanges.keys()).filter((key) => key.endsWith(".json") && windowsEnabled(key));
+    const requested = paths && paths.length ? paths : defaultPaths;
+    const list = requested.filter((path) => windowsEnabled(path));
     const rows = [];
 
     for (const path of list) {

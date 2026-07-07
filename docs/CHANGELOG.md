@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.1 — 2026-07-07
+- **Fallback Pantelleria réaligné** : la configuration front embarquée reflète maintenant le vrai statut `composite_beta` actif, même avant chargement des fichiers normalisés.
+- **Corridor composite plus lisible** : la carte affiche désormais un badge dédié par étape pour les routes multi-legs, avec durée et distance de chaque segment.
+- **Carte fenêtre enrichie** : le détail d’une fenêtre composite affiche maintenant `Étape 1` / `Étape 2` avec distances et temps de transit, en plus du résumé global.
+
 ## 2.8.0 — 2026-07-07
 - **Pantelleria passe en composite beta actif** : le moteur publie maintenant des fenêtres beta pour Pantelleria quand le transfert `Gammarth → Kelibia` puis la fenêtre `Kelibia → Pantelleria` s’alignent dans le forecast.
 - **Transfert vers Kelibia validé séparément** : le backend contrôle désormais le segment de convoyage via les checkpoints configurés (`Ras Fartass`, `El Haouaria`) avant d’autoriser la suite du plan.

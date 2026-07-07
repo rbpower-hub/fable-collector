@@ -392,7 +392,7 @@
     'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS,route_origin:null,route_points:[]},
     'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS,route_origin:null,route_points:[]},
     'kelibia.json':{name:'Kelibia',lat:36.8473,lon:11.0934,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:{min:18,max:24},route_origin:null,route_points:[{name:'Ras Fartass',lat:36.877,lon:10.613},{name:'El Haouaria',lat:37.063,lon:11.008}]},
-    'pantelleria.json':{name:'Pantelleria',lat:36.8333,lon:11.95,onshore_sectors:[[20,160]],shelter_bonus_radius_km:0,transit_speed_kts:{min:18,max:24},route_origin:'kelibia',route_points:[],windows_enabled:false,beta:true,route_kind:'offshore_beta',route_note:'Beta offshore via Kélibia — aperçu 2 segments disponible, moteur GO composite non encore activé.',country:'Italy'}
+    'pantelleria.json':{name:'Pantelleria',lat:36.8333,lon:11.95,onshore_sectors:[[20,160]],shelter_bonus_radius_km:0,transit_speed_kts:{min:18,max:24},route_origin:'kelibia',route_points:[],windows_enabled:true,beta:true,route_kind:'composite_beta',route_note:'Beta composite via Kélibia — GO seulement si le transfert Gammarth→Kélibia puis la fenêtre Kélibia→Pantelleria s’alignent.',country:'Italy'}
   };
   let spotConfig = { ...DEFAULT_SPOT_CONFIG };
   let homeFile = 'gammarth-port.json';
@@ -548,8 +548,8 @@
   const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const mapCopy = ()=> LANG==='en'
-    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Offshore beta', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', via:'via' }
-    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Beta offshore', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif', legs:'segments', via:'via' };
+    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Beta route', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', leg:'Leg', via:'via' }
+    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Route beta', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif', legs:'segments', leg:'Étape', via:'via' };
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
@@ -709,6 +709,46 @@
     else if(plan?.waypoint_names?.length) bits.push(`${copy.via} ${plan.waypoint_names.join(' → ')}`);
     return bits.join(' · ');
   }
+  function routeLegDetails(plan){
+    return Array.isArray(plan?.segments)
+      ? plan.segments.map((segment, idx)=>{
+          const distanceKm = Number(segment?.distance_km) || pathDistanceKm(segment?.points || []);
+          const transit = segment?.transit || routeTransitHoursForDistance(distanceKm, spotConfig[segment?.destFile]?.transit_speed_kts);
+          return {
+            index: idx + 1,
+            label: `${spotConfig[segment?.originFile]?.name || segment?.originFile} → ${spotConfig[segment?.destFile]?.name || segment?.destFile}`,
+            distance_km: distanceKm,
+            distance_nm: distanceKm / KM_PER_NM,
+            transit,
+            transit_label: formatDurationSpan(transit),
+            midpoint: pointAlongPath(segment?.points || []),
+          };
+        })
+      : [];
+  }
+  function routeLegSummaryHtml(plan){
+    const copy = mapCopy();
+    const legs = routeLegDetails(plan);
+    if(legs.length < 2) return '';
+    return legs.map(leg => `
+      <div class="row">🧭 <span class="k">${escapeHtml(`${copy.leg} ${leg.index}`)}</span> <span class="v">${escapeHtml(leg.label)} · ${leg.distance_km.toFixed(1)} km · ${leg.distance_nm.toFixed(1)} NM · ${escapeHtml(copy.transit)} ${escapeHtml(leg.transit_label)}</span></div>
+    `).join('');
+  }
+  function addRouteLegBadges(plan, layer){
+    const copy = mapCopy();
+    const legs = routeLegDetails(plan);
+    if(legs.length < 2) return;
+    legs.forEach(leg=>{
+      L.marker(leg.midpoint,{
+        icon: L.divIcon({
+          className:'anchor-badge trip',
+          html:`<div class="h">${escapeHtml(`${copy.leg} ${leg.index}`)}</div><div class="m">${escapeHtml(leg.transit_label)} · ${leg.distance_km.toFixed(0)} km</div>`,
+          iconSize:[150,48], iconAnchor:[75,24]
+        }),
+        interactive:false
+      }).addTo(layer);
+    });
+  }
   function currentSpotLatLngs(){
     return Object.values(spotConfig)
       .filter(s => Number.isFinite(s?.lat) && Number.isFinite(s?.lon))
@@ -757,6 +797,7 @@
         weight: 1,
       }).addTo(corridorLayer).bindTooltip(point.name || '', { direction:'top', offset:[0,-4] });
     });
+    addRouteLegBadges(plan, corridorLayer);
     const mid = pointAlongPath(plan.points);
     const dkm = plan.distance_km;
     const transitProfile = plan.transit;
@@ -1170,6 +1211,7 @@
           weight: 1,
         }).addTo(corridorLayer).bindTooltip(point.name || '', { direction:'top', offset:[0,-4] });
       });
+      addRouteLegBadges(routePlan, corridorLayer);
       
       // Midpoint for the final badge
       const mid = pointAlongPath(routePlan.points);
@@ -1202,6 +1244,7 @@
         <div class="tripline">
           <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${escapeHtml(routePlan.label)}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM${routeMeta ? ` · ${escapeHtml(routeMeta)}` : ''}</span></div>
           <div class="row">🧭 <span class="k">${escapeHtml(copy.speed)}</span> <span class="v">${escapeHtml(transitSpeedLabel)}</span></div>
+          ${routeLegSummaryHtml(routePlan)}
           ${composite
             ? `<div class="row">🧩 <span class="k">Composite</span> <span class="v">Transfert ${escapeHtml(fmtFriendly(composite.transfer_start))} · arrivée relai ${escapeHtml(fmtFriendly(composite.transfer_arrival_latest))} · attente ${escapeHtml(String(composite.staging_hours))} h</span></div>`
             : ''}

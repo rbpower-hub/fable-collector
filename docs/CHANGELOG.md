@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.0 — 2026-07-07
+- **Pantelleria passe en composite beta actif** : le moteur publie maintenant des fenêtres beta pour Pantelleria quand le transfert `Gammarth → Kelibia` puis la fenêtre `Kelibia → Pantelleria` s’alignent dans le forecast.
+- **Transfert vers Kelibia validé séparément** : le backend contrôle désormais le segment de convoyage via les checkpoints configurés (`Ras Fartass`, `El Haouaria`) avant d’autoriser la suite du plan.
+- **Fenêtres composites conservatrices** : Pantelleria ne passe plus sur un simple spot final favorable ; il faut désormais une séquence compatible entre le relais et la sortie offshore.
+- **UI alignée produit** : les routes beta continuent d’être exclues du faux debug standard, et les cartes de fenêtres affichent maintenant le pré-transfert composite.
+
 ## 2.7.0 — 2026-07-07
 - **Kelibia réintégrée comme port relais** : la collecte et les exports normalisés incluent désormais `kelibia`, en plus de Pantelleria beta.
 - **Itinéraires mer configurables** : `sites.yaml` accepte maintenant `route_origin` et `route_points` pour préparer des routes multi-legs sans tracer de ligne à travers les terres.

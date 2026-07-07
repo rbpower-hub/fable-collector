@@ -80,8 +80,9 @@ def test_load_sites_v2(repo_root):
     assert cfg.site("gammarth-port")["route_kind"] == "standard"
     assert len(cfg.site("kelibia")["route_points"]) == 2
     assert cfg.site("pantelleria")["route_origin"] == "kelibia"
-    assert cfg.site("pantelleria")["windows_enabled"] is False
+    assert cfg.site("pantelleria")["windows_enabled"] is True
     assert cfg.site("pantelleria")["beta"] is True
+    assert cfg.site("pantelleria")["route_kind"] == "composite_beta"
 
 
 def test_load_sites_v1_legacy(tmp_path):

@@ -84,8 +84,8 @@ sites:
     map_lon: 11.95000
     country: Italy
     beta: true
-    windows_enabled: false
+    windows_enabled: true
     route_origin: kelibia
-    route_kind: offshore_beta
-    route_note: "Beta offshore via Kélibia — aperçu 2 segments disponible, moteur GO composite non encore activé."
+    route_kind: composite_beta
+    route_note: "Beta composite via Kélibia — GO seulement si le transfert Gammarth→Kélibia puis la fenêtre Kélibia→Pantelleria s’alignent."
     transit_speed_kts: {min: 18, max: 24}

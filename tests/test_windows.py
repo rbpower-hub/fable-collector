@@ -127,6 +127,59 @@ def test_run_reader_skips_windows_disabled_route(tmp_path):
     assert "pantelleria.json" not in dests
 
 
+def test_run_reader_builds_composite_beta_window(tmp_path):
+    write_spot(tmp_path, "Gammarth (port)", "gammarth-port")
+    write_spot(tmp_path, "Ras Fartass", "ras-fartass")
+    write_spot(tmp_path, "El Haouaria", "el-haouaria")
+    kelibia = make_spot_json("Kelibia", "kelibia", DAY, 12)
+    kelibia["meta"]["transit_speed_kts"] = {"min": 18, "max": 24}
+    kelibia["meta"]["route_points"] = [
+        {"name": "Ras Fartass", "lat": 36.8770, "lon": 10.6130},
+        {"name": "El Haouaria", "lat": 37.0630, "lon": 11.0080},
+    ]
+    (tmp_path / "kelibia.json").write_text(json.dumps(kelibia), encoding="utf-8")
+    pantelleria = make_spot_json("Pantelleria", "pantelleria", DAY, 12)
+    pantelleria["meta"]["beta"] = True
+    pantelleria["meta"]["windows_enabled"] = True
+    pantelleria["meta"]["route_origin"] = "kelibia"
+    pantelleria["meta"]["route_kind"] = "composite_beta"
+    pantelleria["meta"]["transit_speed_kts"] = {"min": 18, "max": 24}
+    (tmp_path / "pantelleria.json").write_text(json.dumps(pantelleria), encoding="utf-8")
+
+    out = run_reader(tmp_path, tmp_path, "gammarth-port.json", 4, 6, rules=DEFAULT_RULES)
+    pant = next(w for w in out["windows"] if w["dest_slug"] == "pantelleria.json")
+    assert pant["windows"]
+    comp = pant["windows"][0]["composite"]
+    assert comp["route_origin"] == "kelibia.json"
+    assert comp["transfer_origin"] == "gammarth-port.json"
+    assert comp["transfer_hours"]["min"] > 0
+    assert pant["windows"][0]["reason"] == "valid_composite_beta"
+
+
+def test_composite_beta_requires_transfer_window(tmp_path):
+    write_spot(tmp_path, "Gammarth (port)", "gammarth-port")
+    write_spot(tmp_path, "Ras Fartass", "ras-fartass", wind=35.0, gusts=55.0, hs=1.4, tp=4.0)
+    write_spot(tmp_path, "El Haouaria", "el-haouaria")
+    kelibia = make_spot_json("Kelibia", "kelibia", DAY, 12)
+    kelibia["meta"]["transit_speed_kts"] = {"min": 18, "max": 24}
+    kelibia["meta"]["route_points"] = [
+        {"name": "Ras Fartass", "lat": 36.8770, "lon": 10.6130},
+        {"name": "El Haouaria", "lat": 37.0630, "lon": 11.0080},
+    ]
+    (tmp_path / "kelibia.json").write_text(json.dumps(kelibia), encoding="utf-8")
+    pantelleria = make_spot_json("Pantelleria", "pantelleria", DAY, 12)
+    pantelleria["meta"]["beta"] = True
+    pantelleria["meta"]["windows_enabled"] = True
+    pantelleria["meta"]["route_origin"] = "kelibia"
+    pantelleria["meta"]["route_kind"] = "composite_beta"
+    pantelleria["meta"]["transit_speed_kts"] = {"min": 18, "max": 24}
+    (tmp_path / "pantelleria.json").write_text(json.dumps(pantelleria), encoding="utf-8")
+
+    out = run_reader(tmp_path, tmp_path, "gammarth-port.json", 4, 6, rules=DEFAULT_RULES)
+    pant = next(w for w in out["windows"] if w["dest_slug"] == "pantelleria.json")
+    assert pant["windows"] == []
+
+
 def test_reader_on_real_v1_payload(tmp_path, ras_fartass_payload):
     """Real recorded production payload (Oct 2025) must load & evaluate."""
     p = tmp_path / "ras-fartass.json"

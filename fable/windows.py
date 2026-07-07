@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import math
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -22,7 +23,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .config import DEFAULT_ONSHORE_SECTORS, LEGACY_ONSHORE_SECTORS, load_rules, window_bounds
-from .util import angle_in_ranges, dget
+from .util import angle_in_ranges, dget, slugify
 
 log = logging.getLogger("fable.windows")
 
@@ -107,12 +108,17 @@ class Thresholds:
 class Site:
     name: str
     slug: str
+    lat: float
+    lon: float
     tz: ZoneInfo
     times: list[dt.datetime]
     wind_models: dict[str, dict[str, list[float | None]]]
     waves: dict[str, list[float | None]]
     waves_models: dict[str, dict[str, list[float | None]]]
     onshore_sectors: list[tuple[int, int]]
+    transit_speed_kts: dict[str, float] | None
+    route_origin: str | None
+    route_points: list[dict[str, Any]]
     windows_enabled: bool
     path: Path
 
@@ -165,6 +171,50 @@ def _sectors_from_meta(meta: dict[str, Any], slug: str) -> list[tuple[int, int]]
             return out
     key = slug.replace(".json", "").lower()
     return LEGACY_ONSHORE_SECTORS.get(key, DEFAULT_ONSHORE_SECTORS)
+
+
+def _transit_speed_from_meta(meta: dict[str, Any]) -> dict[str, float] | None:
+    raw = meta.get("transit_speed_kts")
+    if isinstance(raw, dict):
+        lo = raw.get("min")
+        hi = raw.get("max")
+    elif isinstance(raw, (list, tuple)) and len(raw) == 2:
+        lo, hi = raw
+    else:
+        return None
+    try:
+        lo_f = float(lo)
+        hi_f = float(hi)
+    except Exception:
+        return None
+    lo_f, hi_f = min(lo_f, hi_f), max(lo_f, hi_f)
+    if lo_f <= 0 or hi_f <= 0:
+        return None
+    return {"min": lo_f, "max": hi_f}
+
+
+def _route_points_from_meta(meta: dict[str, Any]) -> list[dict[str, Any]]:
+    raw = meta.get("route_points")
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for point in raw:
+        if not isinstance(point, dict):
+            continue
+        try:
+            lat = float(point["lat"])
+            lon = float(point["lon"])
+        except Exception:
+            continue
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        out.append({
+            "lat": lat,
+            "lon": lon,
+            "name": (str(point.get("name", "")).strip() or None),
+            "slug": (slugify(str(point.get("slug", "")).strip()) or None),
+        })
+    return out
 
 
 def load_site(path: Path) -> Site | None:
@@ -230,6 +280,8 @@ def load_site(path: Path) -> Site | None:
     return Site(
         name=meta.get("name", meta.get("site_name", path.stem)),
         slug=slug,
+        lat=float(meta.get("lat", 0.0)),
+        lon=float(meta.get("lon", 0.0)),
         tz=tz,
         times=times,
         wind_models=wind_models,
@@ -239,6 +291,9 @@ def load_site(path: Path) -> Site | None:
         },
         waves_models=waves_models,
         onshore_sectors=_sectors_from_meta(meta, slug),
+        transit_speed_kts=_transit_speed_from_meta(meta),
+        route_origin=(slugify(str(meta.get("route_origin", "")).strip()) or None),
+        route_points=_route_points_from_meta(meta),
         windows_enabled=bool(meta.get("windows_enabled", True)),
         path=path,
     )
@@ -447,6 +502,148 @@ def compute_confidence(site: Site, i0: int, i1: int, th: Thresholds) -> str:
     return result
 
 
+def _confidence_rank(value: str) -> int:
+    return {"Low": 1, "Medium": 2, "High": 3}.get(value, 0)
+
+
+def _min_confidence(values: Sequence[str]) -> str:
+    cleaned = [v for v in values if v]
+    if not cleaned:
+        return "Low"
+    return min(cleaned, key=_confidence_rank)
+
+
+def _route_site_key(point: dict[str, Any], sites: dict[str, Site]) -> str | None:
+    slug = point.get("slug")
+    if slug:
+        fname = f"{slug}.json"
+        if fname in sites:
+            return fname
+    name = point.get("name")
+    if name:
+        fname = f"{slugify(name)}.json"
+        if fname in sites:
+            return fname
+    lat = point.get("lat")
+    lon = point.get("lon")
+    if lat is None or lon is None:
+        return None
+    for fname, site in sites.items():
+        if abs(site.lat - float(lat)) < 0.02 and abs(site.lon - float(lon)) < 0.02:
+            return fname
+    return None
+
+
+def _route_checkpoints(origin: Site, dest: Site, sites: dict[str, Site]) -> list[Site]:
+    checkpoints = [origin]
+    for point in dest.route_points:
+        key = _route_site_key(point, sites)
+        if key and key in sites and all(existing.path != sites[key].path for existing in checkpoints):
+            checkpoints.append(sites[key])
+    if all(existing.path != dest.path for existing in checkpoints):
+        checkpoints.append(dest)
+    return checkpoints
+
+
+def _dist_km(a: dict[str, float], b: dict[str, float]) -> float:
+    lat1 = math.radians(float(a["lat"]))
+    lat2 = math.radians(float(b["lat"]))
+    d_lat = lat2 - lat1
+    d_lon = math.radians(float(b["lon"]) - float(a["lon"]))
+    x = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lon / 2) ** 2
+    return 6371.0 * 2 * math.asin(math.sqrt(x))
+
+
+def _route_distance_km(origin: Site, dest: Site) -> float:
+    points = [{"lat": origin.lat, "lon": origin.lon}]
+    points.extend({"lat": p["lat"], "lon": p["lon"]} for p in dest.route_points)
+    points.append({"lat": dest.lat, "lon": dest.lon})
+    total = 0.0
+    for i in range(1, len(points)):
+        total += _dist_km(points[i - 1], points[i])
+    return total
+
+
+def _route_transit_profile(origin: Site, dest: Site) -> tuple[float, float]:
+    speed = dest.transit_speed_kts or {"min": 16.0, "max": 24.0}
+    distance_nm = _route_distance_km(origin, dest) / 1.852
+    return distance_nm / float(speed["max"]), distance_nm / float(speed["min"])
+
+
+def detect_transfer_windows(origin: Site, dest: Site, checkpoints: list[Site], th: Thresholds) -> list[dict[str, Any]]:
+    if not checkpoints:
+        return []
+    min_h, max_h = _route_transit_profile(origin, dest)
+    span_hours = max(1, math.ceil(max_h))
+    n = min(len(site.times) for site in checkpoints)
+    windows: list[dict[str, Any]] = []
+    i = 0
+    while i + span_hours <= n:
+        j = i + span_hours - 1
+        ok = True
+        confs = []
+        for site in checkpoints:
+            if not has_wind_range(site, i, j):
+                ok = False
+                break
+            for idx in range(i, j + 1):
+                hour_ok, _ = hour_ok_for_phase(site, idx, "transit", th)
+                if not hour_ok:
+                    ok = False
+                    break
+            if not ok:
+                break
+            confs.append(compute_confidence(site, i, j, th))
+        if ok:
+            start_dt = origin.times[i]
+            windows.append({
+                "start": start_dt.isoformat(),
+                "arrival_earliest": (start_dt + dt.timedelta(hours=min_h)).isoformat(),
+                "arrival_latest": (start_dt + dt.timedelta(hours=max_h)).isoformat(),
+                "hours": {"min": round(min_h, 2), "max": round(max_h, 2)},
+                "confidence": _min_confidence(confs),
+                "category": "family" if _all_in_family_hours(origin.times[i:j + 1], origin.tz, th) else "off_hours",
+                "checkpoints": [site.slug for site in checkpoints],
+            })
+        i += 1
+    return windows
+
+
+def combine_composite_windows(home: Site, relay: Site, dest: Site, relay_windows: list[dict[str, Any]],
+                              offshore_windows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for ow in offshore_windows:
+        start_dt = dt.datetime.fromisoformat(ow["start"])
+        eligible = []
+        for rw in relay_windows:
+            arrival_latest = dt.datetime.fromisoformat(rw["arrival_latest"])
+            if arrival_latest <= start_dt:
+                eligible.append(rw)
+        if not eligible:
+            continue
+        transfer = max(eligible, key=lambda item: item["arrival_latest"])
+        transfer_arrival = dt.datetime.fromisoformat(transfer["arrival_latest"])
+        staging_hours = max(0.0, (start_dt - transfer_arrival).total_seconds() / 3600.0)
+        out.append({
+            **ow,
+            "confidence": _min_confidence([ow.get("confidence", "Low"), transfer.get("confidence", "Low")]),
+            "category": "family" if ow.get("category") == "family" and transfer.get("category") == "family" else "off_hours",
+            "reason": "valid_composite_beta",
+            "composite": {
+                "transfer_origin": f"{home.slug}.json",
+                "route_origin": f"{relay.slug}.json",
+                "transfer_start": transfer["start"],
+                "transfer_arrival_earliest": transfer["arrival_earliest"],
+                "transfer_arrival_latest": transfer["arrival_latest"],
+                "transfer_hours": transfer["hours"],
+                "transfer_confidence": transfer["confidence"],
+                "transfer_category": transfer["category"],
+                "staging_hours": round(staging_hours, 2),
+            },
+        })
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Window detection
 # ---------------------------------------------------------------------------
@@ -606,7 +803,18 @@ def run_reader(from_dir: Path, out_dir: Path, home_slug: str | None,
         if fname != home_slug and not dest.windows_enabled:
             log.info("skipped (windows disabled): %s", fname)
             continue
-        wins = detect_windows(home, dest, min_h=min_h, max_h=max_h, th=th)
+        if fname != home_slug and dest.route_origin:
+            relay_fname = f"{dest.route_origin}.json"
+            relay = sites.get(relay_fname)
+            if relay is None:
+                log.warning("composite route origin not found for %s: %s", fname, relay_fname)
+                wins = []
+            else:
+                transfer_windows = detect_transfer_windows(home, relay, _route_checkpoints(home, relay, sites), th)
+                offshore_windows = detect_windows(relay, dest, min_h=min_h, max_h=max_h, th=th)
+                wins = combine_composite_windows(home, relay, dest, transfer_windows, offshore_windows)
+        else:
+            wins = detect_windows(home, dest, min_h=min_h, max_h=max_h, th=th)
         out["windows"].append({"dest_slug": fname, "dest_name": dest.name, "windows": wins})
 
     out_dir.mkdir(parents=True, exist_ok=True)

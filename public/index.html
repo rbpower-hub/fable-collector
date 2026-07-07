@@ -538,6 +538,7 @@
   let LANG = localStorage.getItem('lang') || 'fr';
   let muted = localStorage.getItem('mute') === '1';
   let lastWinsKey = new Set();
+  let windowRecordIndex = new Map();
 
   const $ = sel => document.querySelector(sel);
   const mapSummaryEl = $('#mapSummary');
@@ -1004,7 +1005,7 @@
       winData = { generated_at: new Date().toISOString(), windows: synthesized };
     }
 
-    const activeWindowFiles = liveFiles.filter(file => spotConfig[file]?.windows_enabled !== false);
+    const activeWindowFiles = liveFiles.filter(file => spotConfig[file]?.windows_enabled !== false && !spotConfig[file]?.beta);
     const reasonsRows = (window.FABLE?.debugReasons)
       ? await FABLE.debugReasons(activeWindowFiles, { rulesNormalized, sitesNormalized })
       : [];
@@ -1036,6 +1037,7 @@
     const winsCard = document.querySelector('.card.wins');
     const nowWinsKey = new Set();
 
+    windowRecordIndex = new Map();
     const winItems = (winData?.windows || [])
       .flatMap(dest => (dest.windows||[]).map(seg => {
         const cat = String(seg.category || dest.category || '').toLowerCase();
@@ -1075,6 +1077,7 @@
           : '';
 
         const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
+        windowRecordIndex.set(key, { dest, seg });
         const goTxt = isOffHours ? 'GO (hors horaires)' : 'FAMILY GO';
         const goCls = 'family';
         nowWinsKey.add(key);
@@ -1124,6 +1127,8 @@
       const start = cardEl.dataset.start;
       const end   = cardEl.dataset.end;
       if(!slug || !start || !end) return;
+      const record = windowRecordIndex.get(`${slug}|${start}|${end}`) || null;
+      const composite = record?.seg?.composite || null;
     
       const originFile = homeFile;
       const origin = spotConfig[originFile];
@@ -1174,7 +1179,8 @@
       const dnm = dkm / KM_PER_NM;
       
       const wGo  = await windAt(slug, start);      // wind at destination (start)
-      const wRet = requiresReturn ? await windAt(originFile, end) : null;  // wind at port (end)
+      const returnFile = composite?.route_origin || originFile;
+      const wRet = requiresReturn ? await windAt(returnFile, end) : null;  // wind at port (end)
       
       const arrowFor = c => ({N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'})[c] || '•';
       const windTxt = (o)=>{
@@ -1196,6 +1202,9 @@
         <div class="tripline">
           <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${escapeHtml(routePlan.label)}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM${routeMeta ? ` · ${escapeHtml(routeMeta)}` : ''}</span></div>
           <div class="row">🧭 <span class="k">${escapeHtml(copy.speed)}</span> <span class="v">${escapeHtml(transitSpeedLabel)}</span></div>
+          ${composite
+            ? `<div class="row">🧩 <span class="k">Composite</span> <span class="v">Transfert ${escapeHtml(fmtFriendly(composite.transfer_start))} · arrivée relai ${escapeHtml(fmtFriendly(composite.transfer_arrival_latest))} · attente ${escapeHtml(String(composite.staging_hours))} h</span></div>`
+            : ''}
           <div class="row">⚓ <span class="k">${escapeHtml(anchorLabel)}</span> <span class="v">fenetre cible sur zone</span></div>
           <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windTxt(wGo)}</span></div>
           ${requiresReturn

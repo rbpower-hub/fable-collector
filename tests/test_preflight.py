@@ -23,9 +23,10 @@ def test_preflight_ok_on_repo(repo_root, tmp_path, capsys):
     kelibia = next(site for site in sn["sites"] if site["slug"] == "kelibia")
     assert len(kelibia["route_points"]) == 2
     pantelleria = next(site for site in sn["sites"] if site["slug"] == "pantelleria")
-    assert pantelleria["windows_enabled"] is False
+    assert pantelleria["windows_enabled"] is True
     assert pantelleria["beta"] is True
     assert pantelleria["route_origin"] == "kelibia"
+    assert pantelleria["route_kind"] == "composite_beta"
 
 
 def test_preflight_fails_cleanly_on_corrupt_rule_type(tmp_path, capsys):

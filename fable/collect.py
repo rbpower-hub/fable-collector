@@ -306,6 +306,7 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
             "name": site["name"], "slug": site["slug"], "lat": lat, "lon": lon, "tz": tz_name,
             "generated_at": dt.datetime.now(tz).isoformat(),
             "collector_version": __version__,
+            "transit_speed_kts": site.get("transit_speed_kts"),
             "route_origin": site.get("route_origin"),
             "route_points": site.get("route_points") or [],
             "windows_enabled": bool(site.get("windows_enabled", True)),

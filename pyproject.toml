@@ -1,6 +1,6 @@
 [project]
 name = "fable-collector"
-version = "2.6.1"
+version = "2.7.0"
 description = "Collecteur météo marine Open-Meteo + détection de fenêtres Family GO pour ports tunisiens (FABLE AI)"
 requires-python = ">=3.10"
 dependencies = [

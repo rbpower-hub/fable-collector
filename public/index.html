@@ -386,11 +386,13 @@
   // Spots & config
   const DEFAULT_TRANSIT_SPEED_KTS = { min: 16, max: 24 };
   const DEFAULT_SPOT_CONFIG = {
-    'gammarth-port.json':{name:'Gammarth Port',lat:36.921,lon:10.310,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
-    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.865,lon:10.351,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
-    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.177,lon:10.280,onshore_sectors:[[10,130]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
-    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS},
-    'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS}
+    'gammarth-port.json':{name:'Gammarth Port',lat:36.921,lon:10.310,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS,route_origin:null,route_points:[]},
+    'sidi-bou-said.json':{name:'Sidi Bou Saïd',lat:36.865,lon:10.351,onshore_sectors:[[30,150]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS,route_origin:null,route_points:[]},
+    'ghar-el-melh.json':{name:'Ghar el Melh',lat:37.177,lon:10.280,onshore_sectors:[[10,130]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS,route_origin:null,route_points:[]},
+    'ras-fartass.json':{name:'Ras Fartass',lat:36.877,lon:10.613,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS,route_origin:null,route_points:[]},
+    'el-haouaria.json':{name:'El Haouaria',lat:37.063,lon:11.008,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:DEFAULT_TRANSIT_SPEED_KTS,route_origin:null,route_points:[]},
+    'kelibia.json':{name:'Kelibia',lat:36.8473,lon:11.0934,onshore_sectors:[[330,360],[0,70]],shelter_bonus_radius_km:0,transit_speed_kts:{min:18,max:24},route_origin:null,route_points:[{name:'Ras Fartass',lat:36.877,lon:10.613},{name:'El Haouaria',lat:37.063,lon:11.008}]},
+    'pantelleria.json':{name:'Pantelleria',lat:36.8333,lon:11.95,onshore_sectors:[[20,160]],shelter_bonus_radius_km:0,transit_speed_kts:{min:18,max:24},route_origin:'kelibia',route_points:[],windows_enabled:false,beta:true,route_kind:'offshore_beta',route_note:'Beta offshore via Kélibia — aperçu 2 segments disponible, moteur GO composite non encore activé.',country:'Italy'}
   };
   let spotConfig = { ...DEFAULT_SPOT_CONFIG };
   let homeFile = 'gammarth-port.json';
@@ -453,28 +455,75 @@
   // petite haversine
   const R_EARTH = 6371, KM_PER_NM = 1.852;
   const toRad = d=>d*Math.PI/180;
+  const fileFromSlug = value => `${String(value || '').replace(/\.json$/i,'')}.json`;
+  const lonOf = point => Number(point?.lon ?? point?.lng);
   function distKm(a,b){
-    const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);
-    const la1=toRad(a.lat), la2=toRad(b.lat);
+    const latA = Number(a?.lat), latB = Number(b?.lat);
+    const lonA = lonOf(a), lonB = lonOf(b);
+    if(![latA, latB, lonA, lonB].every(Number.isFinite)) return 0;
+    const dLat=toRad(latB-latA), dLon=toRad(lonB-lonA);
+    const la1=toRad(latA), la2=toRad(latB);
     const x=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
     return 2*R_EARTH*Math.asin(Math.sqrt(x));
+  }
+  function pathDistanceKm(points){
+    if(!Array.isArray(points) || points.length < 2) return 0;
+    let total = 0;
+    for(let i=1; i<points.length; i++) total += distKm(points[i-1], points[i]);
+    return total;
+  }
+  function pointAlongPath(points, ratio = 0.5){
+    if(!Array.isArray(points) || !points.length) return [0, 0];
+    if(points.length === 1) return [points[0].lat, lonOf(points[0])];
+    const total = pathDistanceKm(points);
+    if(total <= 0) return [points[0].lat, lonOf(points[0])];
+    const target = total * Math.min(1, Math.max(0, ratio));
+    let walked = 0;
+    for(let i=1; i<points.length; i++){
+      const seg = distKm(points[i-1], points[i]);
+      if(walked + seg >= target){
+        const u = (target - walked) / (seg || 1);
+        return [
+          points[i-1].lat + (points[i].lat - points[i-1].lat) * u,
+          lonOf(points[i-1]) + (lonOf(points[i]) - lonOf(points[i-1])) * u,
+        ];
+      }
+      walked += seg;
+    }
+    const last = points[points.length-1];
+    return [last.lat, lonOf(last)];
   }
   
   // ⛵ animate from A→B or B→A; returns a Promise (finishes ~1.3s = 30% slower)
   function animateBoat(line, { direction = 1, duration = 1300 } = {}){
       return new Promise(resolve=>{
-        const [A,B] = line.getLatLngs();
-        const start = (direction===1)? A : B;
-        const end   = (direction===1)? B : A;
+        let points = line.getLatLngs();
+        if(Array.isArray(points[0])) points = points.flat();
+        if(!Array.isArray(points) || points.length < 2){ resolve(); return; }
+        const seq = direction===1 ? points : [...points].reverse();
+        const cumulative = [0];
+        for(let i=1; i<seq.length; i++){
+          cumulative[i] = cumulative[i-1] + distKm(seq[i-1], seq[i]);
+        }
+        const total = cumulative[cumulative.length - 1];
+        if(total <= 0){ resolve(); return; }
     
         const icon = L.divIcon({ className:'boat-icon', html:'⛵' });
-        const boat = L.marker(start, { icon, interactive:false }).addTo(corridorLayer);
+        const boat = L.marker(seq[0], { icon, interactive:false }).addTo(corridorLayer);
     
         const t0 = performance.now();
         const step = (now)=>{
           const u = Math.min(1, (now - t0) / duration);          // 0→1
-          const lat = start.lat + (end.lat - start.lat) * u;
-          const lng = start.lng + (end.lng - start.lng) * u;
+          const target = total * u;
+          let segIdx = 1;
+          while(segIdx < cumulative.length && cumulative[segIdx] < target) segIdx += 1;
+          const start = seq[Math.max(0, segIdx - 1)];
+          const end   = seq[Math.min(seq.length - 1, segIdx)];
+          const segStart = cumulative[Math.max(0, segIdx - 1)];
+          const segLen = Math.max(0, cumulative[Math.min(cumulative.length - 1, segIdx)] - segStart);
+          const local = segLen > 0 ? (target - segStart) / segLen : 0;
+          const lat = start.lat + (end.lat - start.lat) * local;
+          const lng = start.lng + (end.lng - start.lng) * local;
           boat.setLatLng([lat, lng]);
     
           if(u < 1) requestAnimationFrame(step);
@@ -498,8 +547,8 @@
   const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const mapCopy = ()=> LANG==='en'
-    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Offshore beta', preview:'Route preview', goDisabled:'GO engine not active yet' }
-    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Beta offshore', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif' };
+    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Offshore beta', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', via:'via' }
+    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Beta offshore', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif', legs:'segments', via:'via' };
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
@@ -549,15 +598,115 @@
     return `${Math.round(speed.min)}–${Math.round(speed.max)} ${copy.knots}`;
   }
   const corridorLegLabel = key => formatDurationSpan(corridorLegs()[key]);
-  function routeTransitHours(origin, dest){
-    if(!origin || !dest || origin === dest) return { min: 0, max: 0, speed_kts: null };
-    const speed = normalizeSpeedRange(dest.transit_speed_kts);
-    const distanceNm = distKm(origin, dest) / KM_PER_NM;
+  function routeTransitHoursForDistance(distanceKm, speedRange){
+    const speed = normalizeSpeedRange(speedRange);
+    const distanceNm = distanceKm / KM_PER_NM;
     return {
       min: distanceNm / speed.max,
       max: distanceNm / speed.min,
       speed_kts: speed
     };
+  }
+  function routeTransitHours(origin, dest, points = null){
+    if(!origin || !dest || origin === dest) return { min: 0, max: 0, speed_kts: null };
+    const distanceKm = Array.isArray(points) && points.length > 1 ? pathDistanceKm(points) : distKm(origin, dest);
+    return routeTransitHoursForDistance(distanceKm, dest.transit_speed_kts);
+  }
+  function normalizeRoutePoints(points){
+    return Array.isArray(points)
+      ? points
+          .map(point => ({
+            lat: Number(point?.lat),
+            lon: Number(point?.lon ?? point?.lng),
+            name: String(point?.name || '').trim() || null,
+          }))
+          .filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lon))
+      : [];
+  }
+  function routeOriginFile(file){
+    const candidate = spotConfig[file]?.route_origin ? fileFromSlug(spotConfig[file].route_origin) : homeFile;
+    return (candidate && spotConfig[candidate] && candidate !== file) ? candidate : homeFile;
+  }
+  function routeSegmentsForFile(file, trail = new Set()){
+    if(!file || file === homeFile || trail.has(file) || !spotConfig[file]) return [];
+    const nextTrail = new Set(trail);
+    nextTrail.add(file);
+    const originFile = routeOriginFile(file);
+    const prefix = originFile !== homeFile ? routeSegmentsForFile(originFile, nextTrail) : [];
+    const origin = spotConfig[originFile] || spotConfig[homeFile];
+    const dest = spotConfig[file];
+    if(!origin || !dest) return prefix;
+    return [...prefix, {
+      originFile,
+      destFile: file,
+      points: [
+        { lat: origin.lat, lon: origin.lon, name: origin.name, file: originFile },
+        ...normalizeRoutePoints(dest.route_points),
+        { lat: dest.lat, lon: dest.lon, name: dest.name, file },
+      ],
+    }];
+  }
+  function routePlanForFile(file){
+    if(!spotConfig[file]) return null;
+    if(file === homeFile){
+      const home = spotConfig[file];
+      return {
+        file,
+        segments: [],
+        points: [{ lat: home.lat, lon: home.lon, name: home.name, file }],
+        distance_km: 0,
+        transit: { min: 0, max: 0, speed_kts: null },
+        port_names: [home.name],
+        stopover_names: [],
+        waypoint_names: [],
+        label: home.name,
+      };
+    }
+    const segments = routeSegmentsForFile(file);
+    const points = [];
+    const portNames = [];
+    const waypointNames = [];
+    const transit = { min: 0, max: 0, speed_kts: null };
+    let distanceKm = 0;
+    segments.forEach((segment, segIdx)=>{
+      const segPoints = segment.points;
+      const segDistance = pathDistanceKm(segPoints);
+      const segTransit = routeTransitHoursForDistance(segDistance, spotConfig[segment.destFile]?.transit_speed_kts);
+      segment.distance_km = segDistance;
+      segment.transit = segTransit;
+      distanceKm += segDistance;
+      transit.min += segTransit.min;
+      transit.max += segTransit.max;
+      transit.speed_kts = segTransit.speed_kts;
+      segPoints.forEach((point, pointIdx)=>{
+        if(segIdx > 0 && pointIdx === 0) return;
+        points.push(point);
+      });
+      if(segIdx === 0) portNames.push(spotConfig[segment.originFile]?.name || segment.originFile);
+      portNames.push(spotConfig[segment.destFile]?.name || segment.destFile);
+      normalizeRoutePoints(spotConfig[segment.destFile]?.route_points).forEach(point=>{
+        if(point.name) waypointNames.push(point.name);
+      });
+    });
+    return {
+      file,
+      segments,
+      points,
+      distance_km: distanceKm,
+      transit,
+      port_names: portNames,
+      stopover_names: portNames.slice(1, -1),
+      waypoint_names: [...new Set(waypointNames)],
+      label: portNames.join(' → '),
+    };
+  }
+  function routeMetaSummary(plan){
+    const copy = mapCopy();
+    const bits = [];
+    if((plan?.segments?.length || 0) > 1) bits.push(`${plan.segments.length} ${copy.legs}`);
+    if(plan?.stopover_names?.length) bits.push(`${copy.via} ${plan.stopover_names.join(' → ')}`);
+    else if(plan?.waypoint_names?.length) bits.push(`${copy.via} ${plan.waypoint_names.join(' → ')}`);
+    return bits.join(' · ');
   }
   function currentSpotLatLngs(){
     return Object.values(spotConfig)
@@ -584,37 +733,48 @@
     return spotConfig[file]?.route_note || (isBetaRoute(file) ? `${mapCopy().beta} — ${mapCopy().goDisabled}.` : '');
   }
   function showRoutePreview(file){
-    const origin = spotConfig[homeFile];
-    const dest = spotConfig[file];
-    if(!origin || !dest) return false;
+    const plan = routePlanForFile(file);
+    if(!plan) return false;
     corridorLayer.clearLayers();
     if(file === homeFile){
       resetMapSummary();
-      map.setView([origin.lat, origin.lon], 14, {animate:true});
+      const home = spotConfig[homeFile];
+      map.setView([home.lat, home.lon], 14, {animate:true});
       return true;
     }
     const accentToken = isBetaRoute(file) ? '--warn' : '--accent';
     const color = getComputedStyle(document.documentElement).getPropertyValue(accentToken).trim() || '#4cc9f0';
-    const lineAB = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
+    const lineAB = L.polyline(plan.points.map(point => [point.lat, point.lon]),{
       color, weight:3, opacity:.9, dashArray:'6,6'
     }).addTo(corridorLayer);
-    const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
-    const dkm = distKm(origin, dest);
-    const transitProfile = routeTransitHours(origin, dest);
+    plan.points.slice(1, -1).forEach(point=>{
+      L.circleMarker([point.lat, point.lon], {
+        radius: 4,
+        color,
+        fillColor: color,
+        fillOpacity: 0.95,
+        weight: 1,
+      }).addTo(corridorLayer).bindTooltip(point.name || '', { direction:'top', offset:[0,-4] });
+    });
+    const mid = pointAlongPath(plan.points);
+    const dkm = plan.distance_km;
+    const transitProfile = plan.transit;
     const transitLabel = formatDurationSpan(transitProfile);
     const speedLabel = formatSpeedSpan(transitProfile.speed_kts);
     const copy = mapCopy();
     const note = routeNote(file);
+    const routeMeta = routeMetaSummary(plan);
     setMapSummary(
       `${isBetaRoute(file)?'🧪':'⛵'} <strong>${escapeHtml(isBetaRoute(file)?copy.beta:copy.preview)}</strong> · ` +
-      `${escapeHtml(origin.name)} → ${escapeHtml(dest.name)} · ${dkm.toFixed(1)} km · ` +
+      `${escapeHtml(plan.label)} · ${dkm.toFixed(1)} km · ` +
       `${escapeHtml(copy.transit)} ${escapeHtml(transitLabel)} · ${escapeHtml(copy.speed)} ${escapeHtml(speedLabel)}` +
+      `${routeMeta ? ` · ${escapeHtml(routeMeta)}` : ''}` +
       `${note ? ` · ${escapeHtml(note)}` : ''}`
     );
     L.marker(mid,{
       icon: L.divIcon({
         className:'anchor-badge trip',
-        html:`<div class="h">${escapeHtml(transitLabel)}</div><div class="m">${escapeHtml(isBetaRoute(file)?copy.beta:copy.preview)}</div>`,
+        html:`<div class="h">${escapeHtml(transitLabel)}</div><div class="m">${escapeHtml(plan.segments.length > 1 ? `${plan.segments.length} ${copy.legs}` : (isBetaRoute(file)?copy.beta:copy.preview))}</div>`,
         iconSize:[180,52], iconAnchor:[90,26]
       }),
       interactive:false
@@ -634,6 +794,8 @@
         onshore_sectors: Array.isArray(site.onshore_sectors) ? site.onshore_sectors : [],
         shelter_bonus_radius_km: Number(site.shelter_bonus_radius_km || 0),
         transit_speed_kts: normalizeSpeedRange(site.transit_speed_kts),
+        route_origin: site.route_origin || null,
+        route_points: normalizeRoutePoints(site.route_points),
         windows_enabled: site.windows_enabled !== false,
         beta: Boolean(site.beta),
         route_kind: String(site.route_kind || 'standard'),
@@ -966,8 +1128,9 @@
       const originFile = homeFile;
       const origin = spotConfig[originFile];
       const dest   = spotConfig[slug];
-      if(!origin || !dest) return;
-      const transitProfile = routeTransitHours(origin, dest);
+      const routePlan = routePlanForFile(slug);
+      if(!origin || !dest || !routePlan) return;
+      const transitProfile = routePlan.transit;
       const transitOutLabel = formatDurationSpan(transitProfile);
       const transitBackLabel = transitOutLabel;
       const transitSpeedLabel = formatSpeedSpan(transitProfile.speed_kts);
@@ -990,15 +1153,24 @@
       const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4cc9f0';
     
       // Single dashed corridor
-      const lineAB = L.polyline([[origin.lat,origin.lon],[dest.lat,dest.lon]],{
+      const lineAB = L.polyline(routePlan.points.map(point => [point.lat, point.lon]),{
         color:ACCENT, weight:3, opacity:.9, dashArray:'6,6'
       }).addTo(corridorLayer);
+      routePlan.points.slice(1, -1).forEach(point=>{
+        L.circleMarker([point.lat, point.lon], {
+          radius: 4,
+          color: ACCENT,
+          fillColor: ACCENT,
+          fillOpacity: 0.95,
+          weight: 1,
+        }).addTo(corridorLayer).bindTooltip(point.name || '', { direction:'top', offset:[0,-4] });
+      });
       
       // Midpoint for the final badge
-      const mid=[(origin.lat+dest.lat)/2,(origin.lon+dest.lon)/2];
+      const mid = pointAlongPath(routePlan.points);
       
       // Distance + winds
-      const dkm = distKm(origin, dest);
+      const dkm = routePlan.distance_km;
       const dnm = dkm / KM_PER_NM;
       
       const wGo  = await windAt(slug, start);      // wind at destination (start)
@@ -1019,9 +1191,10 @@
       document.querySelectorAll('.tripline').forEach(n=>n.remove());
       const originName = spotConfig[originFile].name;
       const copy = mapCopy();
+      const routeMeta = routeMetaSummary(routePlan);
       cardEl.insertAdjacentHTML('beforeend', `
         <div class="tripline">
-          <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${originName} → ${dest.name}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM</span></div>
+          <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${escapeHtml(routePlan.label)}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM${routeMeta ? ` · ${escapeHtml(routeMeta)}` : ''}</span></div>
           <div class="row">🧭 <span class="k">${escapeHtml(copy.speed)}</span> <span class="v">${escapeHtml(transitSpeedLabel)}</span></div>
           <div class="row">⚓ <span class="k">${escapeHtml(anchorLabel)}</span> <span class="v">fenetre cible sur zone</span></div>
           <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windTxt(wGo)}</span></div>
@@ -1031,9 +1204,10 @@
         </div>
       `);
       setMapSummary(
-        `⛵ <strong>${escapeHtml(copy.corridor)}</strong> · ${escapeHtml(originName)} → ${escapeHtml(dest.name)} · ` +
+        `⛵ <strong>${escapeHtml(copy.corridor)}</strong> · ${escapeHtml(routePlan.label)} · ` +
         `${dkm.toFixed(1)} km · ${escapeHtml(copy.transit)} ${escapeHtml(transitOutLabel)} · ` +
         `${escapeHtml(copy.speed)} ${escapeHtml(transitSpeedLabel)} · ${escapeHtml(copy.anchor)} ${escapeHtml(anchorLabel)}` +
+        `${routeMeta ? ` · ${escapeHtml(routeMeta)}` : ''}` +
         `${requiresReturn ? ` · ${escapeHtml(copy.ret)} ${escapeHtml(transitBackLabel)}` : ''}`
       );
       

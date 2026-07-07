@@ -1,7 +1,14 @@
 # Changelog
 
+## 2.7.0 — 2026-07-07
+- **Kelibia réintégrée comme port relais** : la collecte et les exports normalisés incluent désormais `kelibia`, en plus de Pantelleria beta.
+- **Itinéraires mer configurables** : `sites.yaml` accepte maintenant `route_origin` et `route_points` pour préparer des routes multi-legs sans tracer de ligne à travers les terres.
+- **Route Gammarth → Kelibia corrigée visuellement** : la carte suit maintenant une route mer via Ras Fartass puis El Haouaria, au lieu de couper le Cap Bon.
+- **Pantelleria preview en 2 segments** : l’aperçu affiche désormais `Gammarth → Kelibia → Pantelleria`, avec distance et durée totales, tout en gardant le moteur GO offshore désactivé.
+- **Fondation pour le futur GO composite** : les métadonnées de route sont publiées par le backend et prêtes pour la prochaine phase de validation segment par segment.
+
 ## 2.6.1 — 2026-07-07
-- **Hotfix CI pytest** : le workflow installe maintenant le package en editable (`pip install -e .`) avant les tests.
+- **Hotfix CI pytest** : le workflow exécute désormais `python -m pytest -q`, aligné sur le check local.
 - **Import `fable` fiabilisé** : la CI lance `python -m pytest -q`, aligné sur le check local, ce qui évite les erreurs `ModuleNotFoundError: No module named 'fable'`.
 - **Version interne réalignée** : `fable.__version__` reflète enfin la version publiée courante.
 

@@ -6,6 +6,8 @@
 # sites[]  : name (libre, accents OK), lat/lon décimaux (N/E positifs),
 #            map_lat/map_lon optionnels pour la position visuelle exacte sur la carte
 #            transit_speed_kts optionnel {min,max} pour estimer la durée de traversée
+#            route_origin optionnel pour une route en plusieurs legs
+#            route_points optionnel [{name,lat,lon}] pour tracer un itinéraire mer
 #            onshore_sectors : secteurs de vent d'affalement [de, à] en degrés
 #            (wrap-around supporté : [330, 360] + [0, 70]),
 #            shelter_bonus_radius_km : rayon du bonus mouillage abrité.
@@ -17,7 +19,7 @@ version: 2
 tz: Africa/Tunis
 home: gammarth-port
 
-exclude: [korbous, kelibia]
+exclude: [korbous]
 
 defaults:
   shelter_bonus_radius_km: 0.0
@@ -60,6 +62,21 @@ sites:
     map_lon: 11.00800
     onshore_sectors: [[330, 360], [0, 70]]
 
+  - name: "Kelibia"
+    lat: 36.84730
+    lon: 11.09340
+    map_lat: 36.84730
+    map_lon: 11.09340
+    transit_speed_kts: {min: 18, max: 24}
+    route_points:
+      - name: "Ras Fartass"
+        lat: 36.87700
+        lon: 10.61300
+      - name: "El Haouaria"
+        lat: 37.06300
+        lon: 11.00800
+    onshore_sectors: [[330, 360], [0, 70]]
+
   - name: "Pantelleria"
     lat: 36.83330
     lon: 11.95000
@@ -68,6 +85,7 @@ sites:
     country: Italy
     beta: true
     windows_enabled: false
+    route_origin: kelibia
     route_kind: offshore_beta
-    route_note: "Beta offshore — météo brute et corridor visuel disponibles, moteur GO non encore activé."
+    route_note: "Beta offshore via Kélibia — aperçu 2 segments disponible, moteur GO composite non encore activé."
     transit_speed_kts: {min: 18, max: 24}

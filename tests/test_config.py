@@ -70,7 +70,7 @@ def test_load_sites_v2(repo_root):
     assert cfg.version == 2
     assert cfg.home == "gammarth-port"
     slugs = {s["slug"] for s in cfg.sites}
-    assert slugs == {"gammarth-port", "sidi-bou-said", "ghar-el-melh", "ras-fartass", "el-haouaria", "pantelleria"}
+    assert slugs == {"gammarth-port", "sidi-bou-said", "ghar-el-melh", "ras-fartass", "el-haouaria", "kelibia", "pantelleria"}
     assert cfg.onshore_sectors("el-haouaria") == [(330, 360), (0, 70)]
     assert cfg.onshore_sectors("gammarth-port") == [(30, 150)]
     assert cfg.site("gammarth-port")["map_lat"] == pytest.approx(36.921)
@@ -78,6 +78,8 @@ def test_load_sites_v2(repo_root):
     assert cfg.site("gammarth-port")["transit_speed_kts"] == {"min": 16.0, "max": 24.0}
     assert cfg.site("gammarth-port")["windows_enabled"] is True
     assert cfg.site("gammarth-port")["route_kind"] == "standard"
+    assert len(cfg.site("kelibia")["route_points"]) == 2
+    assert cfg.site("pantelleria")["route_origin"] == "kelibia"
     assert cfg.site("pantelleria")["windows_enabled"] is False
     assert cfg.site("pantelleria")["beta"] is True
 
@@ -160,6 +162,11 @@ def test_load_sites_beta_route_metadata(tmp_path):
             lon: 11.95
             beta: true
             windows_enabled: false
+            route_origin: Gammarth (port)
+            route_points:
+              - name: Waypoint 1
+                lat: 36.9
+                lon: 10.8
             route_kind: offshore_beta
             route_note: Test beta route
             country: Italy
@@ -168,6 +175,8 @@ def test_load_sites_beta_route_metadata(tmp_path):
     pantelleria = cfg.site("pantelleria")
     assert pantelleria["beta"] is True
     assert pantelleria["windows_enabled"] is False
+    assert pantelleria["route_origin"] == "gammarth-port"
+    assert pantelleria["route_points"] == [{"lat": 36.9, "lon": 10.8, "name": "Waypoint 1"}]
     assert pantelleria["route_kind"] == "offshore_beta"
     assert pantelleria["route_note"] == "Test beta route"
     assert pantelleria["country"] == "Italy"

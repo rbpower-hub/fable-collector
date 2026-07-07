@@ -13,16 +13,19 @@ def test_preflight_ok_on_repo(repo_root, tmp_path, capsys):
     assert rn["family"]["corridor"]["leg_structure_hours"]["transit_out"] == {"min": 1.0, "max": 1.5}
     sn = json.loads((tmp_path / "sites.normalized.json").read_text(encoding="utf-8"))
     assert sn["home"] == "gammarth-port"
-    assert len(sn["sites"]) == 6
+    assert len(sn["sites"]) == 7
     assert sn["sites"][0]["map_lat"] == 36.921
     assert sn["sites"][0]["map_lon"] == 10.31
     assert sn["sites"][0]["transit_speed_kts"] == {"min": 16.0, "max": 24.0}
     assert sn["sites"][0]["windows_enabled"] is True
     assert sn["sites"][0]["route_kind"] == "standard"
     assert sn["sites"][0]["onshore_sectors"]
+    kelibia = next(site for site in sn["sites"] if site["slug"] == "kelibia")
+    assert len(kelibia["route_points"]) == 2
     pantelleria = next(site for site in sn["sites"] if site["slug"] == "pantelleria")
     assert pantelleria["windows_enabled"] is False
     assert pantelleria["beta"] is True
+    assert pantelleria["route_origin"] == "kelibia"
 
 
 def test_preflight_fails_cleanly_on_corrupt_rule_type(tmp_path, capsys):

@@ -339,11 +339,33 @@ def _norm_minmax(raw: Any) -> tuple[float, float] | None:
     return lo_f, hi_f
 
 
+def _norm_route_points(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for point in raw:
+        if not isinstance(point, dict):
+            continue
+        try:
+            lat = float(point["lat"])
+            lon = float(point["lon"])
+        except Exception:
+            continue
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        out.append({
+            "lat": lat,
+            "lon": lon,
+            "name": (str(point.get("name", "")).strip() or None),
+        })
+    return out
+
+
 class SitesConfig:
     """Parsed sites.yaml (v1 list or v2 mapping)."""
 
     def __init__(self, sites: list[dict[str, Any]], home: str, tz: str, exclude: set, version: int):
-        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, transit_speed_kts, windows_enabled, beta, route_kind, route_note, country, shelter_bonus_radius_km, onshore_sectors
+        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, transit_speed_kts, route_origin, route_points, windows_enabled, beta, route_kind, route_note, country, shelter_bonus_radius_km, onshore_sectors
         self.home = home            # home-port slug
         self.tz = tz
         self.exclude = exclude
@@ -413,6 +435,8 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
                 log.warning("Out-of-range map coordinates for %s — using forecast coordinates.", name)
                 map_lat, map_lon = lat, lon
         transit_speed = _norm_minmax(s.get("transit_speed_kts")) or default_transit_speed
+        route_origin = slugify(str(s.get("route_origin", "")).strip()) or None
+        route_points = _norm_route_points(s.get("route_points"))
         sectors = _norm_sectors(s.get("onshore_sectors")) or default_sectors \
             or LEGACY_ONSHORE_SECTORS.get(slug, DEFAULT_ONSHORE_SECTORS)
         sites.append({
@@ -425,6 +449,8 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
             "transit_speed_kts": (
                 {"min": transit_speed[0], "max": transit_speed[1]} if transit_speed else None
             ),
+            "route_origin": route_origin,
+            "route_points": route_points,
             "windows_enabled": bool(s.get("windows_enabled", True)),
             "beta": bool(s.get("beta", False)),
             "route_kind": str(s.get("route_kind", "standard")).strip() or "standard",
@@ -440,4 +466,13 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
         # legacy files never declared a home; fall back to the first site
         log.warning("legacy sites.yaml: home '%s' not present — using first site '%s'", home, sites[0]["slug"])
         home = sites[0]["slug"]
+    known_slugs = {s["slug"] for s in sites}
+    for site in sites:
+        route_origin = site.get("route_origin")
+        if route_origin == site["slug"]:
+            log.warning("route_origin for %s points to itself — ignored.", site["name"])
+            site["route_origin"] = None
+        elif route_origin and route_origin not in known_slugs:
+            log.warning("route_origin '%s' for %s not found — ignored.", route_origin, site["name"])
+            site["route_origin"] = None
     return SitesConfig(sites, home, tz, exclude, version)

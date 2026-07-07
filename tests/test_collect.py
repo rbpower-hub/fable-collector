@@ -99,12 +99,12 @@ def test_run_collect_writes_files(tmp_path, repo_root, monkeypatch):
     monkeypatch.setenv("FABLE_WINDOW_HOURS", "48")
     public = tmp_path / "public"
     results = run_collect(repo_root, public, getter=make_getter())
-    assert len(results) == 6
+    assert len(results) == 7
     assert all(r["points"] == 48 for r in results)
     idx = json.loads((public / "index.json").read_text(encoding="utf-8"))
     assert idx["home"] == "gammarth-port"
     assert {s["slug"] for s in idx["spots"]} == {
-        "gammarth-port", "sidi-bou-said", "ghar-el-melh", "ras-fartass", "el-haouaria", "pantelleria"}
+        "gammarth-port", "sidi-bou-said", "ghar-el-melh", "ras-fartass", "el-haouaria", "kelibia", "pantelleria"}
     spot = json.loads((public / "gammarth-port.json").read_text(encoding="utf-8"))
     for key in ("meta", "ecmwf", "marine", "daily", "daily_units", "hourly",
                 "models", "forecast_primary", "status"):

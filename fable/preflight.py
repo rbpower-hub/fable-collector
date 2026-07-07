@@ -63,6 +63,8 @@ def run_preflight(root: Path, public: Path) -> int:
                 "name": s["name"], "slug": s["slug"], "lat": s["lat"], "lon": s["lon"],
                 "map_lat": s["map_lat"], "map_lon": s["map_lon"],
                 "transit_speed_kts": s["transit_speed_kts"],
+                "route_origin": s["route_origin"],
+                "route_points": s["route_points"],
                 "windows_enabled": s["windows_enabled"],
                 "beta": s["beta"],
                 "route_kind": s["route_kind"],

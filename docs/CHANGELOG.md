@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.1 — 2026-07-07
+- **Hotfix CI pytest** : le workflow installe maintenant le package en editable (`pip install -e .`) avant les tests.
+- **Import `fable` fiabilisé** : la CI lance `python -m pytest -q`, aligné sur le check local, ce qui évite les erreurs `ModuleNotFoundError: No module named 'fable'`.
+- **Version interne réalignée** : `fable.__version__` reflète enfin la version publiée courante.
+
 ## 2.6.0 — 2026-07-07
 - **Pantelleria beta publiée proprement** : la destination existe maintenant dans `sites.yaml`, est collectée, publiée dans les fichiers normalisés et visible dans le board.
 - **Beta offshore assumée côté produit** : Pantelleria est marquée `beta`, `offshore_beta` et `windows_enabled: false`, pour éviter de présenter de faux `GO` avant le vrai moteur offshore.

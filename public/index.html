@@ -1135,9 +1135,13 @@
       winData = { generated_at: new Date().toISOString(), windows: synthesized };
     }
 
-    const activeWindowFiles = liveFiles.filter(file => spotConfig[file]?.windows_enabled !== false && !spotConfig[file]?.beta);
+    const activeWindowFiles = liveFiles.filter(file =>
+      file !== homeFile &&
+      spotConfig[file]?.windows_enabled !== false &&
+      (!spotConfig[file]?.beta || spotConfig[file]?.route_kind === 'composite_beta')
+    );
     const reasonsRows = (window.FABLE?.debugReasons)
-      ? await FABLE.debugReasons(activeWindowFiles, { rulesNormalized, sitesNormalized })
+      ? await FABLE.debugReasons(activeWindowFiles, { rulesNormalized, sitesNormalized, preloadedSpots: spotDataByFile })
       : [];
 
     // Header
@@ -1402,8 +1406,32 @@
     
     // Avertissements (No-GO) — icône/sevérité + raison principale
     const reasonsDiv = $('#reasons');
+    const prettifyReasonDates = s =>
+      String(s || '').replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/g, iso => {
+        const d = new Date(iso);
+        if (isNaN(d)) return iso;
+        const str = d.toLocaleString(LOCALES[LANG] || 'fr-FR',
+          { weekday:'long', hour:'2-digit', minute:'2-digit', hour12:false });
+        return str.replace(/^\p{L}/u, ch => ch.toUpperCase());
+      });
     if (Array.isArray(reasonsRows) && reasonsRows.length) {
       const rowsHTML = reasonsRows.map(r=>{
+      if (r?.composite) {
+        const sev = r.composite.severity || 'warn';
+        const icon = sev === 'ok' ? '✅' : sev === 'bad' ? '🚫' : '⚠️';
+        const stepIcon = step => step?.status === 'ok' ? '✅' : step?.status === 'off_hours' ? '🕒' : step?.status === 'waiting' ? '⏳' : '🚫';
+        const stepLine = step => `<div class="small">${stepIcon(step)} <b>${escapeHtml(step?.title || '')}</b> · ${escapeHtml(step?.route || '')}${step?.reason ? ` · ${escapeHtml(prettifyReasonDates(step.reason))}` : ''}</div>`;
+        const align = r.composite.alignment
+          ? `<div class="small">🧩 <b>Alignement</b> · ${escapeHtml(prettifyReasonDates(r.composite.alignment.reason || '—'))}</div>`
+          : '';
+        return `<div class="line ${sev}" title="${escapeHtml(r.composite.summary || '')}">
+                  <div class="reason">${icon} ${escapeHtml(r.composite.summary || '')}</div>
+                  ${stepLine(r.composite.step1)}
+                  ${stepLine(r.composite.step2)}
+                  ${align}
+                  <div class="small">${r.spot || ''}</div>
+                </div>`;
+      }
        // prefer Family line if present
       const familyRaw = String(r.family||'').trim();
       const raw = familyRaw;
@@ -1422,7 +1450,7 @@
       const cleanedBase = raw.replace(/^[✗✓⚠🚫✅]\s*/,'')
                              .replace(/\s*\(([^)]+\.json)\)\s*$/,'')
                              .trim();
-      const cleaned = prettifyDates(cleanedBase);
+      const cleaned = prettifyReasonDates(cleanedBase);
       const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
       
       // file (to read flags)
@@ -1511,11 +1539,21 @@
       const r = reasonsByFile.get(file);
       const beta = isBetaRoute(file);
       const note = routeNote(file);
-      const familyLine = beta
-        ? `${mapCopy().beta} — ${mapCopy().goDisabled}`
-        : (r?.family || '—');
+      const familyLine = r?.composite
+        ? r.composite.summary
+        : beta
+          ? `${mapCopy().beta} — ${note || mapCopy().goDisabled}`
+          : (r?.family || '—');
+      const compositeRows = r?.composite
+        ? `
+          <div class="row"><b>${escapeHtml(r.composite.step1?.title || 'Étape 1')}:</b> ${escapeHtml(r.composite.step1?.reason || '—')}</div>
+          <div class="row"><b>${escapeHtml(r.composite.step2?.title || 'Étape 2')}:</b> ${escapeHtml(r.composite.step2?.reason || '—')}</div>
+          <div class="row"><b>Alignement:</b> ${escapeHtml(r.composite.alignment?.reason || '—')}</div>
+        `
+        : '';
       tipEl.innerHTML = `<div class="hdr">${spotConfig[file]?.name||file}</div>
                          <div class="row"><b>Family:</b> ${familyLine}</div>
+                         ${compositeRows}
                          <div class="row"><b>Note:</b> ${beta ? note : (r?.note || note || '—')}</div>`;
       const rect = btn.getBoundingClientRect();
       tipEl.style.left = `${window.scrollX + rect.left + rect.width + 8}px`;

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.3 — 2026-07-08
+- **Double validation visuelle par étape** : les fenêtres composites Pantelleria affichent maintenant `Étape 1 GO`, `Étape 2 GO` et `GO composite` directement dans le board.
+- **Carte corridor plus explicite** : au clic sur une fenêtre composite, la carte et le détail rappellent désormais la validation de chaque segment avec temps, distance et statut visuel.
+- **Métadonnées offshore conservées** : le backend publie désormais aussi la confiance et la fenêtre du second segment pour mieux distinguer le relais de la fenêtre finale.
+
 ## 2.8.2 — 2026-07-07
 - **Relais Kelibia simplifié** : l’itinéraire recommandé depuis Gammarth vers Kelibia ne passe plus par `Ras Fartass`.
 - **Route produit réalignée usage réel** : le trajet composite vers Pantelleria suit désormais `Gammarth → El Haouaria → Kelibia → Pantelleria`.

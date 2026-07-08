@@ -638,6 +638,11 @@ def combine_composite_windows(home: Site, relay: Site, dest: Site, relay_windows
                 "transfer_hours": transfer["hours"],
                 "transfer_confidence": transfer["confidence"],
                 "transfer_category": transfer["category"],
+                "offshore_start": ow["start"],
+                "offshore_end": ow["end"],
+                "offshore_hours": ow.get("hours"),
+                "offshore_confidence": ow.get("confidence", "Low"),
+                "offshore_category": ow.get("category"),
                 "staging_hours": round(staging_hours, 2),
             },
         })

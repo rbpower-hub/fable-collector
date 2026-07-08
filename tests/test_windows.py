@@ -151,6 +151,9 @@ def test_run_reader_builds_composite_beta_window(tmp_path):
     assert comp["route_origin"] == "kelibia.json"
     assert comp["transfer_origin"] == "gammarth-port.json"
     assert comp["transfer_hours"]["min"] > 0
+    assert comp["offshore_confidence"] in {"High", "Medium", "Low"}
+    assert comp["offshore_start"] == pant["windows"][0]["start"]
+    assert comp["offshore_end"] == pant["windows"][0]["end"]
     assert pant["windows"][0]["reason"] == "valid_composite_beta"
 
 

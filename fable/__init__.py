@@ -7,5 +7,5 @@ publishes per-spot JSON feeds on GitHub Pages, and detects safe
 © RB Power Consulting. All rights reserved.
 """
 
-__version__ = "2.8.2"
+__version__ = "2.8.3"
 USER_AGENT = f"fable-collector/{__version__} (+github actions)"

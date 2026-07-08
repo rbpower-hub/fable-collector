@@ -66,6 +66,22 @@
     .go.expert{background:#f59e0b; color:#160f04}
     .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted);white-space:nowrap}
     .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
+    .stage-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .stage-pill{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;padding:4px 8px;font-size:.8rem;font-weight:700}
+    .stage-pill .state{color:var(--fg)}
+    .stage-pill .route{color:var(--muted);font-weight:600}
+    .stage-pill .grade{font-weight:800}
+    .stage-pill.high{background:rgba(45,212,191,.12)}
+    .stage-pill.high .grade{color:var(--ok)}
+    .stage-pill.medium{background:rgba(245,158,11,.12)}
+    .stage-pill.medium .grade{color:var(--warn)}
+    .stage-pill.low{background:rgba(239,68,68,.10)}
+    .stage-pill.low .grade{color:var(--bad)}
+    .stage-pill.final{background:rgba(76,201,240,.14)}
+    .stage-mini{display:inline-block;border:1px solid var(--br);border-radius:999px;padding:1px 7px;margin-right:6px;font-size:.75rem;font-weight:800;background:var(--pill-bg)}
+    .stage-mini.high{color:var(--ok)}
+    .stage-mini.medium{color:var(--warn)}
+    .stage-mini.low{color:var(--bad)}
     .conditions .line{border-left:4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
     .conditions .line.ok{   border-left-color: var(--ok); }
     .conditions .line.warn{ border-left-color: var(--warn); }
@@ -548,8 +564,8 @@
   const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const mapCopy = ()=> LANG==='en'
-    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Beta route', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', leg:'Leg', via:'via' }
-    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Route beta', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif', legs:'segments', leg:'Étape', via:'via' };
+    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Beta route', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', leg:'Leg', via:'via', go:'GO', compositeGo:'Composite GO', step1:'Leg 1', step2:'Leg 2', relayArrival:'relay arrival', targetWindow:'target window', waiting:'wait', relay:'relay', outsideHours:'after hours' }
+    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Route beta', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif', legs:'segments', leg:'Étape', via:'via', go:'GO', compositeGo:'GO composite', step1:'Étape 1', step2:'Étape 2', relayArrival:'arrivée relai', targetWindow:'fenêtre cible', waiting:'attente', relay:'relai', outsideHours:'hors horaires' };
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
@@ -709,6 +725,14 @@
     else if(plan?.waypoint_names?.length) bits.push(`${copy.via} ${plan.waypoint_names.join(' → ')}`);
     return bits.join(' · ');
   }
+  function confidenceTone(value){
+    const confKey = String(value || '').toLowerCase();
+    return confKey === 'high' ? 'high' : confKey === 'medium' ? 'medium' : confKey === 'low' ? 'low' : '';
+  }
+  function confidenceShort(value){
+    const confKey = String(value || '').toLowerCase();
+    return confKey === 'high' ? 'Haute' : confKey === 'medium' ? 'Moy.' : confKey === 'low' ? 'Faible' : '';
+  }
   function routeLegDetails(plan){
     return Array.isArray(plan?.segments)
       ? plan.segments.map((segment, idx)=>{
@@ -716,6 +740,8 @@
           const transit = segment?.transit || routeTransitHoursForDistance(distanceKm, spotConfig[segment?.destFile]?.transit_speed_kts);
           return {
             index: idx + 1,
+            originFile: segment?.originFile || null,
+            destFile: segment?.destFile || null,
             label: `${spotConfig[segment?.originFile]?.name || segment?.originFile} → ${spotConfig[segment?.destFile]?.name || segment?.destFile}`,
             distance_km: distanceKm,
             distance_nm: distanceKm / KM_PER_NM,
@@ -726,24 +752,87 @@
         })
       : [];
   }
-  function routeLegSummaryHtml(plan){
+  function compositeStepVisual(destFile, seg, plan = null){
+    const composite = seg?.composite || null;
+    if(!composite) return null;
+    const routePlan = plan || routePlanForFile(destFile);
+    const legs = routeLegDetails(routePlan);
+    if(legs.length < 2) return null;
+    const copy = mapCopy();
+    const arrivalWindow = composite.transfer_arrival_earliest === composite.transfer_arrival_latest
+      ? fmtFriendly(composite.transfer_arrival_latest)
+      : `${fmtFriendly(composite.transfer_arrival_earliest)}–${fmtFriendly(composite.transfer_arrival_latest)}`;
+    return {
+      steps: [
+        {
+          index: 1,
+          badge: `${copy.step1} ${copy.go}`,
+          label: legs[0].label,
+          confidence: composite.transfer_confidence || seg.confidence || '',
+          distance_km: legs[0].distance_km,
+          distance_nm: legs[0].distance_nm,
+          transit_label: legs[0].transit_label,
+          detail_label: `${fmtFriendly(composite.transfer_start)} · ${copy.relayArrival} ${arrivalWindow}`,
+        },
+        {
+          index: 2,
+          badge: `${copy.step2} ${copy.go}`,
+          label: legs[1].label,
+          confidence: composite.offshore_confidence || seg.confidence || '',
+          distance_km: legs[1].distance_km,
+          distance_nm: legs[1].distance_nm,
+          transit_label: legs[1].transit_label,
+          detail_label: `${copy.targetWindow} ${fmtFriendly(composite.offshore_start || seg.start)} ⟷ ${fmtFriendly(composite.offshore_end || seg.end)}`,
+        },
+      ],
+      staging_hours: composite.staging_hours,
+      composite_badge: copy.compositeGo,
+    };
+  }
+  function stagePillHtml(step){
+    const tone = confidenceTone(step?.confidence);
+    const conf = confidenceShort(step?.confidence);
+    return `<span class="stage-pill ${tone}">
+      <span class="state">${escapeHtml(step?.badge || '')}</span>
+      <span class="route">${escapeHtml(step?.label || '')}</span>
+      ${conf ? `<span class="grade">${escapeHtml(conf)}</span>` : ''}
+    </span>`;
+  }
+  function compositeStageStripHtml(view){
+    if(!view?.steps?.length) return '';
+    return `<div class="stage-strip">
+      ${view.steps.map(stagePillHtml).join('')}
+      <span class="stage-pill final"><span class="state">${escapeHtml(view.composite_badge || '')}</span></span>
+    </div>`;
+  }
+  function routeLegSummaryHtml(plan, compositeView = null){
     const copy = mapCopy();
     const legs = routeLegDetails(plan);
     if(legs.length < 2) return '';
-    return legs.map(leg => `
-      <div class="row">🧭 <span class="k">${escapeHtml(`${copy.leg} ${leg.index}`)}</span> <span class="v">${escapeHtml(leg.label)} · ${leg.distance_km.toFixed(1)} km · ${leg.distance_nm.toFixed(1)} NM · ${escapeHtml(copy.transit)} ${escapeHtml(leg.transit_label)}</span></div>
-    `).join('');
+    const stepMap = new Map((compositeView?.steps || []).map(step => [step.index, step]));
+    return legs.map(leg => {
+      const step = stepMap.get(leg.index);
+      const tone = confidenceTone(step?.confidence);
+      const stepChip = step ? `<span class="stage-mini ${tone}">${escapeHtml(step.badge)}</span>` : '';
+      const stepMeta = step ? ` · ${escapeHtml(step.detail_label)}` : '';
+      return `
+      <div class="row">🧭 <span class="k">${escapeHtml(`${copy.leg} ${leg.index}`)}</span> <span class="v">${stepChip}${escapeHtml(leg.label)} · ${leg.distance_km.toFixed(1)} km · ${leg.distance_nm.toFixed(1)} NM · ${escapeHtml(copy.transit)} ${escapeHtml(leg.transit_label)}${stepMeta}</span></div>
+    `;
+    }).join('');
   }
-  function addRouteLegBadges(plan, layer){
+  function addRouteLegBadges(plan, layer, compositeView = null){
     const copy = mapCopy();
     const legs = routeLegDetails(plan);
+    const stepMap = new Map((compositeView?.steps || []).map(step => [step.index, step]));
     if(legs.length < 2) return;
     legs.forEach(leg=>{
+      const step = stepMap.get(leg.index);
+      const conf = confidenceShort(step?.confidence);
       L.marker(leg.midpoint,{
         icon: L.divIcon({
           className:'anchor-badge trip',
-          html:`<div class="h">${escapeHtml(`${copy.leg} ${leg.index}`)}</div><div class="m">${escapeHtml(leg.transit_label)} · ${leg.distance_km.toFixed(0)} km</div>`,
-          iconSize:[150,48], iconAnchor:[75,24]
+          html:`<div class="h">${escapeHtml(step?.badge || `${copy.leg} ${leg.index}`)}</div><div class="m">${escapeHtml(`${conf ? `${conf} · ` : ''}${leg.transit_label} · ${leg.distance_km.toFixed(0)} km`)}</div>`,
+          iconSize:[168,48], iconAnchor:[84,24]
         }),
         interactive:false
       }).addTo(layer);
@@ -1119,7 +1208,11 @@
 
         const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
         windowRecordIndex.set(key, { dest, seg });
-        const goTxt = isOffHours ? 'GO (hors horaires)' : 'FAMILY GO';
+        const compositeView = compositeStepVisual(dest.dest_slug, seg);
+        const copy = mapCopy();
+        const goTxt = compositeView
+          ? (isOffHours ? `${copy.compositeGo} (${copy.outsideHours})` : copy.compositeGo)
+          : (isOffHours ? 'GO (hors horaires)' : 'FAMILY GO');
         const goCls = 'family';
         nowWinsKey.add(key);
         
@@ -1131,6 +1224,7 @@
                           data-slug="${dest.dest_slug||''}" data-start="${seg.start||''}" data-end="${seg.end||''}">
                   <div class="title">${dest.dest_name} <span class="go ${goCls}">${goTxt}</span> ${confBadge}</div>
                   <div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
+                  ${compositeStageStripHtml(compositeView)}
                   ${srcBadge}
                 </div>`
         };
@@ -1176,6 +1270,7 @@
       const dest   = spotConfig[slug];
       const routePlan = routePlanForFile(slug);
       if(!origin || !dest || !routePlan) return;
+      const compositeView = compositeStepVisual(slug, record?.seg, routePlan);
       const transitProfile = routePlan.transit;
       const transitOutLabel = formatDurationSpan(transitProfile);
       const transitBackLabel = transitOutLabel;
@@ -1211,7 +1306,7 @@
           weight: 1,
         }).addTo(corridorLayer).bindTooltip(point.name || '', { direction:'top', offset:[0,-4] });
       });
-      addRouteLegBadges(routePlan, corridorLayer);
+      addRouteLegBadges(routePlan, corridorLayer, compositeView);
       
       // Midpoint for the final badge
       const mid = pointAlongPath(routePlan.points);
@@ -1244,10 +1339,12 @@
         <div class="tripline">
           <div class="row">⛵ <span class="k">${escapeHtml(transitOutLabel)}</span> <span class="v">• <b>${escapeHtml(routePlan.label)}</b> · 📏 ${dkm.toFixed(1)} km · ${dnm.toFixed(1)} NM${routeMeta ? ` · ${escapeHtml(routeMeta)}` : ''}</span></div>
           <div class="row">🧭 <span class="k">${escapeHtml(copy.speed)}</span> <span class="v">${escapeHtml(transitSpeedLabel)}</span></div>
-          ${routeLegSummaryHtml(routePlan)}
-          ${composite
-            ? `<div class="row">🧩 <span class="k">Composite</span> <span class="v">Transfert ${escapeHtml(fmtFriendly(composite.transfer_start))} · arrivée relai ${escapeHtml(fmtFriendly(composite.transfer_arrival_latest))} · attente ${escapeHtml(String(composite.staging_hours))} h</span></div>`
-            : ''}
+          ${routeLegSummaryHtml(routePlan, compositeView)}
+          ${compositeView
+            ? `<div class="row">🧩 <span class="k">${escapeHtml(copy.compositeGo)}</span> <span class="v">${escapeHtml(copy.waiting)} ${escapeHtml(String(compositeView.staging_hours))} h au ${escapeHtml(copy.relay)}</span></div>`
+            : composite
+              ? `<div class="row">🧩 <span class="k">Composite</span> <span class="v">Transfert ${escapeHtml(fmtFriendly(composite.transfer_start))} · arrivée relai ${escapeHtml(fmtFriendly(composite.transfer_arrival_latest))} · attente ${escapeHtml(String(composite.staging_hours))} h</span></div>`
+              : ''}
           <div class="row">⚓ <span class="k">${escapeHtml(anchorLabel)}</span> <span class="v">fenetre cible sur zone</span></div>
           <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windTxt(wGo)}</span></div>
           ${requiresReturn
@@ -1260,6 +1357,7 @@
         `${dkm.toFixed(1)} km · ${escapeHtml(copy.transit)} ${escapeHtml(transitOutLabel)} · ` +
         `${escapeHtml(copy.speed)} ${escapeHtml(transitSpeedLabel)} · ${escapeHtml(copy.anchor)} ${escapeHtml(anchorLabel)}` +
         `${routeMeta ? ` · ${escapeHtml(routeMeta)}` : ''}` +
+        `${compositeView ? ` · ${escapeHtml(copy.step1)} ${escapeHtml(copy.go)} · ${escapeHtml(copy.step2)} ${escapeHtml(copy.go)} · ${escapeHtml(copy.compositeGo)}` : ''}` +
         `${requiresReturn ? ` · ${escapeHtml(copy.ret)} ${escapeHtml(transitBackLabel)}` : ''}`
       );
       

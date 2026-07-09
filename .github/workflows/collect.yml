@@ -30,8 +30,8 @@ on:
         required: false
 
   schedule:
-    - cron: "7 * * * *"    # collecte horaire (minute 7 pour éviter la congestion GitHub)
-    - cron: "23 3 * * 0"   # keepalive hebdomadaire (dimanche 03:23 UTC)
+    - cron: "7,27,47 * * * *"  # 3 tentatives/heure ; build seulement si le live est assez ancien
+    - cron: "23 3 * * 0"       # keepalive hebdomadaire (dimanche 03:23 UTC)
 
   push:
     branches: [main]
@@ -48,10 +48,6 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
 
 jobs:
   # --------------------------------------------------------------
@@ -73,12 +69,59 @@ jobs:
           git push
 
   # --------------------------------------------------------------
+  # Anti-trous GitHub cron : plusieurs créneaux, mais pas de
+  # recollecte si le déploiement live est encore frais.
+  # --------------------------------------------------------------
+  schedule_guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      should_run: ${{ steps.guard.outputs.should_run }}
+      reason: ${{ steps.guard.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Decide whether scheduled refresh is needed
+        id: guard
+        env:
+          FABLE_BASE_URL: "https://rbpower-hub.github.io/fable-collector"
+          FABLE_MIN_INTERVAL_MIN: "50"
+          FABLE_EVENT_NAME: ${{ github.event_name }}
+          FABLE_EVENT_SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          python - <<'PY'
+          import os
+          from fable.healthcheck import should_collect_live
+
+          event_name = os.environ.get("FABLE_EVENT_NAME", "")
+          event_schedule = os.environ.get("FABLE_EVENT_SCHEDULE", "")
+          if event_name != "schedule":
+              should_run, reason = True, "non-scheduled trigger"
+          elif event_schedule == "23 3 * * 0":
+              should_run, reason = False, "weekly keepalive slot"
+          else:
+              should_run, reason = should_collect_live(
+                  os.environ["FABLE_BASE_URL"],
+                  min_interval_min=int(os.environ["FABLE_MIN_INTERVAL_MIN"]),
+              )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"should_run={'true' if should_run else 'false'}\n")
+              fh.write(f"reason={reason}\n")
+
+          print(reason)
+          PY
+
+  # --------------------------------------------------------------
   # Collecte + build + déploiement
   # --------------------------------------------------------------
   build:
-    if: github.event_name != 'schedule' || github.event.schedule == '7 * * * *'
+    needs: schedule_guard
+    if: needs.schedule_guard.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: "pages"
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -145,6 +188,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: "pages"
+      cancel-in-progress: true
     permissions:
       pages: write
       id-token: write

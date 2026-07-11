@@ -31,6 +31,8 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 | Statut machine | https://rbpower-hub.github.io/fable-collector/status.json |
 | Inventaire des fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
 
+`recommendations.json` devient disponible après le premier déploiement de la version 2.9.0.
+
 Spots configurés : **Gammarth**, **Sidi Bou Saïd**, **Ghar el Melh**, **Ras Fartass**, **El Haouaria**, **Kélibia** et **Pantelleria beta**. Korbous reste exclu par la politique actuelle.
 
 ---

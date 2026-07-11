@@ -4,18 +4,15 @@
 [![Healthcheck](https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml/badge.svg)](https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml)
 [![CI](https://github.com/rbpower-hub/fable-collector/actions/workflows/ci.yml/badge.svg)](https://github.com/rbpower-hub/fable-collector/actions/workflows/ci.yml)
 
-Collecteur **horaire** de météo marine (Open-Meteo : ECMWF/ICON/GFS + Marine) pour les
-spots côtiers tunisiens, avec **détection de fenêtres de sortie « Family GO »**
-(phases Transit – Mouillage – Transit, 4 à 6 h) depuis le port d'attache.
+Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec :
 
-Publie sur **GitHub Pages** des JSON par spot (48–72 h), un index, les règles
-normalisées, un statut de fraîcheur et les fenêtres détectées — consommés par **FABLE AI**.
+- prévisions Open-Meteo multi-modèles pour le vent et la mer ;
+- détection conservatrice des fenêtres **Family GO** de 4 à 6 heures ;
+- validation des phases Transit – Mouillage – Transit depuis le port d’attache ;
+- recommandations d’activités marines et de pêche uniquement dans les fenêtres déjà validées ;
+- publication automatique du tableau de bord et des données sur GitHub Pages.
 
-> *English summary* — Hourly marine-weather collector for Tunisian coastal spots
-> (Open-Meteo forecast + marine APIs), publishing per-spot JSON feeds on GitHub
-> Pages and detecting safe 4–6 h family boating windows (Transit–Anchor–Transit
-> phase model) from the configured home port. Fully config-driven and
-> deployable for any port by editing `sites.yaml`.
+> *English summary* — Hourly marine-weather collector for Tunisian coastal spots, publishing safe 4–6 hour Family GO windows and ranked marine/fishing activities. Recommendations are downstream of the safety engine: they never create a navigation window and never override a NO-GO.
 
 ---
 
@@ -23,75 +20,119 @@ normalisées, un statut de fraîcheur et les fenêtres détectées — consommé
 
 | Ressource | URL |
 |---|---|
-| Landing / dashboard | https://rbpower-hub.github.io/fable-collector/ |
+| Tableau de bord | https://rbpower-hub.github.io/fable-collector/ |
 | Index des spots | https://rbpower-hub.github.io/fable-collector/index.json |
-| Spot (ex. Gammarth) | https://rbpower-hub.github.io/fable-collector/gammarth-port.json |
+| Spot, exemple Gammarth | https://rbpower-hub.github.io/fable-collector/gammarth-port.json |
 | Fenêtres Family GO | https://rbpower-hub.github.io/fable-collector/windows.json |
+| Activités recommandées | https://rbpower-hub.github.io/fable-collector/recommendations.json |
 | Règles normalisées | https://rbpower-hub.github.io/fable-collector/rules.normalized.json |
 | Sites normalisés | https://rbpower-hub.github.io/fable-collector/sites.normalized.json |
-| Statut (humain) | https://rbpower-hub.github.io/fable-collector/status.html |
-| Statut (machine) | https://rbpower-hub.github.io/fable-collector/status.json |
-| Inventaire fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
+| Statut humain | https://rbpower-hub.github.io/fable-collector/status.html |
+| Statut machine | https://rbpower-hub.github.io/fable-collector/status.json |
+| Inventaire des fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
 
-Spots actuels : Gammarth (port, home) · Sidi Bou Saïd · Ghar el Melh · Ras Fartass · El Haouaria.
-
----
-
-## Architecture (v2)
-
-```
-sites.yaml + rules.yaml          (configuration, source de vérité unique)
-        │
-        ▼
-fable/preflight  ──►  validation + rules.normalized.json + sites.normalized.json
-fable/collect    ──►  Open-Meteo (multi-modèles, fallbacks) ──► public/<slug>.json + index.json
-fable/windows    ──►  détection fenêtres 4–6 h ──► public/windows.json
-fable/publish    ──►  catalog.json + status.json/html + windows.md + contrôles finaux
-        │
-        ▼
-GitHub Pages  ◄──  .github/workflows/collect.yml (cron horaire + keepalive)
-                   .github/workflows/healthcheck.yml (surveillance externe /6 h)
-                   .github/workflows/ci.yml (ruff + pytest)
-```
-
-Détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
-Audit et corrections v2 : [`docs/AUDIT-2026-07.md`](docs/AUDIT-2026-07.md) ·
-Mise en production : [`docs/DEPLOY.md`](docs/DEPLOY.md) ·
-Exploitation : [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
+Spots configurés : **Gammarth**, **Sidi Bou Saïd**, **Ghar el Melh**, **Ras Fartass**, **El Haouaria**, **Kélibia** et **Pantelleria beta**. Korbous reste exclu par la politique actuelle.
 
 ---
 
-## Deployer pour un autre port
+## Architecture
 
-Tout est dans `sites.yaml` (schéma v2) :
+```text
+sites.yaml + rules.yaml
+fishing_profiles.yaml + activity_profiles.yaml
+        │
+        ▼
+fable.preflight          validation + exports normalisés
+        │
+fable.collect            météo, mer, soleil et lune par spot
+        │
+fable.windows            fenêtres Family GO 4–6 h
+        │
+fable.recommendations    activités, techniques, espèces et appâts
+        │
+fable.publish            catalogue, statut et contrôles finaux
+        │
+        ▼
+GitHub Pages              board + JSON publics
+```
+
+Le moteur de recommandations consomme `windows.json` **après** la décision de sécurité. Il ne peut pas autoriser une sortie refusée par le moteur Family GO.
+
+Documentation détaillée :
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Recommandations d’activités et de pêche](docs/RECOMMENDATIONS.md)
+- [Déploiement](docs/DEPLOY.md)
+- [Runbook d’exploitation](docs/RUNBOOK.md)
+- [Changelog](docs/CHANGELOG.md)
+- [Audit v2](docs/AUDIT-2026-07.md)
+
+---
+
+## Configurer les ports
+
+Les positions, routes et hypothèses de navigation restent dans `sites.yaml` :
 
 ```yaml
 version: 2
 tz: Africa/Tunis
-home: mon-port          # slug du port d'attache
+home: gammarth-port
 sites:
   - name: "Mon Port"
     lat: 36.00000
     lon: 10.00000
-    onshore_sectors: [[30, 150]]   # secteurs vent d'affalement (degrés)
+    transit_speed_kts: {min: 16, max: 24}
+    onshore_sectors: [[30, 150]]
 ```
 
-`onshore_sectors` supporte le wrap-around (`[[330, 360], [0, 70]]`).
-L'ancien format v1 (liste simple) reste accepté.
+`onshore_sectors` supporte le wrap-around, par exemple `[[330, 360], [0, 70]]`.
+
+## Configurer les profils de pêche
+
+`fishing_profiles.yaml` décrit les connaissances locales par spot et saison :
+
+```yaml
+profiles:
+  gammarth-port:
+    depths_m: [4, 18]
+    seasons:
+      summer:
+        species: [pageot, oblade]
+        techniques: [bottom_drift, micro_jig]
+        baits: [ver, crevette, calamar]
+        preferred_periods: [sunrise, sunset]
+```
+
+Les espèces, profondeurs, techniques et appâts sont des **indications opérationnelles à affiner** selon les observations locales et la réglementation tunisienne applicable.
+
+## Configurer les activités
+
+`activity_profiles.yaml` contient les seuils propres aux usages : pêche au fond, micro-jig, traîne côtière, mouillage abrité et baignade familiale.
+
+Une activité est éliminée si ses seuils sont dépassés, même lorsque la fenêtre générale est Family GO. Le classement restant utilise principalement l’état de mer, le vent, l’horaire saisonnier et, de façon secondaire, la lune.
+
+---
 
 ## Exécution locale
 
 ```bash
 SETUP-LOCAL.bat
-python -m fable.preflight        # valide la config
-python collect.py                # collecte -> public/*.json
-python reader.py                 # fenêtres -> public/windows.json
-python -m fable.publish          # statut + contrôles
+python -m fable.preflight
+python collect.py
+python reader.py
+python -m fable.recommendations
+python -m fable.publish
 ```
 
-Variables d'env utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS` (48), `FABLE_START_ISO`,
-`FABLE_ONLY_SITES` (CSV de slugs), `FABLE_MODEL_ORDER`, `FABLE_HTTP_TIMEOUT_S`,
-`FABLE_HTTP_RETRIES`, `LOG_LEVEL`.
+Les sorties principales sont écrites dans `public/` :
+
+- `<spot>.json` ;
+- `windows.json` ;
+- `recommendations.json` ;
+- `status.json` et `status.html` ;
+- `catalog.json`.
+
+Variables d’environnement utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS`, `FABLE_START_ISO`, `FABLE_ONLY_SITES`, `FABLE_MODEL_ORDER`, `FABLE_HTTP_TIMEOUT_S`, `FABLE_HTTP_RETRIES`, `FABLE_ASTRAL_FALLBACK` et `LOG_LEVEL`.
 
 ## Tests
 
@@ -99,30 +140,20 @@ Variables d'env utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS` (48), `FABLE_START_ISO
 CHECK-LOCAL.bat
 ```
 
-`SETUP-LOCAL.bat` crée `.venv`, installe les dépendances runtime + dev
-(`requirements.txt`, `requirements-dev.txt`), puis `CHECK-LOCAL.bat` exécute
-`fable.preflight`, `ruff check .` et `pytest -q`.
-
-41 tests hors-ligne (fixtures d'API enregistrées + scénarios synthétiques
-calme/tempête/orage) — aucun appel réseau nécessaire après installation.
+Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites et recommandations d’activités.
 
 ---
 
 ## Sécurité des décisions
 
-Le détecteur applique **worst-value-wins** entre modèles — vent ET vagues :
-Hs retenue = la plus haute des modèles, Tp retenue = la plus courte (mer la
-plus raide). Seuils stricts par phase (transit vs mouillage abrité),
-overrides durs (orage, rafales ≥ 30 km/h, visibilité < 5 km, mers
-courtes/raides).
+Le détecteur applique **worst-value-wins** entre modèles pour le vent et les vagues : Hs retenue = valeur la plus haute ; Tp retenue = période la plus courte. Les données marine absentes ne sont jamais inventées.
 
-**Confiance multi-modèles (v2.1)** : la houle est collectée sur plusieurs
-modèles Open-Meteo Marine — MFWAM 0.08° (primaire), GFS-Wave 0.25° et
-ECMWF WAM 0.25° en parallèle. « High » exige ≥ 2 modèles de houle concordants
-(écart Hs < 0,2 m sur chaque heure) en plus de l'accord vent ; avec une seule
-source de houle la confiance reste plafonnée à « Medium » (comportement v1).
-En cas d'échec marine, le spot est publié **sans données de vagues**
-(`meta.debug.marine_error`) : heures non-éligibles Family, jamais de données
-fabriquées.
+Les vétos durs comprennent notamment les orages, la visibilité insuffisante, les rafales et les mers courtes ou raides. Les seuils varient entre transit et mouillage abrité.
+
+Le classement des activités applique ensuite trois principes :
+
+1. aucune recommandation sans fenêtre Family GO validée ;
+2. les seuils particuliers de l’activité peuvent encore la refuser ;
+3. le signal lunaire est un bonus limité et ne neutralise jamais un NO-GO.
 
 © 2025-2026 RB Power Consulting — Tous droits réservés. Voir [LICENSE](LICENSE).

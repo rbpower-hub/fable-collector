@@ -1,89 +1,107 @@
-# Architecture — fable-collector v2
+# Architecture — fable-collector v2.9
 
-## Vue d'ensemble
+## Vue d’ensemble
 
+```text
+                    GitHub Actions — collect.yml
+                               │
+             ┌─────────────────┼──────────────────┐
+             ▼                 ▼                  ▼
+         preflight          collect             reader
+     validation config   météo + marine      Family GO
+             │                 │                  │
+             └─────────────────┴──────────┬───────┘
+                                          ▼
+                                  recommendations
+                             activités + pêche + astro
+                                          │
+                                          ▼
+                                       publish
+                              catalogue + statut + checks
+                                          │
+                                          ▼
+                                      public/
+                                          │
+                                          ▼
+                                    GitHub Pages
 ```
-                    ┌──────────────────────────────────────────────┐
-                    │  GitHub Actions — collect.yml (cron horaire) │
-                    └──────────────────────────────────────────────┘
-                        │ 1          │ 2          │ 3          │ 4
-                        ▼            ▼            ▼            ▼
-                   preflight     collect       reader       publish
-                   (valide       (Open-Meteo   (fenêtres    (catalog,
-                    config,       multi-        Family GO)   status,
-                    exporte       modèles)                   contrôles)
-                    normalized)
-                        │            │            │            │
-                        └────────────┴─────┬──────┴────────────┘
-                                           ▼
-                                    public/  ──────►  GitHub Pages
-                                           ▲
-                    ┌──────────────────────┴───────────────────────┐
-                    │ healthcheck.yml (cron /6h) — surveille le    │
-                    │ site EN PRODUCTION, ouvre une issue si stale │
-                    └──────────────────────────────────────────────┘
-```
+
+Le workflow `healthcheck.yml` surveille indépendamment le déploiement GitHub Pages et signale un site trop ancien ou incomplet.
+
+## Sources de configuration
+
+| Fichier | Responsabilité |
+|---|---|
+| `sites.yaml` | Ports, coordonnées, port d’attache, routes, vitesses et exposition au vent |
+| `rules.yaml` | Seuils Family GO, règles de transit/mouillage, confiance et sources météo |
+| `fishing_profiles.yaml` | Espèces, techniques, montages, appâts, profondeurs et périodes par spot/saison |
+| `activity_profiles.yaml` | Seuils propres à chaque activité et paramètres de classement |
+
+Les deux fichiers de profils sont volontairement séparés de `sites.yaml` afin de ne pas mélanger la géographie/navigation avec les connaissances métier de pêche.
 
 ## Modules
 
 | Module | Rôle | Entrées | Sorties |
 |---|---|---|---|
-| `fable.config` | Défauts + chargement/validation `rules.yaml`, `sites.yaml` (v1/v2), digest, normalisation | YAML | dicts, `SitesConfig` |
-| `fable.openmeteo` | Client HTTP (urllib), URLs, retries, fallback modèles, dégradation marine | réseau | payloads bruts |
-| `fable.astro` | Backfill daily : sunrise/sunset (forecast), lune (astronomy HTTP optionnel → Astral offline) | payload | payload enrichi |
-| `fable.collect` | Orchestration par site : fetch → slice fenêtre → alignement axes → modèles parallèles → écriture atomique | config+réseau | `public/<slug>.json`, `index.json` |
-| `fable.windows` | Chargement spots (par contenu), métriques worst-value-wins, éval par phase, détection 4-6 h, confiance | `public/*.json` | `windows.json` |
-| `fable.status` | catalog, status (+`stale_after`), status.html (fraîcheur côté client), windows.md | `public/` | fichiers statut |
-| `fable.preflight` | Gate de validation avant collecte + exports normalisés | YAML | `rules.normalized.json`, `sites.normalized.json` |
-| `fable.publish` | Post-traitement + `final_check` (bloque le déploiement si incomplet) | `public/` | code retour |
-| `fable.healthcheck` | Vérification du déploiement LIVE (indépendant du build) | HTTPS Pages | code retour |
+| `fable.config` | Chargement, validation et normalisation des règles et des sites | YAML | `SitesConfig`, règles normalisées |
+| `fable.openmeteo` | Client HTTP, modèles, retries et fallbacks | réseau | payloads météo et marine |
+| `fable.astro` | Lever/coucher du soleil et de la lune, phase lunaire, fallback Astral | payload + coordonnées | bloc `daily` enrichi |
+| `fable.collect` | Collecte, alignement temporel, modèles parallèles et écriture atomique | config + réseau | `public/<slug>.json`, `index.json` |
+| `fable.windows` | Worst-value-wins, évaluation par phase et détection des fenêtres | spots JSON + règles | `windows.json` |
+| `fable.recommendations` | Filtrage et classement des activités dans les fenêtres validées | fenêtres + spots + profils | `recommendations.json` |
+| `fable.preflight` | Validation avant collecte et exports normalisés | YAML | `rules.normalized.json`, `sites.normalized.json` |
+| `fable.status` | Catalogue, statut, fraîcheur et résumé des fenêtres | `public/` | fichiers de statut |
+| `fable.publish` | Contrôles finaux et préparation de GitHub Pages | `public/` | code retour |
+| `fable.healthcheck` | Contrôle externe du site publié | HTTPS | état de santé |
 
-## Flux de données par site
+## Flux par spot
 
-1. `fetch_forecast` : essaie `icon_seamless → gfs_seamless → ecmwf_ifs04 →
-   default`, puis sans `models=`, puis jeu SAFE minimal. Premier payload avec
-   du vent non-nul gagne (`_model_used`).
-2. Backfill daily si nécessaire (sunrise/sunset via forecast ; lune via
-   Astral offline par défaut — l'endpoint astronomy est coupé par
-   `http.disable_astronomy_http: true` dans rules.yaml).
-3. `fetch_marine` : Hs/Tp (+houle) avec chaîne de fallback de modèles
-   (`meteofrance_wave` → `ncep_gfswave025` → `ecmwf_wam025` → défaut).
-   **Ne lève jamais** : payload dégradé `_error` → spot publié wind-only.
-3bis. `fetch_parallel_marine` : modèles de houle additionnels alignés sur
-   l'axe commun → bloc `marine_models.*` (le primaire y est republié).
-   Sert au calcul de l'écart inter-modèles (confiance).
-4. Slicing sur la fenêtre locale demandée (48 h par défaut), par source.
-5. `flatten_hourly_aligned` : axe commun = **intersection** des heures
-   forecast/marine (union ordonnée si vide) → bloc `hourly` avec alias
-   `hs`/`tp`.
-6. Modèles parallèles : mêmes clés vent, alignés sur l'axe commun → bloc
-   `models.*` (le primaire y est republié pour homogénéité).
-7. Écriture atomique (`.tmp` + `replace`).
+1. `fetch_forecast` tente les modèles météo configurés jusqu’à obtenir des séries de vent exploitables.
+2. `fable.astro` complète `sunrise`, `sunset`, `moonrise`, `moonset` et `moon_phase`. L’endpoint astronomy peut être désactivé ; Astral reste le fallback local.
+3. `fetch_marine` collecte Hs, Tp et la houle avec fallback MFWAM, GFS-Wave, ECMWF WAM puis modèle par défaut.
+4. Les modèles parallèles sont alignés sur un axe horaire commun pour mesurer le désaccord inter-modèles.
+5. Le collecteur publie un JSON par spot. Une absence de données marine reste une absence : aucune interpolation de sécurité n’est fabriquée.
+6. Le reader évalue les heures et construit les fenêtres Family GO.
+7. Le moteur de recommandations lit les fenêtres acceptées, calcule les métriques de la fenêtre et classe les activités compatibles.
 
-## Détection de fenêtres (reader)
+## Détection Family GO
 
-- Phases par longueur L : `T A…A T` (L=4 → TAAT … L=6 → TAAAAT), bornées 4-6 h.
-- Une heure est éligible si TOUTES les conditions passent pour sa phase :
-  orage (WMO 95/96/99) = veto absolu ; visibilité ≥ 5 km ; vent onshore
-  ≤ 22 km/h ; squall Δ(rafale-soutenu) < 17 (transit) / < 20 (mouillage) ;
-  vent < 20 (family transit) / < 32 (mouillage) ; rafales < 30 / < 34 ;
-  Hs/Tp selon matrice (assouplie au mouillage si Hs ≤ 0.35 m) ;
-  clauses mers courtes/raides (Hs ≥ 0.5 & Tp ≤ 6 → refus ; Hs ≥ 0.6 & Tp ≤ 5
-  → refus dur).
-- Worst-value-wins entre modèles pour chaque heure ; départ ET retour
-  validés au port d'attache en phase transit.
-- Confiance : Low si < 2 modèles vent sur une heure ; High exige en plus
-  ≥ 2 modèles de houle avec écart Hs inter-modèles < 0,2 m sur CHAQUE heure
-  de la fenêtre ; **cap Medium** si une seule source de houle (conditionnel
-  depuis v2.1 — l'écart Hs mesure désormais le désaccord entre modèles,
-  pas la variation temporelle).
+- Fenêtres de 4 à 6 heures selon la structure `Transit – Mouillage – Transit`.
+- Validation au départ, sur la destination et au retour.
+- Veto absolu pour les orages et refus conservateur en cas de données critiques manquantes.
+- Worst-value-wins : vent/rafales maximaux, Hs maximale et Tp minimale entre modèles.
+- Règles spécifiques au mouillage abrité sans assouplissement du transit.
+- Confiance plafonnée lorsque le nombre de modèles ou de sources de houle est insuffisant.
 
-## Décisions figées (ne pas « corriger » sans réflexion)
+## Couche de recommandations
 
-- La clé payload `"ecmwf"` contient le **modèle primaire** (souvent ICON) —
-  nom historique conservé pour ne pas casser FABLE AI. Le vrai modèle est
-  dans `meta.sources.ecmwf_open_meteo.model_used`.
-- `index.json` garde le schéma `spots` observé en production (pas `files` —
-  c'est `catalog.json` qui liste les fichiers).
-- Le collector n'interpole jamais les trous marine : données absentes =
-  heures non-éligibles, par sécurité.
+La couche de recommandations est **strictement descendante** :
+
+```text
+NO-GO / absence de fenêtre
+        └──► aucune recommandation
+
+Family GO validé
+        └──► filtres propres à l’activité
+                 └──► classement des activités restantes
+```
+
+Le score prend en compte :
+
+- marge sous les seuils de vent, rafales, Hs, Tp et visibilité ;
+- présence d’un profil de pêche lorsque l’activité l’exige ;
+- adéquation de la saison et de la période solaire ;
+- signal lunaire secondaire, plafonné par configuration.
+
+La lune ne crée aucune fenêtre et ne peut neutraliser aucun blocage de sécurité.
+
+## Rendu du board
+
+Le workflow produit `recommendations.json`, puis charge `public/activity-board.js` dans l’artefact GitHub Pages. Le composant ajoute la section **« Que faire sur l’eau ? »** sans modifier le moteur principal du dashboard.
+
+## Décisions figées
+
+- La clé historique `ecmwf` du payload contient le modèle météo primaire réellement retenu ; son nom exact reste disponible dans les métadonnées.
+- `index.json` référence les spots ; `catalog.json` inventorie les fichiers publiés.
+- Les profils de pêche sont indicatifs et doivent être affinés sans compromettre la priorité des règles de navigation.
+- Les recommandations ne doivent jamais être calculées directement à partir d’une météo brute en contournant `windows.json`.

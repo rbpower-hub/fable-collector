@@ -1,11 +1,11 @@
-"""fable-collector — marine weather collection & GO/NO-GO window detection.
+"""fable-collector — marine weather, GO/NO-GO and activity recommendations.
 
 Collects Open-Meteo forecast + marine data for Tunisian coastal spots,
-publishes per-spot JSON feeds on GitHub Pages, and detects safe
-"Family GO" outing windows (Transit–Anchor–Transit) for the home port.
+publishes per-spot JSON feeds on GitHub Pages, detects safe Family GO
+outing windows, and ranks compatible marine and fishing activities.
 
 © RB Power Consulting. All rights reserved.
 """
 
-__version__ = "2.8.5"
+__version__ = "2.9.0"
 USER_AGENT = f"fable-collector/{__version__} (+github actions)"

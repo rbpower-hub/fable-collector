@@ -1,7 +1,7 @@
 [project]
 name = "fable-collector"
-version = "2.8.5"
-description = "Collecteur météo marine Open-Meteo + détection de fenêtres Family GO pour ports tunisiens (FABLE AI)"
+version = "2.9.0"
+description = "Collecteur météo marine, fenêtres Family GO et recommandations d’activités pour ports tunisiens"
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
@@ -17,9 +17,9 @@ exclude = ["tools", "public"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = [
-    "E501",    # long lines tolerated where readability wins
-    "SIM105",  # try/except/pass is deliberate in best-effort paths
-    "E702",    # `ok = False; reasons.append(...)` idiom kept from v1 for diffability
+    "E501",
+    "SIM105",
+    "E702",
     "E701",
 ]
 

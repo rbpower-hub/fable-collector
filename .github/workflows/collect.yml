@@ -6,8 +6,7 @@
 # - toute la logique Python vit dans le package fable/ (testée), plus
 #   d'inline scripts de 600 lignes dans le YAML ;
 # - job keepalive hebdomadaire : commit vide pour empêcher GitHub de
-#   désactiver le cron après 60 jours sans activité (cause de la panne
-#   de décembre 2025).
+#   désactiver le cron après 60 jours sans activité.
 name: Collect & Deploy (fable-collector)
 
 on:
@@ -30,8 +29,8 @@ on:
         required: false
 
   schedule:
-    - cron: "7,27,47 * * * *"  # 3 tentatives/heure ; build seulement si le live est assez ancien
-    - cron: "23 3 * * 0"       # keepalive hebdomadaire (dimanche 03:23 UTC)
+    - cron: "7,27,47 * * * *"
+    - cron: "23 3 * * 0"
 
   push:
     branches: [main]
@@ -43,16 +42,16 @@ on:
       - "reader.py"
       - "sites.yaml"
       - "rules.yaml"
+      - "activity_profiles.yaml"
+      - "fishing_profiles.yaml"
       - "public/index.html"
+      - "public/activity-board.js"
       - "public/reasons-debug.js"
 
 permissions:
   contents: read
 
 jobs:
-  # --------------------------------------------------------------
-  # Empêche la désactivation automatique du cron (60 j d'inactivité)
-  # --------------------------------------------------------------
   keepalive:
     if: github.event_name == 'schedule' && github.event.schedule == '23 3 * * 0'
     runs-on: ubuntu-latest
@@ -68,10 +67,6 @@ jobs:
           git commit --allow-empty -m "chore: keepalive — prevent scheduled workflow auto-disable [skip ci]"
           git push
 
-  # --------------------------------------------------------------
-  # Anti-trous GitHub cron : plusieurs créneaux, mais pas de
-  # recollecte si le déploiement live est encore frais.
-  # --------------------------------------------------------------
   schedule_guard:
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -107,13 +102,9 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               fh.write(f"should_run={'true' if should_run else 'false'}\n")
               fh.write(f"reason={reason}\n")
-
           print(reason)
           PY
 
-  # --------------------------------------------------------------
-  # Collecte + build + déploiement
-  # --------------------------------------------------------------
   build:
     needs: schedule_guard
     if: needs.schedule_guard.outputs.should_run == 'true'
@@ -166,6 +157,20 @@ jobs:
             python reader.py --from-dir public --out public
           fi
 
+      - name: Generate activity and fishing recommendations
+        run: python -m fable.recommendations
+
+      - name: Enable activity component in dashboard
+        shell: python
+        run: |
+          from pathlib import Path
+          page = Path("public/index.html")
+          html = page.read_text(encoding="utf-8")
+          tag = '<script src="./activity-board.js"></script>'
+          if tag not in html:
+              html = html.replace("</body>", f"  {tag}\n</body>")
+              page.write_text(html, encoding="utf-8")
+
       - name: Publish (catalog, status, windows.md, final checks)
         run: python -m fable.publish
 
@@ -175,6 +180,14 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat public/windows.md >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "## Activités recommandées" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          data = json.load(open("public/recommendations.json", encoding="utf-8"))
+          for item in data.get("recommendations", []):
+              activities = ", ".join(a.get("label_fr", a.get("activity_id", "")) for a in item.get("activities", []))
+              print(f"- {item.get('dest_name')}: {activities}")
+          PY
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

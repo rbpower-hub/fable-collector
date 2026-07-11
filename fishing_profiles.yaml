@@ -1,0 +1,98 @@
+# FABLE — profils de pêche indicatifs par zone.
+# Données restaurées de l'ancien module puis restructurées. À valider selon
+# réglementation, retours locaux et observations réelles.
+version: 2
+status: indicative_local_validation_required
+
+profiles:
+  gammarth-port:
+    display_name: "Gammarth (port d’attache)"
+    role: home
+    depths_m: [4, 18]
+    habitats: [sable, roche, herbier_mixte]
+    confidence: medium
+    seasons:
+      spring:
+        species: ["dorade grise", moustelle, pageot, sar]
+        techniques: ["pêche au fond légère", "dérive lente", "leurre souple"]
+        rigs: ["bas de ligne fluorocarbone 0,25–0,28 mm", "plomb 15–40 g"]
+        baits: [ver, couteau, crevette, "lamelle de calamar"]
+        preferred_periods: [sunrise, sunset]
+        depths_m: [6, 16]
+      summer:
+        species: [pageot, "petite dorade royale", oblade]
+        techniques: ["Carolina léger", "micro-jig 10–20 g", "pêche au fond légère"]
+        rigs: ["Carolina léger", "micro-jig 10–20 g"]
+        baits: [ver, crevette, "leurre souple 7–10 cm"]
+        preferred_periods: [sunrise, sunset]
+        depths_m: [6, 18]
+      autumn:
+        species: [sar, pageot, chinchard, bonitot]
+        techniques: ["bottom drift", "petit madaï", "traîne côtière"]
+        rigs: ["bottom drift 20–60 g", "petit madaï 20–40 g"]
+        baits: [ver, couteau, calamar]
+        preferred_periods: [sunrise, sunset]
+        depths_m: [8, 20]
+      winter:
+        species: [merlan, pageot, "poulpe occasionnel"]
+        techniques: ["pêche au fond", "tâte-fond", "petites plumes"]
+        rigs: ["plumes 5–15 g", "tâte-fond 20–40 g"]
+        baits: [ver, sardine, calamar]
+        preferred_periods: [day]
+        depths_m: [8, 20]
+
+  sidi-bou-said:
+    display_name: "Sidi Bou Saïd"
+    role: secours
+    depths_m: [4, 12]
+    habitats: [roche, herbier, sable]
+    confidence: low
+    seasons:
+      spring: {species: [sar, pageot, oblade], techniques: ["pêche au fond légère", "leurre souple"], rigs: ["plomb 15–35 g"], baits: [ver, crevette, couteau], preferred_periods: [sunrise, sunset]}
+      summer: {species: [oblade, "petit pageot"], techniques: [micro-jig, drop-shot], rigs: ["micro-jig 7–15 g", drop-shot], baits: [crevette, ver], preferred_periods: [sunrise, sunset]}
+      autumn: {species: [sar, pageot, chinchard], techniques: ["pêche au fond", "petit jig"], rigs: ["plomb 20–40 g", "jig 10–25 g"], baits: [ver, calamar], preferred_periods: [sunrise, sunset]}
+      winter: {species: [merlan, pageot], techniques: ["pêche au fond"], rigs: ["plomb 20–40 g"], baits: [ver, sardine], preferred_periods: [day]}
+
+  ghar-el-melh:
+    display_name: "Ghar El Melh"
+    depths_m: [5, 18]
+    habitats: [sable, roche, herbier]
+    confidence: low
+    seasons:
+      spring: {species: ["dorade grise", pageot, sar], techniques: ["pêche au fond", "leurre souple"], rigs: ["fond 20–50 g", "souple 8–12 cm"], baits: [ver, couteau], preferred_periods: [sunrise, sunset]}
+      summer: {species: [pageot, oblade, dorade], techniques: ["pêche au fond légère", micro-jig], rigs: ["plomb 20–40 g", "micro-jig 10–25 g"], baits: [ver, crevette], preferred_periods: [sunrise, sunset]}
+      autumn: {species: [sar, pageot, chinchard], techniques: ["bottom drift", "traîne côtière"], rigs: ["plomb 30–60 g"], baits: [ver, calamar], preferred_periods: [sunrise, sunset]}
+      winter: {species: [merlan, pageot], techniques: ["pêche au fond"], rigs: ["plomb 30–60 g"], baits: [ver, sardine], preferred_periods: [day]}
+
+  ras-fartass:
+    display_name: "Ras Fartass"
+    depths_m: [8, 25]
+    habitats: [roche, tombant, herbier]
+    confidence: low
+    seasons:
+      spring: {species: [sar, pageot, moustelle], techniques: ["pêche au fond", "leurre souple"], rigs: ["plomb 30–60 g"], baits: [ver, calamar, couteau], preferred_periods: [sunrise, sunset]}
+      summer: {species: [pageot, oblade, bonitot], techniques: [micro-jig, "traîne côtière"], rigs: ["jig 15–40 g"], baits: ["leurre souple", calamar], preferred_periods: [sunrise, sunset]}
+      autumn: {species: [sar, pageot, chinchard, bonitot], techniques: ["jig léger", "bottom drift", "traîne côtière"], rigs: ["jig 20–50 g", "plomb 30–70 g"], baits: [calamar, sardine, ver], preferred_periods: [sunrise, sunset]}
+      winter: {species: [merlan, pageot], techniques: ["pêche au fond"], rigs: ["plomb 40–80 g"], baits: [sardine, calamar], preferred_periods: [day]}
+
+  el-haouaria:
+    display_name: "El Haouaria"
+    depths_m: [6, 25]
+    habitats: [roche, tombant, sable]
+    confidence: low
+    seasons:
+      spring: {species: [sar, pageot, moustelle], techniques: ["pêche au fond", "leurre souple"], rigs: ["plomb 30–60 g", "souple 8–12 cm"], baits: [ver, couteau, calamar], preferred_periods: [sunrise, sunset]}
+      summer: {species: [oblade, pageot, bogue], techniques: ["leurre souple", tirette, micro-jig], rigs: ["souple 7–10 cm", "tirette 20–40 g"], baits: [ver, crevette], preferred_periods: [sunrise, sunset]}
+      autumn: {species: [pageot, sar, bonitot], techniques: ["bottom drift", "petit jig", "traîne côtière"], rigs: ["bottom drift 30–60 g", "jig 20–40 g"], baits: [ver, calamar], preferred_periods: [sunrise, sunset]}
+      winter: {species: [merlan, pageot], techniques: ["pêche au fond"], rigs: ["plomb 40–80 g"], baits: [sardine, calamar], preferred_periods: [day]}
+
+  kelibia:
+    display_name: "Kélibia"
+    depths_m: [6, 30]
+    habitats: [roche, tombant, sable]
+    confidence: low
+    seasons:
+      spring: {species: [sar, pageot, moustelle], techniques: ["pêche au fond", "leurre souple"], rigs: ["plomb 30–70 g"], baits: [ver, couteau, calamar], preferred_periods: [sunrise, sunset]}
+      summer: {species: [oblade, pageot, bonitot], techniques: [micro-jig, "traîne côtière"], rigs: ["jig 15–50 g"], baits: ["leurre souple", calamar], preferred_periods: [sunrise, sunset]}
+      autumn: {species: [sar, pageot, chinchard, bonitot], techniques: ["bottom drift", "jig léger", "traîne côtière"], rigs: ["plomb 30–80 g", "jig 20–60 g"], baits: [calamar, sardine, ver], preferred_periods: [sunrise, sunset]}
+      winter: {species: [merlan, pageot], techniques: ["pêche au fond"], rigs: ["plomb 40–90 g"], baits: [sardine, calamar], preferred_periods: [day]}

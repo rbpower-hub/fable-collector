@@ -1,0 +1,48 @@
+# FABLE — profils d'activités marines
+# Ces seuils classent uniquement des activités dans une fenêtre Family GO déjà validée.
+# Ils ne peuvent jamais créer un GO ni neutraliser un NO-GO.
+version: 1
+status: initial_tunable
+
+ranking:
+  max_per_window: 3
+  max_total: 5
+  preferred_period_bonus: 7
+  lunar_max_bonus: 5
+
+activities:
+  sheltered_stop:
+    icon: "⚓"
+    label_fr: "Escale côtière abritée"
+    label_en: "Sheltered coastal stop"
+    safety: {max_wind_kmh: 18, max_gust_kmh: 28, max_hs_m: 0.35, min_tp_s: 3.2, min_visibility_km: 5}
+
+  family_swim:
+    icon: "🏊"
+    label_fr: "Baignade familiale en zone abritée"
+    label_en: "Family swim in a sheltered area"
+    safety: {max_wind_kmh: 14, max_gust_kmh: 22, max_hs_m: 0.25, min_tp_s: 3.2, min_visibility_km: 8}
+
+  bottom_fishing:
+    icon: "🎣"
+    label_fr: "Pêche au fond légère"
+    label_en: "Light bottom fishing"
+    requires_fishing_profile: true
+    lunar_sensitive: true
+    safety: {max_wind_kmh: 18, max_gust_kmh: 28, max_hs_m: 0.45, min_tp_s: 3.5, min_visibility_km: 6}
+
+  light_jigging:
+    icon: "🪝"
+    label_fr: "Micro-jig / jig léger"
+    label_en: "Micro-jig / light jigging"
+    requires_fishing_profile: true
+    lunar_sensitive: true
+    safety: {max_wind_kmh: 16, max_gust_kmh: 26, max_hs_m: 0.40, min_tp_s: 3.8, min_visibility_km: 6}
+
+  coastal_trolling:
+    icon: "🐟"
+    label_fr: "Traîne côtière"
+    label_en: "Coastal trolling"
+    requires_fishing_profile: true
+    lunar_sensitive: true
+    safety: {max_wind_kmh: 20, max_gust_kmh: 28, max_hs_m: 0.50, min_tp_s: 3.5, min_visibility_km: 8}

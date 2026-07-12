@@ -1,0 +1,8 @@
+id: dorade-grise
+label_fr: "Dorade grise"
+label_en: "Grey seabream"
+status: indicative_local_validation_required
+habitats: [roche, sable, herbier_mixte, fond_mixte]
+depths_m: [5, 35]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Désignation locale et présence à confirmer par zone, saison et observations de terrain."

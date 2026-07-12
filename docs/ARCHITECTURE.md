@@ -43,7 +43,7 @@ Le workflow `healthcheck.yml` surveille indépendamment le déploiement GitHub P
 | `knowledge/techniques/*.yaml` | Techniques, familles et indications de matériel |
 | `knowledge/ports/*.yaml` | Connaissance locale par port, saison et futures zones validées |
 | `knowledge/activities/*.yaml` | Activités et seuils propres à chaque usage |
-| `fishing_profiles.yaml` | Fallback transitoire pour les ports non encore migrés |
+| `fishing_profiles.yaml` | Fallback transitoire et rollback des profils historiques |
 | `activity_profiles.yaml` | Fallback lorsque le Knowledge Pack est absent |
 
 La navigation reste séparée de la connaissance métier : `sites.yaml` décide où et comment évaluer un trajet ; `knowledge/ports/` décrit les usages et profils locaux associés.
@@ -88,17 +88,20 @@ Le chargeur contrôle notamment :
 
 La production utilise le mode strict. Une incohérence empêche la génération des recommandations et bloque le déploiement, plutôt que de publier silencieusement une connaissance partielle.
 
-## Migration progressive
+## Couverture régionale et fallback
 
 ```text
 Port présent dans knowledge/ports/
         └──► modèle structuré Knowledge Pack
 
 Port absent de knowledge/ports/
-        └──► fallback fishing_profiles.yaml
+        └──► fallback fishing_profiles.yaml s’il existe
+               └──► sinon aucune recommandation de pêche ciblée
 ```
 
-Cette stratégie permet de migrer et valider chaque port séparément. Gammarth constitue le premier profil structuré. Les autres ports conservent leur profil historique jusqu’à migration.
+Les ports tunisiens Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia sont migrés dans le pack structuré. Le fallback historique reste conservé pour compatibilité et rollback, mais n’est plus la source principale de ces six profils.
+
+Pantelleria reste volontairement absente du Knowledge Pack métier. Sa route composite offshore beta nécessite une validation séparée avant d’ajouter un profil d’espèces, des techniques ou des zones.
 
 ## Détection Family GO
 
@@ -125,7 +128,7 @@ Le score prend en compte la marge sous les seuils, la disponibilité d’un prof
 
 ## Rendu du board
 
-Le workflow produit `recommendations.json`, puis charge `public/activity-board.js` dans l’artefact GitHub Pages. `knowledge.json` permet de contrôler la version et les identifiants métier effectivement chargés.
+Le workflow produit `recommendations.json`, puis charge `public/activity-board.js` dans l’artefact GitHub Pages. `knowledge.json` permet de contrôler la version, le statut et les identifiants métier effectivement chargés.
 
 ## Décisions figées
 

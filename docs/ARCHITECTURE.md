@@ -1,29 +1,33 @@
-# Architecture — fable-collector v2.9
+# Architecture — fable-collector v3 groundwork
 
 ## Vue d’ensemble
 
 ```text
-                    GitHub Actions — collect.yml
-                               │
-             ┌─────────────────┼──────────────────┐
-             ▼                 ▼                  ▼
-         preflight          collect             reader
-     validation config   météo + marine      Family GO
-             │                 │                  │
-             └─────────────────┴──────────┬───────┘
-                                          ▼
-                                  recommendations
-                             activités + pêche + astro
-                                          │
-                                          ▼
-                                       publish
-                              catalogue + statut + checks
-                                          │
-                                          ▼
-                                      public/
-                                          │
-                                          ▼
-                                    GitHub Pages
+                     GitHub Actions — collect.yml
+                                │
+              ┌─────────────────┼──────────────────┐
+              ▼                 ▼                  ▼
+          preflight          collect             reader
+      validation config   météo + marine      Family GO
+              │                 │                  │
+              └─────────────────┴──────────┬───────┘
+                                           ▼
+                                      knowledge
+                             validation du pack métier
+                                           │
+                                           ▼
+                                   recommendations
+                              activités + pêche + astro
+                                           │
+                                           ▼
+                                        publish
+                               catalogue + statut + checks
+                                           │
+                                           ▼
+                                       public/
+                                           │
+                                           ▼
+                                     GitHub Pages
 ```
 
 Le workflow `healthcheck.yml` surveille indépendamment le déploiement GitHub Pages et signale un site trop ancien ou incomplet.
@@ -32,12 +36,17 @@ Le workflow `healthcheck.yml` surveille indépendamment le déploiement GitHub P
 
 | Fichier | Responsabilité |
 |---|---|
-| `sites.yaml` | Ports, coordonnées, port d’attache, routes, vitesses et exposition au vent |
+| `sites.yaml` | Ports météo/navigation, coordonnées, port d’attache, routes, vitesses et exposition au vent |
 | `rules.yaml` | Seuils Family GO, règles de transit/mouillage, confiance et sources météo |
-| `fishing_profiles.yaml` | Espèces, techniques, montages, appâts, profondeurs et périodes par spot/saison |
-| `activity_profiles.yaml` | Seuils propres à chaque activité et paramètres de classement |
+| `knowledge/manifest.yaml` | Version, statut, politiques et paramètres de classement du Knowledge Pack |
+| `knowledge/fish/*.yaml` | Espèces et attributs structurés |
+| `knowledge/techniques/*.yaml` | Techniques, familles et indications de matériel |
+| `knowledge/ports/*.yaml` | Connaissance locale par port, saison et futures zones validées |
+| `knowledge/activities/*.yaml` | Activités et seuils propres à chaque usage |
+| `fishing_profiles.yaml` | Fallback transitoire pour les ports non encore migrés |
+| `activity_profiles.yaml` | Fallback lorsque le Knowledge Pack est absent |
 
-Les deux fichiers de profils sont volontairement séparés de `sites.yaml` afin de ne pas mélanger la géographie/navigation avec les connaissances métier de pêche.
+La navigation reste séparée de la connaissance métier : `sites.yaml` décide où et comment évaluer un trajet ; `knowledge/ports/` décrit les usages et profils locaux associés.
 
 ## Modules
 
@@ -48,7 +57,8 @@ Les deux fichiers de profils sont volontairement séparés de `sites.yaml` afin 
 | `fable.astro` | Lever/coucher du soleil et de la lune, phase lunaire, fallback Astral | payload + coordonnées | bloc `daily` enrichi |
 | `fable.collect` | Collecte, alignement temporel, modèles parallèles et écriture atomique | config + réseau | `public/<slug>.json`, `index.json` |
 | `fable.windows` | Worst-value-wins, évaluation par phase et détection des fenêtres | spots JSON + règles | `windows.json` |
-| `fable.recommendations` | Filtrage et classement des activités dans les fenêtres validées | fenêtres + spots + profils | `recommendations.json` |
+| `fable.knowledge` | Charge les catégories, vérifie les IDs et les références croisées | `knowledge/` | `KnowledgePack` validé |
+| `fable.recommendations` | Filtrage et classement des activités dans les fenêtres validées | fenêtres + spots + pack | `recommendations.json`, `knowledge.json` |
 | `fable.preflight` | Validation avant collecte et exports normalisés | YAML | `rules.normalized.json`, `sites.normalized.json` |
 | `fable.status` | Catalogue, statut, fraîcheur et résumé des fenêtres | `public/` | fichiers de statut |
 | `fable.publish` | Contrôles finaux et préparation de GitHub Pages | `public/` | code retour |
@@ -57,12 +67,38 @@ Les deux fichiers de profils sont volontairement séparés de `sites.yaml` afin 
 ## Flux par spot
 
 1. `fetch_forecast` tente les modèles météo configurés jusqu’à obtenir des séries de vent exploitables.
-2. `fable.astro` complète `sunrise`, `sunset`, `moonrise`, `moonset` et `moon_phase`. L’endpoint astronomy peut être désactivé ; Astral reste le fallback local.
-3. `fetch_marine` collecte Hs, Tp et la houle avec fallback MFWAM, GFS-Wave, ECMWF WAM puis modèle par défaut.
-4. Les modèles parallèles sont alignés sur un axe horaire commun pour mesurer le désaccord inter-modèles.
-5. Le collecteur publie un JSON par spot. Une absence de données marine reste une absence : aucune interpolation de sécurité n’est fabriquée.
+2. `fable.astro` complète `sunrise`, `sunset`, `moonrise`, `moonset` et `moon_phase`.
+3. `fetch_marine` collecte Hs, Tp et la houle avec fallbacks.
+4. Les modèles parallèles sont alignés pour mesurer le désaccord inter-modèles.
+5. Le collecteur publie un JSON par spot sans inventer les données marine manquantes.
 6. Le reader évalue les heures et construit les fenêtres Family GO.
-7. Le moteur de recommandations lit les fenêtres acceptées, calcule les métriques de la fenêtre et classe les activités compatibles.
+7. `fable.knowledge` charge et valide le pack métier. Une référence inconnue est bloquante.
+8. Le moteur de recommandations calcule les métriques de chaque fenêtre acceptée et classe les activités compatibles.
+9. Le pipeline publie `recommendations.json` et le catalogue `knowledge.json`.
+
+## Validation du Knowledge Pack
+
+Le chargeur contrôle notamment :
+
+- correspondance entre `id` et nom de fichier ;
+- unicité des identifiants ;
+- références d’espèces depuis les ports ;
+- références de techniques depuis les ports et activités ;
+- structure YAML des saisons.
+
+La production utilise le mode strict. Une incohérence empêche la génération des recommandations et bloque le déploiement, plutôt que de publier silencieusement une connaissance partielle.
+
+## Migration progressive
+
+```text
+Port présent dans knowledge/ports/
+        └──► modèle structuré Knowledge Pack
+
+Port absent de knowledge/ports/
+        └──► fallback fishing_profiles.yaml
+```
+
+Cette stratégie permet de migrer et valider chaque port séparément. Gammarth constitue le premier profil structuré. Les autres ports conservent leur profil historique jusqu’à migration.
 
 ## Détection Family GO
 
@@ -75,33 +111,26 @@ Les deux fichiers de profils sont volontairement séparés de `sites.yaml` afin 
 
 ## Couche de recommandations
 
-La couche de recommandations est **strictement descendante** :
-
 ```text
 NO-GO / absence de fenêtre
         └──► aucune recommandation
 
 Family GO validé
-        └──► filtres propres à l’activité
-                 └──► classement des activités restantes
+        └──► Knowledge Pack valide
+                 └──► filtres propres à l’activité
+                          └──► classement des activités restantes
 ```
 
-Le score prend en compte :
-
-- marge sous les seuils de vent, rafales, Hs, Tp et visibilité ;
-- présence d’un profil de pêche lorsque l’activité l’exige ;
-- adéquation de la saison et de la période solaire ;
-- signal lunaire secondaire, plafonné par configuration.
-
-La lune ne crée aucune fenêtre et ne peut neutraliser aucun blocage de sécurité.
+Le score prend en compte la marge sous les seuils, la disponibilité d’un profil saisonnier, les techniques compatibles, la période solaire et un signal lunaire secondaire plafonné.
 
 ## Rendu du board
 
-Le workflow produit `recommendations.json`, puis charge `public/activity-board.js` dans l’artefact GitHub Pages. Le composant ajoute la section **« Que faire sur l’eau ? »** sans modifier le moteur principal du dashboard.
+Le workflow produit `recommendations.json`, puis charge `public/activity-board.js` dans l’artefact GitHub Pages. `knowledge.json` permet de contrôler la version et les identifiants métier effectivement chargés.
 
 ## Décisions figées
 
-- La clé historique `ecmwf` du payload contient le modèle météo primaire réellement retenu ; son nom exact reste disponible dans les métadonnées.
-- `index.json` référence les spots ; `catalog.json` inventorie les fichiers publiés.
-- Les profils de pêche sont indicatifs et doivent être affinés sans compromettre la priorité des règles de navigation.
-- Les recommandations ne doivent jamais être calculées directement à partir d’une météo brute en contournant `windows.json`.
+- Les recommandations ne doivent jamais contourner `windows.json`.
+- La lune ne crée aucune fenêtre et ne neutralise aucun blocage.
+- Les zones GPS restent vides jusqu’à validation terrain, cartographique et nautique.
+- Les connaissances métier sont indicatives et doivent conserver un statut de validation explicite.
+- `sites.yaml` reste la source de vérité de la navigation ; le Knowledge Pack ne doit pas dupliquer les routes météo.

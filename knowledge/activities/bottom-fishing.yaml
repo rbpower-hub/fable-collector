@@ -1,0 +1,14 @@
+id: bottom-fishing
+icon: "🎣"
+label_fr: "Pêche au fond légère"
+label_en: "Light bottom fishing"
+status: initial_tunable
+requires_fishing_profile: true
+lunar_sensitive: true
+techniques: [bottom-fishing]
+safety:
+  max_wind_kmh: 18
+  max_gust_kmh: 28
+  max_hs_m: 0.45
+  min_tp_s: 3.5
+  min_visibility_km: 6

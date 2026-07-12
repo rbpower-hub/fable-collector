@@ -10,9 +10,10 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 - détection conservatrice des fenêtres **Family GO** de 4 à 6 heures ;
 - validation des phases Transit – Mouillage – Transit depuis le port d’attache ;
 - recommandations d’activités marines et de pêche uniquement dans les fenêtres déjà validées ;
+- aide Fish Intelligence indicative : espèces, techniques, appâts/leurres, montages et matériel de départ ;
 - publication automatique du tableau de bord et des données sur GitHub Pages.
 
-> *English summary* — Hourly marine-weather collector for Tunisian coastal spots, publishing safe 4–6 hour Family GO windows and ranked marine/fishing activities. Recommendations are downstream of the safety engine: they never create a navigation window and never override a NO-GO.
+> *English summary* — Hourly marine-weather collector for Tunisian coastal spots, publishing safe 4–6 hour Family GO windows and ranked marine/fishing activities. Recommendations are downstream of the safety engine: they never create a navigation window and never override a NO-GO. Fish Intelligence gear ranges are indicative and require local and regulatory checks.
 
 ---
 
@@ -32,7 +33,7 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 | Statut machine | https://rbpower-hub.github.io/fable-collector/status.json |
 | Inventaire des fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
 
-`knowledge.json` est produit pendant `Collect & Deploy` dès que le Knowledge Pack est actif dans `main`.
+`knowledge.json` est produit pendant `Collect & Deploy` dès que le Knowledge Pack est actif dans `main`. Avec le schéma Fish Intelligence v1, `knowledge.json` est en version 2 et `recommendations.json` en version 3.
 
 Spots configurés : **Gammarth**, **Sidi Bou Saïd**, **Ghar el Melh**, **Ras Fartass**, **El Haouaria**, **Kélibia** et **Pantelleria beta**. Korbous reste exclu par la politique actuelle.
 
@@ -51,7 +52,9 @@ fable.collect            météo, mer, soleil et lune par spot
         │
 fable.windows            fenêtres Family GO 4–6 h
         │
-fable.recommendations    activités, techniques, espèces et appâts
+fable.knowledge          validation des profils et du matériel indicatif
+        │
+fable.recommendations    activités + Fish Intelligence + astro
         │
 fable.publish            catalogue, statut et contrôles finaux
         │
@@ -65,6 +68,7 @@ Documentation détaillée :
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Knowledge Pack](docs/KNOWLEDGE-PACK.md)
+- [Fish Intelligence v1](docs/FISH-INTELLIGENCE.md)
 - [Recommandations d’activités et de pêche](docs/RECOMMENDATIONS.md)
 - [Déploiement](docs/DEPLOY.md)
 - [Runbook d’exploitation](docs/RUNBOOK.md)
@@ -104,7 +108,7 @@ knowledge/
 └── activities/
 ```
 
-Les identifiants référencés par les ports et activités sont validés avant génération. Une référence inconnue bloque le build du pack afin d’éviter des recommandations silencieusement incomplètes.
+Les identifiants référencés par les ports, espèces et activités sont validés avant génération. Une référence inconnue bloque le build du pack afin d’éviter des recommandations silencieusement incomplètes.
 
 La base régionale structurée couvre actuellement :
 
@@ -113,11 +117,20 @@ La base régionale structurée couvre actuellement :
 - **4 techniques** ;
 - **5 activités marines**.
 
+Le schéma Fish Intelligence v1 ajoute pour chaque espèce :
+
+- techniques compatibles ;
+- appâts naturels et leurres artificiels ;
+- présentations indicatives ;
+- plage de tailles d’hameçons ou mention « non applicable » ;
+- bas de ligne et plomb indicatifs lorsque pertinents ;
+- statut taxonomique, local et réglementaire.
+
 Pantelleria reste volontairement sans profil de pêche dans le Knowledge Pack : son statut offshore beta nécessite une validation séparée. `fishing_profiles.yaml` demeure temporairement comme mécanisme de compatibilité, mais les six ports tunisiens actifs utilisent désormais `knowledge/ports/`.
 
 Les champs `zones` restent vides tant que les coordonnées ne sont pas validées sur le terrain et contrôlées du point de vue de la navigation.
 
-Les espèces, profondeurs, techniques et appâts sont des **indications opérationnelles à affiner** selon les observations locales et la réglementation tunisienne applicable.
+Les espèces, profondeurs, techniques, appâts et réglages de matériel sont des **indications opérationnelles à affiner** selon les observations locales et la réglementation tunisienne applicable.
 
 ---
 
@@ -149,7 +162,7 @@ Variables d’environnement utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS`, `FABLE_ST
 CHECK-LOCAL.bat
 ```
 
-Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, recommandations, validation du Knowledge Pack et cohérence des profils régionaux.
+Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, recommandations, validation du Knowledge Pack, cohérence des profils régionaux et structure Fish Intelligence.
 
 ---
 
@@ -159,10 +172,11 @@ Le détecteur applique **worst-value-wins** entre modèles pour le vent et les v
 
 Les vétos durs comprennent notamment les orages, la visibilité insuffisante, les rafales et les mers courtes ou raides. Les seuils varient entre transit et mouillage abrité.
 
-Le classement des activités applique ensuite trois principes :
+Le classement des activités applique ensuite quatre principes :
 
 1. aucune recommandation sans fenêtre Family GO validée ;
 2. les seuils particuliers de l’activité peuvent encore la refuser ;
-3. le signal lunaire est un bonus limité et ne neutralise jamais un NO-GO.
+3. le signal lunaire est un bonus limité et ne neutralise jamais un NO-GO ;
+4. les plages de matériel sont indicatives et imposent une vérification locale et réglementaire avant la sortie.
 
 © 2025-2026 RB Power Consulting — Tous droits réservés. Voir [LICENSE](LICENSE).

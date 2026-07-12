@@ -2,7 +2,24 @@ id: bonitot
 label_fr: "Bonitot / petite bonite"
 label_en: "Small bonito"
 status: indicative_local_validation_required
+taxonomy:
+  status: local_name_unresolved
 habitats: [pleine_eau_cotiere, cassure, chasse]
 depths_m: [5, 50]
 preferred_periods: [sunrise]
+targeting:
+  technique_ids: [coastal-trolling, light-jigging]
+  natural_baits: [sardine, calamar]
+  artificial_lures: [petit_poisson_nageur, plume, metal_jig_20_50_g]
+  presentations: [traine_lente_a_moderee, jig_vertical_court]
+  terminal_tackle:
+    hook_sizes:
+      system: common_numbering
+      range: ["1/0", "3/0"]
+    leader_mm: [0.35, 0.50]
+    guidance_status: indicative_starting_range
+validation:
+  local_validation_required: true
+  taxonomic_validation_required: true
+  regulatory_check_required: true
 notes_fr: "Terme local générique à préciser avec les observations et l’identification réelle des captures."

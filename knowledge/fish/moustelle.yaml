@@ -1,0 +1,8 @@
+id: moustelle
+label_fr: "Moustelle"
+label_en: "Forkbeard (local designation)"
+status: indicative_local_validation_required
+habitats: [roche, cavite, tombant, fond_mixte]
+depths_m: [8, 50]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Le nom local peut couvrir plusieurs espèces proches ; identification taxonomique à valider selon les captures observées."

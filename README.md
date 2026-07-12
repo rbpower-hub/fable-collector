@@ -106,7 +106,16 @@ knowledge/
 
 Les identifiants référencés par les ports et activités sont validés avant génération. Une référence inconnue bloque le build du pack afin d’éviter des recommandations silencieusement incomplètes.
 
-`fishing_profiles.yaml` reste temporairement disponible comme fallback pour les ports qui ne sont pas encore migrés dans `knowledge/ports/`.
+La base régionale structurée couvre actuellement :
+
+- **6 ports tunisiens** : Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia ;
+- **11 profils d’espèces ou groupes locaux** ;
+- **4 techniques** ;
+- **5 activités marines**.
+
+Pantelleria reste volontairement sans profil de pêche dans le Knowledge Pack : son statut offshore beta nécessite une validation séparée. `fishing_profiles.yaml` demeure temporairement comme mécanisme de compatibilité, mais les six ports tunisiens actifs utilisent désormais `knowledge/ports/`.
+
+Les champs `zones` restent vides tant que les coordonnées ne sont pas validées sur le terrain et contrôlées du point de vue de la navigation.
 
 Les espèces, profondeurs, techniques et appâts sont des **indications opérationnelles à affiner** selon les observations locales et la réglementation tunisienne applicable.
 
@@ -140,7 +149,7 @@ Variables d’environnement utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS`, `FABLE_ST
 CHECK-LOCAL.bat
 ```
 
-Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, recommandations et validation du Knowledge Pack.
+Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, recommandations, validation du Knowledge Pack et cohérence des profils régionaux.
 
 ---
 

@@ -1,15 +1,17 @@
 # Changelog
 
-## Unreleased — Knowledge Pack v1 groundwork
-- **Knowledge Pack indépendant** : nouveau dossier `knowledge/` séparant espèces, techniques, ports et activités du moteur Python.
+## Unreleased — Knowledge Pack v1 regional coverage
+- **Knowledge Pack indépendant** : le dossier `knowledge/` sépare espèces, techniques, ports et activités du moteur Python.
 - **Validation stricte des références** : `fable.knowledge` contrôle les identifiants, doublons et références croisées avant génération.
-- **Migration progressive** : Gammarth utilise le modèle structuré ; les autres ports conservent temporairement `fishing_profiles.yaml` comme fallback.
-- **Sortie enrichie** : `recommendations.json` passe en version 2 lorsque le pack est actif et conserve les identifiants structurés en plus des libellés lisibles.
-- **Nouveau catalogue public** : `knowledge.json` publie la version, le statut, les comptes et les identifiants chargés.
-- **Déploiement réactif** : toute modification de `knowledge/**` déclenchera `Collect & Deploy` après fusion dans `main`.
-- **Première base métier** : profil Gammarth, six groupes d’espèces, quatre techniques et cinq activités configurables.
-- **Documentation** : nouveau guide `docs/KNOWLEDGE-PACK.md`, README, architecture et guide de recommandations alignés.
-- **Tests** : chargement valide, référence inconnue bloquante et résolution structurée dans les recommandations.
+- **Migration régionale** : Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia utilisent désormais des profils structurés par saison.
+- **Catalogue enrichi** : onze profils d’espèces ou groupes locaux, quatre techniques et cinq activités sont chargés par le pack.
+- **Connaissance historique préservée** : Gammarth conserve notamment la dorade grise, la moustelle, le chinchard et le poulpe occasionnel dans le modèle structuré.
+- **Pantelleria isolée** : aucun profil métier offshore n’est publié avant une validation dédiée de la route beta, des espèces et des zones.
+- **Zones GPS protégées** : tous les profils régionaux conservent `zones: []` jusqu’à validation terrain, cartographique et nautique.
+- **Sortie enrichie** : `recommendations.json` reste en version 2 lorsque le pack est actif et `knowledge.json` expose les comptes et identifiants chargés.
+- **Déploiement réactif** : toute modification de `knowledge/**` déclenche `Collect & Deploy` dans `main`.
+- **Documentation** : README, architecture et guide `docs/KNOWLEDGE-PACK.md` alignés sur la couverture régionale.
+- **Tests régionaux** : présence des six ports, quatre saisons par profil, absence de zones non validées et catalogue complet des espèces référencées.
 
 ## 2.9.0 — 2026-07-11
 - **Recommandations d’activités marines** : nouveau moteur `fable.recommendations` exécuté après le reader et limité aux fenêtres Family GO validées.
@@ -90,7 +92,7 @@
 - **`rules.normalized.json` enrichi** avec `family.corridor.leg_structure_hours`, pour publier les durées transit aller, mouillage et retour au lieu de les recoder côté UI.
 - **Carte pilotée par `sites.normalized.json`** pour le cadrage initial et le reset, y compris quand la liste de spots évolue.
 - **Corridor piloté par `rules.normalized.json`** : résumé transit, badge de durée et animation aller/retour suivent la règle active publiée par le backend.
-- **Liens bruts simplifiés** : les icônes des spots ne dépendent plus d'une liste de fichiers codée en dur.
+- **Liens bruts simplifiés** : les icônes des spots ne dépendent plus d’une liste de fichiers codée en dur.
 
 ## 2.2.0 — 2026-07-06
 - **Version dédiée board** pour l’évolution UI, afin de pouvoir revenir facilement à la version précédente si besoin.

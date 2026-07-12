@@ -1,0 +1,8 @@
+id: bogue
+label_fr: "Bogue"
+label_en: "Bogue"
+status: indicative_local_validation_required
+habitats: [pleine_eau, roche, herbier, fond_mixte]
+depths_m: [4, 30]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Profil indicatif à confirmer selon la saison, la profondeur et les observations locales."

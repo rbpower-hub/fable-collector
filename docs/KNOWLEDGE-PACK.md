@@ -14,11 +14,17 @@ knowledge/
   fish/
     pageot.yaml
     sar.yaml
+    dorade-grise.yaml
   techniques/
     bottom-fishing.yaml
     light-jigging.yaml
   ports/
     gammarth-port.yaml
+    sidi-bou-said.yaml
+    ghar-el-melh.yaml
+    ras-fartass.yaml
+    el-haouaria.yaml
+    kelibia.yaml
   activities/
     family-swim.yaml
     bottom-fishing.yaml
@@ -32,7 +38,7 @@ Chaque fichier possède un identifiant stable `id`. Cet identifiant doit être i
 
 ```yaml
 version: 1
-status: initial_tunable
+status: regional_tunable
 ranking:
   max_per_window: 3
   max_total: 5
@@ -41,7 +47,20 @@ ranking:
 policy:
   safety_gate: family_go_required
   lunar_role: secondary_ranking_only
+  local_validation_required: true
+  offshore_profiles_require_separate_validation: true
 ```
+
+## Couverture actuelle
+
+La base structurée couvre actuellement :
+
+- **6 ports tunisiens** : Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia ;
+- **11 profils d’espèces ou groupes locaux** ;
+- **4 techniques** ;
+- **5 activités marines**.
+
+Pantelleria n’a pas encore de profil métier. Son statut offshore beta impose une validation distincte avant d’ajouter des espèces, techniques ou zones propres à cette destination.
 
 ## Espèces
 
@@ -57,7 +76,7 @@ depths_m: [6, 30]
 preferred_periods: [sunrise, sunset]
 ```
 
-Les informations sont indicatives. Elles ne garantissent ni présence ni capture. Les appellations locales ambiguës doivent porter un statut explicite de validation taxonomique.
+Les informations sont indicatives. Elles ne garantissent ni présence ni capture. Les appellations locales ambiguës doivent porter un statut explicite de validation taxonomique. C’est notamment le cas de profils locaux tels que `moustelle`.
 
 ## Techniques
 
@@ -95,7 +114,9 @@ fishing:
       preferred_periods: [sunrise, sunset]
 ```
 
-Le champ `zones` est réservé aux futures zones validées. Aucune coordonnée GPS ne doit être ajoutée sans contrôle terrain, contrôle cartographique et vérification de la sécurité de navigation.
+Les cinq profils régionaux ajoutés reprennent la connaissance historique disponible, mais restent marqués `initial_tunable` et `confidence: low`. Gammarth conserve une confiance `medium` en raison de son rôle de port d’attache et du niveau de détail déjà disponible.
+
+Le champ `zones` est réservé aux futures zones validées. Aucune coordonnée GPS ne doit être ajoutée sans contrôle terrain, contrôle cartographique et vérification de la sécurité de navigation. Les six profils actuels conservent donc `zones: []`.
 
 ## Activités
 
@@ -128,15 +149,29 @@ Une activité peut donc être refusée même si la fenêtre générale est navig
 
 Lorsque le pack est présent, les erreurs sont bloquantes pour la génération des recommandations et donc pour le déploiement.
 
+Les tests régionaux vérifient également :
+
+- la présence des six ports tunisiens migrés ;
+- les quatre saisons pour chaque profil ;
+- l’absence de zones GPS non validées ;
+- la présence de toutes les espèces référencées ;
+- l’exclusion volontaire de Pantelleria du catalogue métier actuel.
+
 ## Compatibilité progressive
 
-La migration est volontairement progressive :
+Les six ports tunisiens actifs utilisent désormais `knowledge/ports/`. `fishing_profiles.yaml` reste disponible comme mécanisme de compatibilité et de rollback, mais ne constitue plus la source principale pour ces ports.
 
-- les ports présents dans `knowledge/ports/` utilisent le nouveau modèle structuré ;
-- les autres ports continuent temporairement à utiliser `fishing_profiles.yaml` ;
-- `activity_profiles.yaml` reste disponible comme fallback lorsque le Knowledge Pack est absent.
+Le moteur applique toujours la règle suivante :
 
-Après migration complète et validation en production, les anciens fichiers pourront être dépréciés dans une version ultérieure.
+```text
+port présent dans knowledge/ports/
+        └──► profil structuré du Knowledge Pack
+
+port absent de knowledge/ports/
+        └──► profil historique s’il existe, sinon aucune recommandation de pêche ciblée
+```
+
+Après validation en production et stabilisation des données régionales, les anciens profils pourront être dépréciés dans une version ultérieure.
 
 ## Sorties publiques
 

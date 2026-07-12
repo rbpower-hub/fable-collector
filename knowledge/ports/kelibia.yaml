@@ -1,0 +1,38 @@
+id: kelibia
+label_fr: "Kélibia"
+label_en: "Kelibia"
+status: initial_tunable
+confidence: low
+depths_m: [6, 30]
+habitats: [roche, tombant, sable, fond_mixte]
+zones: []
+fishing:
+  seasons:
+    spring:
+      species: [sar, pageot, moustelle]
+      techniques: [bottom-fishing, soft-lure]
+      rigs: ["plomb 30–70 g", "leurre souple 8–12 cm"]
+      baits: [ver, couteau, calamar]
+      depths_m: [6, 26]
+      preferred_periods: [sunrise, sunset]
+    summer:
+      species: [oblade, pageot, bonitot]
+      techniques: [light-jigging, coastal-trolling]
+      rigs: ["jig 15–50 g", "petit leurre de traîne"]
+      baits: ["leurre souple", calamar]
+      depths_m: [7, 30]
+      preferred_periods: [sunrise, sunset]
+    autumn:
+      species: [sar, pageot, chinchard, bonitot]
+      techniques: [bottom-fishing, light-jigging, coastal-trolling]
+      rigs: ["plomb 30–80 g", "jig 20–60 g"]
+      baits: [calamar, sardine, ver]
+      depths_m: [8, 32]
+      preferred_periods: [sunrise, sunset]
+    winter:
+      species: [merlan, pageot]
+      techniques: [bottom-fishing]
+      rigs: ["plomb 40–90 g"]
+      baits: [sardine, calamar]
+      depths_m: [10, 32]
+      preferred_periods: [day]

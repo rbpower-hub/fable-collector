@@ -1,6 +1,6 @@
 # FABLE Knowledge Pack — source de connaissance métier indépendante du moteur.
 version: 1
-status: initial_tunable
+status: regional_tunable
 language_default: fr
 
 ranking:
@@ -13,3 +13,4 @@ policy:
   safety_gate: family_go_required
   lunar_role: secondary_ranking_only
   local_validation_required: true
+  offshore_profiles_require_separate_validation: true

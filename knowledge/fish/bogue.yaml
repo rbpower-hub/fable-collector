@@ -2,7 +2,25 @@ id: bogue
 label_fr: "Bogue"
 label_en: "Bogue"
 status: indicative_local_validation_required
+taxonomy:
+  status: common_name_only
 habitats: [pleine_eau, roche, herbier, fond_mixte]
 depths_m: [4, 30]
 preferred_periods: [sunrise, sunset]
+targeting:
+  technique_ids: [bottom-fishing, light-jigging]
+  natural_baits: [pain, ver, crevette]
+  artificial_lures: [micro_jig_5_15_g]
+  presentations: [fond_leger, animation_courte]
+  terminal_tackle:
+    hook_sizes:
+      system: common_numbering
+      range: ["#10", "#6"]
+    leader_mm: [0.18, 0.25]
+    sinker_g: [10, 30]
+    guidance_status: indicative_starting_range
+validation:
+  local_validation_required: true
+  taxonomic_validation_required: false
+  regulatory_check_required: true
 notes_fr: "Profil indicatif à confirmer selon la saison, la profondeur et les observations locales."

@@ -1,0 +1,8 @@
+id: chinchard
+label_fr: "Chinchard"
+label_en: "Horse mackerel"
+status: indicative_local_validation_required
+habitats: [pleine_eau, fond_mixte, sable]
+depths_m: [5, 40]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Présence et profondeur indicatives ; à confirmer selon bancs, saison et zone côtière."

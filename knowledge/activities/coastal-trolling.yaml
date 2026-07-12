@@ -1,0 +1,14 @@
+id: coastal-trolling
+icon: "🐟"
+label_fr: "Traîne côtière"
+label_en: "Coastal trolling"
+status: initial_tunable
+requires_fishing_profile: true
+lunar_sensitive: true
+techniques: [coastal-trolling]
+safety:
+  max_wind_kmh: 20
+  max_gust_kmh: 28
+  max_hs_m: 0.50
+  min_tp_s: 3.5
+  min_visibility_km: 8

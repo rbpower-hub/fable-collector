@@ -1,0 +1,8 @@
+id: sar
+label_fr: "Sar"
+label_en: "Seabream (sar)"
+status: indicative_local_validation_required
+habitats: [roche, tombant, herbier]
+depths_m: [4, 25]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Profil générique à affiner par espèce locale et par zone."

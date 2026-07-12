@@ -2,7 +2,25 @@ id: dorade-royale
 label_fr: "Dorade royale"
 label_en: "Gilthead seabream"
 status: indicative_local_validation_required
+taxonomy:
+  status: common_name_consistent
 habitats: [sable, herbier, lagune, fond_mixte]
 depths_m: [2, 30]
 preferred_periods: [sunrise, sunset]
+targeting:
+  technique_ids: [bottom-fishing]
+  natural_baits: [ver, crabe, crevette, coquillage]
+  artificial_lures: [leurre_souple_7_10_cm]
+  presentations: [montage_coulissant, fond_leger]
+  terminal_tackle:
+    hook_sizes:
+      system: common_numbering
+      range: ["#4", "1/0"]
+    leader_mm: [0.25, 0.35]
+    sinker_g: [15, 50]
+    guidance_status: indicative_starting_range
+validation:
+  local_validation_required: true
+  taxonomic_validation_required: false
+  regulatory_check_required: true
 notes_fr: "Profil indicatif ; saisonnalité et présence doivent être confirmées localement."

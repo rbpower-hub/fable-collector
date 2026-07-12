@@ -2,7 +2,24 @@ id: poulpe
 label_fr: "Poulpe"
 label_en: "Octopus"
 status: indicative_local_validation_required
+taxonomy:
+  status: local_group_not_species_resolved
 habitats: [roche, cavite, herbier, fond_mixte]
 depths_m: [3, 30]
 preferred_periods: [day]
+targeting:
+  technique_ids: [bottom-fishing]
+  natural_baits: [sardine, crabe]
+  artificial_lures: [turlutte_poulpe]
+  presentations: [animation_lente_pres_du_fond]
+  terminal_tackle:
+    hook_sizes:
+      system: not_applicable
+      range: []
+    leader_mm: [0.40, 0.60]
+    guidance_status: method_specific_no_standard_hook_range
+validation:
+  local_validation_required: true
+  taxonomic_validation_required: true
+  regulatory_check_required: true
 notes_fr: "Occurrence et réglementation à vérifier localement avant toute recommandation ciblée."

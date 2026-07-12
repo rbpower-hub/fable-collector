@@ -1,0 +1,9 @@
+id: light-jigging
+label_fr: "Micro-jig / jig léger"
+label_en: "Micro-jig / light jigging"
+family: jigging
+status: initial_tunable
+suitable_habitats: [roche, tombant, cassure, pleine_eau_cotiere]
+gear:
+  lure_weight_g: [7, 50]
+notes_fr: "Le poids doit être adapté à la profondeur et à la dérive réelle."

@@ -1,0 +1,38 @@
+id: ghar-el-melh
+label_fr: "Ghar El Melh"
+label_en: "Ghar El Melh"
+status: initial_tunable
+confidence: low
+depths_m: [5, 18]
+habitats: [sable, roche, herbier, fond_mixte]
+zones: []
+fishing:
+  seasons:
+    spring:
+      species: [dorade-grise, pageot, sar]
+      techniques: [bottom-fishing, soft-lure]
+      rigs: ["fond 20–50 g", "leurre souple 8–12 cm"]
+      baits: [ver, couteau]
+      depths_m: [5, 16]
+      preferred_periods: [sunrise, sunset]
+    summer:
+      species: [pageot, oblade, dorade-royale]
+      techniques: [bottom-fishing, light-jigging]
+      rigs: ["plomb 20–40 g", "micro-jig 10–25 g"]
+      baits: [ver, crevette]
+      depths_m: [5, 18]
+      preferred_periods: [sunrise, sunset]
+    autumn:
+      species: [sar, pageot, chinchard]
+      techniques: [bottom-fishing, coastal-trolling]
+      rigs: ["bottom drift 30–60 g", "petit leurre de traîne"]
+      baits: [ver, calamar]
+      depths_m: [7, 20]
+      preferred_periods: [sunrise, sunset]
+    winter:
+      species: [merlan, pageot]
+      techniques: [bottom-fishing]
+      rigs: ["plomb 30–60 g"]
+      baits: [ver, sardine]
+      depths_m: [8, 20]
+      preferred_periods: [day]

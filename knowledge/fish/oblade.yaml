@@ -1,0 +1,8 @@
+id: oblade
+label_fr: "Oblade"
+label_en: "Saddled seabream"
+status: indicative_local_validation_required
+habitats: [roche, herbier, pleine_eau_cotiere]
+depths_m: [2, 20]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Profil initial destiné au classement, non à la garantie de présence."

@@ -1,0 +1,9 @@
+id: coastal-trolling
+label_fr: "Traîne côtière"
+label_en: "Coastal trolling"
+family: trolling
+status: initial_tunable
+suitable_habitats: [pleine_eau_cotiere, cassure, chasse]
+gear:
+  lure_types: [petit_poisson_nageur, plume, leurre_souple]
+notes_fr: "La vitesse, la distance de ligne et les leurres doivent être ajustés au bateau et aux espèces ciblées."

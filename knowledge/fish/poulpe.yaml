@@ -1,0 +1,8 @@
+id: poulpe
+label_fr: "Poulpe"
+label_en: "Octopus"
+status: indicative_local_validation_required
+habitats: [roche, cavite, herbier, fond_mixte]
+depths_m: [3, 30]
+preferred_periods: [day]
+notes_fr: "Occurrence et réglementation à vérifier localement avant toute recommandation ciblée."

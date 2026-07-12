@@ -1,0 +1,8 @@
+id: bonitot
+label_fr: "Bonitot / petite bonite"
+label_en: "Small bonito"
+status: indicative_local_validation_required
+habitats: [pleine_eau_cotiere, cassure, chasse]
+depths_m: [5, 50]
+preferred_periods: [sunrise]
+notes_fr: "Terme local générique à préciser avec les observations et l’identification réelle des captures."

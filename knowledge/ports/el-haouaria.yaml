@@ -1,0 +1,38 @@
+id: el-haouaria
+label_fr: "El Haouaria"
+label_en: "El Haouaria"
+status: initial_tunable
+confidence: low
+depths_m: [6, 25]
+habitats: [roche, tombant, sable, fond_mixte]
+zones: []
+fishing:
+  seasons:
+    spring:
+      species: [sar, pageot, moustelle]
+      techniques: [bottom-fishing, soft-lure]
+      rigs: ["plomb 30–60 g", "leurre souple 8–12 cm"]
+      baits: [ver, couteau, calamar]
+      depths_m: [6, 22]
+      preferred_periods: [sunrise, sunset]
+    summer:
+      species: [oblade, pageot, bogue]
+      techniques: [soft-lure, light-jigging]
+      rigs: ["leurre souple 7–10 cm", "tirette 20–40 g"]
+      baits: [ver, crevette]
+      depths_m: [6, 22]
+      preferred_periods: [sunrise, sunset]
+    autumn:
+      species: [pageot, sar, bonitot]
+      techniques: [bottom-fishing, light-jigging, coastal-trolling]
+      rigs: ["bottom drift 30–60 g", "jig 20–40 g"]
+      baits: [ver, calamar]
+      depths_m: [8, 26]
+      preferred_periods: [sunrise, sunset]
+    winter:
+      species: [merlan, pageot]
+      techniques: [bottom-fishing]
+      rigs: ["plomb 40–80 g"]
+      baits: [sardine, calamar]
+      depths_m: [10, 28]
+      preferred_periods: [day]

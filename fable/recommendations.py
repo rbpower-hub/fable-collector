@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from .knowledge import KnowledgePack, load_knowledge_pack
+
 
 def _yaml(path: Path) -> dict[str, Any]:
     try:
@@ -150,21 +152,82 @@ def _period(start: dt.datetime, daily: dict[str, Any]) -> str:
     return "day"
 
 
-def _fishing(profile: dict[str, Any], season: str) -> dict[str, Any]:
+def _label(record_id: str, records: dict[str, dict[str, Any]], language: str = "fr") -> str:
+    record = records.get(record_id) or {}
+    return str(record.get(f"label_{language}") or record.get("display_name") or record_id)
+
+
+def _legacy_fishing(profile: dict[str, Any], season: str) -> dict[str, Any]:
     current = (profile.get("seasons") or {}).get(season) or {}
     return {
         "profile_confidence": profile.get("confidence"),
         "species": current.get("species") or [],
+        "species_ids": [],
+        "species_details": [],
         "techniques": current.get("techniques") or [],
+        "technique_ids": [],
+        "technique_details": [],
         "rigs": current.get("rigs") or [],
         "baits": current.get("baits") or [],
         "depths_m": current.get("depths_m") or profile.get("depths_m"),
         "preferred_periods": current.get("preferred_periods") or [],
+        "habitats": profile.get("habitats") or [],
+        "zones": profile.get("zones") or [],
     }
 
 
-def _score(activity_id: str, activity: dict[str, Any], metrics: dict[str, Any], fishing: dict[str, Any], period: str, moon: dict[str, Any], ranking: dict[str, Any]) -> dict[str, Any] | None:
+def _knowledge_fishing(pack: KnowledgePack, slug: str, season: str) -> dict[str, Any]:
+    port = pack.ports.get(slug) or {}
+    current = (((port.get("fishing") or {}).get("seasons") or {}).get(season) or {})
+    species_ids = [str(value) for value in current.get("species") or []]
+    technique_ids = [str(value) for value in current.get("techniques") or []]
+    return {
+        "profile_confidence": port.get("confidence"),
+        "species": [_label(record_id, pack.fish, "fr") for record_id in species_ids],
+        "species_ids": species_ids,
+        "species_details": [
+            {
+                "id": record_id,
+                "label_fr": _label(record_id, pack.fish, "fr"),
+                "label_en": _label(record_id, pack.fish, "en"),
+                "habitats": (pack.fish.get(record_id) or {}).get("habitats") or [],
+            }
+            for record_id in species_ids
+        ],
+        "techniques": [_label(record_id, pack.techniques, "fr") for record_id in technique_ids],
+        "technique_ids": technique_ids,
+        "technique_details": [
+            {
+                "id": record_id,
+                "label_fr": _label(record_id, pack.techniques, "fr"),
+                "label_en": _label(record_id, pack.techniques, "en"),
+                "family": (pack.techniques.get(record_id) or {}).get("family"),
+            }
+            for record_id in technique_ids
+        ],
+        "rigs": current.get("rigs") or [],
+        "baits": current.get("baits") or [],
+        "depths_m": current.get("depths_m") or port.get("depths_m"),
+        "preferred_periods": current.get("preferred_periods") or [],
+        "habitats": port.get("habitats") or [],
+        "zones": port.get("zones") or [],
+    }
+
+
+def _score(
+    activity_id: str,
+    activity: dict[str, Any],
+    metrics: dict[str, Any],
+    fishing: dict[str, Any],
+    period: str,
+    moon: dict[str, Any],
+    ranking: dict[str, Any],
+) -> dict[str, Any] | None:
     if activity.get("requires_fishing_profile") and not fishing.get("species"):
+        return None
+    allowed_techniques = {str(value) for value in activity.get("techniques") or []}
+    available_techniques = set(fishing.get("technique_ids") or [])
+    if allowed_techniques and available_techniques and not allowed_techniques.intersection(available_techniques):
         return None
     safety = activity.get("safety") or {}
     limits = (
@@ -215,9 +278,15 @@ def _score(activity_id: str, activity: dict[str, Any], metrics: dict[str, Any], 
     }
 
 
+def _sources(root: Path) -> tuple[KnowledgePack | None, dict[str, Any], dict[str, Any]]:
+    pack = load_knowledge_pack(root, strict=True)
+    if pack is not None:
+        return pack, {"status": pack.status, "ranking": pack.ranking, "activities": pack.activities}, _yaml(root / "fishing_profiles.yaml")
+    return None, _yaml(root / "activity_profiles.yaml"), _yaml(root / "fishing_profiles.yaml")
+
+
 def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
-    fishing_cfg = _yaml(root / "fishing_profiles.yaml")
-    activity_cfg = _yaml(root / "activity_profiles.yaml")
+    pack, activity_cfg, fishing_cfg = _sources(root)
     windows = _json(public / "windows.json")
     profiles = fishing_cfg.get("profiles") or {}
     activities = activity_cfg.get("activities") or {}
@@ -241,7 +310,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
             metrics = _metrics(spot, start, end)
             daily = _daily(spot, start.date())
             moon = _moon(daily.get("moon_phase"))
-            fishing = _fishing(profile, season)
+            fishing = _knowledge_fishing(pack, slug, season) if pack and slug in pack.ports else _legacy_fishing(profile, season)
             ranked = []
             for activity_id, activity in activities.items():
                 if isinstance(activity, dict) and (item := _score(str(activity_id), activity, metrics, fishing, _period(start, daily), moon, ranking)):
@@ -264,15 +333,18 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
     output.sort(key=lambda item: (str(item.get("start") or ""), -(item.get("activities") or [{}])[0].get("score", 0)))
     result = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "version": 1,
+        "version": 2 if pack else 1,
         "source_windows_generated_at": windows.get("generated_at"),
         "safety_policy": "recommendations_only_inside_validated_family_go_windows",
         "profile_status": activity_cfg.get("status", "initial_tunable"),
+        "knowledge_pack": pack.public_catalog() if pack else None,
         "recommendations": output[: int(ranking.get("max_total", 5))],
         "no_go": no_go,
     }
     public.mkdir(parents=True, exist_ok=True)
     (public / "recommendations.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    if pack:
+        (public / "knowledge.json").write_text(json.dumps(pack.public_catalog(), ensure_ascii=False, indent=2), encoding="utf-8")
     return result
 
 

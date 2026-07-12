@@ -2,8 +2,17 @@ id: light-jigging
 label_fr: "Micro-jig / jig léger"
 label_en: "Micro-jig / light jigging"
 family: jigging
-status: initial_tunable
+status: fish_intelligence_tunable
 suitable_habitats: [roche, tombant, cassure, pleine_eau_cotiere]
 gear:
-  lure_weight_g: [7, 50]
-notes_fr: "Le poids doit être adapté à la profondeur et à la dérive réelle."
+  lure_weight_g: [5, 50]
+  leader_mm: [0.20, 0.40]
+  hook_configuration: [assist_hook_simple, assist_hook_double, hamecon_simple]
+  hook_sizes:
+    system: common_numbering
+    range: ["#6", "2/0"]
+presentation: [verticale, dents_de_scie, recuperation_lineaire]
+validation:
+  local_validation_required: true
+  regulatory_check_required: true
+notes_fr: "Le poids, la taille d’hameçon et l’animation doivent suivre la profondeur, la dérive et la taille du leurre."

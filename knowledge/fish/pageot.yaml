@@ -2,7 +2,25 @@ id: pageot
 label_fr: "Pageot"
 label_en: "Common pandora"
 status: indicative_local_validation_required
+taxonomy:
+  status: common_name_to_confirm_locally
 habitats: [sable, roche, herbier_mixte]
 depths_m: [6, 30]
 preferred_periods: [sunrise, sunset]
+targeting:
+  technique_ids: [bottom-fishing, light-jigging]
+  natural_baits: [ver, crevette, calamar]
+  artificial_lures: [micro_jig_10_25_g]
+  presentations: [derive_lente, fond_leger]
+  terminal_tackle:
+    hook_sizes:
+      system: common_numbering
+      range: ["#6", "#2"]
+    leader_mm: [0.22, 0.30]
+    sinker_g: [20, 60]
+    guidance_status: indicative_starting_range
+validation:
+  local_validation_required: true
+  taxonomic_validation_required: true
+  regulatory_check_required: true
 notes_fr: "Présence et profondeur à confirmer selon saison, zone et observations locales."

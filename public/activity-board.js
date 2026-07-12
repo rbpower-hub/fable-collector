@@ -13,6 +13,7 @@
     if (Number.isNaN(date.getTime())) return String(iso || '—');
     return date.toLocaleString(language() === 'en' ? 'en-GB' : 'fr-FR', {weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false});
   };
+  const pair = (value, suffix = '') => Array.isArray(value) && value.length === 2 ? `${value[0]}–${value[1]}${suffix}` : '';
 
   function installStyles() {
     if (document.getElementById('fable-activity-styles')) return;
@@ -24,6 +25,8 @@
       .activity-window h4{margin:0 0 6px;color:var(--fg);font-size:1rem}.activity-choice{border-top:1px solid var(--br);padding-top:8px;margin-top:8px}
       .activity-choice:first-of-type{border-top:0}.activity-score{float:right;border:1px solid var(--br);border-radius:999px;padding:1px 7px;color:var(--ok);font-weight:800;font-size:.8rem}
       .activity-meta{font-size:.88rem;color:var(--muted);margin-top:4px;line-height:1.45}.activity-note{margin-top:10px;font-size:.82rem;color:var(--muted)}
+      .fish-intel{margin-top:8px;padding:8px;border:1px dashed var(--br);border-radius:9px}.fish-intel b{color:var(--fg)}
+      .intel-badge{display:inline-block;margin-left:5px;padding:1px 6px;border:1px solid var(--br);border-radius:999px;font-size:.72rem;color:var(--muted)}
     `;
     document.head.appendChild(style);
   }
@@ -34,8 +37,29 @@
     const species = profile.species.slice(0, 4).map(esc).join(', ');
     const techniques = (profile.techniques || []).slice(0, 3).map(esc).join(', ');
     const baits = (profile.baits || []).slice(0, 4).map(esc).join(', ');
-    const depth = Array.isArray(profile.depths_m) ? `${profile.depths_m[0]}–${profile.depths_m[1]} m` : '—';
+    const depth = pair(profile.depths_m, ' m') || '—';
     return `<div class="activity-meta"><b>${lang === 'en' ? 'Fishing profile' : 'Profil pêche'}:</b> ${species}<br><b>Techniques:</b> ${techniques || '—'}<br><b>${lang === 'en' ? 'Baits / lures' : 'Appâts / leurres'}:</b> ${baits || '—'} · <b>${lang === 'en' ? 'Depth' : 'Profondeur'}:</b> ${esc(depth)}</div>`;
+  }
+
+  function fishIntelligence(rec, lang) {
+    const profile = rec.fishing || {};
+    const fish = Array.isArray(profile.species_details) ? profile.species_details[0] : null;
+    const technique = Array.isArray(profile.technique_details) ? profile.technique_details[0] : null;
+    const targeting = fish?.targeting || {};
+    const tackle = targeting.terminal_tackle || {};
+    const hookRange = tackle.hook_sizes?.system === 'not_applicable' ? (lang === 'en' ? 'method-specific' : 'selon méthode') : pair(tackle.hook_sizes?.range);
+    const leader = pair(tackle.leader_mm, ' mm');
+    const sinker = pair(tackle.sinker_g, ' g');
+    const natural = (targeting.natural_baits || []).slice(0, 3).map(esc).join(', ');
+    const lures = (targeting.artificial_lures || []).slice(0, 3).map(esc).join(', ');
+    const rigs = (technique?.gear?.rigs || []).slice(0, 3).map(esc).join(', ');
+    if (!fish || (!hookRange && !leader && !natural && !lures && !rigs)) return '';
+    const fishName = esc(lang === 'en' ? fish.label_en : fish.label_fr);
+    const rows = [];
+    if (natural || lures) rows.push(`<b>${lang === 'en' ? 'Baits / lures' : 'Appâts / leurres'}:</b> ${natural || '—'}${natural && lures ? ' · ' : ''}${lures || ''}`);
+    if (rigs) rows.push(`<b>${lang === 'en' ? 'Rig' : 'Montage'}:</b> ${rigs}`);
+    if (hookRange || leader || sinker) rows.push(`<b>${lang === 'en' ? 'Starting tackle' : 'Matériel de départ'}:</b> ${hookRange ? `${lang === 'en' ? 'hooks' : 'hameçons'} ${esc(hookRange)}` : ''}${leader ? ` · ${lang === 'en' ? 'leader' : 'bas de ligne'} ${esc(leader)}` : ''}${sinker ? ` · ${lang === 'en' ? 'sinker' : 'plomb'} ${esc(sinker)}` : ''}`);
+    return `<div class="activity-meta fish-intel"><b>🎯 ${fishName}</b><span class="intel-badge">${lang === 'en' ? 'indicative' : 'indicatif'}</span><br>${rows.join('<br>')}</div>`;
   }
 
   function astronomy(rec, lang) {
@@ -67,7 +91,7 @@
     }
     card.innerHTML = `<h3><span>${title}</span></h3><div class="activity-grid">${recommendations.map((rec) => {
       const choices = (rec.activities || []).map((item) => `<div class="activity-choice"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b><div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div></div>`).join('');
-      return `<article class="activity-window"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}</h4>${choices}${fishing(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
+      return `<article class="activity-window"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}</h4>${choices}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
     }).join('')}</div>`;
   }
 

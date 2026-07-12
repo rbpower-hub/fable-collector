@@ -1,17 +1,15 @@
 # Changelog
 
-## Unreleased — Knowledge Pack v1 regional coverage
-- **Knowledge Pack indépendant** : le dossier `knowledge/` sépare espèces, techniques, ports et activités du moteur Python.
-- **Validation stricte des références** : `fable.knowledge` contrôle les identifiants, doublons et références croisées avant génération.
-- **Migration régionale** : Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia utilisent désormais des profils structurés par saison.
-- **Catalogue enrichi** : onze profils d’espèces ou groupes locaux, quatre techniques et cinq activités sont chargés par le pack.
-- **Connaissance historique préservée** : Gammarth conserve notamment la dorade grise, la moustelle, le chinchard et le poulpe occasionnel dans le modèle structuré.
-- **Pantelleria isolée** : aucun profil métier offshore n’est publié avant une validation dédiée de la route beta, des espèces et des zones.
-- **Zones GPS protégées** : tous les profils régionaux conservent `zones: []` jusqu’à validation terrain, cartographique et nautique.
-- **Sortie enrichie** : `recommendations.json` reste en version 2 lorsque le pack est actif et `knowledge.json` expose les comptes et identifiants chargés.
-- **Déploiement réactif** : toute modification de `knowledge/**` déclenche `Collect & Deploy` dans `main`.
-- **Documentation** : README, architecture et guide `docs/KNOWLEDGE-PACK.md` alignés sur la couverture régionale.
-- **Tests régionaux** : présence des six ports, quatre saisons par profil, absence de zones non validées et catalogue complet des espèces référencées.
+## Unreleased — Fish Intelligence v1
+- **Knowledge Pack v2** : activation du schéma `fish_intelligence`, du matériel terminal et des métadonnées de validation.
+- **Onze profils enrichis** : techniques compatibles, appâts naturels, leurres, présentations, plages d’hameçons, bas de ligne et plomb indicatifs.
+- **Quatre techniques enrichies** : montages, configurations d’hameçons, grammages, diamètres et modes de présentation structurés.
+- **Validation stricte** : références espèce→technique, plages numériques, structure des hameçons et maintien obligatoire de la validation locale.
+- **Noms locaux protégés** : les appellations ambiguës restent marquées comme nécessitant une validation taxonomique ; aucune identification scientifique n’est forcée.
+- **Sortie v3** : `recommendations.json` publie `species_details[].targeting` et `technique_details[].gear` ; `knowledge.json` expose le schéma et le résumé de validation.
+- **Board Fish Intelligence** : affichage compact des appâts/leurres, montage, hameçons, bas de ligne et plomb pour l’espèce prioritaire, avec badge indicatif.
+- **Sécurité inchangée** : les réglages restent en aval de Family GO et la lune ne neutralise jamais un NO-GO.
+- **Documentation et tests** : nouveau guide `docs/FISH-INTELLIGENCE.md`, README mis à jour et tests de schéma/recommandations v3.
 
 ## 2.9.0 — 2026-07-11
 - **Recommandations d’activités marines** : nouveau moteur `fable.recommendations` exécuté après le reader et limité aux fenêtres Family GO validées.
@@ -101,17 +99,17 @@
 - **Confiance enrichie dans l’UI** : affichage des sources, modèles utilisés, nombre minimal de sources de houle et spread Hs.
 - **Santé live enrichie** : statut du board basé sur `stale_after`, `build_ok`, `missing_spots` et `collector_version`.
 - **Nettoyage produit du faux mode Expert** : l’UI ne présente plus `EXPERT GO` comme une capacité backend active.
-- **Avertissements debug alignés** sur les règles et sites publiés, au lieu d’une duplication locale dans `reasons-debug.js`.
+- **Avertissements debug alignés** : règles et sites publiés remplacent une duplication locale dans `reasons-debug.js`.
 
 ## 2.1.0 — 2026-07-05
-- **Houle multi-modèles** (Open-Meteo Marine `models=`) : MFWAM 0.08° primaire avec fallback GFS-Wave 0.25° → ECMWF WAM 0.25° → défaut ; modèles parallèles publiés sous `marine_models.*` alignés sur l'axe commun.
-- **Confiance “High” débloquée** : exige ≥ 2 modèles de houle concordants (écart Hs inter-modèles < 0,2 m sur chaque heure) + accord vent. Une seule source de houle → cap Medium conservé (régression testée).
-- **Worst-value-wins étendu aux vagues** : Hs = max des modèles, Tp = min (mer la plus raide gagne) → un modèle pessimiste suffit à bloquer une heure.
+- **Houle multi-modèles** (Open-Meteo Marine `models=`) : MFWAM 0.08° primaire avec fallback GFS-Wave 0.25° → ECMWF WAM 0.25° → défaut ; modèles parallèles publiés sous `marine_models.*` alignés sur l’axe commun.
+- **Confiance “High” débloquée** : exige ≥ 2 modèles de houle concordants (écart Hs inter-modèles < 0,2 m sur chaque heure) + accord vent. Une seule source de houle → cap Medium conservé.
+- **Worst-value-wins étendu aux vagues** : Hs = max des modèles, Tp = min ; un modèle pessimiste suffit à bloquer une heure.
 - `meta.sources.marine_open_meteo` : `model_used`, `model_order`, `parallel_models` ; debug : `marine_models_count`, `marine_parallel_attempts`.
-- `rules.yaml` : `http.marine_model_order`, `http.marine_parallel_models`, `confidence.high.min_wave_sources` (défaut 2). Ordres de modèles lus depuis `rules.yaml` sauf override env.
-- `windows.json` : `confidence_details.min_wave_sources_per_hour` et `.max_hs_spread_m`.
-- Nouvel outil `tools/probe_marine_models.py` (vérification live des noms de modèles avant mise en prod).
-- 48 tests (7 nouveaux). Schéma rétro-compatible (ajouts uniquement).
+- `rules.yaml` : ordres des modèles météo/marine et paramètres de confiance.
+- `windows.json` : détails du nombre de sources de houle et du spread Hs.
+- Nouvel outil `tools/probe_marine_models.py` pour vérifier les noms de modèles.
+- 48 tests, dont 7 nouveaux.
 
 ## 2.0.0 — 2026-07-05
-Refonte professionnelle complète — voir `docs/AUDIT-2026-07.md` : cron horaire + keepalive anti-désactivation, healthcheck externe avec issue GitHub, statut à fraîcheur côté client, reader immunisé contre les non-spots, dégradation gracieuse marine, fenêtres bornées 4–6 h, seuils unifiés, `sites.yaml` v2 multi-port, package `fable/` testé (41 tests), CI ruff+pytest.
+Refonte professionnelle complète — voir `docs/AUDIT-2026-07.md` : cron horaire + keepalive anti-désactivation, healthcheck externe avec issue GitHub, statut à fraîcheur côté client, reader immunisé contre les non-spots, dégradation gracieuse marine, fenêtres bornées 4–6 h, seuils unifiés, `sites.yaml` v2 multi-port, package `fable/` testé, CI Ruff + Pytest.

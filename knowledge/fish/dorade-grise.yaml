@@ -2,7 +2,25 @@ id: dorade-grise
 label_fr: "Dorade grise"
 label_en: "Grey seabream"
 status: indicative_local_validation_required
+taxonomy:
+  status: local_name_to_confirm
 habitats: [roche, sable, herbier_mixte, fond_mixte]
 depths_m: [5, 35]
 preferred_periods: [sunrise, sunset]
+targeting:
+  technique_ids: [bottom-fishing, soft-lure]
+  natural_baits: [ver, crevette, couteau, calamar]
+  artificial_lures: [leurre_souple_7_10_cm]
+  presentations: [fond_leger, derive_lente]
+  terminal_tackle:
+    hook_sizes:
+      system: common_numbering
+      range: ["#6", "#2"]
+    leader_mm: [0.22, 0.32]
+    sinker_g: [15, 50]
+    guidance_status: indicative_starting_range
+validation:
+  local_validation_required: true
+  taxonomic_validation_required: true
+  regulatory_check_required: true
 notes_fr: "Désignation locale et présence à confirmer par zone, saison et observations de terrain."

@@ -2,86 +2,49 @@
 
 ## Objectif
 
-La couche de recommandations répond à la question **« Que faire sur l’eau ? »** après validation d’une fenêtre de navigation par le moteur Family GO.
+La couche de recommandations répond à la question **« Que faire sur l’eau ? »** après validation d’une fenêtre par le moteur Family GO.
 
 Elle ne remplace pas le moteur de sécurité et ne crée jamais de fenêtre. Son entrée principale est `public/windows.json`.
 
-## Principe de sécurité
+## Ordre impératif des décisions
 
-Ordre impératif des décisions :
-
-1. collecte et validation des données météo/marine ;
+1. collecte et validation des données météo et marine ;
 2. détection d’une fenêtre Family GO ;
-3. vérification des seuils propres à chaque activité ;
-4. classement des activités restantes ;
-5. enrichissement avec saison, pêche, soleil et lune.
+3. chargement et validation du Knowledge Pack ;
+4. vérification des seuils propres à chaque activité ;
+5. classement des activités restantes ;
+6. enrichissement avec saison, espèces, techniques, soleil et lune.
 
 Si une destination ne possède aucune fenêtre Family GO, elle apparaît dans `no_go` et aucune activité n’est proposée.
 
-## Fichiers de configuration
+## Sources de connaissance
 
-### `fishing_profiles.yaml`
+### Source principale : `knowledge/`
 
-Structure générale :
+Le Knowledge Pack versionné contient :
 
-```yaml
-version: 2
-status: indicative_local_profiles
-profiles:
-  gammarth-port:
-    display_name: "Gammarth"
-    confidence: initial_local_profile
-    depths_m: [4, 18]
-    seasons:
-      summer:
-        species: [pageot, dorade_royale, oblade]
-        techniques: [bottom_drift, micro_jig]
-        rigs: [carolina_leger, paternoster_leger]
-        baits: [ver, crevette, calamar, leurre_souple]
-        depths_m: [6, 18]
-        preferred_periods: [sunrise, sunset]
+```text
+knowledge/
+  manifest.yaml
+  fish/*.yaml
+  techniques/*.yaml
+  ports/*.yaml
+  activities/*.yaml
 ```
 
-Champs :
+Le moteur `fable.knowledge` vérifie les identifiants et les références croisées. Une espèce ou une technique inconnue bloque la génération et donc le déploiement.
 
-- `confidence` : maturité du profil, sans lien avec la confiance météo ;
-- `species` : espèces saisonnières indicatives ;
-- `techniques` : techniques pertinentes ;
-- `rigs` : montages conseillés ;
-- `baits` : appâts ou leurres ;
-- `depths_m` : profondeur indicative ;
-- `preferred_periods` : `sunrise`, `sunset` ou autres périodes futures.
+Voir [KNOWLEDGE-PACK.md](KNOWLEDGE-PACK.md) pour le schéma détaillé.
 
-Un profil de pêche absent n’empêche pas les activités non liées à la pêche. Il élimine les activités portant `requires_fishing_profile: true`.
+### Compatibilité transitoire
 
-### `activity_profiles.yaml`
+La migration reste progressive :
 
-Structure générale :
+- un port présent dans `knowledge/ports/` utilise le nouveau modèle structuré ;
+- un port non encore migré utilise temporairement `fishing_profiles.yaml` ;
+- si le dossier `knowledge/` est absent, `activity_profiles.yaml` et `fishing_profiles.yaml` restent les sources actives.
 
-```yaml
-version: 1
-status: initial_tunable
-ranking:
-  max_per_window: 3
-  max_total: 5
-  preferred_period_bonus: 7
-  lunar_max_bonus: 5
-activities:
-  bottom_fishing:
-    icon: "🎣"
-    label_fr: "Pêche au fond"
-    label_en: "Bottom fishing"
-    requires_fishing_profile: true
-    lunar_sensitive: true
-    safety:
-      max_wind_kmh: 18
-      max_gust_kmh: 28
-      max_hs_m: 0.45
-      min_tp_s: 3.2
-      min_visibility_km: 5
-```
-
-Les seuils d’activité sont appliqués **après** la validation Family GO. Une activité peut donc être refusée dans une fenêtre pourtant navigable.
+Cette compatibilité évite de supprimer les profils existants pendant la migration port par port.
 
 ## Calcul des métriques
 
@@ -96,23 +59,28 @@ Pour chaque fenêtre, le moteur extrait du JSON du spot :
 
 Ces métriques représentent les conditions les plus défavorables de la fenêtre pour l’activité.
 
+## Sélection des activités
+
+Une activité est éliminée si :
+
+- un profil de pêche requis est absent ;
+- aucune technique structurée du port ne correspond à l’activité, lorsque ces références sont disponibles ;
+- le vent, les rafales ou Hs dépassent le maximum ;
+- Tp descend sous le minimum ;
+- la visibilité descend sous le minimum.
+
+Une fenêtre Family GO peut donc rester navigable alors qu’une activité particulière est refusée.
+
 ## Classement
 
 Le score part de 100 et diminue à mesure que les conditions se rapprochent des limites de l’activité.
 
-Une activité est éliminée si :
-
-- le vent, les rafales ou Hs dépassent le maximum ;
-- Tp descend sous le minimum ;
-- la visibilité descend sous le minimum ;
-- un profil de pêche requis est absent.
-
-Des bonus limités peuvent ensuite être ajoutés :
+Des bonus limités peuvent être ajoutés :
 
 - correspondance avec une période préférentielle du profil saisonnier ;
 - signal lunaire secondaire lorsque `lunar_sensitive: true`.
 
-Le score final est plafonné à 100.
+Le score final est plafonné à 100. La lune ne peut jamais compenser un dépassement de seuil ou un NO-GO.
 
 ## Soleil et lune
 
@@ -124,71 +92,79 @@ Les données sont lues dans le bloc `daily` du JSON du spot :
 - `moonset` ;
 - `moon_phase`.
 
-Le moteur convertit `moon_phase` en libellé et en illumination approximative. L’illumination ne constitue pas une preuve de présence ou d’activité des poissons. Elle sert uniquement de signal faible de classement.
+Le moteur convertit `moon_phase` en libellé et en illumination approximative. Cette information ne constitue pas une preuve de présence ou d’activité des poissons.
 
-## Format de sortie
+## Sorties publiques
 
-`public/recommendations.json` :
+### `recommendations.json`
+
+La version de sortie passe à `2` lorsque le Knowledge Pack est actif :
 
 ```json
 {
-  "generated_at": "2026-07-11T00:00:00+00:00",
-  "version": 1,
+  "generated_at": "2026-07-12T08:00:00+00:00",
+  "version": 2,
   "safety_policy": "recommendations_only_inside_validated_family_go_windows",
-  "recommendations": [
-    {
-      "dest_slug": "gammarth-port.json",
-      "dest_name": "Gammarth (port)",
-      "start": "2026-07-11T08:00:00+01:00",
-      "end": "2026-07-11T12:00:00+01:00",
-      "season": "summer",
-      "metrics": {},
-      "astronomy": {},
-      "fishing": {},
-      "activities": []
+  "knowledge_pack": {
+    "version": 1,
+    "status": "initial_tunable",
+    "counts": {
+      "fish": 6,
+      "techniques": 4,
+      "ports": 1,
+      "activities": 5
     }
-  ],
+  },
+  "recommendations": [],
   "no_go": []
 }
 ```
 
-### `recommendations[]`
+Chaque recommandation peut maintenant contenir :
 
-Chaque entrée correspond à une fenêtre validée et contient :
+- `species` : libellés lisibles ;
+- `species_ids` : identifiants stables ;
+- `species_details` : informations structurées ;
+- `techniques` et `technique_ids` ;
+- `technique_details` ;
+- habitats et futures zones du port.
 
-- destination et horaire ;
-- confiance héritée de la fenêtre ;
-- métriques utilisées ;
-- données astronomiques ;
-- profil de pêche saisonnier ;
-- activités classées.
+Les anciens champs lisibles sont conservés pour ne pas casser le board actuel.
 
-### `no_go[]`
+### `knowledge.json`
 
-Destinations sans fenêtre validée. Le moteur n’y publie aucune activité.
+Catalogue de contrôle public contenant :
+
+- version et statut du pack ;
+- nombre d’espèces, techniques, ports et activités ;
+- liste des identifiants chargés ;
+- avertissements éventuels en mode non strict.
+
+Le pipeline de production utilise le mode strict : une incohérence bloque la génération.
 
 ## Board
 
 `public/activity-board.js` charge `recommendations.json` et ajoute au dashboard une carte **« Que faire sur l’eau ? »**.
 
-Le composant est informatif : la source de vérité reste le JSON généré par le backend. Une erreur d’affichage ne doit pas modifier les décisions de sécurité.
+Le composant est informatif. La source de vérité reste le JSON généré par le backend. Une erreur d’affichage ne modifie jamais la décision de sécurité.
 
 ## Ajustement progressif
 
-Les profils initiaux doivent être améliorés à partir de :
+Le Knowledge Pack doit être amélioré à partir de :
 
 - journaux de sorties ;
 - observations par spot, saison et profondeur ;
 - résultats par technique et appât ;
 - retours sur les faux positifs et faux négatifs ;
+- validation des appellations locales ;
 - réglementation tunisienne et restrictions locales.
 
-Les changements doivent rester réversibles, testés et documentés dans `docs/CHANGELOG.md`.
+Les futures zones GPS ne doivent être ajoutées qu’après validation terrain, cartographique et nautique.
 
 ## Limites
 
 - Le moteur ne prédit pas une capture.
-- Les espèces et appâts sont indicatifs.
+- Les espèces, profondeurs, techniques et appâts restent indicatifs.
 - Les profils ne remplacent pas les cartes marines, avis locaux ou règles de pêche.
 - Le calendrier lunaire est un facteur secondaire.
 - Une recommandation ne vaut que pour la fenêtre et les données qui l’ont produite.

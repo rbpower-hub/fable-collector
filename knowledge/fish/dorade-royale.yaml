@@ -1,0 +1,8 @@
+id: dorade-royale
+label_fr: "Dorade royale"
+label_en: "Gilthead seabream"
+status: indicative_local_validation_required
+habitats: [sable, herbier, lagune, fond_mixte]
+depths_m: [2, 30]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Profil indicatif ; saisonnalité et présence doivent être confirmées localement."

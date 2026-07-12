@@ -1,0 +1,9 @@
+id: soft-lure
+label_fr: "Leurre souple côtier"
+label_en: "Coastal soft lure"
+family: lure
+status: initial_tunable
+suitable_habitats: [roche, herbier, tombant, fond_mixte]
+gear:
+  lure_length_cm: [7, 12]
+notes_fr: "Choisir la tête plombée en fonction du courant, de la profondeur et du risque d’accrochage."

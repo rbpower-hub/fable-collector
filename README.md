@@ -25,13 +25,14 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 | Spot, exemple Gammarth | https://rbpower-hub.github.io/fable-collector/gammarth-port.json |
 | Fenêtres Family GO | https://rbpower-hub.github.io/fable-collector/windows.json |
 | Activités recommandées | https://rbpower-hub.github.io/fable-collector/recommendations.json |
+| Catalogue du Knowledge Pack | https://rbpower-hub.github.io/fable-collector/knowledge.json |
 | Règles normalisées | https://rbpower-hub.github.io/fable-collector/rules.normalized.json |
 | Sites normalisés | https://rbpower-hub.github.io/fable-collector/sites.normalized.json |
 | Statut humain | https://rbpower-hub.github.io/fable-collector/status.html |
 | Statut machine | https://rbpower-hub.github.io/fable-collector/status.json |
 | Inventaire des fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
 
-`recommendations.json` devient disponible après le premier déploiement de la version 2.9.0.
+`knowledge.json` est produit pendant `Collect & Deploy` dès que le Knowledge Pack est actif dans `main`.
 
 Spots configurés : **Gammarth**, **Sidi Bou Saïd**, **Ghar el Melh**, **Ras Fartass**, **El Haouaria**, **Kélibia** et **Pantelleria beta**. Korbous reste exclu par la politique actuelle.
 
@@ -41,7 +42,7 @@ Spots configurés : **Gammarth**, **Sidi Bou Saïd**, **Ghar el Melh**, **Ras Fa
 
 ```text
 sites.yaml + rules.yaml
-fishing_profiles.yaml + activity_profiles.yaml
+knowledge/ + fishing_profiles.yaml
         │
         ▼
 fable.preflight          validation + exports normalisés
@@ -63,6 +64,7 @@ Le moteur de recommandations consomme `windows.json` **après** la décision de 
 Documentation détaillée :
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Knowledge Pack](docs/KNOWLEDGE-PACK.md)
 - [Recommandations d’activités et de pêche](docs/RECOMMENDATIONS.md)
 - [Déploiement](docs/DEPLOY.md)
 - [Runbook d’exploitation](docs/RUNBOOK.md)
@@ -89,29 +91,24 @@ sites:
 
 `onshore_sectors` supporte le wrap-around, par exemple `[[330, 360], [0, 70]]`.
 
-## Configurer les profils de pêche
+## Configurer le Knowledge Pack
 
-`fishing_profiles.yaml` décrit les connaissances locales par spot et saison :
+Le dossier `knowledge/` porte les connaissances métier réutilisables :
 
-```yaml
-profiles:
-  gammarth-port:
-    depths_m: [4, 18]
-    seasons:
-      summer:
-        species: [pageot, oblade]
-        techniques: [bottom_drift, micro_jig]
-        baits: [ver, crevette, calamar]
-        preferred_periods: [sunrise, sunset]
+```text
+knowledge/
+├── manifest.yaml
+├── fish/
+├── techniques/
+├── ports/
+└── activities/
 ```
 
+Les identifiants référencés par les ports et activités sont validés avant génération. Une référence inconnue bloque le build du pack afin d’éviter des recommandations silencieusement incomplètes.
+
+`fishing_profiles.yaml` reste temporairement disponible comme fallback pour les ports qui ne sont pas encore migrés dans `knowledge/ports/`.
+
 Les espèces, profondeurs, techniques et appâts sont des **indications opérationnelles à affiner** selon les observations locales et la réglementation tunisienne applicable.
-
-## Configurer les activités
-
-`activity_profiles.yaml` contient les seuils propres aux usages : pêche au fond, micro-jig, traîne côtière, mouillage abrité et baignade familiale.
-
-Une activité est éliminée si ses seuils sont dépassés, même lorsque la fenêtre générale est Family GO. Le classement restant utilise principalement l’état de mer, le vent, l’horaire saisonnier et, de façon secondaire, la lune.
 
 ---
 
@@ -131,6 +128,7 @@ Les sorties principales sont écrites dans `public/` :
 - `<spot>.json` ;
 - `windows.json` ;
 - `recommendations.json` ;
+- `knowledge.json` lorsque le pack est actif ;
 - `status.json` et `status.html` ;
 - `catalog.json`.
 
@@ -142,7 +140,7 @@ Variables d’environnement utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS`, `FABLE_ST
 CHECK-LOCAL.bat
 ```
 
-Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites et recommandations d’activités.
+Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, recommandations et validation du Knowledge Pack.
 
 ---
 

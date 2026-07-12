@@ -44,6 +44,7 @@ on:
       - "rules.yaml"
       - "activity_profiles.yaml"
       - "fishing_profiles.yaml"
+      - "knowledge/**"
       - "public/index.html"
       - "public/activity-board.js"
       - "public/reasons-debug.js"

@@ -1,0 +1,14 @@
+id: light-jigging
+icon: "🪝"
+label_fr: "Micro-jig / jig léger"
+label_en: "Micro-jig / light jigging"
+status: initial_tunable
+requires_fishing_profile: true
+lunar_sensitive: true
+techniques: [light-jigging]
+safety:
+  max_wind_kmh: 16
+  max_gust_kmh: 26
+  max_hs_m: 0.40
+  min_tp_s: 3.8
+  min_visibility_km: 6

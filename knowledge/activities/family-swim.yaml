@@ -1,0 +1,11 @@
+id: family-swim
+icon: "🏊"
+label_fr: "Baignade familiale en zone abritée"
+label_en: "Family swim in a sheltered area"
+status: initial_tunable
+safety:
+  max_wind_kmh: 14
+  max_gust_kmh: 22
+  max_hs_m: 0.25
+  min_tp_s: 3.2
+  min_visibility_km: 8

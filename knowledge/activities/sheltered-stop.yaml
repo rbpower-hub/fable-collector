@@ -1,0 +1,11 @@
+id: sheltered-stop
+icon: "⚓"
+label_fr: "Escale côtière abritée"
+label_en: "Sheltered coastal stop"
+status: initial_tunable
+safety:
+  max_wind_kmh: 18
+  max_gust_kmh: 28
+  max_hs_m: 0.35
+  min_tp_s: 3.2
+  min_visibility_km: 5

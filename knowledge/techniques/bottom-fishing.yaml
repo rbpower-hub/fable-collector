@@ -1,0 +1,10 @@
+id: bottom-fishing
+label_fr: "Pêche au fond légère"
+label_en: "Light bottom fishing"
+family: bottom
+status: initial_tunable
+suitable_habitats: [sable, roche, herbier_mixte, fond_mixte]
+gear:
+  rigs: [paternoster, carolina_leger, tate_fond]
+  sinker_g: [15, 60]
+notes_fr: "Le grammage réel dépend de la profondeur, du courant et de la dérive."

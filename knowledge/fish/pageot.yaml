@@ -1,0 +1,8 @@
+id: pageot
+label_fr: "Pageot"
+label_en: "Common pandora"
+status: indicative_local_validation_required
+habitats: [sable, roche, herbier_mixte]
+depths_m: [6, 30]
+preferred_periods: [sunrise, sunset]
+notes_fr: "Présence et profondeur à confirmer selon saison, zone et observations locales."

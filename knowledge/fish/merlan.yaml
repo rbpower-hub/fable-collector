@@ -1,0 +1,8 @@
+id: merlan
+label_fr: "Merlan (appellation locale à confirmer)"
+label_en: "Whiting-type fish"
+status: taxonomic_validation_required
+habitats: [sable, vase, fond_mixte]
+depths_m: [8, 40]
+preferred_periods: [day]
+notes_fr: "L’appellation locale doit être reliée à l’espèce exacte avant toute utilisation avancée."

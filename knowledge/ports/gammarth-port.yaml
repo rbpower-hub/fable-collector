@@ -1,0 +1,41 @@
+id: gammarth-port
+label_fr: "Gammarth (port d’attache)"
+label_en: "Gammarth home port"
+status: initial_tunable
+confidence: medium
+depths_m: [4, 20]
+habitats: [sable, roche, herbier_mixte, fond_mixte]
+
+# Les zones GPS précises seront ajoutées après validation terrain.
+zones: []
+
+fishing:
+  seasons:
+    spring:
+      species: [pageot, sar, dorade-royale]
+      techniques: [bottom-fishing, soft-lure]
+      rigs: ["bas de ligne fluorocarbone 0,25–0,28 mm", "plomb 15–40 g"]
+      baits: [ver, couteau, crevette, "lamelle de calamar"]
+      depths_m: [6, 16]
+      preferred_periods: [sunrise, sunset]
+    summer:
+      species: [pageot, dorade-royale, oblade]
+      techniques: [bottom-fishing, light-jigging]
+      rigs: ["Carolina léger", "micro-jig 10–20 g"]
+      baits: [ver, crevette, "leurre souple 7–10 cm"]
+      depths_m: [6, 18]
+      preferred_periods: [sunrise, sunset]
+    autumn:
+      species: [sar, pageot, bonitot]
+      techniques: [bottom-fishing, light-jigging, coastal-trolling]
+      rigs: ["bottom drift 20–60 g", "petit jig 20–40 g"]
+      baits: [ver, couteau, calamar]
+      depths_m: [8, 20]
+      preferred_periods: [sunrise, sunset]
+    winter:
+      species: [merlan, pageot]
+      techniques: [bottom-fishing]
+      rigs: ["plumes 5–15 g", "tâte-fond 20–40 g"]
+      baits: [ver, sardine, calamar]
+      depths_m: [8, 20]
+      preferred_periods: [day]

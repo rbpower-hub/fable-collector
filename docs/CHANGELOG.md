@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — Knowledge Pack v1 groundwork
+- **Knowledge Pack indépendant** : nouveau dossier `knowledge/` séparant espèces, techniques, ports et activités du moteur Python.
+- **Validation stricte des références** : `fable.knowledge` contrôle les identifiants, doublons et références croisées avant génération.
+- **Migration progressive** : Gammarth utilise le modèle structuré ; les autres ports conservent temporairement `fishing_profiles.yaml` comme fallback.
+- **Sortie enrichie** : `recommendations.json` passe en version 2 lorsque le pack est actif et conserve les identifiants structurés en plus des libellés lisibles.
+- **Nouveau catalogue public** : `knowledge.json` publie la version, le statut, les comptes et les identifiants chargés.
+- **Déploiement réactif** : toute modification de `knowledge/**` déclenchera `Collect & Deploy` après fusion dans `main`.
+- **Première base métier** : profil Gammarth, six groupes d’espèces, quatre techniques et cinq activités configurables.
+- **Documentation** : nouveau guide `docs/KNOWLEDGE-PACK.md`, README, architecture et guide de recommandations alignés.
+- **Tests** : chargement valide, référence inconnue bloquante et résolution structurée dans les recommandations.
+
 ## 2.9.0 — 2026-07-11
 - **Recommandations d’activités marines** : nouveau moteur `fable.recommendations` exécuté après le reader et limité aux fenêtres Family GO validées.
 - **Profils de pêche restaurés et structurés** : `fishing_profiles.yaml` décrit espèces, techniques, montages, appâts, profondeurs et horaires par spot et saison.

@@ -89,7 +89,7 @@ def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict
     hs = _values(hourly, "hs", indices) or _values(hourly, "wave_height", indices)
     tp = _values(hourly, "tp", indices) or _values(hourly, "wave_period", indices)
     visibility = _values(hourly, "visibility", indices)
-    visibility = [v / 1000 if v > 50 else v for v in visibility]
+    visibility = [value / 1000 if value > 50 else value for value in visibility]
     return {
         "sample_hours": len(indices),
         "max_wind_kmh": round(max(wind), 1) if wind else None,
@@ -137,7 +137,12 @@ def _moon(phase: Any) -> dict[str, Any]:
         if value < limit:
             fr, en = fr_label, en_label
             break
-    return {"phase_fraction": round(value, 3), "illumination_pct": illumination, "label_fr": fr, "label_en": en}
+    return {
+        "phase_fraction": round(value, 3),
+        "illumination_pct": illumination,
+        "label_fr": fr,
+        "label_en": en,
+    }
 
 
 def _period(start: dt.datetime, daily: dict[str, Any]) -> str:
@@ -173,6 +178,38 @@ def _legacy_fishing(profile: dict[str, Any], season: str) -> dict[str, Any]:
         "preferred_periods": current.get("preferred_periods") or [],
         "habitats": profile.get("habitats") or [],
         "zones": profile.get("zones") or [],
+        "intelligence_status": "legacy_profile",
+    }
+
+
+def _fish_detail(record_id: str, pack: KnowledgePack) -> dict[str, Any]:
+    record = pack.fish.get(record_id) or {}
+    return {
+        "id": record_id,
+        "label_fr": _label(record_id, pack.fish, "fr"),
+        "label_en": _label(record_id, pack.fish, "en"),
+        "status": record.get("status"),
+        "taxonomy": record.get("taxonomy") or {},
+        "habitats": record.get("habitats") or [],
+        "depths_m": record.get("depths_m"),
+        "preferred_periods": record.get("preferred_periods") or [],
+        "targeting": record.get("targeting") or {},
+        "validation": record.get("validation") or {},
+    }
+
+
+def _technique_detail(record_id: str, pack: KnowledgePack) -> dict[str, Any]:
+    record = pack.techniques.get(record_id) or {}
+    return {
+        "id": record_id,
+        "label_fr": _label(record_id, pack.techniques, "fr"),
+        "label_en": _label(record_id, pack.techniques, "en"),
+        "status": record.get("status"),
+        "family": record.get("family"),
+        "suitable_habitats": record.get("suitable_habitats") or [],
+        "gear": record.get("gear") or {},
+        "presentation": record.get("presentation") or [],
+        "validation": record.get("validation") or {},
     }
 
 
@@ -181,36 +218,23 @@ def _knowledge_fishing(pack: KnowledgePack, slug: str, season: str) -> dict[str,
     current = (((port.get("fishing") or {}).get("seasons") or {}).get(season) or {})
     species_ids = [str(value) for value in current.get("species") or []]
     technique_ids = [str(value) for value in current.get("techniques") or []]
+    species_details = [_fish_detail(record_id, pack) for record_id in species_ids]
+    technique_details = [_technique_detail(record_id, pack) for record_id in technique_ids]
     return {
         "profile_confidence": port.get("confidence"),
         "species": [_label(record_id, pack.fish, "fr") for record_id in species_ids],
         "species_ids": species_ids,
-        "species_details": [
-            {
-                "id": record_id,
-                "label_fr": _label(record_id, pack.fish, "fr"),
-                "label_en": _label(record_id, pack.fish, "en"),
-                "habitats": (pack.fish.get(record_id) or {}).get("habitats") or [],
-            }
-            for record_id in species_ids
-        ],
+        "species_details": species_details,
         "techniques": [_label(record_id, pack.techniques, "fr") for record_id in technique_ids],
         "technique_ids": technique_ids,
-        "technique_details": [
-            {
-                "id": record_id,
-                "label_fr": _label(record_id, pack.techniques, "fr"),
-                "label_en": _label(record_id, pack.techniques, "en"),
-                "family": (pack.techniques.get(record_id) or {}).get("family"),
-            }
-            for record_id in technique_ids
-        ],
+        "technique_details": technique_details,
         "rigs": current.get("rigs") or [],
         "baits": current.get("baits") or [],
         "depths_m": current.get("depths_m") or port.get("depths_m"),
         "preferred_periods": current.get("preferred_periods") or [],
         "habitats": port.get("habitats") or [],
         "zones": port.get("zones") or [],
+        "intelligence_status": pack.status,
     }
 
 
@@ -246,7 +270,8 @@ def _score(
         else:
             score -= max(0, value / limit - 0.55) * 25
     tp, tp_min = _number(metrics.get("min_tp_s")), _number(safety.get("min_tp_s"))
-    visibility, visibility_min = _number(metrics.get("min_visibility_km")), _number(safety.get("min_visibility_km"))
+    visibility = _number(metrics.get("min_visibility_km"))
+    visibility_min = _number(safety.get("min_visibility_km"))
     if tp is not None and tp_min is not None and tp < tp_min:
         blockers.append(f"min_tp_s<{tp_min}")
     if visibility is not None and visibility_min is not None and visibility < visibility_min:
@@ -281,7 +306,8 @@ def _score(
 def _sources(root: Path) -> tuple[KnowledgePack | None, dict[str, Any], dict[str, Any]]:
     pack = load_knowledge_pack(root, strict=True)
     if pack is not None:
-        return pack, {"status": pack.status, "ranking": pack.ranking, "activities": pack.activities}, _yaml(root / "fishing_profiles.yaml")
+        activity = {"status": pack.status, "ranking": pack.ranking, "activities": pack.activities}
+        return pack, activity, _yaml(root / "fishing_profiles.yaml")
     return None, _yaml(root / "activity_profiles.yaml"), _yaml(root / "fishing_profiles.yaml")
 
 
@@ -298,7 +324,14 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
         slug = filename.removesuffix(".json")
         destination_windows = destination.get("windows") or []
         if not destination_windows:
-            no_go.append({"dest_slug": filename, "dest_name": destination.get("dest_name"), "reason_fr": "Aucune fenêtre Family GO validée.", "reason_en": "No validated Family GO window."})
+            no_go.append(
+                {
+                    "dest_slug": filename,
+                    "dest_name": destination.get("dest_name"),
+                    "reason_fr": "Aucune fenêtre Family GO validée.",
+                    "reason_en": "No validated Family GO window.",
+                }
+            )
             continue
         spot = _json(public / filename)
         profile = profiles.get(slug) or {}
@@ -310,30 +343,69 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
             metrics = _metrics(spot, start, end)
             daily = _daily(spot, start.date())
             moon = _moon(daily.get("moon_phase"))
-            fishing = _knowledge_fishing(pack, slug, season) if pack and slug in pack.ports else _legacy_fishing(profile, season)
+            if pack and slug in pack.ports:
+                fishing = _knowledge_fishing(pack, slug, season)
+            else:
+                fishing = _legacy_fishing(profile, season)
             ranked = []
             for activity_id, activity in activities.items():
-                if isinstance(activity, dict) and (item := _score(str(activity_id), activity, metrics, fishing, _period(start, daily), moon, ranking)):
+                if not isinstance(activity, dict):
+                    continue
+                item = _score(
+                    str(activity_id),
+                    activity,
+                    metrics,
+                    fishing,
+                    _period(start, daily),
+                    moon,
+                    ranking,
+                )
+                if item:
                     ranked.append(item)
             ranked.sort(key=lambda item: (-item["score"], item["activity_id"]))
             ranked = ranked[: int(ranking.get("max_per_window", 3))]
             if ranked:
-                output.append({
-                    "dest_slug": filename,
-                    "dest_name": destination.get("dest_name") or spot.get("meta", {}).get("name") or slug,
-                    "start": window.get("start"), "end": window.get("end"), "hours": window.get("hours"),
-                    "confidence": window.get("confidence"), "category": window.get("category"), "season": season,
-                    "metrics": metrics,
-                    "astronomy": {"sunrise": daily.get("sunrise"), "sunset": daily.get("sunset"), "moonrise": daily.get("moonrise"), "moonset": daily.get("moonset"), **moon},
-                    "fishing": fishing,
-                    "activities": ranked,
-                    "method_note_fr": "Classement effectué uniquement dans une fenêtre Family GO. La lune ajuste légèrement le rang mais ne neutralise jamais un NO-GO.",
-                    "method_note_en": "Ranking is performed only inside a Family GO window. The moon slightly adjusts rank and never overrides a NO-GO.",
-                })
-    output.sort(key=lambda item: (str(item.get("start") or ""), -(item.get("activities") or [{}])[0].get("score", 0)))
+                output.append(
+                    {
+                        "dest_slug": filename,
+                        "dest_name": destination.get("dest_name")
+                        or spot.get("meta", {}).get("name")
+                        or slug,
+                        "start": window.get("start"),
+                        "end": window.get("end"),
+                        "hours": window.get("hours"),
+                        "confidence": window.get("confidence"),
+                        "category": window.get("category"),
+                        "season": season,
+                        "metrics": metrics,
+                        "astronomy": {
+                            "sunrise": daily.get("sunrise"),
+                            "sunset": daily.get("sunset"),
+                            "moonrise": daily.get("moonrise"),
+                            "moonset": daily.get("moonset"),
+                            **moon,
+                        },
+                        "fishing": fishing,
+                        "activities": ranked,
+                        "method_note_fr": (
+                            "Classement uniquement dans une fenêtre Family GO. "
+                            "Les réglages de matériel sont indicatifs ; la lune ne neutralise jamais un NO-GO."
+                        ),
+                        "method_note_en": (
+                            "Ranking only inside a Family GO window. Gear ranges are indicative; "
+                            "the moon never overrides a NO-GO."
+                        ),
+                    }
+                )
+    output.sort(
+        key=lambda item: (
+            str(item.get("start") or ""),
+            -(item.get("activities") or [{}])[0].get("score", 0),
+        )
+    )
     result = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "version": 2 if pack else 1,
+        "version": 3 if pack and pack.version >= 2 else (2 if pack else 1),
         "source_windows_generated_at": windows.get("generated_at"),
         "safety_policy": "recommendations_only_inside_validated_family_go_windows",
         "profile_status": activity_cfg.get("status", "initial_tunable"),
@@ -342,9 +414,15 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
         "no_go": no_go,
     }
     public.mkdir(parents=True, exist_ok=True)
-    (public / "recommendations.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    (public / "recommendations.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     if pack:
-        (public / "knowledge.json").write_text(json.dumps(pack.public_catalog(), ensure_ascii=False, indent=2), encoding="utf-8")
+        (public / "knowledge.json").write_text(
+            json.dumps(pack.public_catalog(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     return result
 
 

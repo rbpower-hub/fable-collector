@@ -2,8 +2,18 @@ id: soft-lure
 label_fr: "Leurre souple côtier"
 label_en: "Coastal soft lure"
 family: lure
-status: initial_tunable
+status: fish_intelligence_tunable
 suitable_habitats: [roche, herbier, tombant, fond_mixte]
 gear:
-  lure_length_cm: [7, 12]
-notes_fr: "Choisir la tête plombée en fonction du courant, de la profondeur et du risque d’accrochage."
+  lure_length_cm: [5, 12]
+  jighead_g: [3, 30]
+  leader_mm: [0.20, 0.40]
+  rigs: [tete_plombee, texas_weedless, drop_shot]
+  hook_sizes:
+    system: common_numbering
+    range: ["#4", "3/0"]
+presentation: [gratter_le_fond, traction_courte, recuperation_lineaire]
+validation:
+  local_validation_required: true
+  regulatory_check_required: true
+notes_fr: "Choisir la tête plombée et l’hameçon selon le courant, la profondeur, la taille du leurre et le risque d’accrochage."

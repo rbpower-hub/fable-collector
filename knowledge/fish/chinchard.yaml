@@ -2,7 +2,25 @@ id: chinchard
 label_fr: "Chinchard"
 label_en: "Horse mackerel"
 status: indicative_local_validation_required
+taxonomy:
+  status: local_group_not_species_resolved
 habitats: [pleine_eau, fond_mixte, sable]
 depths_m: [5, 40]
 preferred_periods: [sunrise, sunset]
+targeting:
+  technique_ids: [light-jigging, bottom-fishing]
+  natural_baits: [sardine, crevette]
+  artificial_lures: [petites_plumes, micro_jig_7_20_g]
+  presentations: [verticale, recuperation_lineaire]
+  terminal_tackle:
+    hook_sizes:
+      system: common_numbering
+      range: ["#8", "#4"]
+    leader_mm: [0.18, 0.28]
+    sinker_g: [10, 40]
+    guidance_status: indicative_starting_range
+validation:
+  local_validation_required: true
+  taxonomic_validation_required: true
+  regulatory_check_required: true
 notes_fr: "Présence et profondeur indicatives ; à confirmer selon bancs, saison et zone côtière."

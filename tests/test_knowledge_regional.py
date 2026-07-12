@@ -2,7 +2,6 @@ from pathlib import Path
 
 from fable.knowledge import load_knowledge_pack
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -35,7 +34,7 @@ def test_migrated_ports_have_four_seasons_and_no_unvalidated_zones() -> None:
         "kelibia",
     ):
         port = pack.ports[port_id]
-        seasons = ((port.get("fishing") or {}).get("seasons") or {})
+        seasons = (port.get("fishing") or {}).get("seasons") or {}
         assert set(seasons) == {"spring", "summer", "autumn", "winter"}
         assert port.get("zones") == []
 

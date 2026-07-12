@@ -1,0 +1,39 @@
+id: sidi-bou-said
+label_fr: "Sidi Bou Saïd"
+label_en: "Sidi Bou Said"
+status: initial_tunable
+confidence: low
+role: secours
+depths_m: [4, 12]
+habitats: [roche, herbier, sable, fond_mixte]
+zones: []
+fishing:
+  seasons:
+    spring:
+      species: [sar, pageot, oblade]
+      techniques: [bottom-fishing, soft-lure]
+      rigs: ["plomb 15–35 g", "bas de ligne léger"]
+      baits: [ver, crevette, couteau]
+      depths_m: [4, 12]
+      preferred_periods: [sunrise, sunset]
+    summer:
+      species: [oblade, pageot]
+      techniques: [light-jigging, soft-lure]
+      rigs: ["micro-jig 7–15 g", "drop-shot léger"]
+      baits: [crevette, ver, "leurre souple"]
+      depths_m: [4, 12]
+      preferred_periods: [sunrise, sunset]
+    autumn:
+      species: [sar, pageot, chinchard]
+      techniques: [bottom-fishing, light-jigging]
+      rigs: ["plomb 20–40 g", "jig 10–25 g"]
+      baits: [ver, calamar]
+      depths_m: [5, 14]
+      preferred_periods: [sunrise, sunset]
+    winter:
+      species: [merlan, pageot]
+      techniques: [bottom-fishing]
+      rigs: ["plomb 20–40 g"]
+      baits: [ver, sardine]
+      depths_m: [6, 14]
+      preferred_periods: [day]

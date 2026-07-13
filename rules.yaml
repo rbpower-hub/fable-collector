@@ -1,37 +1,59 @@
 overrides:
   thunder_wmo: [95, 96, 99]          # orage = NO-GO dur
-  gusts_hard_nogo_kmh: 30            # hard NO-GO ≥30 (sauf exception mouillage)
-  squall_delta_kmh: 17               # (rafales - soutenu) ≥17 => disqualification
-  visibility_km_min: 5              # NO-GO si visibilité < 5 km
+  gusts_hard_nogo_kmh: 30            # veto dur, inchangé
+  squall_delta_kmh: 17               # (rafales - soutenu) >=17 => disqualification
+  visibility_km_min: 5               # veto dur si visibilité < 5 km
 
 wind:
   family_max_kmh: 20
   nogo_min_kmh: 25
-  onshore_degrade_kmh: 22            # >22 onshore => downgrade d’un niveau
-
-http:
-  disable_astronomy_http: true
-  model_order: "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
-  # Modèles de vagues Open-Meteo Marine (MFWAM primaire, fallbacks + parallèles)
-  marine_model_order: "meteofrance_wave,ncep_gfswave025,ecmwf_wam025,default"
-  marine_parallel_models: "ncep_gfswave025,ecmwf_wam025"
-
+  onshore_degrade_kmh: 22
 
 sea:
   family_max_hs_m: 0.5
   nogo_min_hs_m: 0.8
 
 tp_matrix:
-  # Transit (strict)
   transit:
     hs_lt_0_4_family_tp_s: 3.2
     hs_0_4_0_5_family_tp_s: 4.5
     hs_lt_0_4_expert_tp_min_s: 3.2
     hs_0_4_0_5_expert_tp_min_s: 4.0
-  # Mouillage (abrité) – assouplissement léger si shelter OK & Hs ≤0,35 m
   anchor_sheltered:
+    hs_max_m: 0.35
     hs_le_0_35_family_tp_s: 3.2
     hs_le_0_35_expert_tp_min_s: 3.5
+
+combined:
+  short_steep_downgrade:
+    hs_min_m: 0.5
+    tp_max_s: 6.0
+  short_steep_hard_nogo:
+    hs_min_m: 0.6
+    tp_max_s: 5.0
+
+# Niveau intermédiaire : ne modifie jamais les vetoes durs ci-dessus.
+prudent:
+  enabled: true
+  wind_max_kmh: 22
+  gust_max_kmh: 28
+  hs_max_m: 0.4
+  tp_min_s: 3.5
+  min_confidence: Medium
+
+# Pour les trajets courts, la fenêtre peut descendre à 3 h.
+# Pour les trajets longs, la durée requise augmente avec le transit.
+adaptive_window:
+  enabled: true
+  absolute_min_hours: 3
+  min_zone_hours: 1.5
+
+# Utiliser le lever/coucher réels quand ils sont disponibles.
+# Repli sur family_hours_local si les données astronomiques sont absentes.
+daylight:
+  use_astronomy: true
+  start_after_sunrise_min: 30
+  end_before_sunset_min: 60
 
 hysteresis:
   wind_kmh: 1.0
@@ -39,33 +61,34 @@ hysteresis:
 
 shelter:
   radius_km_default: 3
-  apply_on_transit: false            # bonus jamais en transit
-  anchor_gusts_allow_up_to_kmh: 34   # tolérance rafales au mouillage protégé
-  anchor_squall_delta_max_kmh: 20    # plus strict qu’en transit
-  require_lee: true                  # vérifier sous le vent (dir vent vs côte)
-  max_fetch_km: 1.5                  # distance eau libre au vent
+  apply_on_transit: false
+  anchor_gusts_allow_up_to_kmh: 34
+  anchor_squall_delta_max_kmh: 20
+  require_lee: true
+  max_fetch_km: 1.5
   anchor_sustained_allow_up_to_kmh: 32
 
 resolution_policy:
-  family_requires_hourly: true       # Family interdit si Hs/Tp 3h-only
-  expert_allows_3h: true             # Expert-Only possible avec 3h-only
-  second_model_required_for_medium: true  # Medium si 2 modèles concordent
+  family_requires_hourly: true
+  expert_allows_3h: true
+  second_model_required_for_medium: true
 
 confidence:
   high:
     wind_spread_kmh_lt: 5
     hs_spread_m_lt: 0.2
-    min_wave_sources: 2          # ≥2 modèles de houle concordants requis pour High
+    min_wave_sources: 2
   medium:
     same_band_minor_disagreement: true
+    wind_spread_kmh_lt: 8
   low:
     cross_band_disagreement_or_3h: true
 
 corridor:
-  samples: 9                         # points entre Gammarth et destination
+  samples: 9
   validate_departure_and_return: true
   leg_structure_hours:
-    transit_out: 1-1.5               # durée indicative (pour le split)
+    transit_out: 1-1.5
     anchor_min: 2
     anchor_max: 4
     transit_back: 1-1.5
@@ -73,3 +96,13 @@ corridor:
 family_hours_local:
   start_h: 8
   end_h: 21
+
+window_hours:
+  min: 4
+  max: 6
+
+http:
+  disable_astronomy_http: true
+  model_order: "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
+  marine_model_order: "meteofrance_wave,ncep_gfswave025,ecmwf_wam025,default"
+  marine_parallel_models: "ncep_gfswave025,ecmwf_wam025"

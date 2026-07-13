@@ -5,9 +5,8 @@ import json
 from zoneinfo import ZoneInfo
 
 from fable.config import DEFAULT_RULES
-from tests.helpers import TZ_NAME, make_spot_json
-
 from fable.windows import Thresholds, adaptive_min_hours, load_site, run_reader
+from tests.helpers import TZ_NAME, make_spot_json
 
 TZ = ZoneInfo(TZ_NAME)
 START = dt.datetime(2026, 7, 14, 8, 0, tzinfo=TZ)

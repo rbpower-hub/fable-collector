@@ -18,8 +18,8 @@ def _write_json(path: Path, data: dict) -> None:
 def test_regional_fish_profiles_have_targeting_and_validation() -> None:
     pack = load_knowledge_pack(ROOT, strict=True)
     assert pack is not None
-    assert pack.version == 2
-    assert pack.status == "fish_intelligence_tunable"
+    assert pack.version == 3
+    assert pack.status == "port_knowledge_tunable"
     assert len(pack.fish) == 11
 
     for fish in pack.fish.values():
@@ -30,7 +30,9 @@ def test_regional_fish_profiles_have_targeting_and_validation() -> None:
 
     catalog = pack.public_catalog()
     assert catalog["validation_summary"]["fish_with_targeting"] == 11
+    assert catalog["validation_summary"]["ports_with_navigation"] >= 5
     assert catalog["schema"]["fish_intelligence"] == 1
+    assert catalog["schema"]["port_navigation"] == 1
 
 
 def test_unknown_targeting_technique_is_blocking(tmp_path: Path) -> None:
@@ -122,7 +124,7 @@ def test_recommendations_v3_publish_fish_intelligence(tmp_path: Path) -> None:
     result = build_recommendations(ROOT, public)
 
     assert result["version"] == 3
-    assert result["knowledge_pack"]["version"] == 2
+    assert result["knowledge_pack"]["version"] == 3
     recommendation = result["recommendations"][0]
     fish = recommendation["fishing"]["species_details"][0]
     technique = recommendation["fishing"]["technique_details"][0]

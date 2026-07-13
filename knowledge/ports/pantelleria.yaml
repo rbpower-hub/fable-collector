@@ -1,0 +1,35 @@
+id: pantelleria
+label_fr: "Pantelleria"
+label_en: "Pantelleria"
+status: offshore_beta
+confidence: low
+depths_m: []
+habitats: []
+zones: []
+
+navigation:
+  role: offshore_destination
+  route_validation_status: offshore_beta
+  route_note_fr: "Traversée Kélibia↔Pantelleria évaluée séparément en aller simple et retour simple. Le séjour en Italie peut durer plusieurs jours."
+  route_note_en: "Kelibia↔Pantelleria is evaluated as separate outbound and return one-way crossings. The stay in Italy may last several days."
+  shelters: []
+  offshore:
+    relay_port: kelibia
+    trip_mode: one_way_multi_day
+    directions: [outbound, return]
+    same_day_round_trip_required: false
+    positioning_from_home_evaluated_separately: true
+  return_policy:
+    mode: independent
+    daylight_margin_min: 60
+    weather_margin_min: 60
+  validation:
+    local_validation_required: true
+    coordinates_validated: false
+    shelter_validation_required: true
+    formalities_check_required: true
+    official_marine_forecast_required: true
+
+# Pas de profil de pêche local tant qu’il n’est pas validé séparément.
+fishing:
+  seasons: {}

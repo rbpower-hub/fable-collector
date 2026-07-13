@@ -7,6 +7,22 @@ role: secours
 depths_m: [4, 12]
 habitats: [roche, herbier, sable, fond_mixte]
 zones: []
+
+navigation:
+  role: nearby_destination
+  route_validation_status: initial_tunable
+  route_note_fr: "Trajet court depuis Gammarth ; durée calculée depuis les coordonnées configurées."
+  route_note_en: "Short route from Gammarth; duration computed from configured coordinates."
+  shelters: []
+  return_policy:
+    mode: same_window
+    daylight_margin_min: 60
+    weather_margin_min: 30
+  validation:
+    local_validation_required: true
+    coordinates_validated: false
+    shelter_validation_required: true
+
 fishing:
   seasons:
     spring:

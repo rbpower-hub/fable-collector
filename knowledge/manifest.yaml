@@ -1,12 +1,15 @@
 # FABLE Knowledge Pack — source de connaissance métier indépendante du moteur.
-version: 2
-status: fish_intelligence_tunable
+version: 3
+status: port_knowledge_tunable
 language_default: fr
 
 schema:
   fish_intelligence: 1
   terminal_tackle: 1
   validation_metadata: 1
+  port_navigation: 1
+  shelter_intelligence: 1
+  offshore_one_way: 1
 
 ranking:
   max_per_window: 3
@@ -19,5 +22,8 @@ policy:
   lunar_role: secondary_ranking_only
   local_validation_required: true
   offshore_profiles_require_separate_validation: true
+  offshore_same_day_round_trip_required: false
+  shelter_bonus_requires_field_validation: true
+  unvalidated_shelters_never_relax_thresholds: true
   gear_ranges_are_indicative: true
   regulatory_check_required_before_trip: true

@@ -18,7 +18,10 @@ def test_regional_tunisian_ports_are_migrated() -> None:
         "kelibia",
     }
     assert expected_ports.issubset(pack.ports)
-    assert "pantelleria" not in pack.ports
+    assert "pantelleria" in pack.ports
+    pantelleria = pack.ports["pantelleria"]
+    assert ((pantelleria.get("navigation") or {}).get("offshore") or {}).get("trip_mode") == "one_way_multi_day"
+    assert ((pantelleria.get("fishing") or {}).get("seasons") or {}) == {}
 
 
 def test_migrated_ports_have_four_seasons_and_no_unvalidated_zones() -> None:

@@ -4,20 +4,22 @@
 [![Healthcheck](https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml/badge.svg)](https://github.com/rbpower-hub/fable-collector/actions/workflows/healthcheck.yml)
 [![CI](https://github.com/rbpower-hub/fable-collector/actions/workflows/ci.yml/badge.svg)](https://github.com/rbpower-hub/fable-collector/actions/workflows/ci.yml)
 
-Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec :
+Collecteur **horaire** de météo marine pour les spots côtiers tunisiens et les traversées offshore configurées, avec :
 
 - prévisions Open-Meteo multi-modèles pour le vent et la mer ;
 - détection conservatrice des fenêtres **Family GO** ;
 - niveau intermédiaire **Family GO prudent**, clairement signalé et soumis aux mêmes vétos absolus ;
-- durée minimale adaptative de 3 à 6 heures selon le transit et le temps minimal sur zone ;
-- plage d’utilisation liée au lever et au coucher du soleil lorsque ces données sont disponibles ;
+- durée minimale adaptative de 3 à 6 heures pour les sorties côtières ;
+- plage d’utilisation liée au lever et au coucher du soleil ;
 - validation des phases Transit – Mouillage – Transit depuis le port d’attache ;
 - diagnostics backend détaillés pour chaque destination bloquée ;
-- recommandations d’activités marines et de pêche uniquement dans les fenêtres déjà validées ;
+- traversées **Pantelleria aller simple et retour simple** évaluées indépendamment depuis Kélibia ;
+- Port Knowledge : routes, distances, temps de transit, politique de retour et statut des abris ;
+- recommandations d’activités et de pêche uniquement dans les sorties côtières compatibles ;
 - aide Fish Intelligence indicative : espèces, techniques, appâts/leurres, montages et matériel de départ ;
 - publication automatique du tableau de bord et des données sur GitHub Pages.
 
-> *English summary* — Hourly marine-weather collector for Tunisian coastal spots, publishing conservative Family GO windows, an explicitly labelled prudent tier, backend blocker diagnostics and ranked marine/fishing activities. Prudent windows never override hard vetoes. Recommendations remain downstream of the navigation-safety engine.
+> *English summary* — Hourly marine-weather collector for Tunisian coastal spots and configured offshore crossings. Coastal trips use conservative Family GO / prudent rules and same-window return validation. Pantelleria is handled as independent Kelibia→Pantelleria outbound and Pantelleria→Kelibia return crossings; no same-day return to Gammarth is required.
 
 ---
 
@@ -30,6 +32,7 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 | Spot, exemple Gammarth | https://rbpower-hub.github.io/fable-collector/gammarth-port.json |
 | Fenêtres, niveaux et diagnostics | https://rbpower-hub.github.io/fable-collector/windows.json |
 | Activités recommandées | https://rbpower-hub.github.io/fable-collector/recommendations.json |
+| Routes, transits et abris | https://rbpower-hub.github.io/fable-collector/port-knowledge.json |
 | Catalogue du Knowledge Pack | https://rbpower-hub.github.io/fable-collector/knowledge.json |
 | Règles normalisées | https://rbpower-hub.github.io/fable-collector/rules.normalized.json |
 | Sites normalisés | https://rbpower-hub.github.io/fable-collector/sites.normalized.json |
@@ -37,9 +40,11 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 | Statut machine | https://rbpower-hub.github.io/fable-collector/status.json |
 | Inventaire des fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
 
-`windows.json` version 3 publie pour chaque destination la durée requise, les fenêtres standard ou prudentes et, en cas de blocage, `diagnostics.first_blocker` ainsi que `diagnostics.near_miss`.
+`windows.json` version 4 publie les fenêtres côtières standard/prudentes, leurs diagnostics et les traversées offshore directionnelles `outbound` / `return`.
 
-`knowledge.json` est produit pendant `Collect & Deploy` dès que le Knowledge Pack est actif dans `main`. Avec le schéma Fish Intelligence v1, `knowledge.json` est en version 2 et `recommendations.json` en version 3.
+`recommendations.json` sépare les activités de loisir des objets `navigation_only`. Une traversée offshore ne produit aucune recommandation automatique de baignade, mouillage ou pêche.
+
+`knowledge.json` version 3 expose Fish Intelligence, Port Knowledge, Shelter Intelligence et la politique offshore one-way.
 
 Spots configurés : **Gammarth**, **Sidi Bou Saïd**, **Ghar el Melh**, **Ras Fartass**, **El Haouaria**, **Kélibia** et **Pantelleria beta**. Korbous reste exclu par la politique actuelle.
 
@@ -52,32 +57,37 @@ sites.yaml + rules.yaml
 knowledge/ + fishing_profiles.yaml
         │
         ▼
-fable.preflight          validation + exports normalisés
+fable.preflight                  validation + exports normalisés
         │
-fable.collect            météo, mer, soleil et lune par spot
+fable.collect                    météo, mer, soleil et lune par spot
         │
-fable.window_models      chargement des spots + worst-value-wins
+fable.window_models              chargement + worst-value-wins
         │
-fable.window_policy      vétos, Family, prudent, lumière et diagnostics
+fable.window_policy              vétos, Family, prudent, lumière
         │
-fable.window_detect      durée adaptative + routes + windows.json v3
+fable.window_detect              sorties côtières + diagnostics
         │
-fable.knowledge          validation des profils et du matériel indicatif
+fable.offshore                   traversées directionnelles Kélibia↔Pantelleria
         │
-fable.recommendations    activités + Fish Intelligence + astro
+fable.recommendations            activités + Fish Intelligence
         │
-fable.publish            catalogue, statut et contrôles finaux
+fable.offshore_recommendations   séparation navigation / loisirs
+        │
+fable.port_knowledge             routes, transits, abris et politiques de retour
+        │
+fable.publish                    catalogue, statut et contrôles finaux
         │
         ▼
-GitHub Pages              board + JSON publics
+GitHub Pages                      board + JSON publics
 ```
 
-Le moteur de recommandations consomme `windows.json` **après** la décision de sécurité. Il ne peut pas autoriser une sortie refusée par le moteur Family GO.
+Le moteur d’activités consomme `windows.json` **après** la décision de sécurité. Il ne peut pas créer une fenêtre ni neutraliser un NO-GO.
 
 Documentation détaillée :
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Family GO prudent et diagnostics](docs/FAMILY-GO-PRUDENT.md)
+- [Port Knowledge et offshore aller simple](docs/PORT-KNOWLEDGE.md)
 - [Knowledge Pack](docs/KNOWLEDGE-PACK.md)
 - [Fish Intelligence v1](docs/FISH-INTELLIGENCE.md)
 - [Recommandations d’activités et de pêche](docs/RECOMMENDATIONS.md)
@@ -88,13 +98,42 @@ Documentation détaillée :
 
 ---
 
-## Niveaux de décision
+## Deux logiques de trajet
 
-### Family GO
+### Sorties côtières familiales
 
-Le niveau standard conserve les seuils familiaux historiques et la logique Transit – Mouillage – Transit.
+Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia utilisent la logique :
 
-### Family GO prudent
+```text
+départ → transit aller → temps sur zone → transit retour
+```
+
+Le départ et le retour doivent appartenir à la même fenêtre validée.
+
+### Pantelleria — offshore multi-jours
+
+Pantelleria utilise :
+
+```text
+outbound : Kélibia → Pantelleria
+return   : Pantelleria → Kélibia
+```
+
+Les deux directions sont évaluées indépendamment. Les sorties peuvent être séparées par plusieurs jours et **aucun retour à Gammarth le jour même n’est exigé**.
+
+Le pré-positionnement `Gammarth ↔ Kélibia` reste une opération distincte à planifier avec sa propre météo, son carburant et sa logistique.
+
+La première version offshore :
+
+- utilise uniquement les seuils Family stricts ;
+- n’active pas le mode prudent ;
+- contrôle les conditions aux deux extrémités pendant toute la traversée ;
+- publie les fenêtres comme `navigation_only` ;
+- exige une vérification indépendante des formalités, équipements, communications, autonomie et bulletins maritimes officiels.
+
+---
+
+## Family GO prudent
 
 Le niveau prudent est évalué seulement après l’échec du niveau standard. Il impose simultanément :
 
@@ -106,40 +145,60 @@ Le niveau prudent est évalué seulement après l’échec du niveau standard. I
 - confiance au moins `Medium` ;
 - fenêtre entièrement comprise dans la plage de lumière sécurisée.
 
-Le board l’affiche en orange avec un avertissement de confort réduit. Il ne s’agit pas d’un mode Expert.
-
-### NO-GO et vétos absolus
-
-Le niveau prudent ne modifie jamais les vétos absolus, notamment l’orage, la visibilité inférieure à 5 km, les rafales à partir de 30 km/h, le vent soutenu à partir de 25 km/h, une mer courte et raide classée dure ou les données indispensables manquantes.
+Il ne modifie jamais les vétos absolus, notamment l’orage, la visibilité inférieure à 5 km, les rafales à partir de 30 km/h, le vent soutenu à partir de 25 km/h, une mer courte et raide classée dure ou les données indispensables manquantes.
 
 ---
 
 ## Durée adaptative et lumière
 
-Pour une destination courte, FABLE peut valider une fenêtre de trois heures. Pour une destination plus éloignée, la durée requise est calculée à partir du scénario lent de transit aller-retour et d’au moins 1,5 heure sur zone.
+Pour une destination côtière courte, FABLE peut valider une fenêtre de trois heures. Pour une destination plus éloignée :
 
 ```text
 durée requise = ceil(2 × transit lent + 1,5 h sur zone)
 ```
 
-La durée reste plafonnée à six heures dans le moteur Family actuel. Si le trajet exige davantage, `windows.json` publie un blocage de durée explicite.
+La durée reste plafonnée à six heures dans le moteur Family côtier.
 
-Quand les données astronomiques sont disponibles, la plage Family commence trente minutes après le lever du soleil et se termine une heure avant le coucher. Les horaires fixes de `family_hours_local` restent le mécanisme de repli.
+Quand les données astronomiques sont disponibles, la plage Family commence trente minutes après le lever du soleil et se termine une heure avant le coucher. Les horaires fixes restent le mécanisme de repli.
+
+---
+
+## Port Knowledge et abris
+
+`port-knowledge.json` publie pour chaque port :
+
+- l’origine de route ;
+- la distance calculée depuis `sites.yaml` ;
+- l’hypothèse de vitesse ;
+- les temps rapide et conservateur ;
+- le type de trajet ;
+- la politique de retour ;
+- les abris et leur statut de validation.
+
+Les distances calculées ne remplacent pas une route nautique validée.
+
+Un abri ne peut activer une tolérance que si sa fiche possède :
+
+- des coordonnées validées ;
+- des secteurs de protection ;
+- un fetch maximal positif ;
+- le statut `validated`.
+
+Les profils actuels conservent `shelters: []`. Aucun bonus d’abri n’est donc actif tant que les données terrain ne sont pas confirmées.
 
 ---
 
 ## Diagnostics des blocages
 
-La section **Avertissements** ne recalcule plus les règles dans le navigateur. Elle utilise le diagnostic Python publié avec la même logique que `windows.json` :
+La section **Avertissements** utilise directement la décision Python publiée dans `windows.json` :
 
-- départ depuis Gammarth ;
+- départ depuis Gammarth ou le port origine ;
 - phases à destination ;
-- retour à Gammarth ;
+- retour pour les sorties côtières ;
+- arrivée pour une traversée offshore ;
 - vent, rafales, direction, visibilité, Hs et Tp ;
 - pire valeur entre modèles ;
-- durée requise, lumière et confiance.
-
-Un blocage pour Ghar El Melh peut donc indiquer que les conditions locales sont acceptables mais que le **retour à Gammarth** est refusé, avec l’heure, la métrique et la raison correspondantes.
+- durée, lumière et confiance.
 
 ---
 
@@ -159,11 +218,18 @@ sites:
     onshore_sectors: [[30, 150]]
 ```
 
+Pantelleria utilise notamment :
+
+```yaml
+route_origin: kelibia
+route_kind: offshore_one_way_beta
+```
+
 `onshore_sectors` supporte le wrap-around, par exemple `[[330, 360], [0, 70]]`.
 
-Une tolérance de mouillage n’est activée que si `shelter_bonus_radius_km` est explicitement supérieur à zéro et que le vent n’est pas onshore. Les ports actuels restent sans tolérance tant qu’un abri n’est pas validé.
+---
 
-## Configurer le Knowledge Pack
+## Knowledge Pack
 
 Le dossier `knowledge/` porte les connaissances métier réutilisables :
 
@@ -176,18 +242,15 @@ knowledge/
 └── activities/
 ```
 
-Les identifiants référencés par les ports, espèces et activités sont validés avant génération. Une référence inconnue bloque le build du pack afin d’éviter des recommandations silencieusement incomplètes.
+La base comprend :
 
-La base régionale structurée couvre actuellement :
-
-- **6 ports tunisiens** : Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia ;
+- **6 ports tunisiens** avec profils saisonniers ;
+- **Pantelleria** comme profil de navigation offshore sans profil de pêche local ;
 - **11 profils d’espèces ou groupes locaux** ;
 - **4 techniques** ;
 - **5 activités marines**.
 
-Le schéma Fish Intelligence v1 ajoute pour chaque espèce les techniques, appâts, leurres, présentations et plages indicatives de matériel. Pantelleria reste volontairement sans profil de pêche dans le Knowledge Pack.
-
-Les champs `zones` restent vides tant que les coordonnées ne sont pas validées sur le terrain et contrôlées du point de vue de la navigation.
+Les identifiants croisés sont validés avant génération. Une référence incohérente bloque le build.
 
 ---
 
@@ -199,6 +262,8 @@ python -m fable.preflight
 python collect.py
 python reader.py
 python -m fable.recommendations
+python -m fable.offshore_recommendations
+python -m fable.port_knowledge
 python -m fable.publish
 ```
 
@@ -207,11 +272,10 @@ Les sorties principales sont écrites dans `public/` :
 - `<spot>.json` ;
 - `windows.json` ;
 - `recommendations.json` ;
-- `knowledge.json` lorsque le pack est actif ;
+- `port-knowledge.json` ;
+- `knowledge.json` ;
 - `status.json` et `status.html` ;
 - `catalog.json`.
-
-Variables d’environnement utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS`, `FABLE_START_ISO`, `FABLE_ONLY_SITES`, `FABLE_MODEL_ORDER`, `FABLE_HTTP_TIMEOUT_S`, `FABLE_HTTP_RETRIES`, `FABLE_ASTRAL_FALLBACK` et `LOG_LEVEL`.
 
 ## Tests
 
@@ -219,19 +283,21 @@ Variables d’environnement utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS`, `FABLE_ST
 CHECK-LOCAL.bat
 ```
 
-Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, GO prudent, blocage du retour, durée adaptative, plage solaire, abri conditionnel, recommandations, Knowledge Pack et Fish Intelligence.
+La CI exécute Ruff et Pytest et conserve un rapport JUnit téléchargeable. Les tests couvrent les vétos, le GO prudent, les diagnostics, les routes côtières, les traversées offshore aller/retour, l’absence d’aller-retour le même jour, les abris non validés, Port Knowledge, les recommandations et Fish Intelligence.
 
 ---
 
 ## Sécurité des décisions
 
-Le détecteur applique **worst-value-wins** entre modèles pour le vent et les vagues : Hs retenue = valeur la plus haute ; Tp retenue = période la plus courte. Les données marine absentes ne sont jamais inventées.
+Le détecteur applique **worst-value-wins** entre modèles : Hs retenue = valeur la plus haute ; Tp retenue = période la plus courte. Les données marines absentes ne sont jamais inventées.
 
-Le classement des activités applique ensuite quatre principes :
+Les principes restent :
 
-1. aucune recommandation sans fenêtre Family GO standard ou prudente validée par le backend ;
-2. les seuils particuliers de l’activité peuvent encore la refuser ;
-3. le signal lunaire est un bonus limité et ne neutralise jamais un NO-GO ;
-4. les plages de matériel sont indicatives et imposent une vérification locale et réglementaire avant la sortie.
+1. aucune activité sans fenêtre côtière validée ;
+2. une traversée offshore reste `navigation_only` ;
+3. les seuils particuliers d’une activité peuvent encore la refuser ;
+4. la lune ne neutralise jamais un NO-GO ;
+5. aucun abri non validé ne relâche un seuil ;
+6. les réglages de matériel restent indicatifs et nécessitent une vérification locale et réglementaire.
 
 © 2025-2026 RB Power Consulting — Tous droits réservés. Voir [LICENSE](LICENSE).

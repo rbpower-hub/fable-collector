@@ -9,6 +9,21 @@ habitats: [sable, roche, herbier_mixte, fond_mixte]
 # Les zones GPS précises seront ajoutées après validation terrain.
 zones: []
 
+navigation:
+  role: home_port
+  route_validation_status: configured
+  route_note_fr: "Port d’attache et point de référence des sorties côtières Family GO."
+  route_note_en: "Home port and reference point for coastal Family GO trips."
+  shelters: []
+  return_policy:
+    mode: same_window
+    daylight_margin_min: 60
+    weather_margin_min: 30
+  validation:
+    local_validation_required: true
+    coordinates_validated: true
+    shelter_validation_required: true
+
 fishing:
   seasons:
     spring:

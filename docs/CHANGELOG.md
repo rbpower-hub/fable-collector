@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased — Fish Intelligence v1
+## 3.0.0 — 2026-07-13
+- **Family GO prudent** : ajout d’un niveau intermédiaire clairement signalé, évalué seulement après l’échec du niveau Family standard.
+- **Vétos durs inchangés** : orage, visibilité insuffisante, rafales ≥30 km/h, vent ≥25 km/h, mer dure courte/raide et données indispensables manquantes restent bloquants.
+- **Limites prudentes initiales** : vent ≤22 km/h, rafales <28 km/h, Hs ≤0,40 m, Tp ≥3,5 s, vent non onshore et confiance au moins Medium.
+- **Diagnostics backend** : chaque destination publie dans `windows.json` le premier blocage réel, son étape, son lieu, son heure, ses métriques et une explication FR/EN.
+- **Near miss** : publication du nombre d’heures déjà validées par rapport à la durée requise.
+- **Avertissements fiabilisés** : le board utilise désormais le diagnostic Python au lieu d’une réévaluation simplifiée dans le navigateur ; les blocages de départ et de retour à Gammarth deviennent visibles.
+- **Durée adaptative** : plancher de 3 h pour les trajets courts et durée requise calculée depuis le transit lent aller-retour plus 1,5 h minimale sur zone.
+- **Plage solaire** : lever/coucher du soleil utilisés avec marges quand disponibles ; repli sur les horaires fixes.
+- **Abri conditionnel** : les tolérances de mouillage ne s’appliquent que si un rayon d’abri est explicitement configuré et que le vent n’est pas onshore.
+- **Board et recommandations** : badge orange `FAMILY GO PRUDENT`, avertissement de confort réduit et propagation vers la carte des activités.
+- **Architecture modulaire** : séparation en `window_models`, `window_policy` et `window_detect` avec API rétro-compatible dans `fable.windows`.
+- **Documentation** : README mis à jour et nouveau guide `docs/FAMILY-GO-PRUDENT.md`.
+- **Tests** : couverture du mode prudent, des vétos durs, du retour bloqué, de la durée adaptative, de la lumière et de l’abri.
+
+## 2.10.0 — 2026-07-12
 - **Knowledge Pack v2** : activation du schéma `fish_intelligence`, du matériel terminal et des métadonnées de validation.
 - **Onze profils enrichis** : techniques compatibles, appâts naturels, leurres, présentations, plages d’hameçons, bas de ligne et plomb indicatifs.
 - **Quatre techniques enrichies** : montages, configurations d’hameçons, grammages, diamètres et modes de présentation structurés.
@@ -48,68 +63,63 @@
 
 ## 2.8.0 — 2026-07-07
 - **Pantelleria passe en composite beta actif** : le moteur publie maintenant des fenêtres beta pour Pantelleria quand le transfert `Gammarth → Kelibia` puis la fenêtre `Kelibia → Pantelleria` s’alignent dans le forecast.
-- **Transfert vers Kelibia validé séparément** : le backend contrôle désormais le segment de convoyage via les checkpoints configurés (`Ras Fartass`, `El Haouaria`) avant d’autoriser la suite du plan.
-- **Fenêtres composites conservatrices** : Pantelleria ne passe plus sur un simple spot final favorable ; il faut désormais une séquence compatible entre le relais et la sortie offshore.
-- **UI alignée produit** : les routes beta continuent d’être exclues du faux debug standard, et les cartes de fenêtres affichent maintenant le pré-transfert composite.
+- **Transfert vers Kelibia validé séparément** : le backend contrôle désormais le segment de convoyage via les checkpoints configurés avant d’autoriser la suite du plan.
+- **Fenêtres composites conservatrices** : Pantelleria ne passe plus sur un simple spot final favorable ; il faut une séquence compatible entre le relais et la sortie offshore.
+- **UI alignée produit** : les cartes de fenêtres affichent le pré-transfert composite.
 
 ## 2.7.0 — 2026-07-07
 - **Kelibia réintégrée comme port relais** : la collecte et les exports normalisés incluent désormais `kelibia`, en plus de Pantelleria beta.
-- **Itinéraires mer configurables** : `sites.yaml` accepte maintenant `route_origin` et `route_points` pour préparer des routes multi-legs sans tracer de ligne à travers les terres.
-- **Route Gammarth → Kelibia corrigée visuellement** : la carte suit maintenant une route mer via Ras Fartass puis El Haouaria, au lieu de couper le Cap Bon.
-- **Pantelleria preview en 2 segments** : l’aperçu affiche désormais `Gammarth → Kelibia → Pantelleria`, avec distance et durée totales, tout en gardant le moteur GO offshore désactivé.
-- **Fondation pour le futur GO composite** : les métadonnées de route sont publiées par le backend et prêtes pour la prochaine phase de validation segment par segment.
+- **Itinéraires mer configurables** : `sites.yaml` accepte `route_origin` et `route_points` pour préparer des routes multi-legs sans tracer de ligne à travers les terres.
+- **Route Gammarth → Kelibia corrigée visuellement** : la carte suit une route mer via El Haouaria.
+- **Pantelleria preview en 2 segments** : l’aperçu affiche `Gammarth → Kelibia → Pantelleria`, avec distance et durée totales.
+- **Fondation pour le futur GO composite** : les métadonnées de route sont publiées par le backend.
 
 ## 2.6.1 — 2026-07-07
 - **Hotfix CI pytest** : le workflow exécute désormais `python -m pytest -q`, aligné sur le check local.
-- **Import `fable` fiabilisé** : la CI lance `python -m pytest -q`, aligné sur le check local, ce qui évite les erreurs `ModuleNotFoundError: No module named 'fable'`.
-- **Version interne réalignée** : `fable.__version__` reflète enfin la version publiée courante.
+- **Import `fable` fiabilisé** : l’appel par module évite les erreurs `ModuleNotFoundError`.
+- **Version interne réalignée** : `fable.__version__` reflète la version publiée.
 
 ## 2.6.0 — 2026-07-07
-- **Pantelleria beta publiée proprement** : la destination existe maintenant dans `sites.yaml`, est collectée, publiée dans les fichiers normalisés et visible dans le board.
-- **Beta offshore assumée côté produit** : Pantelleria est marquée `beta`, `offshore_beta` et `windows_enabled: false`, pour éviter de présenter de faux `GO` avant le vrai moteur offshore.
-- **Carte + corridor enrichis** : cliquer Pantelleria sur la carte ou dans le radar ouvre un aperçu de route avec distance, durée estimée et note produit, même sans fenêtre GO.
-- **Radar et infobulles clarifiés** : badge beta, pays, note de route et message explicite “moteur GO pas encore actif”.
-- **Reader debug protégé** : `reasons-debug.js` et le dashboard n’essaient plus d’évaluer les routes beta offshore comme des spots Family standards.
+- **Pantelleria beta publiée proprement** : la destination existe dans `sites.yaml`, est collectée et visible dans le board.
+- **Beta offshore assumée côté produit** : Pantelleria reste clairement marquée beta.
+- **Carte + corridor enrichis** : aperçu de route avec distance, durée estimée et note produit.
+- **Radar et infobulles clarifiés** : badge beta, pays et note de route.
+- **Reader debug protégé** : les routes beta offshore ne sont pas traitées comme des spots Family standards.
 
 ## 2.5.0 — 2026-07-06
-- **Durée de traversée pilotée par une hypothèse bateau** : le board n’utilise plus une durée fixe identique pour toutes les routes, mais une estimation calculée depuis la distance et `transit_speed_kts`.
-- **Hypothèse de vitesse explicite dans l’UI** : le résumé corridor affiche maintenant la fourchette retenue en nœuds, pour pouvoir l’ajuster facilement au bateau réel.
-- **`sites.yaml` enrichi** avec `defaults.transit_speed_kts`, publié dans `sites.normalized.json` pour garder la logique de durée côté config.
-- **Ras Fartass réaligné produit** : avec le profil par défaut actuel, la traversée affichée retombe dans un ordre de grandeur cohérent avec un semi-rigide rapide.
-- **Pantelleria évaluée** : ajout pur de destination possible plus tard, mais le moteur reste aujourd’hui orienté sortie home→destination Family Day et n’implémente pas encore de vrai corridor offshore.
+- **Durée de traversée pilotée par une hypothèse bateau** : estimation depuis `transit_speed_kts`.
+- **Hypothèse de vitesse explicite dans l’UI**.
+- **`sites.yaml` enrichi** avec `defaults.transit_speed_kts`.
+- **Ras Fartass réaligné produit**.
+- **Pantelleria évaluée** comme future route offshore.
 
 ## 2.4.0 — 2026-07-06
-- **Carte découplée des coordonnées météo** : `sites.yaml` accepte désormais `map_lat` / `map_lon` pour garder une position visuelle exacte sans bouger le point de collecte.
-- **Position précise restaurée pour Gammarth** et anciennes positions carte réinjectées dans la configuration des spots actuels.
-- **`sites.normalized.json` enrichi** avec les coordonnées de carte publiées par le backend pour éviter tout nouveau décalage côté UI.
-- **Carte et radar plus interactifs** : cliquer un spot ou la ligne radar ouvre directement le corridor correspondant quand une fenêtre existe.
-- **Résumé corridor sous la carte** : la vue garde un rappel lisible du trajet sélectionné, des durées de transit et de la phase mouillage.
+- **Carte découplée des coordonnées météo** avec `map_lat` / `map_lon`.
+- **Position précise restaurée pour Gammarth**.
+- **`sites.normalized.json` enrichi**.
+- **Carte et radar plus interactifs**.
+- **Résumé corridor sous la carte**.
 
 ## 2.3.0 — 2026-07-06
-- **Version dédiée corridor + carte** pour garder un rollback simple après la phase board `2.2.0`.
-- **`rules.normalized.json` enrichi** avec `family.corridor.leg_structure_hours`, pour publier les durées transit aller, mouillage et retour au lieu de les recoder côté UI.
-- **Carte pilotée par `sites.normalized.json`** pour le cadrage initial et le reset, y compris quand la liste de spots évolue.
-- **Corridor piloté par `rules.normalized.json`** : résumé transit, badge de durée et animation aller/retour suivent la règle active publiée par le backend.
-- **Liens bruts simplifiés** : les icônes des spots ne dépendent plus d’une liste de fichiers codée en dur.
+- **Version dédiée corridor + carte**.
+- **`rules.normalized.json` enrichi** avec les durées des phases.
+- **Carte et corridor pilotés par les configurations normalisées**.
+- **Liens bruts simplifiés**.
 
 ## 2.2.0 — 2026-07-06
-- **Version dédiée board** pour l’évolution UI, afin de pouvoir revenir facilement à la version précédente si besoin.
-- **Board branché sur `sites.normalized.json`** : spots, port principal et métadonnées de site ne sont plus figés dans le HTML.
-- **Board branché sur `rules.normalized.json`** : heures Family et fenêtre mini ne reposent plus sur des constantes locales du board.
-- **Confiance enrichie dans l’UI** : affichage des sources, modèles utilisés, nombre minimal de sources de houle et spread Hs.
-- **Santé live enrichie** : statut du board basé sur `stale_after`, `build_ok`, `missing_spots` et `collector_version`.
-- **Nettoyage produit du faux mode Expert** : l’UI ne présente plus `EXPERT GO` comme une capacité backend active.
-- **Avertissements debug alignés** : règles et sites publiés remplacent une duplication locale dans `reasons-debug.js`.
+- **Version dédiée board**.
+- **Board branché sur `sites.normalized.json` et `rules.normalized.json`**.
+- **Confiance enrichie dans l’UI**.
+- **Santé live enrichie**.
+- **Nettoyage du faux mode Expert**.
+- **Avertissements alignés sur les règles et sites publiés**.
 
 ## 2.1.0 — 2026-07-05
-- **Houle multi-modèles** (Open-Meteo Marine `models=`) : MFWAM 0.08° primaire avec fallback GFS-Wave 0.25° → ECMWF WAM 0.25° → défaut ; modèles parallèles publiés sous `marine_models.*` alignés sur l’axe commun.
-- **Confiance “High” débloquée** : exige ≥ 2 modèles de houle concordants (écart Hs inter-modèles < 0,2 m sur chaque heure) + accord vent. Une seule source de houle → cap Medium conservé.
-- **Worst-value-wins étendu aux vagues** : Hs = max des modèles, Tp = min ; un modèle pessimiste suffit à bloquer une heure.
-- `meta.sources.marine_open_meteo` : `model_used`, `model_order`, `parallel_models` ; debug : `marine_models_count`, `marine_parallel_attempts`.
-- `rules.yaml` : ordres des modèles météo/marine et paramètres de confiance.
-- `windows.json` : détails du nombre de sources de houle et du spread Hs.
-- Nouvel outil `tools/probe_marine_models.py` pour vérifier les noms de modèles.
-- 48 tests, dont 7 nouveaux.
+- **Houle multi-modèles** avec fallbacks et modèles parallèles.
+- **Confiance High** exigeant au moins deux modèles de houle concordants.
+- **Worst-value-wins étendu aux vagues** : Hs maximale et Tp minimale.
+- **Métadonnées de sources et de spreads publiées**.
+- **Outil de vérification des modèles marine**.
 
 ## 2.0.0 — 2026-07-05
-Refonte professionnelle complète — voir `docs/AUDIT-2026-07.md` : cron horaire + keepalive anti-désactivation, healthcheck externe avec issue GitHub, statut à fraîcheur côté client, reader immunisé contre les non-spots, dégradation gracieuse marine, fenêtres bornées 4–6 h, seuils unifiés, `sites.yaml` v2 multi-port, package `fable/` testé, CI Ruff + Pytest.
+Refonte professionnelle complète — voir `docs/AUDIT-2026-07.md` : cron horaire, healthcheck externe, statut de fraîcheur, dégradation gracieuse marine, seuils unifiés, `sites.yaml` v2 multi-port, package `fable/` testé et CI Ruff + Pytest.

@@ -55,7 +55,7 @@ class Thresholds:
     daylight_before_sunset_min: int
 
     @classmethod
-    def from_rules(cls, rules: dict[str, Any]) -> "Thresholds":
+    def from_rules(cls, rules: dict[str, Any]) -> Thresholds:
         return cls(
             wind_family_max=float(dget(rules, "wind.family_max_kmh", 20)),
             wind_no_go_min=float(dget(rules, "wind.nogo_min_kmh", 25)),

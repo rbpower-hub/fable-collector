@@ -26,7 +26,7 @@ def test_preflight_ok_on_repo(repo_root, tmp_path, capsys):
     assert pantelleria["windows_enabled"] is True
     assert pantelleria["beta"] is True
     assert pantelleria["route_origin"] == "kelibia"
-    assert pantelleria["route_kind"] == "composite_beta"
+    assert pantelleria["route_kind"] == "offshore_one_way_beta"
 
 
 def test_preflight_fails_cleanly_on_corrupt_rule_type(tmp_path, capsys):
@@ -42,6 +42,7 @@ def test_preflight_legacy_v1_without_gammarth(tmp_path):
     (tmp_path / "rules.yaml").write_text("", encoding="utf-8")
     rc = run_preflight(tmp_path, tmp_path / "public")
     assert rc == 0   # legacy config: home falls back to first site
+
 
 def test_preflight_fails_on_missing_sites(tmp_path):
     (tmp_path / "rules.yaml").write_text("", encoding="utf-8")

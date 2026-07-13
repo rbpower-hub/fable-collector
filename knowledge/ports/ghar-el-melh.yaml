@@ -6,6 +6,22 @@ confidence: low
 depths_m: [5, 18]
 habitats: [sable, roche, herbier, fond_mixte]
 zones: []
+
+navigation:
+  role: family_destination
+  route_validation_status: initial_tunable
+  route_note_fr: "Route depuis Gammarth calculée à partir des coordonnées configurées ; temps réel à confirmer par sorties."
+  route_note_en: "Route from Gammarth computed from configured coordinates; real transit time requires field confirmation."
+  shelters: []
+  return_policy:
+    mode: same_window
+    daylight_margin_min: 60
+    weather_margin_min: 30
+  validation:
+    local_validation_required: true
+    coordinates_validated: false
+    shelter_validation_required: true
+
 fishing:
   seasons:
     spring:

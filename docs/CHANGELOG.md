@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.1.0 — 2026-07-13
+- **Pantelleria en aller simple offshore** : Kélibia→Pantelleria et Pantelleria→Kélibia sont évaluées comme deux traversées indépendantes.
+- **Séjour multi-jours** : aucun retour à Gammarth le même jour n’est exigé ; le pré-positionnement Gammarth↔Kélibia reste une opération séparée.
+- **`windows.json` v4** : ajout de `trip_mode: one_way_multi_day`, `direction: outbound|return` et `same_day_round_trip_required: false`.
+- **Offshore strict** : seules les limites Family strictes sont utilisées ; aucun mode prudent offshore dans cette version.
+- **Navigation sans loisirs** : les traversées sont publiées sous `navigation_only` et ne génèrent aucune recommandation automatique de baignade, mouillage ou pêche.
+- **Port Knowledge** : nouvel endpoint `port-knowledge.json` avec distances configurées, hypothèses de vitesse, temps de transit, politiques de retour et statut des abris.
+- **Shelter Intelligence v1** : aucun bonus d’abri sans coordonnées, secteurs de protection, fetch positif et validation terrain explicite.
+- **Knowledge Pack v3** : nouveaux schémas `port_navigation`, `shelter_intelligence` et `offshore_one_way` ; Pantelleria devient un profil de navigation sans profil de pêche local.
+- **Dashboard** : nouvelle carte « Routes & abris » avec distinction côtier / offshore one-way.
+- **Exploitation** : la CI conserve désormais un rapport JUnit téléchargeable pour faciliter le diagnostic des régressions.
+- **Tests** : couverture des directions aller/retour, de l’absence d’aller-retour le même jour, de Port Knowledge et de l’exclusion des activités pendant la traversée.
+
+## 3.0.1 — 2026-07-13
+- **Hotfix `route_origin`** : les valeurs JSON `null` ne sont plus transformées en faux relais `none`.
+- **Ports standards restaurés** : suppression du message erroné « Port relais introuvable dans la configuration ».
+- **Diagnostics rétablis** : Ghar El Melh et les autres ports reçoivent de nouveau leurs vraies causes météo, durée, lumière ou confiance.
+- **Route Pantelleria protégée** : le dispatch composite n’est plus rejeté prématurément sur la distance directe depuis Gammarth.
+
 ## 3.0.0 — 2026-07-13
 - **Family GO prudent** : ajout d’un niveau intermédiaire clairement signalé, évalué seulement après l’échec du niveau Family standard.
 - **Vétos durs inchangés** : orage, visibilité insuffisante, rafales ≥30 km/h, vent ≥25 km/h, mer dure courte/raide et données indispensables manquantes restent bloquants.
@@ -48,78 +67,31 @@
 
 ## 2.8.3 — 2026-07-08
 - **Double validation visuelle par étape** : les fenêtres composites Pantelleria affichent maintenant `Étape 1 GO`, `Étape 2 GO` et `GO composite` directement dans le board.
-- **Carte corridor plus explicite** : au clic sur une fenêtre composite, la carte et le détail rappellent désormais la validation de chaque segment avec temps, distance et statut visuel.
-- **Métadonnées offshore conservées** : le backend publie désormais aussi la confiance et la fenêtre du second segment pour mieux distinguer le relais de la fenêtre finale.
+- **Carte corridor plus explicite** : la carte et le détail rappellent désormais la validation de chaque segment avec temps, distance et statut visuel.
+- **Métadonnées offshore conservées** : le backend publie désormais aussi la confiance et la fenêtre du second segment.
 
 ## 2.8.2 — 2026-07-07
 - **Relais Kelibia simplifié** : l’itinéraire recommandé depuis Gammarth vers Kelibia ne passe plus par `Ras Fartass`.
-- **Route produit réalignée usage réel** : le trajet composite vers Pantelleria suit désormais `Gammarth → El Haouaria → Kelibia → Pantelleria`.
-- **Validation composite cohérente** : le contrôle backend et les tests utilisent maintenant `El Haouaria` comme point de passage météo du relais.
+- **Route produit réalignée** : le trajet composite vers Pantelleria suit `Gammarth → El Haouaria → Kelibia → Pantelleria`.
+- **Validation composite cohérente** : le contrôle backend et les tests utilisent El Haouaria comme point de passage météo.
 
 ## 2.8.1 — 2026-07-07
-- **Fallback Pantelleria réaligné** : la configuration front embarquée reflète maintenant le vrai statut `composite_beta` actif, même avant chargement des fichiers normalisés.
-- **Corridor composite plus lisible** : la carte affiche désormais un badge dédié par étape pour les routes multi-legs, avec durée et distance de chaque segment.
-- **Carte fenêtre enrichie** : le détail d’une fenêtre composite affiche maintenant `Étape 1` / `Étape 2` avec distances et temps de transit, en plus du résumé global.
+- **Fallback Pantelleria réaligné** : la configuration front embarquée reflète le statut beta actif.
+- **Corridor composite plus lisible** : la carte affiche un badge dédié par étape.
+- **Carte fenêtre enrichie** : le détail affiche les distances et temps de transit.
 
 ## 2.8.0 — 2026-07-07
-- **Pantelleria passe en composite beta actif** : le moteur publie maintenant des fenêtres beta pour Pantelleria quand le transfert `Gammarth → Kelibia` puis la fenêtre `Kelibia → Pantelleria` s’alignent dans le forecast.
-- **Transfert vers Kelibia validé séparément** : le backend contrôle désormais le segment de convoyage via les checkpoints configurés avant d’autoriser la suite du plan.
-- **Fenêtres composites conservatrices** : Pantelleria ne passe plus sur un simple spot final favorable ; il faut une séquence compatible entre le relais et la sortie offshore.
-- **UI alignée produit** : les cartes de fenêtres affichent le pré-transfert composite.
+- **Pantelleria composite beta** : première validation séquentielle transfert + fenêtre offshore.
+- **Transfert vers Kelibia validé séparément** : contrôle des checkpoints configurés.
+- **Fenêtres composites conservatrices** : séquence complète obligatoire dans cette ancienne logique.
 
 ## 2.7.0 — 2026-07-07
-- **Kelibia réintégrée comme port relais** : la collecte et les exports normalisés incluent désormais `kelibia`, en plus de Pantelleria beta.
-- **Itinéraires mer configurables** : `sites.yaml` accepte `route_origin` et `route_points` pour préparer des routes multi-legs sans tracer de ligne à travers les terres.
-- **Route Gammarth → Kelibia corrigée visuellement** : la carte suit une route mer via El Haouaria.
-- **Pantelleria preview en 2 segments** : l’aperçu affiche `Gammarth → Kelibia → Pantelleria`, avec distance et durée totales.
-- **Fondation pour le futur GO composite** : les métadonnées de route sont publiées par le backend.
+- **Kelibia réintégrée comme port relais**.
+- **Itinéraires mer configurables** avec `route_origin` et `route_points`.
+- **Route Gammarth → Kelibia** corrigée visuellement via El Haouaria.
+- **Fondation du moteur composite**.
 
 ## 2.6.1 — 2026-07-07
-- **Hotfix CI pytest** : le workflow exécute désormais `python -m pytest -q`, aligné sur le check local.
-- **Import `fable` fiabilisé** : l’appel par module évite les erreurs `ModuleNotFoundError`.
-- **Version interne réalignée** : `fable.__version__` reflète la version publiée.
-
-## 2.6.0 — 2026-07-07
-- **Pantelleria beta publiée proprement** : la destination existe dans `sites.yaml`, est collectée et visible dans le board.
-- **Beta offshore assumée côté produit** : Pantelleria reste clairement marquée beta.
-- **Carte + corridor enrichis** : aperçu de route avec distance, durée estimée et note produit.
-- **Radar et infobulles clarifiés** : badge beta, pays et note de route.
-- **Reader debug protégé** : les routes beta offshore ne sont pas traitées comme des spots Family standards.
-
-## 2.5.0 — 2026-07-06
-- **Durée de traversée pilotée par une hypothèse bateau** : estimation depuis `transit_speed_kts`.
-- **Hypothèse de vitesse explicite dans l’UI**.
-- **`sites.yaml` enrichi** avec `defaults.transit_speed_kts`.
-- **Ras Fartass réaligné produit**.
-- **Pantelleria évaluée** comme future route offshore.
-
-## 2.4.0 — 2026-07-06
-- **Carte découplée des coordonnées météo** avec `map_lat` / `map_lon`.
-- **Position précise restaurée pour Gammarth**.
-- **`sites.normalized.json` enrichi**.
-- **Carte et radar plus interactifs**.
-- **Résumé corridor sous la carte**.
-
-## 2.3.0 — 2026-07-06
-- **Version dédiée corridor + carte**.
-- **`rules.normalized.json` enrichi** avec les durées des phases.
-- **Carte et corridor pilotés par les configurations normalisées**.
-- **Liens bruts simplifiés**.
-
-## 2.2.0 — 2026-07-06
-- **Version dédiée board**.
-- **Board branché sur `sites.normalized.json` et `rules.normalized.json`**.
-- **Confiance enrichie dans l’UI**.
-- **Santé live enrichie**.
-- **Nettoyage du faux mode Expert**.
-- **Avertissements alignés sur les règles et sites publiés**.
-
-## 2.1.0 — 2026-07-05
-- **Houle multi-modèles** avec fallbacks et modèles parallèles.
-- **Confiance High** exigeant au moins deux modèles de houle concordants.
-- **Worst-value-wins étendu aux vagues** : Hs maximale et Tp minimale.
-- **Métadonnées de sources et de spreads publiées**.
-- **Outil de vérification des modèles marine**.
-
-## 2.0.0 — 2026-07-05
-Refonte professionnelle complète — voir `docs/AUDIT-2026-07.md` : cron horaire, healthcheck externe, statut de fraîcheur, dégradation gracieuse marine, seuils unifiés, `sites.yaml` v2 multi-port, package `fable/` testé et CI Ruff + Pytest.
+- **Hotfix CI pytest** : exécution via `python -m pytest -q`.
+- **Import `fable` fiabilisé**.
+- **Version interne réalignée**.

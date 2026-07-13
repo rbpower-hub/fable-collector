@@ -12,10 +12,14 @@ ports from being misclassified as composite routes.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
+from typing import Any
 
 from . import window_detect as _detect
 from . import window_models as _models
+from .config import load_rules
+from .offshore import detect_directional_crossings
 from .window_models import HourMetrics, Site, Thresholds
 from .window_policy import (
     all_in_operating_light,
@@ -26,6 +30,7 @@ from .window_policy import (
 
 _RAW_LOAD_SITE = _models.load_site
 _RAW_ADAPTIVE_MIN_HOURS = _detect.adaptive_min_hours
+_RAW_RUN_READER = _detect.run_reader
 
 
 def load_site(path: Path) -> Site | None:
@@ -66,11 +71,99 @@ detect_windows_detailed = _detect.detect_windows_detailed
 route_checkpoints = _detect.route_checkpoints
 route_distance_km = _detect.route_distance_km
 route_transit_profile = _detect.route_transit_profile
-run_reader = _detect.run_reader
 
 has_wind_range = _models.has_wind_range
 is_spot_payload = _models.is_spot_payload
 worst_metrics_at_hour = _models.worst_metrics_at_hour
+
+
+def _payload_meta(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return {}
+    meta = payload.get("meta") if isinstance(payload, dict) else None
+    return meta if isinstance(meta, dict) else {}
+
+
+def _loaded_sites(from_dir: Path) -> dict[str, Site]:
+    sites: dict[str, Site] = {}
+    for path in sorted(from_dir.glob("*.json")):
+        try:
+            site = load_site(path)
+        except Exception:  # noqa: BLE001
+            continue
+        if site is not None:
+            sites[path.name] = site
+    return sites
+
+
+def _apply_one_way_offshore(
+    output: dict[str, Any],
+    from_dir: Path,
+    out_dir: Path,
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    """Replace beta round-trip semantics with independent one-way crossings."""
+    sites = _loaded_sites(from_dir)
+    th = Thresholds.from_rules(rules)
+    by_slug = {str(item.get("dest_slug")): item for item in output.get("windows", [])}
+
+    for filename, destination in sites.items():
+        meta = _payload_meta(destination.path)
+        if str(meta.get("route_kind") or "") != "offshore_one_way_beta":
+            continue
+        relay_slug = destination.route_origin
+        relay = sites.get(f"{relay_slug}.json") if relay_slug else None
+        entry = by_slug.get(filename)
+        if entry is None:
+            continue
+        if relay is None:
+            entry["windows"] = []
+            entry["trip_mode"] = "one_way_multi_day"
+            entry["diagnostics"] = {
+                "status": "blocked",
+                "trip_mode": "one_way_multi_day",
+                "same_day_round_trip_required": False,
+                "summary_fr": "Port relais offshore introuvable dans la configuration.",
+                "summary_en": "Offshore relay port is missing from configuration.",
+                "first_blocker": None,
+                "near_miss": {"validated_hours": 0, "required_hours": None},
+            }
+            continue
+
+        windows, diagnostics, profile = detect_directional_crossings(relay, destination, th)
+        entry["windows"] = windows
+        entry["diagnostics"] = diagnostics
+        entry["trip_mode"] = "one_way_multi_day"
+        entry["same_day_round_trip_required"] = False
+        entry["required_hours"] = profile["crossing_hours_evaluated"]
+        entry["offshore_profile"] = profile
+
+    output["version"] = max(int(output.get("version", 3)), 4)
+    output.setdefault("policy", {})["offshore_one_way_supported"] = True
+    output["policy"]["offshore_same_day_round_trip_required"] = False
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "windows.json").write_text(
+        json.dumps(output, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return output
+
+
+def run_reader(
+    from_dir: Path,
+    out_dir: Path,
+    home_slug: str | None,
+    min_h: int | None = None,
+    max_h: int | None = None,
+    rules: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Generate coastal windows, then apply directional offshore semantics."""
+    active_rules = rules or load_rules()
+    output = _RAW_RUN_READER(from_dir, out_dir, home_slug, min_h, max_h, active_rules)
+    return _apply_one_way_offshore(output, from_dir, out_dir, active_rules)
+
 
 __all__ = [
     "HourMetrics",

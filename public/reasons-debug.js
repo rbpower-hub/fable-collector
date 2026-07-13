@@ -1,4 +1,4 @@
-/* Backend-first Family GO diagnostics and prudent-window annotation. */
+/* Backend-first Family GO diagnostics and window annotations. */
 window.FABLE = window.FABLE || {};
 
 (function (NS) {
@@ -73,7 +73,13 @@ window.FABLE = window.FABLE || {};
 
   function diagnosticLine(destination) {
     const windows = Array.isArray(destination?.windows) ? destination.windows : [];
+    const offshore = destination?.trip_mode === "one_way_multi_day";
     if (windows.length) {
+      if (offshore) {
+        const outbound = windows.filter((item) => item?.direction === "outbound").length;
+        const inbound = windows.filter((item) => item?.direction === "return").length;
+        return `✓ navigation offshore · ${outbound} aller · ${inbound} retour · aucun A/R le même jour`;
+      }
       const prudent = windows.filter((item) => item?.family_tier === "prudent").length;
       const standard = windows.length - prudent;
       if (prudent && !standard) {
@@ -88,7 +94,10 @@ window.FABLE = window.FABLE || {};
     const diagnostics = destination?.diagnostics || {};
     const blocker = diagnostics?.first_blocker || {};
     const nearMiss = diagnostics?.near_miss || {};
-    let message = String(diagnostics?.summary_fr || "Aucune fenêtre Family GO validée.");
+    const fallback = offshore
+      ? "Aucune fenêtre offshore aller simple validée."
+      : "Aucune fenêtre Family GO validée.";
+    let message = String(diagnostics?.summary_fr || fallback);
     if (blocker?.time) message += ` · ${formatTime(blocker.time)}`;
     if (
       Number.isFinite(Number(nearMiss?.validated_hours)) &&
@@ -104,9 +113,16 @@ window.FABLE = window.FABLE || {};
     NS.configure(options);
     const data = options.windowsData || await getWindows(true);
     const byDestination = destinationMap(data);
-    const requested = Array.isArray(paths) && paths.length
-      ? paths
-      : Array.from(new Set(Array.from(sites.values()).map((item) => item.path)));
+    const requested = new Set(
+      Array.isArray(paths) && paths.length
+        ? paths
+        : Array.from(new Set(Array.from(sites.values()).map((item) => item.path)))
+    );
+    (data?.windows || []).forEach((destination) => {
+      if (destination?.trip_mode === "one_way_multi_day" && destination?.dest_slug) {
+        requested.add(destination.dest_slug);
+      }
+    });
     const rows = [];
 
     requested.forEach((path) => {
@@ -121,10 +137,13 @@ window.FABLE = window.FABLE || {};
         });
         return;
       }
+      const offshore = destination?.trip_mode === "one_way_multi_day";
       rows.push({
         spot: `${destination.dest_name || record.name} (${destination.dest_slug || record.path})`,
         family: diagnosticLine(destination),
-        note: "Diagnostic publié par le moteur Python — aucune réévaluation simplifiée dans le navigateur.",
+        note: offshore
+          ? "Navigation offshore directionnelle — l’aller et le retour sont indépendants."
+          : "Diagnostic publié par le moteur Python — aucune réévaluation simplifiée dans le navigateur.",
         diagnostics: destination.diagnostics || null,
       });
     });
@@ -133,9 +152,9 @@ window.FABLE = window.FABLE || {};
   };
 
   function installStyles() {
-    if (document.getElementById("fable-prudent-styles")) return;
+    if (document.getElementById("fable-window-extension-styles")) return;
     const style = document.createElement("style");
-    style.id = "fable-prudent-styles";
+    style.id = "fable-window-extension-styles";
     style.textContent = `
       .window-line.family-prudent {
         border-color: var(--warn) !important;
@@ -145,12 +164,22 @@ window.FABLE = window.FABLE || {};
         background: var(--warn) !important;
         color: #160f04 !important;
       }
-      .prudent-note {
+      .window-line.offshore-one-way {
+        border-color: var(--accent, #4ba3ff) !important;
+        background: rgb(75 163 255 / .08);
+      }
+      .window-line.offshore-one-way .go {
+        background: transparent !important;
+        border: 1px solid var(--accent, #4ba3ff) !important;
+        color: var(--accent, #4ba3ff) !important;
+      }
+      .prudent-note, .offshore-note {
         margin-top: 6px;
-        color: var(--warn);
         font-size: .84rem;
         line-height: 1.35;
       }
+      .prudent-note { color: var(--warn); }
+      .offshore-note { color: var(--muted); }
     `;
     document.head.appendChild(style);
   }
@@ -161,16 +190,32 @@ window.FABLE = window.FABLE || {};
     (data?.windows || []).forEach((destination) => {
       (destination?.windows || []).forEach((item) => {
         const key = [destination.dest_slug || "", item.start || "", item.end || ""].join("|");
-        byKey.set(key, item);
+        byKey.set(key, { ...item, destination_trip_mode: destination.trip_mode });
       });
     });
 
     document.querySelectorAll(".window-line[data-slug]").forEach((node) => {
       const key = [node.dataset.slug || "", node.dataset.start || "", node.dataset.end || ""].join("|");
       const item = byKey.get(key);
-      if (!item || item.family_tier !== "prudent") return;
-      node.classList.add("family-prudent");
+      if (!item) return;
       const badge = node.querySelector(".go");
+
+      if (item.trip_mode === "one_way_multi_day" || item.destination_trip_mode === "one_way_multi_day") {
+        node.classList.add("offshore-one-way");
+        const direction = item.direction === "return" ? "RETOUR" : "ALLER";
+        if (badge) badge.textContent = `OFFSHORE ${direction}`;
+        if (!node.querySelector(".offshore-note")) {
+          const note = document.createElement("div");
+          note.className = "offshore-note";
+          note.textContent = item.caution_fr
+            || "Traversée aller simple : aucun retour à Gammarth le même jour n’est exigé.";
+          node.appendChild(note);
+        }
+        return;
+      }
+
+      if (item.family_tier !== "prudent") return;
+      node.classList.add("family-prudent");
       if (badge) badge.textContent = "FAMILY GO PRUDENT";
       if (!node.querySelector(".prudent-note")) {
         const note = document.createElement("div");

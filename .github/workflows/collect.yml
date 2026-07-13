@@ -47,6 +47,7 @@ on:
       - "knowledge/**"
       - "public/index.html"
       - "public/activity-board.js"
+      - "public/port-knowledge.js"
       - "public/reasons-debug.js"
 
 permissions:
@@ -161,16 +162,23 @@ jobs:
       - name: Generate activity and fishing recommendations
         run: python -m fable.recommendations
 
-      - name: Enable activity component in dashboard
+      - name: Generate port route and shelter knowledge
+        run: python -m fable.port_knowledge
+
+      - name: Enable dashboard extension components
         shell: python
         run: |
           from pathlib import Path
           page = Path("public/index.html")
           html = page.read_text(encoding="utf-8")
-          tag = '<script src="./activity-board.js"></script>'
-          if tag not in html:
-              html = html.replace("</body>", f"  {tag}\n</body>")
-              page.write_text(html, encoding="utf-8")
+          tags = [
+              '<script src="./activity-board.js"></script>',
+              '<script src="./port-knowledge.js"></script>',
+          ]
+          for tag in tags:
+              if tag not in html:
+                  html = html.replace("</body>", f"  {tag}\n</body>")
+          page.write_text(html, encoding="utf-8")
 
       - name: Publish (catalog, status, windows.md, final checks)
         run: python -m fable.publish
@@ -188,6 +196,14 @@ jobs:
           for item in data.get("recommendations", []):
               activities = ", ".join(a.get("label_fr", a.get("activity_id", "")) for a in item.get("activities", []))
               print(f"- {item.get('dest_name')}: {activities}")
+          PY
+          echo "## Port Knowledge" >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          data = json.load(open("public/port-knowledge.json", encoding="utf-8"))
+          for port in data.get("ports", []):
+              route = port.get("route", {})
+              print(f"- {port.get('name')}: {route.get('trip_mode')} · {route.get('distance_nm')} NM")
           PY
 
       - name: Setup Pages

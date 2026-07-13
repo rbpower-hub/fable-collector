@@ -24,7 +24,6 @@ from .window_policy import (
     phases_for_window,
 )
 
-
 _RAW_LOAD_SITE = _models.load_site
 _RAW_ADAPTIVE_MIN_HOURS = _detect.adaptive_min_hours
 

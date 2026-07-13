@@ -92,9 +92,12 @@ def hard_reasons(metrics: HourMetrics, th: Thresholds) -> list[str]:
         reasons.append(f"rafales>={int(th.gust_no_go_min)}")
     if metrics.max_speed is not None and metrics.max_speed >= th.wind_no_go_min:
         reasons.append(f"vent>={int(th.wind_no_go_min)}")
-    if metrics.max_gust is not None and metrics.min_speed is not None:
-        if metrics.max_gust - metrics.min_speed >= th.squall_delta:
-            reasons.append("squalls")
+    if (
+        metrics.max_gust is not None
+        and metrics.min_speed is not None
+        and metrics.max_gust - metrics.min_speed >= th.squall_delta
+    ):
+        reasons.append("squalls")
     if metrics.hs is not None and metrics.hs > th.hs_no_go_min:
         reasons.append(f"Hs>{th.hs_no_go_min}")
     if (

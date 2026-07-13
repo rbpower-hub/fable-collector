@@ -7,13 +7,17 @@
 Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec :
 
 - prévisions Open-Meteo multi-modèles pour le vent et la mer ;
-- détection conservatrice des fenêtres **Family GO** de 4 à 6 heures ;
+- détection conservatrice des fenêtres **Family GO** ;
+- niveau intermédiaire **Family GO prudent**, clairement signalé et soumis aux mêmes vétos absolus ;
+- durée minimale adaptative de 3 à 6 heures selon le transit et le temps minimal sur zone ;
+- plage d’utilisation liée au lever et au coucher du soleil lorsque ces données sont disponibles ;
 - validation des phases Transit – Mouillage – Transit depuis le port d’attache ;
+- diagnostics backend détaillés pour chaque destination bloquée ;
 - recommandations d’activités marines et de pêche uniquement dans les fenêtres déjà validées ;
 - aide Fish Intelligence indicative : espèces, techniques, appâts/leurres, montages et matériel de départ ;
 - publication automatique du tableau de bord et des données sur GitHub Pages.
 
-> *English summary* — Hourly marine-weather collector for Tunisian coastal spots, publishing safe 4–6 hour Family GO windows and ranked marine/fishing activities. Recommendations are downstream of the safety engine: they never create a navigation window and never override a NO-GO. Fish Intelligence gear ranges are indicative and require local and regulatory checks.
+> *English summary* — Hourly marine-weather collector for Tunisian coastal spots, publishing conservative Family GO windows, an explicitly labelled prudent tier, backend blocker diagnostics and ranked marine/fishing activities. Prudent windows never override hard vetoes. Recommendations remain downstream of the navigation-safety engine.
 
 ---
 
@@ -24,7 +28,7 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 | Tableau de bord | https://rbpower-hub.github.io/fable-collector/ |
 | Index des spots | https://rbpower-hub.github.io/fable-collector/index.json |
 | Spot, exemple Gammarth | https://rbpower-hub.github.io/fable-collector/gammarth-port.json |
-| Fenêtres Family GO | https://rbpower-hub.github.io/fable-collector/windows.json |
+| Fenêtres, niveaux et diagnostics | https://rbpower-hub.github.io/fable-collector/windows.json |
 | Activités recommandées | https://rbpower-hub.github.io/fable-collector/recommendations.json |
 | Catalogue du Knowledge Pack | https://rbpower-hub.github.io/fable-collector/knowledge.json |
 | Règles normalisées | https://rbpower-hub.github.io/fable-collector/rules.normalized.json |
@@ -32,6 +36,8 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens, avec
 | Statut humain | https://rbpower-hub.github.io/fable-collector/status.html |
 | Statut machine | https://rbpower-hub.github.io/fable-collector/status.json |
 | Inventaire des fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
+
+`windows.json` version 3 publie pour chaque destination la durée requise, les fenêtres standard ou prudentes et, en cas de blocage, `diagnostics.first_blocker` ainsi que `diagnostics.near_miss`.
 
 `knowledge.json` est produit pendant `Collect & Deploy` dès que le Knowledge Pack est actif dans `main`. Avec le schéma Fish Intelligence v1, `knowledge.json` est en version 2 et `recommendations.json` en version 3.
 
@@ -50,7 +56,11 @@ fable.preflight          validation + exports normalisés
         │
 fable.collect            météo, mer, soleil et lune par spot
         │
-fable.windows            fenêtres Family GO 4–6 h
+fable.window_models      chargement des spots + worst-value-wins
+        │
+fable.window_policy      vétos, Family, prudent, lumière et diagnostics
+        │
+fable.window_detect      durée adaptative + routes + windows.json v3
         │
 fable.knowledge          validation des profils et du matériel indicatif
         │
@@ -67,6 +77,7 @@ Le moteur de recommandations consomme `windows.json` **après** la décision de 
 Documentation détaillée :
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Family GO prudent et diagnostics](docs/FAMILY-GO-PRUDENT.md)
 - [Knowledge Pack](docs/KNOWLEDGE-PACK.md)
 - [Fish Intelligence v1](docs/FISH-INTELLIGENCE.md)
 - [Recommandations d’activités et de pêche](docs/RECOMMENDATIONS.md)
@@ -74,6 +85,61 @@ Documentation détaillée :
 - [Runbook d’exploitation](docs/RUNBOOK.md)
 - [Changelog](docs/CHANGELOG.md)
 - [Audit v2](docs/AUDIT-2026-07.md)
+
+---
+
+## Niveaux de décision
+
+### Family GO
+
+Le niveau standard conserve les seuils familiaux historiques et la logique Transit – Mouillage – Transit.
+
+### Family GO prudent
+
+Le niveau prudent est évalué seulement après l’échec du niveau standard. Il impose simultanément :
+
+- vent `≤ 22 km/h` ;
+- rafales `< 28 km/h` ;
+- `Hs ≤ 0,40 m` ;
+- `Tp ≥ 3,5 s` ;
+- vent non onshore ;
+- confiance au moins `Medium` ;
+- fenêtre entièrement comprise dans la plage de lumière sécurisée.
+
+Le board l’affiche en orange avec un avertissement de confort réduit. Il ne s’agit pas d’un mode Expert.
+
+### NO-GO et vétos absolus
+
+Le niveau prudent ne modifie jamais les vétos absolus, notamment l’orage, la visibilité inférieure à 5 km, les rafales à partir de 30 km/h, le vent soutenu à partir de 25 km/h, une mer courte et raide classée dure ou les données indispensables manquantes.
+
+---
+
+## Durée adaptative et lumière
+
+Pour une destination courte, FABLE peut valider une fenêtre de trois heures. Pour une destination plus éloignée, la durée requise est calculée à partir du scénario lent de transit aller-retour et d’au moins 1,5 heure sur zone.
+
+```text
+durée requise = ceil(2 × transit lent + 1,5 h sur zone)
+```
+
+La durée reste plafonnée à six heures dans le moteur Family actuel. Si le trajet exige davantage, `windows.json` publie un blocage de durée explicite.
+
+Quand les données astronomiques sont disponibles, la plage Family commence trente minutes après le lever du soleil et se termine une heure avant le coucher. Les horaires fixes de `family_hours_local` restent le mécanisme de repli.
+
+---
+
+## Diagnostics des blocages
+
+La section **Avertissements** ne recalcule plus les règles dans le navigateur. Elle utilise le diagnostic Python publié avec la même logique que `windows.json` :
+
+- départ depuis Gammarth ;
+- phases à destination ;
+- retour à Gammarth ;
+- vent, rafales, direction, visibilité, Hs et Tp ;
+- pire valeur entre modèles ;
+- durée requise, lumière et confiance.
+
+Un blocage pour Ghar El Melh peut donc indiquer que les conditions locales sont acceptables mais que le **retour à Gammarth** est refusé, avec l’heure, la métrique et la raison correspondantes.
 
 ---
 
@@ -94,6 +160,8 @@ sites:
 ```
 
 `onshore_sectors` supporte le wrap-around, par exemple `[[330, 360], [0, 70]]`.
+
+Une tolérance de mouillage n’est activée que si `shelter_bonus_radius_km` est explicitement supérieur à zéro et que le vent n’est pas onshore. Les ports actuels restent sans tolérance tant qu’un abri n’est pas validé.
 
 ## Configurer le Knowledge Pack
 
@@ -117,20 +185,9 @@ La base régionale structurée couvre actuellement :
 - **4 techniques** ;
 - **5 activités marines**.
 
-Le schéma Fish Intelligence v1 ajoute pour chaque espèce :
-
-- techniques compatibles ;
-- appâts naturels et leurres artificiels ;
-- présentations indicatives ;
-- plage de tailles d’hameçons ou mention « non applicable » ;
-- bas de ligne et plomb indicatifs lorsque pertinents ;
-- statut taxonomique, local et réglementaire.
-
-Pantelleria reste volontairement sans profil de pêche dans le Knowledge Pack : son statut offshore beta nécessite une validation séparée. `fishing_profiles.yaml` demeure temporairement comme mécanisme de compatibilité, mais les six ports tunisiens actifs utilisent désormais `knowledge/ports/`.
+Le schéma Fish Intelligence v1 ajoute pour chaque espèce les techniques, appâts, leurres, présentations et plages indicatives de matériel. Pantelleria reste volontairement sans profil de pêche dans le Knowledge Pack.
 
 Les champs `zones` restent vides tant que les coordonnées ne sont pas validées sur le terrain et contrôlées du point de vue de la navigation.
-
-Les espèces, profondeurs, techniques, appâts et réglages de matériel sont des **indications opérationnelles à affiner** selon les observations locales et la réglementation tunisienne applicable.
 
 ---
 
@@ -162,7 +219,7 @@ Variables d’environnement utiles : `FABLE_TZ`, `FABLE_WINDOW_HOURS`, `FABLE_ST
 CHECK-LOCAL.bat
 ```
 
-Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, recommandations, validation du Knowledge Pack, cohérence des profils régionaux et structure Fish Intelligence.
+Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent notamment les scénarios calme, tempête, orage, modèles dégradés, routes composites, GO prudent, blocage du retour, durée adaptative, plage solaire, abri conditionnel, recommandations, Knowledge Pack et Fish Intelligence.
 
 ---
 
@@ -170,11 +227,9 @@ Le contrôle local exécute le preflight, Ruff et Pytest. Les tests couvrent not
 
 Le détecteur applique **worst-value-wins** entre modèles pour le vent et les vagues : Hs retenue = valeur la plus haute ; Tp retenue = période la plus courte. Les données marine absentes ne sont jamais inventées.
 
-Les vétos durs comprennent notamment les orages, la visibilité insuffisante, les rafales et les mers courtes ou raides. Les seuils varient entre transit et mouillage abrité.
-
 Le classement des activités applique ensuite quatre principes :
 
-1. aucune recommandation sans fenêtre Family GO validée ;
+1. aucune recommandation sans fenêtre Family GO standard ou prudente validée par le backend ;
 2. les seuils particuliers de l’activité peuvent encore la refuser ;
 3. le signal lunaire est un bonus limité et ne neutralise jamais un NO-GO ;
 4. les plages de matériel sont indicatives et imposent une vérification locale et réglementaire avant la sortie.

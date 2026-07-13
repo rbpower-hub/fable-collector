@@ -13,21 +13,46 @@ from .util import dget, enable_utf8_stdio
 
 log = logging.getLogger("fable.preflight")
 
+POLICY_DEFAULTS: dict[str, Any] = {
+    "prudent": {
+        "enabled": True,
+        "wind_max_kmh": 22,
+        "gust_max_kmh": 28,
+        "hs_max_m": 0.4,
+        "tp_min_s": 3.5,
+        "min_confidence": "Medium",
+    },
+    "adaptive_window": {
+        "enabled": True,
+        "absolute_min_hours": 3,
+        "min_zone_hours": 1.5,
+    },
+    "daylight": {
+        "use_astronomy": True,
+        "start_after_sunrise_min": 30,
+        "end_before_sunset_min": 60,
+    },
+}
+
+
+def _policy_value(rules: dict[str, Any], section: str, key: str) -> Any:
+    return dget(rules, f"{section}.{key}", POLICY_DEFAULTS[section][key])
+
 
 def _validate_v3_policy(rules: dict[str, Any]) -> list[str]:
     problems = []
     numeric = {
-        "prudent.wind_max_kmh": (0, float(dget(rules, "wind.nogo_min_kmh", 25))),
-        "prudent.gust_max_kmh": (0, float(dget(rules, "overrides.gusts_hard_nogo_kmh", 30))),
-        "prudent.hs_max_m": (0, float(dget(rules, "sea.nogo_min_hs_m", 0.8))),
-        "prudent.tp_min_s": (0, 30),
-        "adaptive_window.absolute_min_hours": (1, 6),
-        "adaptive_window.min_zone_hours": (0.5, 6),
-        "daylight.start_after_sunrise_min": (0, 240),
-        "daylight.end_before_sunset_min": (0, 240),
+        "prudent.wind_max_kmh": (0, float(dget(rules, "wind.nogo_min_kmh", 25)), 22),
+        "prudent.gust_max_kmh": (0, float(dget(rules, "overrides.gusts_hard_nogo_kmh", 30)), 28),
+        "prudent.hs_max_m": (0, float(dget(rules, "sea.nogo_min_hs_m", 0.8)), 0.4),
+        "prudent.tp_min_s": (0, 30, 3.5),
+        "adaptive_window.absolute_min_hours": (1, 6, 3),
+        "adaptive_window.min_zone_hours": (0.5, 6, 1.5),
+        "daylight.start_after_sunrise_min": (0, 240, 30),
+        "daylight.end_before_sunset_min": (0, 240, 60),
     }
-    for key, (minimum, maximum) in numeric.items():
-        value = dget(rules, key)
+    for key, (minimum, maximum, default) in numeric.items():
+        value = dget(rules, key, default)
         if not isinstance(value, (int, float)):
             problems.append(f"not a number: {key}={value!r}")
         elif not minimum <= float(value) <= maximum:
@@ -36,6 +61,23 @@ def _validate_v3_policy(rules: dict[str, Any]) -> list[str]:
     if confidence not in {"Low", "Medium", "High"}:
         problems.append(f"invalid prudent.min_confidence={confidence!r}")
     return problems
+
+
+def _normalized_policy(rules: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "prudent": {
+            key: _policy_value(rules, "prudent", key)
+            for key in POLICY_DEFAULTS["prudent"]
+        },
+        "adaptive_window": {
+            key: _policy_value(rules, "adaptive_window", key)
+            for key in POLICY_DEFAULTS["adaptive_window"]
+        },
+        "daylight": {
+            key: _policy_value(rules, "daylight", key)
+            for key in POLICY_DEFAULTS["daylight"]
+        },
+    }
 
 
 def run_preflight(root: Path, public: Path) -> int:
@@ -63,7 +105,7 @@ def run_preflight(root: Path, public: Path) -> int:
         return 1
     print(
         f"✅ rules.yaml OK — digest={rules_digest(rules)}, configured family window "
-        f"{minimum}–{maximum} h, prudent={bool(dget(rules, 'prudent.enabled', True))}"
+        f"{minimum}–{maximum} h, prudent={bool(_policy_value(rules, 'prudent', 'enabled'))}"
     )
 
     public.mkdir(parents=True, exist_ok=True)
@@ -73,9 +115,7 @@ def run_preflight(root: Path, public: Path) -> int:
         print(f"❌ rules.yaml: normalization failed (type error in a threshold?): {exc}")
         return 1
     normalized["decision_policy_version"] = 3
-    normalized["prudent"] = rules.get("prudent") or {}
-    normalized["adaptive_window"] = rules.get("adaptive_window") or {}
-    normalized["daylight"] = rules.get("daylight") or {}
+    normalized.update(_normalized_policy(rules))
     normalized["hard_vetoes_unchanged"] = True
     (public / "rules.normalized.json").write_text(
         json.dumps(normalized, ensure_ascii=False, indent=2),

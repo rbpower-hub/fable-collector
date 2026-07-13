@@ -82,7 +82,7 @@ def test_load_sites_v2(repo_root):
     assert cfg.site("pantelleria")["route_origin"] == "kelibia"
     assert cfg.site("pantelleria")["windows_enabled"] is True
     assert cfg.site("pantelleria")["beta"] is True
-    assert cfg.site("pantelleria")["route_kind"] == "composite_beta"
+    assert cfg.site("pantelleria")["route_kind"] == "offshore_one_way_beta"
 
 
 def test_load_sites_v1_legacy(tmp_path):

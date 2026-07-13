@@ -162,6 +162,9 @@ jobs:
       - name: Generate activity and fishing recommendations
         run: python -m fable.recommendations
 
+      - name: Keep offshore crossings navigation-only
+        run: python -m fable.offshore_recommendations
+
       - name: Generate port route and shelter knowledge
         run: python -m fable.port_knowledge
 
@@ -196,6 +199,8 @@ jobs:
           for item in data.get("recommendations", []):
               activities = ", ".join(a.get("label_fr", a.get("activity_id", "")) for a in item.get("activities", []))
               print(f"- {item.get('dest_name')}: {activities}")
+          for item in data.get("navigation_only", []):
+              print(f"- {item.get('origin_name')} → {item.get('destination_name')}: navigation offshore {item.get('direction')}")
           PY
           echo "## Port Knowledge" >> "$GITHUB_STEP_SUMMARY"
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"

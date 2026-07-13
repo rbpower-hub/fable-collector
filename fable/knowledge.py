@@ -39,6 +39,17 @@ class KnowledgePack:
             for record in self.fish.values()
             if bool((record.get("validation") or {}).get("regulatory_check_required"))
         )
+        navigation_profiles = [
+            record.get("navigation")
+            for record in self.ports.values()
+            if isinstance(record.get("navigation"), dict)
+        ]
+        validated_shelters = sum(
+            1
+            for navigation in navigation_profiles
+            for shelter in navigation.get("shelters") or []
+            if isinstance(shelter, dict) and shelter.get("validation_status") == "validated"
+        )
         return {
             "version": self.version,
             "status": self.status,
@@ -60,6 +71,8 @@ class KnowledgePack:
                 "fish_with_targeting": sum(1 for record in self.fish.values() if record.get("targeting")),
                 "taxonomic_validation_required": taxonomic_pending,
                 "regulatory_check_required": regulatory_checks,
+                "ports_with_navigation": len(navigation_profiles),
+                "validated_shelters": validated_shelters,
             },
             "warnings": list(self.warnings),
         }
@@ -164,6 +177,49 @@ def _validate_targeting(pack: KnowledgePack, errors: list[str]) -> None:
             _validate_numeric_pair(owner, field, gear.get(field), errors)
 
 
+def _validate_navigation(pack: KnowledgePack, errors: list[str]) -> None:
+    for port_id, port in pack.ports.items():
+        navigation = port.get("navigation")
+        if navigation is None:
+            continue
+        owner = f"ports/{port_id}/navigation"
+        if not isinstance(navigation, dict):
+            errors.append(f"{owner}: navigation must be a mapping")
+            continue
+        validation = navigation.get("validation")
+        if not isinstance(validation, dict) or not bool(validation.get("local_validation_required")):
+            errors.append(f"{owner}: local_validation_required must remain true")
+        shelters = navigation.get("shelters", [])
+        if not isinstance(shelters, list):
+            errors.append(f"{owner}: shelters must be a list")
+            continue
+        for index, shelter in enumerate(shelters):
+            shelter_owner = f"{owner}/shelters[{index}]"
+            if not isinstance(shelter, dict):
+                errors.append(f"{shelter_owner}: shelter must be a mapping")
+                continue
+            status = str(shelter.get("validation_status") or "pending")
+            if status not in {"pending", "field_check_required", "validated", "rejected"}:
+                errors.append(f"{shelter_owner}: invalid validation_status '{status}'")
+            if status == "validated":
+                if not isinstance(shelter.get("coordinates"), dict):
+                    errors.append(f"{shelter_owner}: validated shelter requires coordinates")
+                if not isinstance(shelter.get("sheltered_from_deg"), list):
+                    errors.append(f"{shelter_owner}: validated shelter requires sheltered_from_deg")
+                try:
+                    fetch = float(shelter.get("max_fetch_km"))
+                except (TypeError, ValueError):
+                    fetch = 0.0
+                if fetch <= 0:
+                    errors.append(f"{shelter_owner}: validated shelter requires max_fetch_km > 0")
+        offshore = navigation.get("offshore")
+        if isinstance(offshore, dict) and offshore.get("trip_mode") == "one_way_multi_day":
+            if offshore.get("same_day_round_trip_required") is not False:
+                errors.append(f"{owner}: one_way_multi_day must not require same-day round trip")
+            if not str(offshore.get("relay_port") or "").strip():
+                errors.append(f"{owner}: one_way_multi_day requires relay_port")
+
+
 def _validate(pack: KnowledgePack) -> list[str]:
     errors: list[str] = []
     for port_id, port in pack.ports.items():
@@ -187,6 +243,8 @@ def _validate(pack: KnowledgePack) -> list[str]:
                 errors.append(f"activities/{activity_id}: unknown technique '{technique_id}'")
     if pack.version >= 2:
         _validate_targeting(pack, errors)
+    if pack.version >= 3:
+        _validate_navigation(pack, errors)
     return errors
 
 

@@ -69,10 +69,29 @@ sites:
     map_lat: 36.84730
     map_lon: 11.09340
     transit_speed_kts: {min: 18, max: 24}
+    # Corridor maritime : le précédent segment unique El Haouaria→Kélibia
+    # coupait visuellement le cap Bon et sous-estimait la distance navigable.
+    # Ces points suivent le passage au large du cap puis la côte orientale.
     route_points:
-      - name: "El Haouaria"
+      - name: "El Haouaria — au large"
         lat: 37.06300
         lon: 11.00800
+      - name: "Cap Bon nord — au large"
+        lat: 37.09600
+        lon: 11.03500
+      - name: "Cap Bon nord-est — au large"
+        lat: 37.09000
+        lon: 11.06000
+      - name: "Cap Bon est — au large"
+        lat: 37.03000
+        lon: 11.10000
+      - name: "Dar Allouche — au large"
+        lat: 36.95000
+        lon: 11.12000
+      - name: "Approche Kélibia par le large"
+        lat: 36.88000
+        lon: 11.12000
+    route_note: "Corridor cartographique maritime via le nord et l’est du cap Bon. Tracé indicatif à confirmer sur cartes nautiques officielles avant navigation."
     onshore_sectors: [[330, 360], [0, 70]]
 
   - name: "Pantelleria"

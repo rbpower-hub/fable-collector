@@ -171,13 +171,23 @@ jobs:
       - name: Enable dashboard extension components
         shell: python
         run: |
+          import json
           from pathlib import Path
+
           page = Path("public/index.html")
           html = page.read_text(encoding="utf-8")
-          tags = [
-              '<script src="./activity-board.js"></script>',
-              '<script src="./port-knowledge.js"></script>',
-          ]
+          activity_tag = '<script src="./activity-board.js"></script>'
+          port_tag = '<script src="./port-knowledge.js"></script>'
+          tags = [activity_tag]
+
+          knowledge_path = Path("public/port-knowledge.json")
+          if knowledge_path.exists():
+              data = json.loads(knowledge_path.read_text(encoding="utf-8"))
+              if any(port.get("display_eligible") is True for port in data.get("ports", [])):
+                  tags.append(port_tag)
+
+          if port_tag not in tags:
+              html = html.replace(f"  {port_tag}\n", "").replace(port_tag, "")
           for tag in tags:
               if tag not in html:
                   html = html.replace("</body>", f"  {tag}\n</body>")
@@ -202,11 +212,14 @@ jobs:
           for item in data.get("navigation_only", []):
               print(f"- {item.get('origin_name')} → {item.get('destination_name')}: navigation offshore {item.get('direction')}")
           PY
-          echo "## Port Knowledge" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Port Knowledge validé" >> "$GITHUB_STEP_SUMMARY"
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
           data = json.load(open("public/port-knowledge.json", encoding="utf-8"))
-          for port in data.get("ports", []):
+          visible = [port for port in data.get("ports", []) if port.get("display_eligible") is True]
+          if not visible:
+              print("- Aucune route ni aucun abri validé à afficher.")
+          for port in visible:
               route = port.get("route", {})
               print(f"- {port.get('name')}: {route.get('trip_mode')} · {route.get('distance_nm')} NM")
           PY

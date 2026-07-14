@@ -53,9 +53,50 @@ Ces vérifications supplémentaires comprennent notamment carburant, réserve, c
 - temps de transit rapide et conservateur ;
 - type de trajet ;
 - politique de retour ;
-- abris renseignés et statut de validation.
+- abris renseignés et statut de validation ;
+- indicateur `display_eligible` pour l’interface.
 
 Les distances sont des calculs géométriques issus de `sites.yaml`. Elles ne remplacent pas une route nautique validée.
+
+## Affichage conditionnel du dashboard
+
+La carte **« Routes & abris validés »** suit une politique stricte :
+
+```text
+display_eligible = route_validated OR validated_shelter_count > 0
+```
+
+Conséquences :
+
+- une route simplement calculée depuis la configuration n’est pas affichée ;
+- un abri `pending` ou `field_check_required` n’est pas affiché ;
+- le script `port-knowledge.js` n’est même pas chargé par le navigateur lorsqu’aucune donnée n’est éligible ;
+- les données techniques non validées restent disponibles dans le JSON pour le développement et les contrôles internes.
+
+Cette règle évite de surcharger l’utilisateur avec des distances ou des abris encore provisoires.
+
+## Correction du corridor El Haouaria–Kélibia
+
+Le tracé initial utilisait un seul segment entre le waypoint El Haouaria et Kélibia. Cette corde traversait visuellement le cap Bon et sous-estimait le trajet réellement navigable.
+
+Le corridor est maintenant décrit par six points successifs :
+
+1. El Haouaria — au large ;
+2. Cap Bon nord — au large ;
+3. Cap Bon nord-est — au large ;
+4. Cap Bon est — au large ;
+5. Dar Allouche — au large ;
+6. approche Kélibia par le large.
+
+Avec les coordonnées configurées :
+
+- ancien tronçon El Haouaria→Kélibia : environ **13,6 NM** ;
+- nouveau tronçon maritime : environ **19,1 NM** ;
+- ancien trajet Gammarth→Kélibia : environ **49,3 NM** ;
+- nouveau trajet configuré : environ **54,9 NM** ;
+- transit indicatif à 18–24 nd : environ **2,29 à 3,05 h**.
+
+Le corridor reste un tracé cartographique indicatif. Il doit être confirmé sur une carte nautique officielle, avec vérification des hauts-fonds, zones réglementées, installations de pêche et conditions du jour.
 
 ## Intelligence des abris
 

@@ -11,6 +11,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .config import load_sites
+from .dashboard_patch import patch_dashboard_index
 from .status import build_catalog, build_status, build_status_html, build_windows_md, final_check
 from .util import enable_utf8_stdio
 
@@ -26,6 +27,10 @@ def run_publish(root: Path, public: Path) -> int:
     status = build_status(public, tz, expected_spots=expected)
     build_status_html(public, status)
     build_windows_md(public, tz)
+
+    dashboard_path = public / "index.html"
+    if dashboard_path.exists():
+        patch_dashboard_index(dashboard_path)
 
     # .nojekyll to keep static assets served as-is
     (public / ".nojekyll").write_text("", encoding="utf-8")

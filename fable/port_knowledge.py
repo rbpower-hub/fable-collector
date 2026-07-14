@@ -15,6 +15,8 @@ from typing import Any
 from .config import load_sites
 from .knowledge import load_knowledge_pack
 
+_VALIDATED_ROUTE_STATUSES = {"validated", "field_validated", "official_validated"}
+
 
 def _distance_km(a: dict[str, Any], b: dict[str, Any]) -> float:
     lat1 = math.radians(float(a["lat"]))
@@ -38,6 +40,10 @@ def _route_distance_km(origin: dict[str, Any], destination: dict[str, Any]) -> f
 def _navigation_profile(port: dict[str, Any] | None) -> dict[str, Any]:
     navigation = (port or {}).get("navigation") or {}
     return navigation if isinstance(navigation, dict) else {}
+
+
+def _route_is_validated(status: Any) -> bool:
+    return str(status or "").strip().lower() in _VALIDATED_ROUTE_STATUSES
 
 
 def _shelter_summary(shelters: Any) -> dict[str, Any]:
@@ -80,14 +86,19 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
         conservative = distance_nm / float(speed["min"]) if distance_nm else 0.0
         navigation = _navigation_profile(ports.get(site["slug"]))
         shelters = navigation.get("shelters") if isinstance(navigation.get("shelters"), list) else []
+        shelter_summary = _shelter_summary(shelters)
         route_kind = str(site.get("route_kind") or "standard")
         offshore = route_kind == "offshore_one_way_beta"
+        route_validation_status = navigation.get("route_validation_status", "computed_from_config")
+        route_validated = _route_is_validated(route_validation_status)
+        display_eligible = route_validated or shelter_summary["validated"] > 0
 
         records.append({
             "port_id": site["slug"],
             "name": site["name"],
             "country": site.get("country"),
             "role": navigation.get("role") or ("home_port" if site["slug"] == sites_cfg.home else "destination"),
+            "display_eligible": display_eligible,
             "route": {
                 "origin_id": origin["slug"],
                 "origin_name": origin["name"],
@@ -101,12 +112,13 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
                     "conservative": round(conservative, 2),
                 },
                 "speed_assumption_kts": speed,
-                "validation_status": navigation.get("route_validation_status", "computed_from_config"),
+                "validation_status": route_validation_status,
+                "validated": route_validated,
                 "note_fr": navigation.get("route_note_fr") or site.get("route_note"),
                 "note_en": navigation.get("route_note_en"),
             },
             "shelters": shelters,
-            "shelter_summary": _shelter_summary(shelters),
+            "shelter_summary": shelter_summary,
             "return_policy": navigation.get("return_policy") or {
                 "mode": "independent" if offshore else "same_window",
                 "daylight_margin_min": 60,
@@ -119,15 +131,17 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
         })
 
     output = {
-        "version": 1,
+        "version": 2,
         "status": "port_knowledge_tunable",
         "policy": {
             "shelter_bonus_requires_validated_record": True,
             "unvalidated_shelters_never_relax_thresholds": True,
             "offshore_one_way_supported": True,
             "pantelleria_same_day_round_trip_required": False,
+            "ui_requires_validated_route_or_shelter": True,
         },
         "home_port": sites_cfg.home,
+        "visible_ports_count": sum(1 for item in records if item["display_eligible"]),
         "ports": records,
     }
     out_dir.mkdir(parents=True, exist_ok=True)

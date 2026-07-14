@@ -78,7 +78,11 @@ def test_load_sites_v2(repo_root):
     assert cfg.site("gammarth-port")["transit_speed_kts"] == {"min": 16.0, "max": 24.0}
     assert cfg.site("gammarth-port")["windows_enabled"] is True
     assert cfg.site("gammarth-port")["route_kind"] == "standard"
-    assert len(cfg.site("kelibia")["route_points"]) == 1
+    kelibia_points = cfg.site("kelibia")["route_points"]
+    assert len(kelibia_points) == 6
+    assert kelibia_points[0]["name"] == "El Haouaria — au large"
+    assert kelibia_points[-1]["name"] == "Approche Kélibia par le large"
+    assert all(point["lon"] >= 11.008 for point in kelibia_points)
     assert cfg.site("pantelleria")["route_origin"] == "kelibia"
     assert cfg.site("pantelleria")["windows_enabled"] is True
     assert cfg.site("pantelleria")["beta"] is True

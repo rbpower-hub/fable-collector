@@ -1,6 +1,6 @@
 [project]
 name = "fable-collector"
-version = "3.1.0"
+version = "3.1.1"
 description = "Collecteur météo marine, fenêtres Family GO et recommandations d’activités pour ports tunisiens"
 requires-python = ">=3.10"
 dependencies = [

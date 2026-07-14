@@ -21,7 +21,8 @@ def test_preflight_ok_on_repo(repo_root, tmp_path, capsys):
     assert sn["sites"][0]["route_kind"] == "standard"
     assert sn["sites"][0]["onshore_sectors"]
     kelibia = next(site for site in sn["sites"] if site["slug"] == "kelibia")
-    assert len(kelibia["route_points"]) == 1
+    assert len(kelibia["route_points"]) == 6
+    assert kelibia["route_points"][1]["name"] == "Cap Bon nord — au large"
     pantelleria = next(site for site in sn["sites"] if site["slug"] == "pantelleria")
     assert pantelleria["windows_enabled"] is True
     assert pantelleria["beta"] is True

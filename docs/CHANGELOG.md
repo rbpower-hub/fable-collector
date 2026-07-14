@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.1 — 2026-07-14
+- **Interface premium allégée** : la carte « Routes & abris » n’est chargée dans le navigateur que lorsqu’au moins une route ou un abri possède une validation explicite.
+- **Données non validées masquées** : les calculs internes restent disponibles dans `port-knowledge.json`, mais ne sont plus présentés à l’utilisateur final.
+- **Corridor cap Bon corrigé** : remplacement de la corde El Haouaria→Kélibia qui traversait visuellement la péninsule par six points maritimes au large du cap et de sa côte orientale.
+- **Distance Kélibia recalculée** : le trajet configuré Gammarth→Kélibia passe d’environ 49,3 NM à 54,9 NM ; le tronçon maritime depuis le point El Haouaria configuré jusqu’à Kélibia passe d’environ 13,6 NM à 19,1 NM.
+- **Temps de transit révisé** : environ 2,29 à 3,05 h pour Gammarth→Kélibia avec l’hypothèse 18–24 nd.
+- **Sécurité** : le nouveau tracé reste indicatif et doit être confirmé sur cartes nautiques officielles avant navigation.
+- **Tests** : contrôle des six waypoints, de la nouvelle distance et de l’absence d’affichage sans validation.
+
 ## 3.1.0 — 2026-07-13
 - **Pantelleria en aller simple offshore** : Kélibia→Pantelleria et Pantelleria→Kélibia sont évaluées comme deux traversées indépendantes.
 - **Séjour multi-jours** : aucun retour à Gammarth le même jour n’est exigé ; le pré-positionnement Gammarth↔Kélibia reste une opération séparée.

@@ -1,11 +1,12 @@
 """Patch the static dashboard with deployment-time interface behaviour.
 
 The static board predates the offshore one-way model and the decision-first
-Family view. Publication applies both upgrades idempotently.
+Family view. Publication applies the upgrades idempotently.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _OLD_PREFIX = "const prefix = originFile !== homeFile ? routeSegmentsForFile(originFile, nextTrail) : [];"
@@ -24,6 +25,16 @@ _NEW_FALLBACK_NOTE = (
     "Le pré-positionnement depuis Gammarth se consulte sur la route de Kélibia.'"
 )
 
+_FABRICATED_WINDOWS_RE = re.compile(
+    r"\n\s*// Fallback: si windows\.json est vide, synthétiser depuis meta\.window des spots"
+    r"\n\s*let winData = windows;"
+    r".*?"
+    r"\n\s*winData = \{ generated_at: new Date\(\)\.toISOString\(\), windows: synthesized \};"
+    r"\n\s*\}",
+    re.DOTALL,
+)
+_SAFE_WINDOWS_ASSIGNMENT = "\n    const winData = windows;"
+
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
 
 
@@ -33,6 +44,7 @@ def patch_dashboard_index(path: Path) -> bool:
     patched = html.replace(_OLD_PREFIX, _NEW_PREFIX)
     patched = patched.replace(_OLD_FALLBACK_KIND, _NEW_FALLBACK_KIND)
     patched = patched.replace(_OLD_FALLBACK_NOTE, _NEW_FALLBACK_NOTE)
+    patched = _FABRICATED_WINDOWS_RE.sub(_SAFE_WINDOWS_ASSIGNMENT, patched, count=1)
 
     if _FAMILY_VIEW_TAG not in patched:
         patched = patched.replace("</body>", f"  {_FAMILY_VIEW_TAG}\n</body>")

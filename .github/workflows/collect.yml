@@ -45,11 +45,7 @@ on:
       - "activity_profiles.yaml"
       - "fishing_profiles.yaml"
       - "knowledge/**"
-      - "public/index.html"
-      - "public/activity-board.js"
-      - "public/family-view.js"
-      - "public/port-knowledge.js"
-      - "public/reasons-debug.js"
+      - "public/**"
 
 permissions:
   contents: read

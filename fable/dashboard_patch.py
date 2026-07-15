@@ -94,6 +94,8 @@ _VERDICT_HERO_TAG = '<script src="./verdict-hero.js"></script>'
 _FAMILY_CONTENT_GATE_TAG = '<script src="./family-content-gate.js"></script>'
 _FAMILY_REASONS_TAG = '<script src="./family-reasons.js"></script>'
 _MOBILE_ERGONOMICS_TAG = '<script src="./mobile-ergonomics.js"></script>'
+_LOCALE_TRANSITION_TAG = '<script src="./locale-transition.js"></script>'
+_ARABIC_LOCALE_TAG = '<script src="./arabic-locale.js"></script>'
 _FRESHNESS_GATE_TAG = '<script src="./freshness-gate.js"></script>'
 
 
@@ -117,6 +119,8 @@ def patch_dashboard_index(path: Path) -> bool:
         _FAMILY_CONTENT_GATE_TAG,
         _FAMILY_REASONS_TAG,
         _MOBILE_ERGONOMICS_TAG,
+        _LOCALE_TRANSITION_TAG,
+        _ARABIC_LOCALE_TAG,
         _FRESHNESS_GATE_TAG,
     )
     for tag in tags:

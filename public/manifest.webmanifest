@@ -1,0 +1,29 @@
+{
+  "id": "./",
+  "name": "FABLE — Météo Marine Famille",
+  "short_name": "FABLE",
+  "description": "Décisions Family GO, planification marine sur trois jours et météo des spots tunisiens.",
+  "lang": "fr",
+  "dir": "auto",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fdfdfd",
+  "theme_color": "#0077b6",
+  "categories": ["weather", "navigation", "lifestyle"],
+  "icons": [
+    {
+      "src": "./icons/fable-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/fable-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

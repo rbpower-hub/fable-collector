@@ -85,10 +85,15 @@ _EXPLICIT_KIOSK = """  // ===== KIOSK (explicit via ?kiosk=1 only) =====
     }
   });"""
 
+_OLD_COUNTDOWN = """  setInterval(()=>{ countdown=(countdown<=1)?REFRESH_INTERVAL_SECONDS:countdown-1; $('#refresh-timer').textContent=t('next_refresh',countdown); },1000);"""
+_NEW_COUNTDOWN = """  $('#refresh-timer').textContent=t('next_refresh',countdown);
+  setInterval(()=>{ countdown=(countdown<=30)?REFRESH_INTERVAL_SECONDS:countdown-30; $('#refresh-timer').textContent=t('next_refresh',countdown); },30000);"""
+
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
 _VERDICT_HERO_TAG = '<script src="./verdict-hero.js"></script>'
 _FAMILY_CONTENT_GATE_TAG = '<script src="./family-content-gate.js"></script>'
 _FAMILY_REASONS_TAG = '<script src="./family-reasons.js"></script>'
+_MOBILE_ERGONOMICS_TAG = '<script src="./mobile-ergonomics.js"></script>'
 _FRESHNESS_GATE_TAG = '<script src="./freshness-gate.js"></script>'
 
 
@@ -104,12 +109,14 @@ def patch_dashboard_index(path: Path) -> bool:
     patched = patched.replace("isFresh(entry, gen)", "isFresh(entry, status)")
     patched = patched.replace("isFresh(entry,gen)", "isFresh(entry,status)")
     patched = _KIOSK_RE.sub(_EXPLICIT_KIOSK, patched, count=1)
+    patched = patched.replace(_OLD_COUNTDOWN, _NEW_COUNTDOWN)
 
     tags = (
         _FAMILY_VIEW_TAG,
         _VERDICT_HERO_TAG,
         _FAMILY_CONTENT_GATE_TAG,
         _FAMILY_REASONS_TAG,
+        _MOBILE_ERGONOMICS_TAG,
         _FRESHNESS_GATE_TAG,
     )
     for tag in tags:

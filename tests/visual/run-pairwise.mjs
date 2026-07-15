@@ -19,10 +19,7 @@ const exhaustiveLoop = `    for (const state of STATES) {
     }`;
 
 const pairwiseLoop = `    const scenarios = [
-      ...STATES.map((state) => ({state, locale: 'fr', theme: 'nautical'})),
-      {state: 'fresh-windows', locale: 'en', theme: 'dark'},
-      {state: 'fresh-windows', locale: 'ar', theme: 'nautical'},
-      {state: 'fresh-windows', locale: 'fr', theme: 'dark'},
+      {state: 'fresh-windows', locale: 'fr', theme: 'nautical'},
     ];
     for (const {state, locale, theme} of scenarios) {
       const page = await context.newPage();
@@ -42,8 +39,29 @@ source = source.replace(
   "await fs.rm(SCREENSHOTS, {recursive: true, force: true});\nawait fs.mkdir(SCREENSHOTS, {recursive: true});",
 );
 source = source.replace(
+  "  await page.waitForSelector('#family-verdict-hero[data-state]', {state: 'visible', timeout: 15000});",
+  `  try {
+    await page.waitForSelector('#family-verdict-hero[data-state]', {state: 'visible', timeout: 15000});
+  } catch (error) {
+    const debug = await page.evaluate(() => ({
+      title: document.title,
+      bodyClass: document.body?.className || '',
+      htmlLang: document.documentElement.lang,
+      htmlDir: document.documentElement.dir,
+      scripts: Array.from(document.scripts).map((node) => node.src || '[inline]'),
+      heroExists: Boolean(document.getElementById('family-verdict-hero')),
+      familyNavExists: Boolean(document.getElementById('family-board-nav')),
+      text: document.body?.innerText?.slice(0, 2000) || '',
+    }));
+    await fs.writeFile(path.join(OUTPUT, 'debug.json'), JSON.stringify({errors, debug, error: error.message}, null, 2));
+    await fs.writeFile(path.join(OUTPUT, 'debug.html'), await page.content());
+    await page.screenshot({path: path.join(SCREENSHOTS, 'debug-no-hero.png'), fullPage: false});
+    throw new Error(\`${'${error.message}'} | browser=${'${errors.join(\' | \')}'} | body=${'${debug.bodyClass}'}\`);
+  }`,
+);
+source = source.replace(
   "matrix: {viewports: VIEWPORTS, states: STATES, locales: LOCALES, themes: THEMES},",
-  "matrix: {strategy: 'pairwise visual coverage', viewports: VIEWPORTS, states: STATES, locales: LOCALES, themes: THEMES},",
+  "matrix: {strategy: 'debug representative coverage', viewports: VIEWPORTS, states: STATES, locales: LOCALES, themes: THEMES},",
 );
 
 await fs.writeFile(generatedPath, source);

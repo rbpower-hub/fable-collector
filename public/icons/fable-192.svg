@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="FABLE compass and wave">
+  <rect width="192" height="192" rx="42" fill="#0077b6"/>
+  <circle cx="96" cy="82" r="47" fill="#fdfdfd" stroke="#0a2240" stroke-width="7"/>
+  <circle cx="96" cy="82" r="6" fill="#0a2240"/>
+  <path d="M96 39 108 75 96 82 84 75Z" fill="#f78c2a"/>
+  <path d="M96 125 84 89 96 82 108 89Z" fill="#1a936f"/>
+  <path d="M31 141c18-17 35-17 53 0s35 17 53 0 35-17 53 0v24H31Z" fill="#4cc9f0"/>
+  <path d="M20 149c18-17 35-17 53 0s35 17 53 0 35-17 53 0" fill="none" stroke="#fdfdfd" stroke-width="9" stroke-linecap="round"/>
+</svg>

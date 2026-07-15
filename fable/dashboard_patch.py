@@ -89,6 +89,10 @@ _OLD_COUNTDOWN = """  setInterval(()=>{ countdown=(countdown<=1)?REFRESH_INTERVA
 _NEW_COUNTDOWN = """  $('#refresh-timer').textContent=t('next_refresh',countdown);
   setInterval(()=>{ countdown=(countdown<=30)?REFRESH_INTERVAL_SECONDS:countdown-30; $('#refresh-timer').textContent=t('next_refresh',countdown); },30000);"""
 
+_PWA_HEAD = """  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/fable-192.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/fable-192.svg" />"""
+
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
 _VERDICT_HERO_TAG = '<script src="./verdict-hero.js"></script>'
 _FAMILY_CONTENT_GATE_TAG = '<script src="./family-content-gate.js"></script>'
@@ -96,13 +100,20 @@ _FAMILY_REASONS_TAG = '<script src="./family-reasons.js"></script>'
 _MOBILE_ERGONOMICS_TAG = '<script src="./mobile-ergonomics.js"></script>'
 _LOCALE_TRANSITION_TAG = '<script src="./locale-transition.js"></script>'
 _ARABIC_LOCALE_TAG = '<script src="./arabic-locale.js"></script>'
+_PWA_INSTALL_TAG = '<script src="./pwa-install.js"></script>'
 _FRESHNESS_GATE_TAG = '<script src="./freshness-gate.js"></script>'
 
 
 def patch_dashboard_index(path: Path) -> bool:
     """Apply dashboard upgrades; return ``True`` when content changed."""
     html = path.read_text(encoding="utf-8")
-    patched = html.replace(_OLD_PREFIX, _NEW_PREFIX)
+    patched = html.replace('<html lang="fr" data-theme="dark">', '<html lang="fr" data-theme="nautical">')
+    patched = patched.replace(
+        "let theme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'dark';",
+        "let theme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'nautical';",
+    )
+    patched = patched.replace("if(!themes.includes(theme)) theme='dark';", "if(!themes.includes(theme)) theme='nautical';")
+    patched = patched.replace(_OLD_PREFIX, _NEW_PREFIX)
     patched = patched.replace(_OLD_FALLBACK_KIND, _NEW_FALLBACK_KIND)
     patched = patched.replace(_OLD_FALLBACK_NOTE, _NEW_FALLBACK_NOTE)
     patched = _FABRICATED_WINDOWS_RE.sub(_SAFE_WINDOWS_ASSIGNMENT, patched, count=1)
@@ -113,6 +124,9 @@ def patch_dashboard_index(path: Path) -> bool:
     patched = _KIOSK_RE.sub(_EXPLICIT_KIOSK, patched, count=1)
     patched = patched.replace(_OLD_COUNTDOWN, _NEW_COUNTDOWN)
 
+    if '<link rel="manifest" href="./manifest.webmanifest" />' not in patched:
+        patched = patched.replace("</head>", f"{_PWA_HEAD}\n</head>")
+
     tags = (
         _FAMILY_VIEW_TAG,
         _VERDICT_HERO_TAG,
@@ -121,6 +135,7 @@ def patch_dashboard_index(path: Path) -> bool:
         _MOBILE_ERGONOMICS_TAG,
         _LOCALE_TRANSITION_TAG,
         _ARABIC_LOCALE_TAG,
+        _PWA_INSTALL_TAG,
         _FRESHNESS_GATE_TAG,
     )
     for tag in tags:

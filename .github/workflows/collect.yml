@@ -47,6 +47,7 @@ on:
       - "knowledge/**"
       - "public/index.html"
       - "public/activity-board.js"
+      - "public/family-view.js"
       - "public/port-knowledge.js"
       - "public/reasons-debug.js"
 
@@ -177,8 +178,9 @@ jobs:
           page = Path("public/index.html")
           html = page.read_text(encoding="utf-8")
           activity_tag = '<script src="./activity-board.js"></script>'
+          family_tag = '<script src="./family-view.js"></script>'
           port_tag = '<script src="./port-knowledge.js"></script>'
-          tags = [activity_tag]
+          tags = [activity_tag, family_tag]
 
           knowledge_path = Path("public/port-knowledge.json")
           if knowledge_path.exists():

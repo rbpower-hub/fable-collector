@@ -37,13 +37,15 @@ jobs:
           node --check public/activity-board.js
           node --check public/family-view.js
           node --check public/family-content-gate.js
+          node --check public/family-reasons.js
           node --check public/freshness-gate.js
           node --check public/port-knowledge.js
           node --check public/reasons-debug.js
           node --check public/verdict-hero.js
+          node --check public/js/reasons-i18n.js
           node --check public/js/verdict.js
 
-      - name: Verdict JavaScript tests
+      - name: Dashboard JavaScript tests
         run: node --test tests/js/*.test.mjs
 
       - name: Pytest

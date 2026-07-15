@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .dashboard_modules import modularize_dashboard
+
 _OLD_PREFIX = "const prefix = originFile !== homeFile ? routeSegmentsForFile(originFile, nextTrail) : [];"
 _NEW_PREFIX = """const oneWayMultiDay = ['long_trip_one_way','offshore_one_way_beta'].includes(String(spotConfig[file]?.route_kind || ''));
     const prefix = originFile !== homeFile && !oneWayMultiDay ? routeSegmentsForFile(originFile, nextTrail) : [];"""
@@ -142,7 +144,8 @@ def patch_dashboard_index(path: Path) -> bool:
         if tag not in patched:
             patched = patched.replace("</body>", f"  {tag}\n</body>")
 
-    if patched == html:
-        return False
-    path.write_text(patched, encoding="utf-8")
-    return True
+    html_changed = patched != html
+    if html_changed:
+        path.write_text(patched, encoding="utf-8")
+    module_changed = modularize_dashboard(path)
+    return html_changed or module_changed

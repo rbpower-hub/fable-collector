@@ -41,3 +41,13 @@ def test_family_view_groups_three_days_and_plans_long_trip_returns():
     assert "[0, 1, 2].map" in script
     assert "one_way_multi_day" in script
     assert "Aucun retour validé dans l’horizon de 72 heures" in script
+
+
+def test_map_defaults_to_the_gulf_of_tunis_instead_of_all_destinations():
+    html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
+
+    assert "const DEFAULT_MAP_VIEW = { center:[36.88,10.48], zoom:9 };" in html
+    reset_body = html.split("function resetMapView(options={}){", 1)[1].split("\n  }", 1)[0]
+    assert "map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom" in reset_body
+    assert "currentSpotLatLngs()" not in reset_body
+    assert "map.fitBounds" not in reset_body

@@ -51,6 +51,10 @@
     document.head.appendChild(style);
   }
 
+  function setText(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
+
   function isLongTrip(slug) {
     const site = state.sites[slug] || {};
     const kind = String(site.route_kind || '').toLowerCase();
@@ -80,7 +84,7 @@
       reliability.className = 'family-reliability family-only';
       title.insertAdjacentElement('afterend', reliability);
     }
-    if (reliability) reliability.textContent = copy().confidence[confKey] || copy().confidence.low;
+    setText(reliability, copy().confidence[confKey] || copy().confidence.low);
 
     line.querySelectorAll('.small').forEach((node) => {
       if (!node.classList.contains('family-only') && technicalSmall(node)) node.classList.add('expert-only');
@@ -98,7 +102,7 @@
         agreement.className = 'family-model-agreement family-only';
         line.appendChild(agreement);
       }
-      agreement.textContent = copy().agreement(agreed);
+      setText(agreement, copy().agreement(agreed));
     } else {
       agreement?.remove();
     }
@@ -111,7 +115,7 @@
         warning.className = 'family-marine-warning family-only';
         line.appendChild(warning);
       }
-      warning.textContent = copy().marineMissing;
+      setText(warning, copy().marineMissing);
       warning.title = String(marineError);
     } else {
       warning?.remove();
@@ -127,12 +131,11 @@
       details = document.createElement('details');
       details.className = 'family-long-trips family-only';
       const summary = document.createElement('summary');
-      summary.textContent = copy().longTrips;
       details.appendChild(summary);
       radar.appendChild(details);
     }
-    details.querySelector('summary').textContent = copy().longTrips;
-    details.appendChild(planner);
+    setText(details.querySelector('summary'), copy().longTrips);
+    if (planner.parentElement !== details) details.appendChild(planner);
   }
 
   function apply() {

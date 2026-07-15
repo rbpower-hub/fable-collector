@@ -1,0 +1,44 @@
+{
+  "now": "2026-07-15T08:00:00Z",
+  "rules": {"window_hours": {"min": 4}},
+  "freshStatus": {"generated_at": "2026-07-15T07:30:00Z", "cadence_minutes": 60},
+  "staleStatus": {"generated_at": "2026-07-15T02:00:00Z", "cadence_minutes": 60},
+  "goToday": {
+    "windows": [
+      {
+        "dest_slug": "pantelleria.json",
+        "dest_name": "Pantelleria",
+        "beta": true,
+        "trip_mode": "one_way_multi_day",
+        "windows": [{"start": "2026-07-15T08:30:00Z", "end": "2026-07-15T14:30:00Z", "category": "family", "confidence": "High"}]
+      },
+      {
+        "dest_slug": "sidi-bou-said.json",
+        "dest_name": "Sidi Bou Saïd",
+        "required_hours": 3,
+        "windows": [{"start": "2026-07-15T09:00:00Z", "end": "2026-07-15T14:00:00Z", "category": "family", "confidence": "Medium"}]
+      }
+    ]
+  },
+  "goSoon": {
+    "windows": [
+      {
+        "dest_slug": "ghar-el-melh.json",
+        "dest_name": "Ghar El Melh",
+        "required_hours": 4,
+        "windows": [{"start": "2026-07-16T07:00:00Z", "end": "2026-07-16T13:00:00Z", "category": "family", "confidence": "High"}]
+      }
+    ]
+  },
+  "noGo": {
+    "windows": [
+      {
+        "dest_slug": "sidi-bou-said.json",
+        "dest_name": "Sidi Bou Saïd",
+        "required_hours": 3,
+        "windows": [],
+        "diagnostics": {"summary_fr": "Vent trop fort", "summary_en": "Wind too strong"}
+      }
+    ]
+  }
+}

@@ -39,6 +39,11 @@ jobs:
           node --check public/freshness-gate.js
           node --check public/port-knowledge.js
           node --check public/reasons-debug.js
+          node --check public/verdict-hero.js
+          node --check public/js/verdict.js
+
+      - name: Verdict JavaScript tests
+        run: node --test tests/js/*.test.mjs
 
       - name: Pytest
         run: python -m pytest -q --junitxml=pytest-results.xml

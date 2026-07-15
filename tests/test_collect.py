@@ -21,6 +21,11 @@ SITE = {"name": "Gammarth (port)", "slug": "gammarth-port", "lat": 36.9203, "lon
         "shelter_bonus_radius_km": 0.0, "onshore_sectors": [(30, 150)]}
 
 
+def test_default_forecast_horizon_is_72_hours(monkeypatch):
+    monkeypatch.delenv("FABLE_WINDOW_HOURS", raising=False)
+    assert Settings().window_hours == 72
+
+
 def make_getter(fx=None, marine=None, fail_marine=False, fail_models=False):
     def getter(url: str):
         if "marine" in url:

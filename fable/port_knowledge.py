@@ -16,6 +16,7 @@ from .config import load_sites
 from .knowledge import load_knowledge_pack
 
 _VALIDATED_ROUTE_STATUSES = {"validated", "field_validated", "official_validated"}
+_MULTI_DAY_ROUTE_KINDS = {"long_trip_one_way", "offshore_one_way_beta"}
 
 
 def _distance_km(a: dict[str, Any], b: dict[str, Any]) -> float:
@@ -88,7 +89,7 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
         shelters = navigation.get("shelters") if isinstance(navigation.get("shelters"), list) else []
         shelter_summary = _shelter_summary(shelters)
         route_kind = str(site.get("route_kind") or "standard")
-        offshore = route_kind == "offshore_one_way_beta"
+        multi_day = route_kind in _MULTI_DAY_ROUTE_KINDS
         route_validation_status = navigation.get("route_validation_status", "computed_from_config")
         route_validated = _route_is_validated(route_validation_status)
         display_eligible = route_validated or shelter_summary["validated"] > 0
@@ -103,8 +104,8 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
                 "origin_id": origin["slug"],
                 "origin_name": origin["name"],
                 "route_kind": route_kind,
-                "trip_mode": "one_way_multi_day" if offshore else "round_trip_day",
-                "same_day_round_trip_required": not offshore,
+                "trip_mode": "one_way_multi_day" if multi_day else "round_trip_day",
+                "same_day_round_trip_required": not multi_day,
                 "distance_km": round(distance_km, 1),
                 "distance_nm": round(distance_nm, 1),
                 "transit_hours": {
@@ -120,7 +121,7 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
             "shelters": shelters,
             "shelter_summary": shelter_summary,
             "return_policy": navigation.get("return_policy") or {
-                "mode": "independent" if offshore else "same_window",
+                "mode": "independent" if multi_day else "same_window",
                 "daylight_margin_min": 60,
                 "weather_margin_min": 30,
             },
@@ -131,12 +132,14 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
         })
 
     output = {
-        "version": 2,
+        "version": 3,
         "status": "port_knowledge_tunable",
         "policy": {
             "shelter_bonus_requires_validated_record": True,
             "unvalidated_shelters_never_relax_thresholds": True,
             "offshore_one_way_supported": True,
+            "long_trip_one_way_supported": True,
+            "kelibia_same_day_round_trip_required": False,
             "pantelleria_same_day_round_trip_required": False,
             "ui_requires_validated_route_or_shelter": True,
         },

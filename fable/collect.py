@@ -45,7 +45,7 @@ log = logging.getLogger("fable.collect")
 @dataclass
 class Settings:
     tz_name: str = field(default_factory=lambda: os.getenv("FABLE_TZ", "Africa/Tunis"))
-    window_hours: int = field(default_factory=lambda: int(os.getenv("FABLE_WINDOW_HOURS", "48")))
+    window_hours: int = field(default_factory=lambda: int(os.getenv("FABLE_WINDOW_HOURS", "72")))
     start_iso: str = field(default_factory=lambda: os.getenv("FABLE_START_ISO", "").strip())
     only_sites: set | None = field(default_factory=lambda: csv_to_slug_set(os.getenv("FABLE_ONLY_SITES", "")))
     model_order: list[str] = field(default_factory=lambda: [

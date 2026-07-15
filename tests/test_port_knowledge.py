@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_port_knowledge_publishes_routes_without_unvalidated_shelter_bonus(tmp_path):
     output = build_port_knowledge(ROOT, tmp_path)
     assert (tmp_path / "port-knowledge.json").exists()
-    assert output["version"] == 2
+    assert output["version"] == 3
     assert output["policy"]["ui_requires_validated_route_or_shelter"] is True
     assert output["visible_ports_count"] == 0
     by_id = {item["port_id"]: item for item in output["ports"]}
@@ -27,6 +27,9 @@ def test_port_knowledge_publishes_routes_without_unvalidated_shelter_bonus(tmp_p
     assert kelibia["route"]["transit_hours"]["fast"] == pytest.approx(2.29, abs=0.01)
     assert kelibia["route"]["transit_hours"]["conservative"] == pytest.approx(3.05, abs=0.01)
     assert kelibia["route"]["validated"] is False
+    assert kelibia["route"]["trip_mode"] == "one_way_multi_day"
+    assert kelibia["route"]["same_day_round_trip_required"] is False
+    assert kelibia["return_policy"]["mode"] == "independent"
     assert kelibia["display_eligible"] is False
 
     pantelleria = by_id["pantelleria"]

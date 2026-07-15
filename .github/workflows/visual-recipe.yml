@@ -80,7 +80,15 @@ jobs:
           exit 1
 
       - name: Run visual acceptance matrix
-        run: node tests/visual/run.mjs
+        run: |
+          mkdir -p visual-artifacts
+          node --check tests/visual/run.mjs >visual-artifacts/run.log 2>&1
+          set +e
+          node tests/visual/run.mjs >>visual-artifacts/run.log 2>&1
+          status=$?
+          set -e
+          cat visual-artifacts/run.log
+          exit $status
 
       - name: Upload visual recipe
         if: always()

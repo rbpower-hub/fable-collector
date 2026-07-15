@@ -96,7 +96,8 @@
       const wins = card.querySelector('#wins');
       card.insertBefore(banner, wins || card.firstChild);
     }
-    banner.textContent = copy().banner(formatDate(status?.generated_at));
+    const message = copy().banner(formatDate(status?.generated_at));
+    if (banner.textContent !== message) banner.textContent = message;
   }
 
   function setStaleHero(stale, status) {

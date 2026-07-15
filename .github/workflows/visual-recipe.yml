@@ -88,13 +88,13 @@ jobs:
           cat /tmp/fable-visual-http.log
           exit 1
 
-      - name: Run focused visual smoke
+      - name: Run pairwise visual acceptance matrix
         run: |
           set +e
-          node --check tests/visual/smoke.mjs >>visual-artifacts/run.log 2>&1
+          node --check tests/visual/matrix.mjs >>visual-artifacts/run.log 2>&1
           check_status=$?
           if [ "$check_status" -eq 0 ]; then
-            node tests/visual/smoke.mjs >>visual-artifacts/run.log 2>&1
+            node tests/visual/matrix.mjs >>visual-artifacts/run.log 2>&1
             status=$?
           else
             status=$check_status
@@ -110,8 +110,8 @@ jobs:
           name: fable-visual-recipe
           path: |
             visual-artifacts/run.log
-            visual-artifacts/smoke.json
-            visual-artifacts/smoke.html
+            visual-artifacts/report.json
+            visual-artifacts/SUMMARY.md
             visual-artifacts/screenshots
           if-no-files-found: error
           retention-days: 14

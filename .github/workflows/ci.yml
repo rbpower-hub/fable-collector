@@ -43,6 +43,7 @@ jobs:
           node --check public/locale-transition.js
           node --check public/mobile-ergonomics.js
           node --check public/port-knowledge.js
+          node --check public/pwa-install.js
           node --check public/reasons-debug.js
           node --check public/verdict-hero.js
           node --check public/js/reasons-i18n.js

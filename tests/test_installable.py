@@ -37,12 +37,13 @@ def test_dashboard_publishes_manifest_and_defaults_new_users_to_nautical(tmp_pat
 
     assert patch_dashboard_index(target) is True
     html = target.read_text(encoding="utf-8")
+    app = (tmp_path / "js" / "app.js").read_text(encoding="utf-8")
 
     assert '<html lang="fr" data-theme="nautical">' in html
     assert '<link rel="manifest" href="./manifest.webmanifest" />' in html
     assert '<link rel="apple-touch-icon" href="./icons/fable-192.svg" />' in html
     assert html.count('<script src="./pwa-install.js"></script>') == 1
-    assert "if(!themes.includes(theme)) theme='nautical';" in html
+    assert "if(!themes.includes(theme)) theme='nautical';" in app
 
     assert patch_dashboard_index(target) is False
 

@@ -46,8 +46,23 @@ jobs:
           node --check public/pwa-install.js
           node --check public/reasons-debug.js
           node --check public/verdict-hero.js
+          node --check public/js/corridor.js
+          node --check public/js/i18n.js
+          node --check public/js/map.js
           node --check public/js/reasons-i18n.js
           node --check public/js/verdict.js
+
+      - name: Generate and validate published app module
+        run: |
+          python - <<'PY'
+          import shutil
+          from pathlib import Path
+          from fable.dashboard_patch import patch_dashboard_index
+          target = Path('/tmp/fable-public')
+          shutil.copytree('public', target)
+          patch_dashboard_index(target / 'index.html')
+          PY
+          node --check /tmp/fable-public/js/app.js
 
       - name: Dashboard JavaScript tests
         run: node --test tests/js/*.test.mjs

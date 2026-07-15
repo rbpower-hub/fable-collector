@@ -1,8 +1,7 @@
-"""Patch the static dashboard with deployment-time route behaviour.
+"""Patch the static dashboard with deployment-time interface behaviour.
 
-The dashboard source predates the offshore one-way model and recursively prepends
-relay routes. For Pantelleria this incorrectly combines the separate
-Gammarth→Kélibia positioning trip with the Kélibia→Pantelleria crossing.
+The static board predates the offshore one-way model and the decision-first
+Family view. Publication applies both upgrades idempotently.
 """
 
 from __future__ import annotations
@@ -25,13 +24,18 @@ _NEW_FALLBACK_NOTE = (
     "Le pré-positionnement depuis Gammarth se consulte sur la route de Kélibia.'"
 )
 
+_FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
+
 
 def patch_dashboard_index(path: Path) -> bool:
-    """Apply the one-way offshore map patch; return True when content changed."""
+    """Apply dashboard upgrades; return ``True`` when content changed."""
     html = path.read_text(encoding="utf-8")
     patched = html.replace(_OLD_PREFIX, _NEW_PREFIX)
     patched = patched.replace(_OLD_FALLBACK_KIND, _NEW_FALLBACK_KIND)
     patched = patched.replace(_OLD_FALLBACK_NOTE, _NEW_FALLBACK_NOTE)
+
+    if _FAMILY_VIEW_TAG not in patched:
+        patched = patched.replace("</body>", f"  {_FAMILY_VIEW_TAG}\n</body>")
 
     if patched == html:
         return False

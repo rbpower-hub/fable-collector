@@ -32,6 +32,13 @@ jobs:
       - name: Ruff (lint)
         run: ruff check .
 
+      - name: Dashboard JavaScript syntax
+        run: |
+          node --check public/activity-board.js
+          node --check public/family-view.js
+          node --check public/port-knowledge.js
+          node --check public/reasons-debug.js
+
       - name: Pytest
         run: python -m pytest -q --junitxml=pytest-results.xml
 

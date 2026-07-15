@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.2.0 — 2026-07-15
+- **Vue Famille par défaut** : interface décisionnelle distincte de la Vue Expert historique, sans suppression des données avancées.
+- **Quatre onglets responsive** : `Aujourd’hui`, `Activités`, `Carte` et `Détails` pour réduire le défilement et hiérarchiser les informations.
+- **Résumé immédiat** : prochaine destination Family GO, horaire, niveau standard/prudent, confiance, nombre d’options et fraîcheur des données.
+- **NO-GO lisible** : lorsqu’aucune sortie n’est validée, la synthèse reprend directement le meilleur diagnostic backend disponible.
+- **Radar et données brutes déplacés** : ils restent disponibles dans `Détails` et dans la Vue Expert, mais ne chargent plus l’écran principal familial.
+- **Carte secondaire** : la carte n’occupe plus l’ouverture du board en Vue Famille ; elle possède son propre onglet et conserve les interactions existantes.
+- **Mobile first** : outils du header défilables, navigation compacte, cartes sans scroll interne et grille adaptée aux petits écrans.
+- **Préférences persistantes** : mémorisation locale du mode Famille/Expert et du dernier onglet utilisé.
+- **Sécurité inchangée** : la vue consomme exclusivement `windows.json`, `recommendations.json` et les diagnostics déjà décidés par le backend.
+
+## 3.1.2 — 2026-07-14
+- **Affichage offshore one-way corrigé** : la carte Pantelleria ne cumule plus le pré-positionnement Gammarth→Kélibia avec la traversée Kélibia→Pantelleria.
+- **Traversée isolée** : Pantelleria affiche uniquement environ 76 km / 41 NM / 1 h 45–2 h 15.
+- **Pré-positionnement séparé** : Gammarth→Kélibia reste consultable indépendamment en sélectionnant Kélibia.
+- **Aucune modification sécurité** : les seuils et décisions météo restent inchangés.
+
 ## 3.1.1 — 2026-07-14
 - **Interface premium allégée** : la carte « Routes & abris » n’est chargée dans le navigateur que lorsqu’au moins une route ou un abri possède une validation explicite.
 - **Données non validées masquées** : les calculs internes restent disponibles dans `port-knowledge.json`, mais ne sont plus présentés à l’utilisateur final.

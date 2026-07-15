@@ -35,7 +35,24 @@ _FABRICATED_WINDOWS_RE = re.compile(
 )
 _SAFE_WINDOWS_ASSIGNMENT = "\n    const winData = windows;"
 
+_OLD_IS_FRESH = """  const isFresh = (entry,genIso) => { const T=180; if(!entry) return false; if(typeof entry.fresh==='boolean') return entry.fresh; if(entry.modified){const age=(Date.now()-new Date(entry.modified))/60000; if(isFinite(age)) return age<=T;} if(genIso){const age=(Date.now()-new Date(genIso))/60000; if(isFinite(age)) return age<=T;} return false; };"""
+_NEW_FRESHNESS_HELPERS = """  const freshnessState = (status, referenceIso=null) => {
+    const cadence = Number(status?.cadence_minutes);
+    const limit_min = Number.isFinite(cadence) && cadence > 0 ? cadence + 35 : 95;
+    const reference = referenceIso || status?.generated_at || null;
+    const timestamp = reference ? new Date(reference).getTime() : NaN;
+    const age_min = Number.isFinite(timestamp) ? Math.max(0, (Date.now() - timestamp) / 60000) : Infinity;
+    return { fresh: Number.isFinite(age_min) && age_min <= limit_min, age_min, limit_min };
+  };
+  window.FABLEFreshness = Object.assign(window.FABLEFreshness || {}, { freshnessState });
+  const isFresh = (entry,status) => freshnessState(status, entry?.modified || status?.generated_at).fresh;"""
+
+_OLD_HEADER_FRESH = """    const freshNow = status?.stale_after ? Date.now() <= new Date(status.stale_after).getTime() : false;"""
+_NEW_HEADER_FRESH = """    const freshness = freshnessState(status);
+    const freshNow = freshness.fresh;"""
+
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
+_FRESHNESS_GATE_TAG = '<script src="./freshness-gate.js"></script>'
 
 
 def patch_dashboard_index(path: Path) -> bool:
@@ -45,9 +62,14 @@ def patch_dashboard_index(path: Path) -> bool:
     patched = patched.replace(_OLD_FALLBACK_KIND, _NEW_FALLBACK_KIND)
     patched = patched.replace(_OLD_FALLBACK_NOTE, _NEW_FALLBACK_NOTE)
     patched = _FABRICATED_WINDOWS_RE.sub(_SAFE_WINDOWS_ASSIGNMENT, patched, count=1)
+    patched = patched.replace(_OLD_IS_FRESH, _NEW_FRESHNESS_HELPERS)
+    patched = patched.replace(_OLD_HEADER_FRESH, _NEW_HEADER_FRESH)
+    patched = patched.replace("isFresh(entry, gen)", "isFresh(entry, status)")
+    patched = patched.replace("isFresh(entry,gen)", "isFresh(entry,status)")
 
-    if _FAMILY_VIEW_TAG not in patched:
-        patched = patched.replace("</body>", f"  {_FAMILY_VIEW_TAG}\n</body>")
+    for tag in (_FAMILY_VIEW_TAG, _FRESHNESS_GATE_TAG):
+        if tag not in patched:
+            patched = patched.replace("</body>", f"  {tag}\n</body>")
 
     if patched == html:
         return False

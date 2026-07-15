@@ -51,6 +51,40 @@ _OLD_HEADER_FRESH = """    const freshNow = status?.stale_after ? Date.now() <= 
 _NEW_HEADER_FRESH = """    const freshness = freshnessState(status);
     const freshNow = freshness.fresh;"""
 
+_KIOSK_RE = re.compile(
+    r"  // ===== KIOSK \(manual via button only\) =====\s+"
+    r"let cursorTimer;.*?"
+    r"document\.addEventListener\('visibilitychange', \(\)=>\{ if\(!document\.hidden\)\{ updateDashboard\(\); "
+    r"if\(!document\.fullscreenElement\) document\.documentElement\.requestFullscreen\(\)\.catch\(\(\)=>\{\}\); \} \}\);",
+    re.DOTALL,
+)
+_EXPLICIT_KIOSK = """  // ===== KIOSK (explicit via ?kiosk=1 only) =====
+  const kioskRequested = new URLSearchParams(window.location.search).get('kiosk') === '1';
+  if (kioskRequested) sessionStorage.setItem('fable_kiosk', '1');
+  const kioskMode = kioskRequested || sessionStorage.getItem('fable_kiosk') === '1';
+
+  let cursorTimer;
+  const hideCursor = () => { if (kioskMode) document.body.style.cursor = 'none'; };
+  const showCursor = () => {
+    if (!kioskMode) { document.body.style.cursor = ''; return; }
+    document.body.style.cursor = '';
+    clearTimeout(cursorTimer);
+    cursorTimer = setTimeout(hideCursor, 5000);
+  };
+  if (kioskMode) {
+    ['mousemove','keydown','click','wheel','touchstart'].forEach(eventName =>
+      document.addEventListener(eventName, showCursor, {passive:true})
+    );
+    showCursor();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    updateDashboard();
+    if (kioskMode && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });"""
+
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
 _FRESHNESS_GATE_TAG = '<script src="./freshness-gate.js"></script>'
 
@@ -66,6 +100,7 @@ def patch_dashboard_index(path: Path) -> bool:
     patched = patched.replace(_OLD_HEADER_FRESH, _NEW_HEADER_FRESH)
     patched = patched.replace("isFresh(entry, gen)", "isFresh(entry, status)")
     patched = patched.replace("isFresh(entry,gen)", "isFresh(entry,status)")
+    patched = _KIOSK_RE.sub(_EXPLICIT_KIOSK, patched, count=1)
 
     for tag in (_FAMILY_VIEW_TAG, _FRESHNESS_GATE_TAG):
         if tag not in patched:

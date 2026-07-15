@@ -68,6 +68,21 @@ def test_dashboard_uses_one_cadence_based_freshness_definition(tmp_path):
     assert "const T=180" not in html
 
 
+def test_fullscreen_on_visibility_is_reserved_for_explicit_kiosk_mode(tmp_path):
+    source = ROOT / "public" / "index.html"
+    target = tmp_path / "index.html"
+    target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+
+    assert patch_dashboard_index(target) is True
+    html = target.read_text(encoding="utf-8")
+
+    assert "new URLSearchParams(window.location.search).get('kiosk') === '1'" in html
+    assert "sessionStorage.setItem('fable_kiosk', '1')" in html
+    assert "if (kioskMode && !document.fullscreenElement)" in html
+    assert "if(!document.fullscreenElement) document.documentElement.requestFullscreen" not in html
+    assert "if (document.hidden) return;\n    updateDashboard();" in html
+
+
 def test_dashboard_patch_is_idempotent(tmp_path):
     source = ROOT / "public" / "index.html"
     target = tmp_path / "index.html"

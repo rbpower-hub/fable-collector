@@ -69,6 +69,7 @@ sites:
     map_lat: 36.84730
     map_lon: 11.09340
     transit_speed_kts: {min: 18, max: 24}
+    route_kind: long_trip_one_way
     # Corridor maritime : le précédent segment unique El Haouaria→Kélibia
     # coupait visuellement le cap Bon et sous-estimait la distance navigable.
     # Ces points suivent le passage au large du cap puis la côte orientale.
@@ -91,7 +92,7 @@ sites:
       - name: "Approche Kélibia par le large"
         lat: 36.88000
         lon: 11.12000
-    route_note: "Corridor cartographique maritime via le nord et l’est du cap Bon. Tracé indicatif à confirmer sur cartes nautiques officielles avant navigation."
+    route_note: "Trajet long évalué séparément en aller Gammarth→Kélibia et en retour Kélibia→Gammarth sur l’horizon de 72 h. Corridor cartographique indicatif via le nord et l’est du cap Bon, à confirmer sur cartes nautiques officielles avant navigation."
     onshore_sectors: [[330, 360], [0, 70]]
 
   - name: "Pantelleria"

@@ -4,6 +4,7 @@
   const TAB_KEY = 'fable_family_tab';
   const VALID_TABS = new Set(['today', 'activities', 'map', 'details']);
   const state = { best: null, windowCount: 0, offshoreCount: 0 };
+  const TUNIS_TZ = 'Africa/Tunis';
 
   const esc = (value) => String(value ?? '').replace(
     /[&<>"']/g,
@@ -14,25 +15,35 @@
   ).toLowerCase().startsWith('en') ? 'en' : 'fr';
   const copy = () => lang() === 'en' ? {
     modeFamily: 'Family View', modeExpert: 'Expert View',
-    today: 'Today', activities: 'Activities', map: 'Map', details: 'Details',
+    today: '3 days', activities: 'Activities', map: 'Map', details: 'Details',
     nextGo: 'Next family outing', noGo: 'No validated Family GO window',
     strict: 'FAMILY GO', prudent: 'PRUDENT GO', options: 'Options',
-    offshore: 'Offshore windows', updated: 'Updated', confidence: 'Confidence',
+    offshore: 'Long-trip windows', updated: 'Updated', confidence: 'Confidence',
     seeWindow: 'See window', seeMap: 'Open map', seeActivities: 'See activities',
     seeReasons: 'See reasons', waiting: 'Waiting for the next safe window.',
     noReason: 'Current forecasts do not provide a complete validated family window.',
     reduced: 'Reduced comfort: monitor strengthening conditions and plan an early return.',
+    todayLabel: 'Today', tomorrowLabel: 'Tomorrow', noWindow: 'No validated window',
+    familyOptions: 'family options', travelOptions: 'long-trip windows',
+    travelPlanner: 'Long-trip planner', outbound: 'Outbound', return: 'Return',
+    returnMissing: 'No validated return in the 72-hour horizon',
+    planningHorizon: 'Three-day family planning · Tunisia time',
     expertHint: 'Advanced forecasts, spot radar and raw feeds remain available in Expert View or Details.',
   } : {
     modeFamily: 'Vue Famille', modeExpert: 'Vue Expert',
-    today: 'Aujourd’hui', activities: 'Activités', map: 'Carte', details: 'Détails',
+    today: '3 jours', activities: 'Activités', map: 'Carte', details: 'Détails',
     nextGo: 'Prochaine sortie familiale', noGo: 'Aucune fenêtre Family GO validée',
     strict: 'FAMILY GO', prudent: 'GO PRUDENT', options: 'Options',
-    offshore: 'Fenêtres offshore', updated: 'Mise à jour', confidence: 'Confiance',
+    offshore: 'Fenêtres long trajet', updated: 'Mise à jour', confidence: 'Confiance',
     seeWindow: 'Voir la fenêtre', seeMap: 'Ouvrir la carte', seeActivities: 'Voir les activités',
     seeReasons: 'Voir les raisons', waiting: 'En attente de la prochaine fenêtre sûre.',
     noReason: 'Les prévisions actuelles ne donnent pas de fenêtre familiale complète et validée.',
     reduced: 'Confort réduit : surveiller le renforcement et prévoir un retour anticipé.',
+    todayLabel: 'Aujourd’hui', tomorrowLabel: 'Demain', noWindow: 'Aucune fenêtre validée',
+    familyOptions: 'options famille', travelOptions: 'fenêtres long trajet',
+    travelPlanner: 'Planificateur de trajets longs', outbound: 'Aller', return: 'Retour',
+    returnMissing: 'Aucun retour validé dans l’horizon de 72 heures',
+    planningHorizon: 'Planification familiale sur trois jours · heure de Tunisie',
     expertHint: 'Les prévisions avancées, le radar des spots et les flux bruts restent accessibles dans Vue Expert ou Détails.',
   };
 
@@ -61,6 +72,19 @@
       .family-kpi{border:1px solid var(--br);border-radius:11px;padding:9px 11px;background:color-mix(in srgb,var(--pill-bg) 78%,transparent)}
       .family-kpi span{display:block;color:var(--muted);font-size:.76rem;margin-bottom:2px}.family-kpi strong{font-size:.98rem}
       .family-summary-hint{margin-top:11px;color:var(--muted);font-size:.78rem}
+      .family-planning{margin-top:17px;padding-top:15px;border-top:1px solid var(--br)}
+      .family-planning-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+      .family-planning-head h3{margin:0;color:var(--fg);font-size:1rem}.family-planning-note{font-size:.78rem;color:var(--muted)}
+      .family-days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+      .family-day{min-width:0;border:1px solid var(--br);border-radius:13px;padding:12px;background:color-mix(in srgb,var(--pill-bg) 82%,transparent)}
+      .family-day.good{border-color:color-mix(in srgb,var(--ok) 65%,var(--br))}.family-day.prudent{border-color:color-mix(in srgb,var(--warn) 70%,var(--br))}
+      .family-day-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:9px}.family-day-title{font-weight:900}.family-day-date{font-size:.75rem;color:var(--muted);margin-top:2px}
+      .family-day-state{font-size:.7rem;font-weight:900;border:1px solid var(--br);border-radius:999px;padding:3px 7px;white-space:nowrap}.family-day.good .family-day-state{color:var(--ok)}.family-day.prudent .family-day-state{color:var(--warn)}
+      .family-day-option{padding:7px 0;border-top:1px solid var(--br);font-size:.84rem;line-height:1.35}.family-day-option:first-of-type{border-top:0}.family-day-option small{display:block;color:var(--muted);margin-top:2px}
+      .family-day-empty{color:var(--muted);font-size:.84rem;padding:8px 0}.family-day-count{margin-top:8px;color:var(--muted);font-size:.74rem}
+      .trip-planner{margin-top:12px}.trip-planner-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:9px}
+      .trip-plan{border:1px solid var(--br);border-radius:12px;padding:11px;background:var(--card)}.trip-plan h4{margin:0 0 7px;font-size:.92rem}
+      .trip-leg{font-size:.82rem;line-height:1.4;padding:6px 0;border-top:1px solid var(--br)}.trip-leg:first-of-type{border-top:0}.trip-leg b{display:inline-block;min-width:58px}.trip-leg.missing{color:var(--warn)}
 
       body.family-board-mode #family-board-nav{display:flex}
       body.family-board-mode[data-family-tab="today"] #family-summary{display:block}
@@ -107,6 +131,7 @@
         body.family-board-mode[data-family-tab="today"] .layout-grid.threecol{grid-template-columns:1fr}
         body.family-board-mode[data-family-tab="map"] #map{height:48dvh;min-height:300px}
         .activity-grid{grid-template-columns:1fr!important}
+        .family-days{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}.family-day{flex:0 0 min(82vw,330px);scroll-snap-align:start}
       }
       @media(max-width:520px){
         .family-tab{padding:8px 10px;font-size:.9rem}.family-tab .family-tab-label{display:none}
@@ -123,7 +148,45 @@
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return String(iso || '—');
     return date.toLocaleString(lang() === 'en' ? 'en-GB' : 'fr-FR', {
-      weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false,
+      timeZone:TUNIS_TZ, weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false,
+    });
+  }
+
+  function formatTime(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleTimeString(lang() === 'en' ? 'en-GB' : 'fr-FR', {
+      timeZone:TUNIS_TZ, hour:'2-digit', minute:'2-digit', hour12:false,
+    });
+  }
+
+  function tunisDateKey(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone:TUNIS_TZ, year:'numeric', month:'2-digit', day:'2-digit',
+    }).formatToParts(date).reduce((result, part) => ({...result, [part.type]:part.value}), {});
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  function offsetDateKey(key, offset) {
+    const [year, month, day] = key.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + offset, 12));
+    return date.toISOString().slice(0, 10);
+  }
+
+  function dateLabel(key, index) {
+    const c = copy();
+    if (index === 0) return c.todayLabel;
+    if (index === 1) return c.tomorrowLabel;
+    return new Date(`${key}T12:00:00Z`).toLocaleDateString(lang() === 'en' ? 'en-GB' : 'fr-FR', {
+      weekday:'long', timeZone:'UTC',
+    });
+  }
+
+  function shortDate(key) {
+    return new Date(`${key}T12:00:00Z`).toLocaleDateString(lang() === 'en' ? 'en-GB' : 'fr-FR', {
+      day:'2-digit', month:'short', timeZone:'UTC',
     });
   }
 
@@ -135,7 +198,7 @@
         const tripMode = windowItem?.trip_mode || destination?.trip_mode || '';
         const row = { destination, windowItem };
         if (tripMode === 'one_way_multi_day') offshoreCount += 1;
-        else if (windowItem?.start && windowItem?.end) coastal.push(row);
+        else if (windowItem?.start && windowItem?.end && String(windowItem.category || 'family') === 'family') coastal.push(row);
       });
     });
     coastal.sort((a, b) => {
@@ -144,6 +207,73 @@
       return tierA - tierB || new Date(a.windowItem.start) - new Date(b.windowItem.start);
     });
     return { coastal, offshoreCount };
+  }
+
+  function allPlanningWindows(data) {
+    const rows = [];
+    (data?.windows || []).forEach((destination) => {
+      (destination?.windows || []).forEach((windowItem) => {
+        if (!windowItem?.start || !windowItem?.end || String(windowItem.category || 'family') !== 'family') return;
+        rows.push({
+          destination,
+          windowItem,
+          tripMode:windowItem.trip_mode || destination.trip_mode || '',
+          dateKey:tunisDateKey(windowItem.start),
+        });
+      });
+    });
+    return rows.sort((a, b) => new Date(a.windowItem.start) - new Date(b.windowItem.start));
+  }
+
+  function routeText(row) {
+    const item = row.windowItem;
+    return `${item.origin_name || '—'} → ${item.destination_name || row.destination.dest_name || '—'}`;
+  }
+
+  function renderThreeDayPlanning(container, windows) {
+    const c = copy();
+    const rows = allPlanningWindows(windows);
+    const firstKey = tunisDateKey(new Date());
+    const keys = [0, 1, 2].map((offset) => offsetDateKey(firstKey, offset));
+    const cards = keys.map((key, index) => {
+      const dayRows = rows.filter((row) => row.dateKey === key);
+      const coastal = dayRows.filter((row) => row.tripMode !== 'one_way_multi_day');
+      const trips = dayRows.filter((row) => row.tripMode === 'one_way_multi_day');
+      const coastalOptions = [...new Map(coastal.map((row) => [row.destination.dest_slug || row.destination.dest_name, row])).values()];
+      const tripOptions = [...new Map(trips.map((row) => [`${row.destination.dest_slug || row.destination.dest_name}|${row.windowItem.direction || 'outbound'}`, row])).values()];
+      const strict = coastalOptions.filter((row) => (row.windowItem.family_tier || row.destination.family_tier) !== 'prudent');
+      const prudent = coastalOptions.filter((row) => (row.windowItem.family_tier || row.destination.family_tier) === 'prudent');
+      const tone = strict.length ? 'good' : prudent.length ? 'prudent' : '';
+      const stateLabel = strict.length ? c.strict : prudent.length ? c.prudent : trips.length ? 'TRAVEL' : 'NO-GO';
+      const choices = [...strict, ...prudent].slice(0, 2).map((row) => {
+        const tier = (row.windowItem.family_tier || row.destination.family_tier) === 'prudent' ? c.prudent : c.strict;
+        return `<div class="family-day-option"><b>${esc(row.destination.dest_name || row.destination.dest_slug)}</b><small>${esc(formatTime(row.windowItem.start))}–${esc(formatTime(row.windowItem.end))} · ${esc(tier)} · ${esc(row.windowItem.confidence || '—')}</small></div>`;
+      }).join('');
+      const tripChoices = tripOptions.slice(0, choices ? 1 : 2).map((row) => `<div class="family-day-option"><b>🧭 ${esc(routeText(row))}</b><small>${esc(formatTime(row.windowItem.start))}–${esc(formatTime(row.windowItem.end))} · ${esc(row.windowItem.direction === 'return' ? c.return : c.outbound)}</small></div>`).join('');
+      const empty = !choices && !tripChoices ? `<div class="family-day-empty">${esc(c.noWindow)}</div>` : '';
+      return `<article class="family-day ${tone}"><div class="family-day-head"><div><div class="family-day-title">${esc(dateLabel(key, index))}</div><div class="family-day-date">${esc(shortDate(key))}</div></div><span class="family-day-state">${esc(stateLabel)}</span></div>${choices}${tripChoices}${empty}<div class="family-day-count">${coastalOptions.length} ${esc(c.familyOptions)} · ${tripOptions.length} ${esc(c.travelOptions)}</div></article>`;
+    }).join('');
+
+    const groupedTrips = new Map();
+    rows.filter((row) => row.tripMode === 'one_way_multi_day').forEach((row) => {
+      const key = row.destination.dest_slug || row.destination.dest_name;
+      const group = groupedTrips.get(key) || {destination:row.destination, outbound:[], returns:[]};
+      (row.windowItem.direction === 'return' ? group.returns : group.outbound).push(row);
+      groupedTrips.set(key, group);
+    });
+    const tripCards = [...groupedTrips.values()].map((group) => {
+      const outbound = group.outbound[0] || null;
+      const outboundEnd = outbound ? new Date(outbound.windowItem.end) : null;
+      const returnRow = group.returns.find((row) => !outboundEnd || new Date(row.windowItem.start) >= outboundEnd) || group.returns[0] || null;
+      const outText = outbound ? `${routeText(outbound)} · ${formatDateTime(outbound.windowItem.start)}–${formatTime(outbound.windowItem.end)}` : c.noWindow;
+      const returnText = returnRow ? `${routeText(returnRow)} · ${formatDateTime(returnRow.windowItem.start)}–${formatTime(returnRow.windowItem.end)}` : c.returnMissing;
+      return `<article class="trip-plan"><h4>🧭 ${esc(group.destination.dest_name || group.destination.dest_slug)}</h4><div class="trip-leg"><b>${esc(c.outbound)}</b> ${esc(outText)}</div><div class="trip-leg ${returnRow ? '' : 'missing'}"><b>${esc(c.return)}</b> ${esc(returnText)}</div></article>`;
+    }).join('');
+
+    const planning = document.createElement('section');
+    planning.className = 'family-planning';
+    planning.innerHTML = `<div class="family-planning-head"><h3>📅 ${esc(c.planningHorizon)}</h3><span class="family-planning-note">72 h</span></div><div class="family-days">${cards}</div>${tripCards ? `<div class="trip-planner"><div class="family-planning-head"><h3>🧭 ${esc(c.travelPlanner)}</h3></div><div class="trip-planner-grid">${tripCards}</div></div>` : ''}`;
+    container.appendChild(planning);
   }
 
   function bestBlocker(data) {
@@ -263,6 +393,7 @@
         </div>
         ${offshoreCount ? `<div class="family-summary-hint">${esc(c.offshore)} : ${offshoreCount}</div>` : ''}
         <div class="family-summary-hint">${esc(c.expertHint)}</div>`;
+      renderThreeDayPlanning(summary, windows);
       return;
     }
 
@@ -290,6 +421,7 @@
         <div class="family-kpi"><span>${esc(c.updated)}</span><strong>${esc(generatedAt ? formatDateTime(generatedAt) : '—')}</strong></div>
       </div>
       <div class="family-summary-hint">${esc(c.expertHint)}</div>`;
+    renderThreeDayPlanning(summary, windows);
   }
 
   async function refreshSummary() {

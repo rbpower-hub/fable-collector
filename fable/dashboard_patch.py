@@ -9,8 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 
 _OLD_PREFIX = "const prefix = originFile !== homeFile ? routeSegmentsForFile(originFile, nextTrail) : [];"
-_NEW_PREFIX = """const offshoreOneWay = String(spotConfig[file]?.route_kind || '') === 'offshore_one_way_beta';
-    const prefix = originFile !== homeFile && !offshoreOneWay ? routeSegmentsForFile(originFile, nextTrail) : [];"""
+_NEW_PREFIX = """const oneWayMultiDay = ['long_trip_one_way','offshore_one_way_beta'].includes(String(spotConfig[file]?.route_kind || ''));
+    const prefix = originFile !== homeFile && !oneWayMultiDay ? routeSegmentsForFile(originFile, nextTrail) : [];"""
 
 _OLD_FALLBACK_KIND = "route_kind:'composite_beta'"
 _NEW_FALLBACK_KIND = "route_kind:'offshore_one_way_beta'"

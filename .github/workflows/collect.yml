@@ -17,7 +17,7 @@ on:
         default: "Africa/Tunis"
       window_hours:
         description: "Horizon de prévision en heures"
-        default: "48"
+        default: "72"
       start_iso:
         description: "Optionnel: début ISO (YYYY-MM-DDTHH:MM)"
         required: false
@@ -137,7 +137,7 @@ jobs:
       - name: Collect (Open-Meteo -> public/*.json + index.json)
         env:
           FABLE_TZ: ${{ inputs.tz || 'Africa/Tunis' }}
-          FABLE_WINDOW_HOURS: ${{ inputs.window_hours || '48' }}
+          FABLE_WINDOW_HOURS: ${{ inputs.window_hours || '72' }}
           FABLE_START_ISO: ${{ inputs.start_iso || '' }}
           FABLE_ONLY_SITES: ${{ inputs.only_sites || '' }}
           FABLE_HTTP_RETRIES: "3"

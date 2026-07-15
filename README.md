@@ -8,18 +8,20 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens et le
 
 - prévisions Open-Meteo multi-modèles pour le vent et la mer ;
 - détection conservatrice des fenêtres **Family GO** ;
+- horizon opérationnel de **72 heures** présenté sur trois journées dans la Vue Famille ;
 - niveau intermédiaire **Family GO prudent**, clairement signalé et soumis aux mêmes vétos absolus ;
 - durée minimale adaptative de 3 à 6 heures pour les sorties côtières ;
 - plage d’utilisation liée au lever et au coucher du soleil ;
 - validation des phases Transit – Mouillage – Transit depuis le port d’attache ;
 - diagnostics backend détaillés pour chaque destination bloquée ;
 - traversées **Pantelleria aller simple et retour simple** évaluées indépendamment depuis Kélibia ;
+- trajets **Gammarth↔Kélibia** évalués eux aussi en aller et retour indépendants pour les séjours multi-jours ;
 - Port Knowledge : routes, distances, temps de transit, politique de retour et statut des abris ;
 - recommandations d’activités et de pêche uniquement dans les sorties côtières compatibles ;
 - aide Fish Intelligence indicative : espèces, techniques, appâts/leurres, montages et matériel de départ ;
 - publication automatique du tableau de bord et des données sur GitHub Pages.
 
-> *English summary* — Hourly marine-weather collector for Tunisian coastal spots and configured offshore crossings. Coastal trips use conservative Family GO / prudent rules and same-window return validation. Pantelleria is handled as independent Kelibia→Pantelleria outbound and Pantelleria→Kelibia return crossings; no same-day return to Gammarth is required.
+> *English summary* — Hourly marine-weather collector with a 72-hour, three-day family planner. Short coastal outings keep same-window return validation; Gammarth↔Kelibia and Kelibia↔Pantelleria publish independent outbound and return legs for multi-day planning.
 
 ---
 
@@ -40,7 +42,7 @@ Collecteur **horaire** de météo marine pour les spots côtiers tunisiens et le
 | Statut machine | https://rbpower-hub.github.io/fable-collector/status.json |
 | Inventaire des fichiers | https://rbpower-hub.github.io/fable-collector/catalog.json |
 
-`windows.json` version 4 publie les fenêtres côtières standard/prudentes, leurs diagnostics et les traversées offshore directionnelles `outbound` / `return`.
+`windows.json` version 5 publie les fenêtres côtières standard/prudentes, leurs diagnostics et les trajets longs directionnels `outbound` / `return`.
 
 `recommendations.json` sépare les activités de loisir des objets `navigation_only`. Une traversée offshore ne produit aucune recommandation automatique de baignade, mouillage ou pêche.
 
@@ -102,13 +104,24 @@ Documentation détaillée :
 
 ### Sorties côtières familiales
 
-Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass, El Haouaria et Kélibia utilisent la logique :
+Gammarth, Sidi Bou Saïd, Ghar El Melh, Ras Fartass et El Haouaria utilisent la logique :
 
 ```text
 départ → transit aller → temps sur zone → transit retour
 ```
 
 Le départ et le retour doivent appartenir à la même fenêtre validée.
+
+### Kélibia — trajet long multi-jours
+
+Kélibia utilise deux jambes indépendantes sur l’horizon de 72 heures :
+
+```text
+outbound : Gammarth → Kélibia
+return   : Kélibia → Gammarth
+```
+
+Le board présente l’aller et le premier retour compatible séparément. L’absence de retour validé dans l’horizon est affichée explicitement et n’est jamais interprétée comme un GO complet du voyage.
 
 ### Pantelleria — offshore multi-jours
 
@@ -121,7 +134,7 @@ return   : Pantelleria → Kélibia
 
 Les deux directions sont évaluées indépendamment. Les sorties peuvent être séparées par plusieurs jours et **aucun retour à Gammarth le jour même n’est exigé**.
 
-Le pré-positionnement `Gammarth ↔ Kélibia` reste une opération distincte à planifier avec sa propre météo, son carburant et sa logistique.
+Le pré-positionnement `Gammarth ↔ Kélibia` reste une opération distincte, désormais publiée avec ses propres fenêtres aller et retour.
 
 La première version offshore :
 

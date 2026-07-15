@@ -13,8 +13,8 @@ def test_offshore_map_does_not_prepend_positioning_route(tmp_path):
     assert patch_dashboard_index(target) is True
     html = target.read_text(encoding="utf-8")
 
-    assert "const offshoreOneWay" in html
-    assert "originFile !== homeFile && !offshoreOneWay" in html
+    assert "const oneWayMultiDay" in html
+    assert "originFile !== homeFile && !oneWayMultiDay" in html
     assert "route_kind:'offshore_one_way_beta'" in html
     assert "route_kind:'composite_beta'" not in html
 

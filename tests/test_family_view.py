@@ -31,3 +31,13 @@ def test_family_view_summary_uses_backend_decisions():
     assert "diagnostics.first_blocker" in script
     assert "tripMode === 'one_way_multi_day'" in script
     assert "recommendations.json" in script
+
+
+def test_family_view_groups_three_days_and_plans_long_trip_returns():
+    script = (ROOT / "public" / "family-view.js").read_text(encoding="utf-8")
+
+    assert "Planification familiale sur trois jours" in script
+    assert "family-days" in script
+    assert "[0, 1, 2].map" in script
+    assert "one_way_multi_day" in script
+    assert "Aucun retour validé dans l’horizon de 72 heures" in script

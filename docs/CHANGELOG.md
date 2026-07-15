@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.3.0 — 2026-07-15
+- **Horizon 72 h** : la collecte planifiée couvre désormais trois jours complets par défaut.
+- **Vue Famille trois jours** : Aujourd’hui, Demain et J+2 sont regroupés dans trois cartes responsive, horizontales sur mobile et en colonnes sur PC.
+- **Kélibia multi-jours** : Gammarth→Kélibia et Kélibia→Gammarth sont évalués comme deux trajets indépendants ; aucun retour le jour même n’est imposé.
+- **Planificateur longue distance** : les premiers aller et retour compatibles sont rapprochés pour Kélibia et Pantelleria, avec alerte explicite si aucun retour n’existe dans les 72 h.
+- **`windows.json` v5** : généralisation de `trip_mode: one_way_multi_day` et `route_kind` aux trajets longs côtiers et offshore.
+- **Sécurité inchangée** : chaque jambe applique les règles Family strictes ; un aller validé ne valide jamais implicitement le retour ou l’ensemble du séjour.
+- **Compatibilité** : les champs offshore Pantelleria historiques sont conservés pour les consommateurs existants.
+
 ## 3.2.0 — 2026-07-15
 - **Vue Famille par défaut** : interface décisionnelle distincte de la Vue Expert historique, sans suppression des données avancées.
 - **Quatre onglets responsive** : `Aujourd’hui`, `Activités`, `Carte` et `Détails` pour réduire le défilement et hiérarchiser les informations.

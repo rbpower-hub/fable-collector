@@ -12,9 +12,10 @@ def test_mobile_ergonomics_is_injected_once(tmp_path):
 
     assert patch_dashboard_index(target) is True
     html = target.read_text(encoding="utf-8")
+    app = (tmp_path / "js" / "app.js").read_text(encoding="utf-8")
     assert html.count('<script src="./mobile-ergonomics.js"></script>') == 1
-    assert "},30000);" in html
-    assert "countdown-30" in html
+    assert "},30000);" in app
+    assert "countdown-30" in app
 
     assert patch_dashboard_index(target) is False
     assert target.read_text(encoding="utf-8").count('<script src="./mobile-ergonomics.js"></script>') == 1

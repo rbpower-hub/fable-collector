@@ -17,6 +17,30 @@ source = source.replace(
   "page.on('console', (message) => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource')) errors.push(`console: ${message.text()}`); });",
 );
 source = source.replace(
+  "  try {\n    await page.goto(BASE, {waitUntil: 'commit', timeout: 10000});",
+  "  try {\n    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} before-goto\\n`);\n    await page.goto(BASE, {waitUntil: 'commit', timeout: 10000});\n    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} after-goto\\n`);",
+);
+source = source.replace(
+  "    await page.waitForSelector('#family-verdict-hero[data-state]', {state: 'visible'});",
+  "    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} before-selector\\n`);\n    await page.waitForSelector('#family-verdict-hero[data-state]', {state: 'visible'});\n    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} after-selector\\n`);",
+);
+source = source.replace(
+  '    await page.waitForTimeout(700);',
+  "    await page.waitForTimeout(700);\n    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} after-settle\\n`);",
+);
+source = source.replace(
+  '    values = await page.evaluate(() => {',
+  "    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} before-evaluate\\n`);\n    values = await page.evaluate(() => {",
+);
+source = source.replace(
+  '    values.titleContrast = contrast(values.titleColor, values.cardColor);',
+  "    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} after-evaluate\\n`);\n    values.titleContrast = contrast(values.titleColor, values.cardColor);",
+);
+source = source.replace(
+  '    await page.screenshot({path: path.join(SHOTS, `${key}.png`), fullPage: false});',
+  "    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} before-screenshot\\n`);\n    await page.screenshot({path: path.join(SHOTS, `${key}.png`), fullPage: false});\n    await fs.appendFile(path.join(OUT, 'checkpoints.log'), `${key} after-screenshot\\n`);",
+);
+source = source.replace(
   'const result = await execute(browser, scenario);',
   `const timeoutKey = \`${'${devices[scenario.device].id}__${scenario.state}__${scenario.locale}__${scenario.theme}'}\`;
     const result = await Promise.race([

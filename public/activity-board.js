@@ -1,5 +1,6 @@
 /* Render recommendations generated only from backend-validated GO windows. */
 (function () {
+  const TUNIS_TZ = 'Africa/Tunis';
   const esc = (value) => String(value ?? '').replace(
     /[&<>"']/g,
     (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])
@@ -7,13 +8,24 @@
   const language = () => (
     localStorage.getItem('lang') || document.documentElement.lang || 'fr'
   ).toLowerCase().startsWith('en') ? 'en' : 'fr';
+  const tunisDateKey = (value) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (!Number.isFinite(date.getTime())) return '';
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone:TUNIS_TZ, year:'numeric', month:'2-digit', day:'2-digit',
+    }).formatToParts(date).reduce((result, part) => {
+      if (part.type !== 'literal') result[part.type] = part.value;
+      return result;
+    }, {});
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  };
   const timeOnly = (iso) => {
     if (!iso) return '—';
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return String(iso).slice(11, 16) || String(iso);
     return date.toLocaleTimeString(
       language() === 'en' ? 'en-GB' : 'fr-FR',
-      {hour:'2-digit', minute:'2-digit', hour12:false}
+      {timeZone:TUNIS_TZ, hour:'2-digit', minute:'2-digit', hour12:false}
     );
   };
   const dateTime = (iso) => {
@@ -21,7 +33,7 @@
     if (Number.isNaN(date.getTime())) return String(iso || '—');
     return date.toLocaleString(
       language() === 'en' ? 'en-GB' : 'fr-FR',
-      {weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}
+      {timeZone:TUNIS_TZ, weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}
     );
   };
   const pair = (value, suffix = '') => (
@@ -121,6 +133,7 @@
     const byWindow = windowIndex(windows);
     if (!recommendations.length) {
       card.innerHTML = `<h3><span>${title}</span></h3><div class="small">${lang === 'en' ? 'No compatible activity in a validated Family GO window.' : 'Aucune activité compatible dans une fenêtre Family GO validée.'}</div>`;
+      window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations:[]}}));
       return;
     }
     card.innerHTML = `<h3><span>${title}</span></h3><div class="activity-grid">${recommendations.map((rec) => {
@@ -137,8 +150,10 @@
             ? (sourceWindow.caution_en || 'Reduced comfort. Monitor strengthening conditions and return early.')
             : (sourceWindow.caution_fr || 'Confort réduit. Surveiller le renforcement et prévoir un retour anticipé.'))}</div>`
         : '';
-      return `<article class="activity-window ${prudent ? 'prudent' : ''}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
+      const dateKey = tunisDateKey(rec.start);
+      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
     }).join('')}</div>`;
+    window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations}}));
   }
 
   async function refresh() {
@@ -160,5 +175,9 @@
   setInterval(refresh, 10 * 60 * 1000);
   window.addEventListener('storage', (event) => {
     if (event.key === 'lang') refresh();
+  });
+  window.FABLEActivityBoard = Object.assign(window.FABLEActivityBoard || {}, {
+    refresh,
+    tunisDateKey,
   });
 })();

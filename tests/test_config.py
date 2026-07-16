@@ -57,8 +57,8 @@ def test_normalize_rules_schema(repo_root):
     n = normalize_rules(rules)
     assert n["family"]["hours_local"] == {"start": 8, "end": 21}
     assert n["family"]["window_hours"] == {"min": 4, "max": 6}
-    assert n["family"]["thresholds"]["wind"]["family_max_kmh"] == 20.0
-    assert n["family"]["thresholds"]["waves"]["tp_min_at_hs_lt_0_4_s"] == 3.2
+    assert n["family"]["thresholds"]["wind"]["family_max_kmh"] == 22.0
+    assert n["family"]["thresholds"]["waves"]["tp_min_at_hs_lt_0_4_s"] == 3.0
     assert n["family"]["corridor"]["leg_structure_hours"]["transit_out"] == {"min": 1.0, "max": 1.5}
     assert n["family"]["corridor"]["leg_structure_hours"]["anchor"] == {"min": 2.0, "max": 4.0}
     assert n["family"]["corridor"]["leg_structure_hours"]["transit_back"] == {"min": 1.0, "max": 1.5}

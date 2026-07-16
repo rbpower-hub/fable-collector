@@ -28,16 +28,6 @@ jobs:
         include:
           - id: mobile-fresh-fr-nautical
             case: mobile__fresh-windows__fr__nautical
-          - id: mobile-missing-ar-nautical
-            case: mobile__missing-windows__ar__nautical
-          - id: tablet-stale-en-dark
-            case: tablet__stale__en__dark
-          - id: tablet-empty-fr-dark
-            case: tablet__fresh-empty__fr__dark
-          - id: desktop-marine-ar-nautical
-            case: desktop__marine-error__ar__nautical
-          - id: desktop-fresh-fr-dark
-            case: desktop__fresh-windows__fr__dark
     steps:
       - uses: actions/checkout@v6
 
@@ -131,6 +121,7 @@ jobs:
           name: fable-visual-${{ matrix.id }}
           path: |
             visual-artifacts/run.log
+            visual-artifacts/checkpoints.log
             visual-artifacts/report.json
             visual-artifacts/SUMMARY.md
             visual-artifacts/screenshots

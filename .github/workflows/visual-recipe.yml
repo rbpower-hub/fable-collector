@@ -88,13 +88,13 @@ jobs:
           cat /tmp/fable-visual-http.log
           exit 1
 
-      - name: Run pairwise visual acceptance matrix
+      - name: Run six-scenario visual acceptance matrix
         run: |
           set +e
-          node --check tests/visual/matrix.mjs >>visual-artifacts/run.log 2>&1
+          node --check tests/visual/focused.mjs >>visual-artifacts/run.log 2>&1
           check_status=$?
           if [ "$check_status" -eq 0 ]; then
-            node tests/visual/matrix.mjs >>visual-artifacts/run.log 2>&1
+            node tests/visual/focused.mjs >>visual-artifacts/run.log 2>&1
             status=$?
           else
             status=$check_status

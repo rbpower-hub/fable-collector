@@ -105,7 +105,7 @@ jobs:
           node --check tests/visual/one.mjs >>visual-artifacts/run.log 2>&1
           wrapper_status=$?
           if [ "$base_status" -eq 0 ] && [ "$wrapper_status" -eq 0 ]; then
-            node tests/visual/one.mjs >>visual-artifacts/run.log 2>&1
+            timeout --signal=TERM --kill-after=5s 35s node tests/visual/one.mjs >>visual-artifacts/run.log 2>&1
             status=$?
           else
             status=1

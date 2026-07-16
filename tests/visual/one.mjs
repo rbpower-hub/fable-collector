@@ -17,6 +17,21 @@ source = source.replace(
   "page.on('console', (message) => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource')) errors.push(`console: ${message.text()}`); });",
 );
 source = source.replace(
+  'const result = await execute(browser, scenario);',
+  `const timeoutKey = \`${'${devices[scenario.device].id}__${scenario.state}__${scenario.locale}__${scenario.theme}'}\`;
+    const result = await Promise.race([
+      execute(browser, scenario),
+      new Promise((resolve) => setTimeout(() => resolve({
+        key: timeoutKey,
+        scenario,
+        device: devices[scenario.device],
+        values: null,
+        failures: ['visual scenario exceeded 20 seconds'],
+        passed: false,
+      }), 20000)),
+    ]);`,
+);
+source = source.replace(
   'if (failed.length) process.exitCode = 1;',
   'process.exit(failed.length ? 1 : 0);',
 );

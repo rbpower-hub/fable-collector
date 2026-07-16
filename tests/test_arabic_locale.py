@@ -20,6 +20,20 @@ def test_arabic_locale_scripts_are_injected_once(tmp_path):
     assert stable.count('<script src="./arabic-locale.js"></script>') == 1
 
 
+def test_persisted_arabic_locale_survives_native_dashboard_startup(tmp_path):
+    source = ROOT / "public" / "index.html"
+    target = tmp_path / "index.html"
+    target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+
+    assert patch_dashboard_index(target) is True
+    app = (tmp_path / "js" / "app.js").read_text(encoding="utf-8")
+
+    assert "const languages = ['fr','en','ar'];" in app
+    assert "if(!languages.includes(LANG)) LANG='fr';" in app
+    assert "document.documentElement.dir  = l === 'ar' ? 'rtl' : 'ltr';" in app
+    assert "const languages = ['fr','en'];" not in app
+
+
 def test_arabic_locale_adds_rtl_and_tunisia_aware_family_copy():
     script = (ROOT / "public" / "arabic-locale.js").read_text(encoding="utf-8")
 
@@ -30,6 +44,11 @@ def test_arabic_locale_adds_rtl_and_tunisia_aware_family_copy():
     assert "يمكن القيام بخروج عائلي اليوم" in script
     assert "بيانات الأمواج غير متاحة" in script
     assert "موثوقية محدودة" in script
+    assert "قرار العائلة اليوم" in script
+    assert "لا توجد نافذة خروج آمنة" in script
+    assert "تعذر تحميل سبب المنع" in script
+    assert "characterData:true" in script
+    assert "family-planning-note" in script
     assert "validateDictionary" in script
     assert "console.warn(`[FABLE i18n] missing ar key" in script
 

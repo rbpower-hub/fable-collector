@@ -3,14 +3,16 @@
   const TUNIS_TZ = 'Africa/Tunis';
   const KEYS = [
     'appTitle','tabs.threeDays','tabs.activities','tabs.map','tabs.details','windows','warnings','radar','raw',
-    'settings','close','modeExpert','modeFamily','verdict.STALE','verdict.NO_DATA','verdict.GO_TODAY',
+    'settings','close','modeExpert','modeFamily','eyebrow','verdict.STALE','verdict.NO_DATA','verdict.GO_TODAY',
     'verdict.GO_SOON','verdict.NO_GO','mapAction','reasonsAction','planning','longPlanner','today','tomorrow','afterTomorrow',
+    'horizon','states.go','states.prudent','states.noGo','states.travel','emptyWindows','backendUnavailable',
   ];
   const AR = {
     appTitle: '🧭 فابل: لوحة القيادة',
     tabs: {threeDays: '3 أيام', activities: 'الأنشطة', map: 'الخريطة', details: 'التفاصيل'},
     windows: '🪟 نوافذ الملاحة', warnings: '🚦 أسباب عدم الخروج', radar: '📡 رادار المواقع', raw: '📚 البيانات الخام',
     settings: 'الإعدادات', close: 'إغلاق', modeExpert: '🧰 وضع الخبير', modeFamily: '👨‍👩‍👧 وضع العائلة',
+    eyebrow: 'قرار العائلة اليوم',
     verdict: {
       STALE: ['بيانات قديمة — لا تعتمد على هذه اللوحة', 'انتظر تحديثاً جديداً قبل التخطيط للخروج.', 'بيانات قديمة'],
       NO_DATA: ['البيانات غير متاحة — لا تعتمد على هذه اللوحة', 'تعذر تحميل ملف نوافذ السلامة.', 'لا توجد بيانات'],
@@ -19,10 +21,14 @@
       NO_GO: ['لا توجد خرجة عائلية آمنة ضمن أفق التوقعات', 'لم يتم رصد نافذة عائلية آمنة ومكتملة.', 'غير مناسب'],
     },
     mapAction: 'عرض على الخريطة', reasonsAction: 'عرض الأسباب', planning: '📅 تخطيط عائلي لثلاثة أيام · توقيت تونس',
-    longPlanner: '🧭 مخطط الرحلات الطويلة', today: 'اليوم', tomorrow: 'غداً', afterTomorrow: 'بعد غد',
-    noWindow: 'لا توجد نافذة آمنة', outbound: 'الذهاب', return: 'العودة', noReturn: 'لا توجد نافذة عودة آمنة خلال 72 ساعة',
+    longPlanner: '🧭 مخطط الرحلات الطويلة', today: 'اليوم', tomorrow: 'غداً', afterTomorrow: 'بعد غد', horizon: '72 س',
+    noWindow: 'لا توجد نافذة آمنة', emptyWindows: 'لا توجد نافذة خروج آمنة.',
+    outbound: 'الذهاب', return: 'العودة', noReturn: 'لا توجد نافذة عودة آمنة خلال 72 ساعة',
+    states: {go: 'مناسب', prudent: 'بحذر', noGo: 'غير مناسب', travel: 'رحلة'},
+    confidenceShort: {high: 'ثقة عالية', medium: 'ثقة متوسطة', low: 'ثقة محدودة'},
     reliability: {high: '●●● · موثوقية ممتازة', medium: '●●○ · موثوقية جيدة', low: '●○○ · موثوقية محدودة — يجب التأكد مجدداً قبل الانطلاق'},
     models: (count) => `✓ توافق ${count} نماذج جوية`, marineMissing: '⚠️ بيانات الأمواج غير متاحة — النوافذ غير مؤكدة',
+    backendUnavailable: '❓ تعذر تحميل سبب المنع.',
     staleBanner: (date) => `⚠️ البيانات تعود إلى ${date}. لم تعد اللوحة موثوقة — لا تنطلق اعتماداً عليها.`,
     statusOk: 'الحالة: سليمة', statusStale: 'الحالة: بيانات قديمة',
     nextRefresh: (seconds) => `التحديث التالي خلال ${seconds} ثانية.`,
@@ -58,6 +64,7 @@
       html[dir="rtl"] .window-line .title,html[dir="rtl"] .pk-title{justify-content:flex-start}
       html[dir="rtl"] .conditions .line{border-left:1px solid var(--br);border-right:4px solid var(--warn)}
       html[dir="rtl"] .conditions .line.bad{border-right-color:var(--bad)}
+      html[dir="rtl"] .family-planning-note{white-space:nowrap;direction:rtl}
     `;
     document.head.appendChild(style);
   }
@@ -103,8 +110,9 @@
     if (/(^|\s)vent\s+\d|wind too/.test(value)) return `💨 الرياح قوية جداً${number ? ` (${number} كم/س)` : ''}`;
     if (/vagues?.*[≥>]|sea too|\bhs\b/.test(value)) return `🌊 البحر مضطرب${number ? ` (${number} م)` : ''}`;
     if (/\btp\b|short.*wave|vagues? courtes?/.test(value)) return '🌊 أمواج قصيرة وغير مريحة';
-    if (/vagues_inconnues|houle.*indisponible|wave data.*missing/.test(value)) return '❓ بيانات الأمواج غير متوفرة';
-    if (/aucune fenêtre|no .*slot/.test(value)) return '📅 لا توجد فترة نهارية آمنة وطويلة بما يكفي';
+    if (/vagues_inconnues|houle.*indisponible|wave data.*missing|marine_error|données de vagues/.test(value)) return '❓ بيانات الأمواج غير متوفرة';
+    if (/diagnostic backend|raisons? indisponibles?|reasons? unavailable/.test(value)) return AR.backendUnavailable;
+    if (/aucune fenêtre|no .*slot|no .*window/.test(value)) return '📅 لا توجد فترة نهارية آمنة وطويلة بما يكفي';
     return String(raw || 'السبب غير متوفر');
   }
 
@@ -136,6 +144,7 @@
     const title = hero.querySelector('h2');
     const detail = hero.querySelector('.verdict-detail');
     const badge = hero.querySelector('.verdict-badge');
+    setText(hero.querySelector('.verdict-eyebrow'), AR.eyebrow);
     setText(title, values[0]);
     setText(badge, values[2]);
     if (['STALE','NO_DATA','NO_GO'].includes(state)) {
@@ -165,6 +174,7 @@
     const headings = document.querySelectorAll('.family-planning-head h3');
     if (headings[0]) setText(headings[0], AR.planning);
     if (headings[1]) setText(headings[1], AR.longPlanner);
+    document.querySelectorAll('.family-planning-note').forEach((note) => setText(note, AR.horizon));
     const labels = [AR.today, AR.tomorrow, AR.afterTomorrow];
     document.querySelectorAll('.family-day').forEach((card, index) => {
       setText(card.querySelector('.family-day-title'), labels[index] || AR.afterTomorrow);
@@ -177,7 +187,22 @@
         setText(count, `${numbers[0]} خيارات عائلية · ${numbers[1] || 0} رحلات طويلة`);
       }
       const state = card.querySelector('.family-day-state');
-      if (state?.textContent === 'TRAVEL') setText(state, 'رحلة');
+      if (state) {
+        const rawState = state.textContent;
+        if (/TRAVEL|رحلة/i.test(rawState)) setText(state, AR.states.travel);
+        else if (/PRUDENT|بحذر/i.test(rawState)) setText(state, AR.states.prudent);
+        else if (/FAMILY GO|^GO$|مناسب/i.test(rawState)) setText(state, AR.states.go);
+        else if (/NO-?GO|غير مناسب/i.test(rawState)) setText(state, AR.states.noGo);
+      }
+      card.querySelectorAll('.family-day-option small').forEach((node) => {
+        const translated = node.textContent
+          .replace(/FAMILY GO/g, AR.states.go)
+          .replace(/PRUDENT GO|GO PRUDENT/g, AR.states.prudent)
+          .replace(/\bHigh\b/g, AR.confidenceShort.high)
+          .replace(/\bMedium\b/g, AR.confidenceShort.medium)
+          .replace(/\bLow\b/g, AR.confidenceShort.low);
+        setText(node, translated);
+      });
     });
     document.querySelectorAll('.trip-leg b').forEach((label) => {
       setText(label, /Retour|Return/i.test(label.textContent) ? AR.return : AR.outbound);
@@ -189,6 +214,12 @@
   }
 
   function translateFamilyDetails() {
+    const wins = document.getElementById('wins');
+    if (wins && !wins.querySelector('.window-line') && wins.textContent.trim()) setText(wins, AR.emptyWindows);
+    document.querySelectorAll('.window-line .go').forEach((badge) => {
+      const raw = badge.textContent;
+      setText(badge, /PRUDENT/i.test(raw) ? AR.states.prudent : AR.states.go);
+    });
     document.querySelectorAll('.family-reliability').forEach((node) => {
       const dots = node.textContent.match(/[●○]{3}/)?.[0] || '●○○';
       setText(node, dots === '●●●' ? AR.reliability.high : dots === '●●○' ? AR.reliability.medium : AR.reliability.low);
@@ -199,7 +230,7 @@
     });
     document.querySelectorAll('.family-marine-warning').forEach((node) => setText(node, AR.marineMissing));
     document.querySelectorAll('#reasons .line').forEach((line) => {
-      const friendly = line.querySelector('.friendly-reason');
+      const friendly = line.querySelector('.friendly-reason') || line.querySelector('.reason');
       const raw = line.dataset.rawReason || line.title || friendly?.textContent;
       if (friendly && raw) setText(friendly, ArabicReason(raw));
     });
@@ -246,7 +277,7 @@
     installStyles();
     ensureArabicButton();
     const observer = new MutationObserver(scheduleApply);
-    observer.observe(document.body, {subtree:true,childList:true});
+    observer.observe(document.body, {subtree:true, childList:true, characterData:true});
     refreshStatus();
     setInterval(refreshStatus, 10 * 60 * 1000);
     apply();

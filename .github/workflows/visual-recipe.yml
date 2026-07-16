@@ -19,15 +19,32 @@ concurrency:
 
 jobs:
   visual-recipe:
+    name: visual — ${{ matrix.id }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: mobile-fresh-fr-nautical
+            case: mobile__fresh-windows__fr__nautical
+          - id: mobile-missing-ar-nautical
+            case: mobile__missing-windows__ar__nautical
+          - id: tablet-stale-en-dark
+            case: tablet__stale__en__dark
+          - id: tablet-empty-fr-dark
+            case: tablet__fresh-empty__fr__dark
+          - id: desktop-marine-ar-nautical
+            case: desktop__marine-error__ar__nautical
+          - id: desktop-fresh-fr-dark
+            case: desktop__fresh-windows__fr__dark
     steps:
       - uses: actions/checkout@v6
 
       - name: Prepare visual diagnostics
         run: |
           mkdir -p visual-artifacts/screenshots
-          echo "visual recipe started" > visual-artifacts/run.log
+          echo "visual recipe started: ${{ matrix.case }}" > visual-artifacts/run.log
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -88,16 +105,20 @@ jobs:
           cat /tmp/fable-visual-http.log
           exit 1
 
-      - name: Run six-scenario visual acceptance matrix
+      - name: Run isolated visual scenario
+        env:
+          FABLE_VISUAL_CASE: ${{ matrix.case }}
         run: |
           set +e
           node --check tests/visual/focused.mjs >>visual-artifacts/run.log 2>&1
-          check_status=$?
-          if [ "$check_status" -eq 0 ]; then
-            node tests/visual/focused.mjs >>visual-artifacts/run.log 2>&1
+          base_status=$?
+          node --check tests/visual/one.mjs >>visual-artifacts/run.log 2>&1
+          wrapper_status=$?
+          if [ "$base_status" -eq 0 ] && [ "$wrapper_status" -eq 0 ]; then
+            node tests/visual/one.mjs >>visual-artifacts/run.log 2>&1
             status=$?
           else
-            status=$check_status
+            status=1
           fi
           set -e
           cat visual-artifacts/run.log
@@ -107,7 +128,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fable-visual-recipe
+          name: fable-visual-${{ matrix.id }}
           path: |
             visual-artifacts/run.log
             visual-artifacts/report.json

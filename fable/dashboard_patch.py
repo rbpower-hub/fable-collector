@@ -109,6 +109,7 @@ _LOCALE_TRANSITION_TAG = '<script src="./locale-transition.js"></script>'
 _ARABIC_LOCALE_TAG = '<script src="./arabic-locale.js"></script>'
 _PWA_INSTALL_TAG = '<script src="./pwa-install.js"></script>'
 _FRESHNESS_GATE_TAG = '<script src="./freshness-gate.js"></script>'
+_FIELD_VALIDATION_LINK_TAG = '<script src="./field-validation-link.js"></script>'
 
 
 def patch_dashboard_index(path: Path) -> bool:
@@ -146,6 +147,7 @@ def patch_dashboard_index(path: Path) -> bool:
         _ARABIC_LOCALE_TAG,
         _PWA_INSTALL_TAG,
         _FRESHNESS_GATE_TAG,
+        _FIELD_VALIDATION_LINK_TAG,
     )
     for tag in tags:
         if tag not in patched:

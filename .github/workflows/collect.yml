@@ -47,6 +47,13 @@ on:
       - "knowledge/**"
       - "public/**"
 
+# Une collecte ou un déploiement déjà lancé doit finir. Les déclenchements
+# suivants attendent au lieu d'annuler la production en cours, ce qui évite
+# une boucle de starvation lorsque les API météo ou GitHub Pages sont lentes.
+concurrency:
+  group: "fable-pages-refresh"
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -109,9 +116,6 @@ jobs:
     if: needs.schedule_guard.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    concurrency:
-      group: "pages"
-      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -234,9 +238,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    concurrency:
-      group: "pages"
-      cancel-in-progress: true
     permissions:
       pages: write
       id-token: write

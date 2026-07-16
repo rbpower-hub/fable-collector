@@ -87,6 +87,19 @@ jobs:
           ):
               html = html.replace(f'  <script src="./{script}"></script>\n', '')
           page.write_text(html, encoding="utf-8")
+
+          verdict = Path("public/verdict-hero.js")
+          source = verdict.read_text(encoding="utf-8")
+          source = source.replace("    movePlanning();\n", "")
+          source = source.replace(
+              "    const summary = document.getElementById('family-summary');\n"
+              "    if (summary && !planningObserver) {\n"
+              "      planningObserver = new MutationObserver(movePlanning);\n"
+              "      planningObserver.observe(summary, {childList: true, subtree: true});\n"
+              "    }\n",
+              "",
+          )
+          verdict.write_text(source, encoding="utf-8")
           PY
           cp node_modules/leaflet/dist/leaflet.css public/vendor/leaflet.css
           cp node_modules/leaflet/dist/leaflet.js public/vendor/leaflet.js

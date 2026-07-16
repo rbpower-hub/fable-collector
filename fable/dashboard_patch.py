@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+
 from .dashboard_modules import modularize_dashboard
 
 _OLD_PREFIX = "const prefix = originFile !== homeFile ? routeSegmentsForFile(originFile, nextTrail) : [];"

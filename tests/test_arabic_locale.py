@@ -44,6 +44,11 @@ def test_arabic_locale_adds_rtl_and_tunisia_aware_family_copy():
     assert "يمكن القيام بخروج عائلي اليوم" in script
     assert "بيانات الأمواج غير متاحة" in script
     assert "موثوقية محدودة" in script
+    assert "قرار العائلة اليوم" in script
+    assert "لا توجد نافذة خروج آمنة" in script
+    assert "تعذر تحميل سبب المنع" in script
+    assert "characterData:true" in script
+    assert "family-planning-note" in script
     assert "validateDictionary" in script
     assert "console.warn(`[FABLE i18n] missing ar key" in script
 

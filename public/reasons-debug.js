@@ -184,6 +184,10 @@ window.FABLE = window.FABLE || {};
     document.head.appendChild(style);
   }
 
+  function setBadgeText(badge, value) {
+    if (badge && badge.textContent !== value) badge.textContent = value;
+  }
+
   function annotateRenderedWindows(data) {
     installStyles();
     const byKey = new Map();
@@ -203,7 +207,7 @@ window.FABLE = window.FABLE || {};
       if (item.trip_mode === "one_way_multi_day" || item.destination_trip_mode === "one_way_multi_day") {
         node.classList.add("offshore-one-way");
         const direction = item.direction === "return" ? "RETOUR" : "ALLER";
-        if (badge) badge.textContent = `OFFSHORE ${direction}`;
+        setBadgeText(badge, `OFFSHORE ${direction}`);
         if (!node.querySelector(".offshore-note")) {
           const note = document.createElement("div");
           note.className = "offshore-note";
@@ -216,7 +220,7 @@ window.FABLE = window.FABLE || {};
 
       if (item.family_tier !== "prudent") return;
       node.classList.add("family-prudent");
-      if (badge) badge.textContent = "FAMILY GO PRUDENT";
+      setBadgeText(badge, "FAMILY GO PRUDENT");
       if (!node.querySelector(".prudent-note")) {
         const note = document.createElement("div");
         note.className = "prudent-note";

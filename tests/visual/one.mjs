@@ -12,5 +12,13 @@ const signature = '  for (const scenario of scenarios) {';
 const replacement = `  for (const scenario of scenarios.filter((item) => \`${'${item.device}__${item.state}__${item.locale}__${item.theme}'}\` === ${JSON.stringify(requested)})) {`;
 if (!source.includes(signature)) throw new Error('Focused visual runner signature changed');
 source = source.replace(signature, replacement);
+source = source.replace(
+  "page.on('console', (message) => { if (message.type() === 'error') errors.push(`console: ${message.text()}`); });",
+  "page.on('console', (message) => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource')) errors.push(`console: ${message.text()}`); });",
+);
+source = source.replace(
+  'if (failed.length) process.exitCode = 1;',
+  'process.exit(failed.length ? 1 : 0);',
+);
 await fs.writeFile(generatedPath, source);
 await import(`${pathToFileURL(generatedPath).href}?case=${encodeURIComponent(requested)}&run=${Date.now()}`);

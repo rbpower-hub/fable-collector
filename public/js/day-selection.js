@@ -12,7 +12,7 @@ const state = {
 
 const esc = (value) => String(value ?? '').replace(
   /[&<>"']/g,
-  (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])
+  (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[char])
 );
 
 export function tunisDateKey(value) {
@@ -452,7 +452,15 @@ function start() {
   bindEvents();
   state.selectedKey = normalizeSelectedDay(localStorage.getItem(STORAGE_KEY) || '');
   localStorage.setItem(STORAGE_KEY, state.selectedKey);
-  const contentObserver = new MutationObserver(scheduleSync);
+  const contentObserver = new MutationObserver((mutations) => {
+    const meaningful = mutations.some((mutation) => {
+      const target = mutation.target?.nodeType === Node.ELEMENT_NODE
+        ? mutation.target
+        : mutation.target?.parentElement;
+      return !target?.closest?.('#fable-activities');
+    });
+    if (meaningful) scheduleSync();
+  });
   contentObserver.observe(document.body, {subtree: true, childList: true});
   const modeObserver = new MutationObserver(scheduleSync);
   modeObserver.observe(document.body, {attributes:true, attributeFilter:['class', 'data-family-tab']});

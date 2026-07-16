@@ -13,6 +13,14 @@ const replacement = `  for (const scenario of scenarios.filter((item) => \`${'${
 if (!source.includes(signature)) throw new Error('Focused visual runner signature changed');
 source = source.replace(signature, replacement);
 source = source.replace(
+  "        {dest_slug: 'kelibia.json', dest_name: 'Kélibia', trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', windows: [{...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day'}]},\n",
+  '',
+);
+source = source.replace(
+  "        {dest_slug: 'pantelleria.json', dest_name: 'Pantelleria', beta: true, trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', windows: [{...windowItem, start: iso(1500), end: iso(1920), trip_mode: 'one_way_multi_day', beta: true}]},\n",
+  '',
+);
+source = source.replace(
   "page.on('console', (message) => { if (message.type() === 'error') errors.push(`console: ${message.text()}`); });",
   "page.on('console', (message) => { if (message.type() === 'error' && !message.text().startsWith('Failed to load resource')) errors.push(`console: ${message.text()}`); });",
 );

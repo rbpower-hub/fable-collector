@@ -100,6 +100,12 @@ jobs:
               "",
           )
           verdict.write_text(source, encoding="utf-8")
+
+          family = Path("public/family-view.js")
+          family_source = family.read_text(encoding="utf-8")
+          family_source = family_source.replace("      renderThreeDayPlanning(summary, windows);\n", "")
+          family_source = family_source.replace("    renderThreeDayPlanning(summary, windows);\n", "")
+          family.write_text(family_source, encoding="utf-8")
           PY
           cp node_modules/leaflet/dist/leaflet.css public/vendor/leaflet.css
           cp node_modules/leaflet/dist/leaflet.js public/vendor/leaflet.js

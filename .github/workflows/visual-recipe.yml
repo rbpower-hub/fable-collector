@@ -78,7 +78,14 @@ jobs:
               "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
               "./vendor/leaflet.js",
           )
-          html = html.replace('  <script src="./family-content-gate.js"></script>\n', '')
+          for script in (
+              "family-content-gate.js",
+              "family-reasons.js",
+              "freshness-gate.js",
+              "mobile-ergonomics.js",
+              "arabic-locale.js",
+          ):
+              html = html.replace(f'  <script src="./{script}"></script>\n', '')
           page.write_text(html, encoding="utf-8")
           PY
           cp node_modules/leaflet/dist/leaflet.css public/vendor/leaflet.css

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-
 from .dashboard_modules import modularize_dashboard
 
 _OLD_PREFIX = "const prefix = originFile !== homeFile ? routeSegmentsForFile(originFile, nextTrail) : [];"
@@ -91,6 +90,11 @@ _OLD_COUNTDOWN = """  setInterval(()=>{ countdown=(countdown<=1)?REFRESH_INTERVA
 _NEW_COUNTDOWN = """  $('#refresh-timer').textContent=t('next_refresh',countdown);
   setInterval(()=>{ countdown=(countdown<=30)?REFRESH_INTERVAL_SECONDS:countdown-30; $('#refresh-timer').textContent=t('next_refresh',countdown); },30000);"""
 
+_OLD_LANGUAGE_LIST = "const languages = ['fr','en'];"
+_NEW_LANGUAGE_LIST = "const languages = ['fr','en','ar'];"
+_OLD_LANGUAGE_DIRECTION = "document.documentElement.dir  = 'ltr';"
+_NEW_LANGUAGE_DIRECTION = "document.documentElement.dir  = l === 'ar' ? 'rtl' : 'ltr';"
+
 _PWA_HEAD = """  <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icons/fable-192.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/fable-192.svg" />"""
@@ -115,6 +119,8 @@ def patch_dashboard_index(path: Path) -> bool:
         "let theme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'nautical';",
     )
     patched = patched.replace("if(!themes.includes(theme)) theme='dark';", "if(!themes.includes(theme)) theme='nautical';")
+    patched = patched.replace(_OLD_LANGUAGE_LIST, _NEW_LANGUAGE_LIST)
+    patched = patched.replace(_OLD_LANGUAGE_DIRECTION, _NEW_LANGUAGE_DIRECTION)
     patched = patched.replace(_OLD_PREFIX, _NEW_PREFIX)
     patched = patched.replace(_OLD_FALLBACK_KIND, _NEW_FALLBACK_KIND)
     patched = patched.replace(_OLD_FALLBACK_NOTE, _NEW_FALLBACK_NOTE)

@@ -5,7 +5,9 @@ overrides:
   visibility_km_min: 5               # veto dur si visibilité < 5 km
 
 wind:
-  family_max_kmh: 20
+  # Calibration terrain v1 (8 sorties): le standard reste sous 22 km/h,
+  # le niveau prudent accepte 22–23 km/h hors onshore. Veto dur inchangé à 25.
+  family_max_kmh: 22
   nogo_min_kmh: 25
   onshore_degrade_kmh: 22
 
@@ -15,8 +17,9 @@ sea:
 
 tp_matrix:
   transit:
-    hs_lt_0_4_family_tp_s: 3.2
-    hs_0_4_0_5_family_tp_s: 4.5
+    # Assouplissement limité du confort; les clauses short/steep dures restent inchangées.
+    hs_lt_0_4_family_tp_s: 3.0
+    hs_0_4_0_5_family_tp_s: 4.2
     hs_lt_0_4_expert_tp_min_s: 3.2
     hs_0_4_0_5_expert_tp_min_s: 4.0
   anchor_sheltered:
@@ -35,10 +38,10 @@ combined:
 # Niveau intermédiaire : ne modifie jamais les vetoes durs ci-dessus.
 prudent:
   enabled: true
-  wind_max_kmh: 22
+  wind_max_kmh: 23
   gust_max_kmh: 28
   hs_max_m: 0.4
-  tp_min_s: 3.5
+  tp_min_s: 3.3
   min_confidence: Medium
 
 # Pour les trajets courts, la fenêtre peut descendre à 3 h.

@@ -129,8 +129,14 @@
     }
     const lang = language();
     const title = lang === 'en' ? '🌊 What to do on the water?' : '🌊 Que faire sur l’eau ?';
-    const recommendations = Array.isArray(data?.recommendations) ? data.recommendations : [];
     const byWindow = windowIndex(windows);
+    const rawRecommendations = Array.isArray(data?.recommendations) ? data.recommendations : [];
+    const recommendations = rawRecommendations.filter((rec) => {
+      const sourceWindow = byWindow.get(
+        [rec.dest_slug || '', rec.start || '', rec.end || ''].join('|')
+      ) || {};
+      return String(rec.category || sourceWindow.category || 'family').toLowerCase() === 'family';
+    });
     if (!recommendations.length) {
       card.innerHTML = `<h3><span>${title}</span></h3><div class="small">${lang === 'en' ? 'No compatible activity in a validated Family GO window.' : 'Aucune activité compatible dans une fenêtre Family GO validée.'}</div>`;
       window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations:[]}}));
@@ -140,6 +146,7 @@
       const sourceWindow = byWindow.get(
         [rec.dest_slug || '', rec.start || '', rec.end || ''].join('|')
       ) || {};
+      const category = String(rec.category || sourceWindow.category || 'family').toLowerCase();
       const prudent = sourceWindow.family_tier === 'prudent';
       const choices = (rec.activities || []).map((item) => `<div class="activity-choice"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b><div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div></div>`).join('');
       const prudentBadge = prudent
@@ -151,7 +158,7 @@
             : (sourceWindow.caution_fr || 'Confort réduit. Surveiller le renforcement et prévoir un retour anticipé.'))}</div>`
         : '';
       const dateKey = tunisDateKey(rec.start);
-      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
+      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
     }).join('')}</div>`;
     window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations}}));
   }

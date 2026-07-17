@@ -32,6 +32,36 @@ _DEFAULT_MAP_VIEW = "  const DEFAULT_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
 _GLOBAL_MAP_VIEW = "  const DEFAULT_MAP_VIEW = { center:[36.96,11.12], zoom:8 };"
 _RESET_MAP_POINTS = "    const points = currentSpotLatLngs();"
 _GLOBAL_RESET_MAP_POINTS = "    const points = currentSpotLatLngs();"
+_TILE_LAYER = "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);"
+_TILE_LAYER_NO_WRAP = "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',noWrap:true}).addTo(map);"
+_MAP_REVEAL_RESET_ANCHOR = "  window.panToFile = (file)=>{"
+_MAP_REVEAL_RESET = """  const resetMapAfterReveal = () => {
+    window.setTimeout(() => {
+      if(!map.getContainer().isConnected) return;
+      map.invalidateSize({ pan:false });
+      resetMapView({ animate:false });
+    }, 140);
+  };
+  document.addEventListener('click', event => {
+    const trigger = event.target.closest?.(
+      '[data-family-tab="map"],[data-family-action="map"],[data-family-action="map-tab"]'
+    );
+    if(trigger) resetMapAfterReveal();
+  });
+  new MutationObserver(() => {
+    const familyMapVisible = document.body.classList.contains('family-board-mode')
+      && document.body.dataset.familyTab === 'map';
+    if(familyMapVisible) resetMapAfterReveal();
+  }).observe(document.body, { attributes:true, attributeFilter:['data-family-tab','class'] });
+  window.setTimeout(() => {
+    const familyMapVisible = document.body.classList.contains('family-board-mode')
+      && document.body.dataset.familyTab === 'map';
+    if(familyMapVisible || !document.body.classList.contains('family-board-mode')){
+      resetMapAfterReveal();
+    }
+  }, 220);
+
+"""
 
 
 def _write_if_changed(path: Path, content: str) -> bool:
@@ -102,6 +132,12 @@ def modularize_dashboard(index_path: Path) -> bool:
         app_content = _APP_IMPORTS + match.group(1).strip() + "\n"
         app_content = app_content.replace(_DEFAULT_MAP_VIEW, _GLOBAL_MAP_VIEW, 1)
         app_content = app_content.replace(_RESET_MAP_POINTS, _GLOBAL_RESET_MAP_POINTS, 1)
+        app_content = app_content.replace(_TILE_LAYER, _TILE_LAYER_NO_WRAP, 1)
+        app_content = app_content.replace(
+            _MAP_REVEAL_RESET_ANCHOR,
+            _MAP_REVEAL_RESET + _MAP_REVEAL_RESET_ANCHOR,
+            1,
+        )
         files_changed = _write_if_changed(index_path.parent / "js" / "app.js", app_content) or files_changed
         html = html[:match.start()] + f"{_FALLBACK_TAG}\n{_APP_TAG}" + html[match.end():]
 

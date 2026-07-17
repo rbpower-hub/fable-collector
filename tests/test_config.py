@@ -71,6 +71,8 @@ def test_load_sites_v2(repo_root):
     assert cfg.home == "gammarth-port"
     slugs = {s["slug"] for s in cfg.sites}
     assert slugs == {"gammarth-port", "sidi-bou-said", "ghar-el-melh", "ras-fartass", "el-haouaria", "kelibia", "pantelleria"}
+    assert "korbous" in cfg.exclude
+    assert cfg.site("korbous") is None
     assert cfg.onshore_sectors("el-haouaria") == [(330, 360), (0, 70)]
     assert cfg.onshore_sectors("gammarth-port") == [(30, 150)]
     assert cfg.site("gammarth-port")["map_lat"] == pytest.approx(36.921)
@@ -78,6 +80,11 @@ def test_load_sites_v2(repo_root):
     assert cfg.site("gammarth-port")["transit_speed_kts"] == {"min": 16.0, "max": 24.0}
     assert cfg.site("gammarth-port")["windows_enabled"] is True
     assert cfg.site("gammarth-port")["route_kind"] == "standard"
+    ras_fartass = cfg.site("ras-fartass")
+    assert ras_fartass["name"] == "Ras Fartass"
+    assert ras_fartass["lat"] == pytest.approx(36.8774)
+    assert ras_fartass["lon"] == pytest.approx(10.6032)
+    assert "distinct de Korbous" in ras_fartass["route_note"]
     kelibia_points = cfg.site("kelibia")["route_points"]
     assert len(kelibia_points) == 6
     assert kelibia_points[0]["name"] == "El Haouaria — au large"
@@ -95,6 +102,12 @@ def test_load_sites_v1_legacy(tmp_path):
         - name: "Gammarth (port)"
           lat: 36.92
           lon: 10.28
+        - name: "Ras Fartass"
+          lat: 36.8774
+          lon: 10.6032
+        - name: "Korbous"
+          lat: 36.8167
+          lon: 10.5667
         - name: "Kélibia"
           lat: 36.85
           lon: 11.09
@@ -103,6 +116,8 @@ def test_load_sites_v1_legacy(tmp_path):
     assert cfg.version == 1
     assert cfg.home == "gammarth-port"
     slugs = {s["slug"] for s in cfg.sites}
+    assert "ras-fartass" in slugs
+    assert "korbous" not in slugs          # Ras Fartass is canonical; Korbous stays retired
     assert "kelibia" not in slugs          # legacy exclusion preserved
     assert cfg.onshore_sectors("gammarth-port") == [(30, 150)]  # legacy hardcoded map
 

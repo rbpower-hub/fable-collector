@@ -12,13 +12,13 @@ def published_dashboard(tmp_path):
     return target, target.read_text(encoding="utf-8"), (tmp_path / "js" / "app.js").read_text(encoding="utf-8")
 
 
-def test_default_map_is_limited_to_the_gulf_of_tunis(tmp_path):
+def test_default_map_includes_all_configured_destinations(tmp_path):
     _, _, app = published_dashboard(tmp_path)
 
-    assert "center:[36.98,10.43], zoom:10" in app
-    assert "const GULF_OF_TUNIS_RADIUS_KM = 55;" in app
-    assert "distKm(home, spot) <= GULF_OF_TUNIS_RADIUS_KM" in app
-    assert "const points = currentSpotLatLngs();" not in app
+    assert "center:[36.96,11.12], zoom:8" in app
+    assert "const points = currentSpotLatLngs();" in app
+    assert "GULF_OF_TUNIS_RADIUS_KM" not in app
+    assert "distKm(home, spot) <= GULF_OF_TUNIS_RADIUS_KM" not in app
 
 
 def test_day_selection_module_is_injected_once(tmp_path):

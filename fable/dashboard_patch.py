@@ -102,6 +102,7 @@ _PWA_HEAD = """  <link rel="manifest" href="./manifest.webmanifest" />
 
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
 _DAY_SELECTION_TAG = '<script type="module" src="./js/day-selection.js"></script>'
+_OFF_HOURS_REFINEMENTS_TAG = '<script type="module" src="./js/off-hours-refinements.js"></script>'
 _VERDICT_HERO_TAG = '<script src="./verdict-hero.js"></script>'
 _FAMILY_CONTENT_GATE_TAG = '<script src="./family-content-gate.js"></script>'
 _FAMILY_REASONS_TAG = '<script src="./family-reasons.js"></script>'
@@ -140,6 +141,7 @@ def patch_dashboard_index(path: Path) -> bool:
     tags = (
         _FAMILY_VIEW_TAG,
         _DAY_SELECTION_TAG,
+        _OFF_HOURS_REFINEMENTS_TAG,
         _VERDICT_HERO_TAG,
         _FAMILY_CONTENT_GATE_TAG,
         _FAMILY_REASONS_TAG,

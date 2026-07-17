@@ -66,6 +66,7 @@
       html[dir="rtl"] .conditions .line{border-left:1px solid var(--br);border-right:4px solid var(--warn)}
       html[dir="rtl"] .conditions .line.bad{border-right-color:var(--bad)}
       html[dir="rtl"] .family-planning-note{white-space:nowrap;direction:rtl}
+      .arabic-marine-diagnostic{margin-top:8px}
     `;
     document.head.appendChild(style);
   }
@@ -226,6 +227,49 @@
       || '';
   }
 
+  function selectedMarineDiagnostic() {
+    const warningSlugs = new Set(
+      Array.from(document.querySelectorAll('#reasons [data-day-warning-destination]'))
+        .map((line) => line.dataset.dayWarningDestination)
+        .filter(Boolean)
+    );
+    return (windowsPayload?.windows || []).find((destination) => {
+      if (!warningSlugs.has(destination?.dest_slug)) return false;
+      const diagnostics = destination?.diagnostics || {};
+      const raw = [
+        diagnostics?.first_blocker?.reason_fr,
+        diagnostics?.first_blocker?.reason_en,
+        diagnostics?.summary_fr,
+        diagnostics?.summary_en,
+        ...(diagnostics?.first_blocker?.reasons || []),
+      ].filter(Boolean).join(' ').toLowerCase();
+      return /marine_error|données de vagues|wave data|houle.*indisponible/.test(raw);
+    }) || null;
+  }
+
+  function syncMarineDiagnosticNote() {
+    const card = document.querySelector('.card.conditions');
+    const reasons = document.getElementById('reasons');
+    let note = card?.querySelector('.arabic-marine-diagnostic');
+    const destination = selectedMarineDiagnostic();
+    if (!card || !reasons || !destination) {
+      note?.remove();
+      return;
+    }
+    if (!note) {
+      note = document.createElement('div');
+      note.className = 'line warn arabic-marine-diagnostic';
+      const reason = document.createElement('div');
+      reason.className = 'reason';
+      const detail = document.createElement('div');
+      detail.className = 'small';
+      note.append(reason, detail);
+      reasons.insertAdjacentElement('afterend', note);
+    }
+    setText(note.querySelector('.reason'), AR.marineMissing);
+    setText(note.querySelector('.small'), destination.dest_name || destination.dest_slug || '—');
+  }
+
   function translateFamilyDetails() {
     const wins = document.getElementById('wins');
     if (wins && !wins.querySelector('.window-line') && wins.textContent.trim()) setText(wins, AR.emptyWindows);
@@ -247,6 +291,7 @@
       const raw = line.dataset.rawReason || line.title || diagnosticReasonForLine(line) || friendly?.textContent;
       if (friendly && raw) setText(friendly, ArabicReason(raw));
     });
+    syncMarineDiagnosticNote();
     document.querySelectorAll('.stale-data-banner').forEach((banner) => {
       const date = statusPayload?.generated_at ? formatDate(statusPayload.generated_at, {weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
       setText(banner, AR.staleBanner(date));
@@ -262,7 +307,10 @@
       item.classList.toggle('active', item.dataset.lang === selected);
       item.setAttribute('aria-pressed', item.dataset.lang === selected ? 'true' : 'false');
     });
-    if (!isArabic()) return;
+    if (!isArabic()) {
+      document.querySelectorAll('.arabic-marine-diagnostic').forEach((node) => node.remove());
+      return;
+    }
     translateStatic();
     translateVerdict();
     translatePlanning();

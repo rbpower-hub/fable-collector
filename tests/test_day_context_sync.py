@@ -25,6 +25,14 @@ def test_activity_cards_publish_stable_day_metadata():
     assert "fable:activities-rendered" in script
 
 
+def test_off_hours_recommendations_are_not_rendered_as_family_activities():
+    script = (ROOT / "public" / "activity-board.js").read_text(encoding="utf-8")
+
+    assert "rec.category || sourceWindow.category || 'family'" in script
+    assert ".toLowerCase() === 'family'" in script
+    assert 'data-category="${esc(category)}"' in script
+
+
 def test_activity_fallback_does_not_claim_specialized_safety():
     script = (ROOT / "public" / "js" / "day-selection.js").read_text(encoding="utf-8")
 

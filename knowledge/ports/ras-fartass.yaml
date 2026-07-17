@@ -1,18 +1,27 @@
 id: ras-fartass
 label_fr: "Ras Fartass"
 label_en: "Ras Fartass"
-status: initial_tunable
+status: field_observed_tunable
 confidence: low
 depths_m: [8, 25]
 habitats: [roche, tombant, herbier, fond_mixte]
 zones: []
 
 navigation:
-  role: coastal_destination
-  route_validation_status: initial_tunable
-  route_note_fr: "Route côtière depuis Gammarth calculée à partir des coordonnées configurées."
-  route_note_en: "Coastal route from Gammarth computed from configured coordinates."
+  role: primary_coastal_destination
+  route_validation_status: field_observed_tunable
+  route_note_fr: "Ras Fartass est la destination côtière de référence pour FABLE depuis Gammarth et une destination courante depuis Sidi Bou Saïd. Elle est distincte de Korbous. La destination a été confirmée sur le terrain ; le corridor GPS et les abris restent à valider séparément."
+  route_note_en: "Ras Fartass is FABLE's reference coastal destination from Gammarth and a common destination from Sidi Bou Said. It is distinct from Korbous. The destination has been field-confirmed; the precise GPS corridor and shelters still require separate validation."
   shelters: []
+  field_observations:
+    - date: "2026-07-17"
+      origin_id: gammarth-port
+      destination_id: ras-fartass
+      outing_type: family_day_trip
+      local_time_window: "09:00-19:30"
+      conditions_observed: very_good
+      note_fr: "Sortie familiale réalisée à Ras Fartass. Vent, vagues et confort observés comme très bons pendant la journée."
+      note_en: "Family outing completed at Ras Fartass. Wind, waves and comfort were observed as very good throughout the day."
   return_policy:
     mode: same_window
     daylight_margin_min: 60

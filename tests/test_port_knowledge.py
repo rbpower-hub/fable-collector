@@ -12,8 +12,10 @@ def test_port_knowledge_publishes_routes_without_unvalidated_shelter_bonus(tmp_p
     assert (tmp_path / "port-knowledge.json").exists()
     assert output["version"] == 3
     assert output["policy"]["ui_requires_validated_route_or_shelter"] is True
+    assert output["policy"]["field_observations_are_advisory"] is True
     assert output["visible_ports_count"] == 0
     by_id = {item["port_id"]: item for item in output["ports"]}
+    assert "korbous" not in by_id
 
     ghar = by_id["ghar-el-melh"]
     assert ghar["route"]["trip_mode"] == "round_trip_day"
@@ -21,6 +23,20 @@ def test_port_knowledge_publishes_routes_without_unvalidated_shelter_bonus(tmp_p
     assert ghar["route"]["validated"] is False
     assert ghar["shelter_summary"]["bonus_enabled"] is False
     assert ghar["display_eligible"] is False
+
+    ras_fartass = by_id["ras-fartass"]
+    assert ras_fartass["name"] == "Ras Fartass"
+    assert ras_fartass["role"] == "primary_coastal_destination"
+    assert ras_fartass["route"]["validation_status"] == "field_observed_tunable"
+    assert ras_fartass["route"]["validated"] is False
+    assert "distincte de Korbous" in ras_fartass["route"]["note_fr"]
+    assert len(ras_fartass["field_observations"]) == 1
+    observation = ras_fartass["field_observations"][0]
+    assert observation["date"] == "2026-07-17"
+    assert observation["destination_id"] == "ras-fartass"
+    assert observation["local_time_window"] == "09:00-19:30"
+    assert observation["conditions_observed"] == "very_good"
+    assert ras_fartass["shelter_summary"]["bonus_enabled"] is False
 
     kelibia = by_id["kelibia"]
     assert kelibia["route"]["distance_nm"] == pytest.approx(54.9, abs=0.1)

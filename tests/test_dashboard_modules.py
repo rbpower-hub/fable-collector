@@ -54,3 +54,14 @@ def test_low_risk_debt_cleanup_is_present(tmp_path):
     assert 'id="resetMapBtnTop"' in html
     assert 'id="resetMapBtn"' not in html
     assert "const prettifyDates = prettifyReasonDates;" in app
+
+
+def test_family_map_is_reframed_after_hidden_tab_is_revealed(tmp_path):
+    _, _ = published_dashboard(tmp_path)
+    app = (tmp_path / "js" / "app.js").read_text(encoding="utf-8")
+
+    assert "noWrap:true" in app
+    assert "map.invalidateSize({ pan:false });" in app
+    assert "resetMapView({ animate:false });" in app
+    assert "attributeFilter:['data-family-tab','class']" in app
+    assert '[data-family-tab="map"]' in app

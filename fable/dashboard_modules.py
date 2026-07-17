@@ -29,9 +29,19 @@ _DEBT_STYLE = """  <style id="fable-dashboard-debt-styles">
   </style>"""
 _RADAR_RESET_BUTTON = '        <button id="resetMapBtn" class="btn" title="Vue initiale">🔄</button>\n'
 _DEFAULT_MAP_VIEW = "  const DEFAULT_MAP_VIEW = { center:[36.95,10.6], zoom:9 };"
-_GLOBAL_MAP_VIEW = "  const DEFAULT_MAP_VIEW = { center:[36.96,11.12], zoom:8 };"
+_GULF_MAP_VIEW = """  const DEFAULT_MAP_VIEW = { center:[36.98,10.43], zoom:10 };
+  const GULF_OF_TUNIS_RADIUS_KM = 55;"""
 _RESET_MAP_POINTS = "    const points = currentSpotLatLngs();"
-_GLOBAL_RESET_MAP_POINTS = "    const points = currentSpotLatLngs();"
+_GULF_RESET_MAP_POINTS = """    const home = spotConfig[homeFile];
+    const points = home
+      ? Object.values(spotConfig)
+          .filter(spot =>
+            Number.isFinite(spot?.lat) &&
+            Number.isFinite(spot?.lon) &&
+            distKm(home, spot) <= GULF_OF_TUNIS_RADIUS_KM
+          )
+          .map(spot => [spot.lat, spot.lon])
+      : currentSpotLatLngs();"""
 
 
 def _write_if_changed(path: Path, content: str) -> bool:
@@ -100,8 +110,8 @@ def modularize_dashboard(index_path: Path) -> bool:
     match = _MAIN_SCRIPT_RE.search(html)
     if match:
         app_content = _APP_IMPORTS + match.group(1).strip() + "\n"
-        app_content = app_content.replace(_DEFAULT_MAP_VIEW, _GLOBAL_MAP_VIEW, 1)
-        app_content = app_content.replace(_RESET_MAP_POINTS, _GLOBAL_RESET_MAP_POINTS, 1)
+        app_content = app_content.replace(_DEFAULT_MAP_VIEW, _GULF_MAP_VIEW, 1)
+        app_content = app_content.replace(_RESET_MAP_POINTS, _GULF_RESET_MAP_POINTS, 1)
         files_changed = _write_if_changed(index_path.parent / "js" / "app.js", app_content) or files_changed
         html = html[:match.start()] + f"{_FALLBACK_TAG}\n{_APP_TAG}" + html[match.end():]
 

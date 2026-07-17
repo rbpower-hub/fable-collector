@@ -35,6 +35,7 @@
   };
 
   let statusPayload = null;
+  let windowsPayload = null;
   let scheduled = false;
 
   const get = (path) => path.split('.').reduce((value, key) => value?.[key], AR);
@@ -65,6 +66,7 @@
       html[dir="rtl"] .conditions .line{border-left:1px solid var(--br);border-right:4px solid var(--warn)}
       html[dir="rtl"] .conditions .line.bad{border-right-color:var(--bad)}
       html[dir="rtl"] .family-planning-note{white-space:nowrap;direction:rtl}
+      .arabic-marine-diagnostic{margin-top:8px}
     `;
     document.head.appendChild(style);
   }
@@ -110,7 +112,7 @@
     if (/(^|\s)vent\s+\d|wind too/.test(value)) return `💨 الرياح قوية جداً${number ? ` (${number} كم/س)` : ''}`;
     if (/vagues?.*[≥>]|sea too|\bhs\b/.test(value)) return `🌊 البحر مضطرب${number ? ` (${number} م)` : ''}`;
     if (/\btp\b|short.*wave|vagues? courtes?/.test(value)) return '🌊 أمواج قصيرة وغير مريحة';
-    if (/vagues_inconnues|houle.*indisponible|wave data.*missing|marine_error|données de vagues/.test(value)) return '❓ بيانات الأمواج غير متوفرة';
+    if (/vagues_inconnues|houle.*indisponible|wave data.*missing|wave data.*unavailable|marine_error|données de vagues/.test(value)) return '❓ بيانات الأمواج غير متوفرة';
     if (/diagnostic backend|raisons? indisponibles?|reasons? unavailable/.test(value)) return AR.backendUnavailable;
     if (/aucune fenêtre|no .*slot|no .*window/.test(value)) return '📅 لا توجد فترة نهارية آمنة وطويلة بما يكفي';
     return String(raw || 'السبب غير متوفر');
@@ -213,6 +215,61 @@
     });
   }
 
+  function diagnosticReasonForLine(line) {
+    const slug = line?.dataset?.dayWarningDestination;
+    if (!slug) return '';
+    const destination = (windowsPayload?.windows || []).find((item) => item?.dest_slug === slug);
+    const diagnostics = destination?.diagnostics || {};
+    return diagnostics?.first_blocker?.reason_fr
+      || diagnostics?.first_blocker?.reason_en
+      || diagnostics?.summary_fr
+      || diagnostics?.summary_en
+      || '';
+  }
+
+  function selectedMarineDiagnostic() {
+    const warningSlugs = new Set(
+      Array.from(document.querySelectorAll('#reasons [data-day-warning-destination]'))
+        .map((line) => line.dataset.dayWarningDestination)
+        .filter(Boolean)
+    );
+    return (windowsPayload?.windows || []).find((destination) => {
+      if (!warningSlugs.has(destination?.dest_slug)) return false;
+      const diagnostics = destination?.diagnostics || {};
+      const raw = [
+        diagnostics?.first_blocker?.reason_fr,
+        diagnostics?.first_blocker?.reason_en,
+        diagnostics?.summary_fr,
+        diagnostics?.summary_en,
+        ...(diagnostics?.first_blocker?.reasons || []),
+      ].filter(Boolean).join(' ').toLowerCase();
+      return /marine_error|données de vagues|wave data|houle.*indisponible/.test(raw);
+    }) || null;
+  }
+
+  function syncMarineDiagnosticNote() {
+    const card = document.querySelector('.card.conditions');
+    const reasons = document.getElementById('reasons');
+    let note = card?.querySelector('.arabic-marine-diagnostic');
+    const destination = selectedMarineDiagnostic();
+    if (!card || !reasons || !destination) {
+      note?.remove();
+      return;
+    }
+    if (!note) {
+      note = document.createElement('div');
+      note.className = 'line warn arabic-marine-diagnostic';
+      const reason = document.createElement('div');
+      reason.className = 'reason';
+      const detail = document.createElement('div');
+      detail.className = 'small';
+      note.append(reason, detail);
+      reasons.insertAdjacentElement('afterend', note);
+    }
+    setText(note.querySelector('.reason'), AR.marineMissing);
+    setText(note.querySelector('.small'), destination.dest_name || destination.dest_slug || '—');
+  }
+
   function translateFamilyDetails() {
     const wins = document.getElementById('wins');
     if (wins && !wins.querySelector('.window-line') && wins.textContent.trim()) setText(wins, AR.emptyWindows);
@@ -231,9 +288,10 @@
     document.querySelectorAll('.family-marine-warning').forEach((node) => setText(node, AR.marineMissing));
     document.querySelectorAll('#reasons .line').forEach((line) => {
       const friendly = line.querySelector('.friendly-reason') || line.querySelector('.reason');
-      const raw = line.dataset.rawReason || line.title || friendly?.textContent;
+      const raw = line.dataset.rawReason || line.title || diagnosticReasonForLine(line) || friendly?.textContent;
       if (friendly && raw) setText(friendly, ArabicReason(raw));
     });
+    syncMarineDiagnosticNote();
     document.querySelectorAll('.stale-data-banner').forEach((banner) => {
       const date = statusPayload?.generated_at ? formatDate(statusPayload.generated_at, {weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
       setText(banner, AR.staleBanner(date));
@@ -249,7 +307,10 @@
       item.classList.toggle('active', item.dataset.lang === selected);
       item.setAttribute('aria-pressed', item.dataset.lang === selected ? 'true' : 'false');
     });
-    if (!isArabic()) return;
+    if (!isArabic()) {
+      document.querySelectorAll('.arabic-marine-diagnostic').forEach((node) => node.remove());
+      return;
+    }
     translateStatic();
     translateVerdict();
     translatePlanning();
@@ -264,10 +325,15 @@
 
   async function refreshStatus() {
     try {
-      const response = await fetch('status.json', {cache:'no-store'});
-      statusPayload = response.ok ? await response.json() : null;
+      const [statusResponse, windowsResponse] = await Promise.all([
+        fetch('status.json', {cache:'no-store'}),
+        fetch('windows.json', {cache:'no-store'}),
+      ]);
+      statusPayload = statusResponse.ok ? await statusResponse.json() : null;
+      windowsPayload = windowsResponse.ok ? await windowsResponse.json() : null;
     } catch {
       statusPayload = null;
+      windowsPayload = null;
     }
     apply();
   }

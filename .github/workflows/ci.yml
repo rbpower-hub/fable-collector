@@ -47,6 +47,7 @@ jobs:
           node --check public/reasons-debug.js
           node --check public/verdict-hero.js
           node --check public/js/corridor.js
+          node --check public/js/day-selection.js
           node --check public/js/i18n.js
           node --check public/js/map.js
           node --check public/js/reasons-i18n.js

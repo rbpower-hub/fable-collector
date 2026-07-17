@@ -35,6 +35,7 @@
   };
 
   let statusPayload = null;
+  let windowsPayload = null;
   let scheduled = false;
 
   const get = (path) => path.split('.').reduce((value, key) => value?.[key], AR);
@@ -110,7 +111,7 @@
     if (/(^|\s)vent\s+\d|wind too/.test(value)) return `💨 الرياح قوية جداً${number ? ` (${number} كم/س)` : ''}`;
     if (/vagues?.*[≥>]|sea too|\bhs\b/.test(value)) return `🌊 البحر مضطرب${number ? ` (${number} م)` : ''}`;
     if (/\btp\b|short.*wave|vagues? courtes?/.test(value)) return '🌊 أمواج قصيرة وغير مريحة';
-    if (/vagues_inconnues|houle.*indisponible|wave data.*missing|marine_error|données de vagues/.test(value)) return '❓ بيانات الأمواج غير متوفرة';
+    if (/vagues_inconnues|houle.*indisponible|wave data.*missing|wave data.*unavailable|marine_error|données de vagues/.test(value)) return '❓ بيانات الأمواج غير متوفرة';
     if (/diagnostic backend|raisons? indisponibles?|reasons? unavailable/.test(value)) return AR.backendUnavailable;
     if (/aucune fenêtre|no .*slot|no .*window/.test(value)) return '📅 لا توجد فترة نهارية آمنة وطويلة بما يكفي';
     return String(raw || 'السبب غير متوفر');
@@ -213,6 +214,18 @@
     });
   }
 
+  function diagnosticReasonForLine(line) {
+    const slug = line?.dataset?.dayWarningDestination;
+    if (!slug) return '';
+    const destination = (windowsPayload?.windows || []).find((item) => item?.dest_slug === slug);
+    const diagnostics = destination?.diagnostics || {};
+    return diagnostics?.first_blocker?.reason_fr
+      || diagnostics?.first_blocker?.reason_en
+      || diagnostics?.summary_fr
+      || diagnostics?.summary_en
+      || '';
+  }
+
   function translateFamilyDetails() {
     const wins = document.getElementById('wins');
     if (wins && !wins.querySelector('.window-line') && wins.textContent.trim()) setText(wins, AR.emptyWindows);
@@ -231,7 +244,7 @@
     document.querySelectorAll('.family-marine-warning').forEach((node) => setText(node, AR.marineMissing));
     document.querySelectorAll('#reasons .line').forEach((line) => {
       const friendly = line.querySelector('.friendly-reason') || line.querySelector('.reason');
-      const raw = line.dataset.rawReason || line.title || friendly?.textContent;
+      const raw = line.dataset.rawReason || line.title || diagnosticReasonForLine(line) || friendly?.textContent;
       if (friendly && raw) setText(friendly, ArabicReason(raw));
     });
     document.querySelectorAll('.stale-data-banner').forEach((banner) => {
@@ -264,10 +277,15 @@
 
   async function refreshStatus() {
     try {
-      const response = await fetch('status.json', {cache:'no-store'});
-      statusPayload = response.ok ? await response.json() : null;
+      const [statusResponse, windowsResponse] = await Promise.all([
+        fetch('status.json', {cache:'no-store'}),
+        fetch('windows.json', {cache:'no-store'}),
+      ]);
+      statusPayload = statusResponse.ok ? await statusResponse.json() : null;
+      windowsPayload = windowsResponse.ok ? await windowsResponse.json() : null;
     } catch {
       statusPayload = null;
+      windowsPayload = null;
     }
     apply();
   }

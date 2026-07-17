@@ -87,6 +87,11 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
         conservative = distance_nm / float(speed["min"]) if distance_nm else 0.0
         navigation = _navigation_profile(ports.get(site["slug"]))
         shelters = navigation.get("shelters") if isinstance(navigation.get("shelters"), list) else []
+        field_observations = (
+            navigation.get("field_observations")
+            if isinstance(navigation.get("field_observations"), list)
+            else []
+        )
         shelter_summary = _shelter_summary(shelters)
         route_kind = str(site.get("route_kind") or "standard")
         multi_day = route_kind in _MULTI_DAY_ROUTE_KINDS
@@ -118,6 +123,7 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
                 "note_fr": navigation.get("route_note_fr") or site.get("route_note"),
                 "note_en": navigation.get("route_note_en"),
             },
+            "field_observations": field_observations,
             "shelters": shelters,
             "shelter_summary": shelter_summary,
             "return_policy": navigation.get("return_policy") or {
@@ -137,6 +143,7 @@ def build_port_knowledge(root: Path, out_dir: Path) -> dict[str, Any]:
         "policy": {
             "shelter_bonus_requires_validated_record": True,
             "unvalidated_shelters_never_relax_thresholds": True,
+            "field_observations_are_advisory": True,
             "offshore_one_way_supported": True,
             "long_trip_one_way_supported": True,
             "kelibia_same_day_round_trip_required": False,

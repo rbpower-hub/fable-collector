@@ -6,18 +6,18 @@ from fable.dashboard_patch import patch_dashboard_index
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_off_hours_module_is_injected_once(tmp_path):
+def test_recursive_off_hours_module_is_temporarily_not_injected(tmp_path):
     source = ROOT / "public" / "index.html"
     target = tmp_path / "index.html"
     target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
-    assert patch_dashboard_index(target) is True
+    patch_dashboard_index(target)
     html = target.read_text(encoding="utf-8")
     tag = '<script type="module" src="./js/off-hours-refinements.js"></script>'
-    assert html.count(tag) == 1
+    assert tag not in html
 
     assert patch_dashboard_index(target) is False
-    assert target.read_text(encoding="utf-8").count(tag) == 1
+    assert tag not in target.read_text(encoding="utf-8")
 
 
 def test_published_map_uses_all_configured_destinations(tmp_path):

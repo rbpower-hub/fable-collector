@@ -17,10 +17,7 @@ def test_recursive_off_hours_module_is_not_published(tmp_path):
     assert '<script type="module" src="./js/day-selection.js"></script>' in html
 
 
-def test_disabled_module_contains_document_wide_observer_regression():
-    script = (ROOT / "public" / "js" / "off-hours-refinements.js").read_text(encoding="utf-8")
-
-    assert "observer.observe(document.body, {subtree: true, childList: true})" in script
-    assert "_DISABLED_OFF_HOURS_REFINEMENTS_TAG" in (
-        ROOT / "fable" / "dashboard_patch.py"
-    ).read_text(encoding="utf-8")
+def test_recursive_off_hours_module_is_removed_from_repository():
+    assert not (ROOT / "public" / "js" / "off-hours-refinements.js").exists()
+    patcher = (ROOT / "fable" / "dashboard_patch.py").read_text(encoding="utf-8")
+    assert "OFF_HOURS_REFINEMENTS_TAG" not in patcher

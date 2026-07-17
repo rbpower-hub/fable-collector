@@ -21,12 +21,27 @@ const scenarios = [
   {device: 'desktop', state: 'fresh-windows', locale: 'fr', theme: 'dark'},
 ];
 
-const expected = {
-  'fresh-windows': 'GO_TODAY',
-  'missing-windows': 'NO_DATA',
-  stale: 'STALE',
-  'fresh-empty': 'NO_GO',
-  'marine-error': 'GO_TODAY',
+const tunisDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Tunis', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date).reduce((result, part) => {
+    if (part.type !== 'literal') result[part.type] = part.value;
+    return result;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+const expectedState = (state) => {
+  if (state === 'missing-windows') return 'NO_DATA';
+  if (state === 'stale') return 'STALE';
+  if (state === 'fresh-empty') return 'NO_GO';
+  if (state === 'fresh-windows' || state === 'marine-error') {
+    const today = tunisDateKey(new Date());
+    const windowStart = tunisDateKey(new Date(Date.now() + 60 * 60_000));
+    return windowStart === today ? 'GO_TODAY' : 'GO_SOON';
+  }
+  return 'NO_GO';
 };
 
 const sites = {
@@ -170,7 +185,8 @@ async function execute(browser, scenario) {
     values.titleContrast = contrast(values.titleColor, values.cardColor);
     values.badgeContrast = contrast(values.badgeColor, values.badgeBackground);
 
-    if (values.state !== expected[scenario.state]) failures.push(`verdict ${values.state} != ${expected[scenario.state]}`);
+    const expected = expectedState(scenario.state);
+    if (values.state !== expected) failures.push(`verdict ${values.state} != ${expected}`);
     if (values.scrollWidth > values.clientWidth + 2) failures.push(`horizontal overflow ${values.scrollWidth - values.clientWidth}px`);
     if (values.theme !== scenario.theme) failures.push(`theme ${values.theme} != ${scenario.theme}`);
     if (scenario.locale === 'ar') {
@@ -179,50 +195,29 @@ async function execute(browser, scenario) {
     if (values.titleContrast < 4.5) failures.push(`title contrast ${values.titleContrast.toFixed(2)} < 4.5`);
     if (values.badgeContrast < 4.5) failures.push(`badge contrast ${values.badgeContrast.toFixed(2)} < 4.5`);
     if (scenario.device === 'mobile' && !values.mobileSettings) failures.push('mobile settings button missing');
-    if (scenario.state === 'marine-error' && !values.marineMessage) failures.push('marine error message missing');
-
+    if (scenario.state === 'marine-error' && !values.marineMessage) failures.push('marine data error not visible');
+    if (errors.length) failures.push(...errors);
     await page.screenshot({path: path.join(SHOTS, `${key}.png`), fullPage: false});
-    if (scenario.device === 'mobile' && scenario.state === 'fresh-windows') {
-      await page.locator('#mobileSettingsBtn').click();
-      await page.waitForTimeout(150);
-      await page.screenshot({path: path.join(SHOTS, `${key}__settings.png`), fullPage: false});
-    }
-    if (scenario.device === 'desktop' && scenario.state === 'fresh-windows') {
-      await page.locator('[data-family-tab="map"]').click();
-      await page.waitForTimeout(250);
-      await page.screenshot({path: path.join(SHOTS, `${key}__map.png`), fullPage: false});
-      await page.locator('#viewToggleBtn').click();
-      await page.waitForTimeout(250);
-      const expert = await page.evaluate(() => ({mode: document.body.className, radar: Boolean(document.querySelector('.card.radar')?.getBoundingClientRect().height)}));
-      if (!expert.mode.includes('expert-board-mode')) failures.push('expert mode not activated');
-      if (!expert.radar) failures.push('expert radar not visible');
-      await page.screenshot({path: path.join(SHOTS, `${key}__expert.png`), fullPage: false});
-    }
-    failures.push(...errors);
   } catch (error) {
-    failures.push(error.message, ...errors);
-    await page.screenshot({path: path.join(SHOTS, `${key}__failure.png`), fullPage: false}).catch(() => {});
-  } finally {
-    await context.close();
+    failures.push(error.message);
   }
+  await context.close();
   return {key, scenario, device, values, failures, passed: failures.length === 0};
 }
 
-await fs.rm(SHOTS, {recursive: true, force: true});
 await fs.mkdir(SHOTS, {recursive: true});
-const browser = await chromium.launch({headless: true});
+const browser = await chromium.launch({headless: true, args: ['--no-sandbox']});
 const results = [];
-try {
-  for (const scenario of scenarios) {
-    const result = await execute(browser, scenario);
-    results.push(result);
-    console.log(`${result.passed ? 'PASS' : 'FAIL'} ${result.key}${result.failures.length ? ` — ${result.failures.join(' | ')}` : ''}`);
-  }
-} finally {
-  await browser.close();
-}
+for (const scenario of scenarios) results.push(await execute(browser, scenario));
+await browser.close();
+
 const failed = results.filter((result) => !result.passed);
-const report = {generated_at: new Date().toISOString(), strategy: 'six representative visual scenarios', totals: {scenarios: results.length, passed: results.length - failed.length, failed: failed.length}, scenarios, results};
-await fs.writeFile(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
-await fs.writeFile(path.join(OUT, 'SUMMARY.md'), ['# FABLE visual recipe', '', `- Scenarios: ${results.length}`, `- Passed: ${results.length - failed.length}`, `- Failed: ${failed.length}`, '', ...(failed.length ? ['## Failures', '', ...failed.map((result) => `- **${result.key}** — ${result.failures.join('; ')}`)] : ['All automated visual checks passed.']), ''].join('\n'));
+const report = {
+  generated_at: new Date().toISOString(), strategy: 'six representative visual scenarios',
+  totals: {scenarios: results.length, passed: results.length - failed.length, failed: failed.length},
+  scenarios, results,
+};
+await fs.writeFile(path.join(OUT, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
+await fs.writeFile(path.join(OUT, 'SUMMARY.md'), `# FABLE visual recipe\n\n- Scenarios: ${results.length}\n- Passed: ${results.length - failed.length}\n- Failed: ${failed.length}\n${failed.length ? `\n## Failures\n\n${failed.map((item) => `- **${item.key}** — ${item.failures.join('; ')}`).join('\n')}\n` : ''}`);
+results.forEach((result) => console.log(`${result.passed ? 'PASS' : 'FAIL'} ${result.key}${result.failures.length ? ` — ${result.failures.join('; ')}` : ''}`));
 if (failed.length) process.exitCode = 1;

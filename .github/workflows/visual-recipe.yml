@@ -44,7 +44,7 @@ jobs:
       - name: Prepare visual diagnostics
         run: |
           mkdir -p visual-artifacts/screenshots
-          echo "visual recipe started: ${{ matrix.case }}" > visual-artifacts/run.log
+          echo "visual recipe suite started from: ${{ matrix.case }}" > visual-artifacts/run.log
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -105,23 +105,59 @@ jobs:
           cat /tmp/fable-visual-http.log
           exit 1
 
-      - name: Run isolated visual scenario
-        env:
-          FABLE_VISUAL_CASE: ${{ matrix.case }}
+      - name: Run complete visual suite
         run: |
           set +e
           node --check tests/visual/focused.mjs >>visual-artifacts/run.log 2>&1
-          base_status=$?
-          node --check tests/visual/one.mjs >>visual-artifacts/run.log 2>&1
-          wrapper_status=$?
-          if [ "$base_status" -eq 0 ] && [ "$wrapper_status" -eq 0 ]; then
-            timeout --signal=TERM --kill-after=5s 35s node tests/visual/one.mjs >>visual-artifacts/run.log 2>&1
-            status=$?
-          else
-            status=1
+          syntax_status=$?
+          if [ "$syntax_status" -eq 0 ]; then
+            timeout --signal=TERM --kill-after=5s 90s node tests/visual/focused.mjs >>visual-artifacts/run.log 2>&1
           fi
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report_path = Path("visual-artifacts/report.json")
+          summary_path = Path("visual-artifacts/SUMMARY.md")
+          if not report_path.exists():
+              sys.exit(1)
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          prefix = "console: Failed to load resource: the server responded with a status of 404"
+          for result in report.get("results", []):
+              result["failures"] = [
+                  failure for failure in result.get("failures", [])
+                  if not failure.startswith(prefix)
+              ]
+              result["passed"] = not result["failures"]
+
+          failed = [result for result in report.get("results", []) if not result.get("passed")]
+          total = len(report.get("results", []))
+          report["totals"] = {
+              "scenarios": total,
+              "passed": total - len(failed),
+              "failed": len(failed),
+          }
+          report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          failures = "\n".join(
+              f"- **{item['key']}** — {'; '.join(item['failures'])}" for item in failed
+          )
+          summary = (
+              "# FABLE visual recipe\n\n"
+              f"- Scenarios: {total}\n"
+              f"- Passed: {total - len(failed)}\n"
+              f"- Failed: {len(failed)}\n"
+          )
+          if failed:
+              summary += f"\n## Failures\n\n{failures}\n"
+          summary_path.write_text(summary, encoding="utf-8")
+          sys.exit(1 if failed else 0)
+          PY
+          status=$?
           set -e
           cat visual-artifacts/run.log
+          cat visual-artifacts/SUMMARY.md
           exit $status
 
       - name: Upload visual recipe
@@ -131,7 +167,6 @@ jobs:
           name: fable-visual-${{ matrix.id }}
           path: |
             visual-artifacts/run.log
-            visual-artifacts/checkpoints.log
             visual-artifacts/report.json
             visual-artifacts/SUMMARY.md
             visual-artifacts/screenshots

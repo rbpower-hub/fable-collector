@@ -102,7 +102,6 @@ _PWA_HEAD = """  <link rel="manifest" href="./manifest.webmanifest" />
 
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
 _DAY_SELECTION_TAG = '<script type="module" src="./js/day-selection.js"></script>'
-_DISABLED_OFF_HOURS_REFINEMENTS_TAG = '<script type="module" src="./js/off-hours-refinements.js"></script>'
 _VERDICT_HERO_TAG = '<script src="./verdict-hero.js"></script>'
 _FAMILY_CONTENT_GATE_TAG = '<script src="./family-content-gate.js"></script>'
 _FAMILY_REASONS_TAG = '<script src="./family-reasons.js"></script>'
@@ -134,11 +133,6 @@ def patch_dashboard_index(path: Path) -> bool:
     patched = patched.replace("isFresh(entry,gen)", "isFresh(entry,status)")
     patched = _KIOSK_RE.sub(_EXPLICIT_KIOSK, patched, count=1)
     patched = patched.replace(_OLD_COUNTDOWN, _NEW_COUNTDOWN)
-
-    # Emergency safety gate: remove the recursive off-hours module until its
-    # renderer is rewritten without a document-wide MutationObserver loop.
-    patched = patched.replace(f"  {_DISABLED_OFF_HOURS_REFINEMENTS_TAG}\n", "")
-    patched = patched.replace(_DISABLED_OFF_HOURS_REFINEMENTS_TAG, "")
 
     if '<link rel="manifest" href="./manifest.webmanifest" />' not in patched:
         patched = patched.replace("</head>", f"{_PWA_HEAD}\n</head>")

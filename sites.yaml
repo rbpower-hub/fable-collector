@@ -20,6 +20,8 @@ version: 2
 tz: Africa/Tunis
 home: gammarth-port
 
+# Ras Fartass est la destination canonique du cap Bon pour FABLE.
+# Korbous est un lieu distinct : ne jamais l'utiliser comme alias ou point météo de remplacement.
 exclude: [korbous]
 
 defaults:
@@ -54,6 +56,7 @@ sites:
     lon: 10.60320
     map_lat: 36.87700
     map_lon: 10.61300
+    route_note: "Destination côtière de référence depuis Gammarth et couramment fréquentée depuis Sidi Bou Saïd. Ras Fartass est distinct de Korbous ; toutes les prévisions et recommandations doivent utiliser le spot ras-fartass."
     onshore_sectors: [[330, 360], [0, 70]]
 
   - name: "El Haouaria"

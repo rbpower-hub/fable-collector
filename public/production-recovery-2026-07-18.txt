@@ -1,0 +1,4 @@
+FABLE production recovery trigger
+Date: 2026-07-18
+Reason: live dashboard reported unavailable/stale after recent merges.
+Expected action: force Collect & Deploy on main and publish a fresh Pages artifact.

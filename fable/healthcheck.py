@@ -10,6 +10,8 @@ from __future__ import annotations
 import datetime as dt
 import json
 import sys
+import time
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -17,13 +19,28 @@ from . import USER_AGENT
 from .util import enable_utf8_stdio
 
 DEFAULT_BASE = "https://rbpower-hub.github.io/fable-collector"
-MAX_AGE_MIN = 95           # hourly cadence + leeway
+# The collector targets an hourly refresh, but GitHub Actions and Pages can add
+# significant queue/deployment latency. Alert only after roughly two missed
+# refresh opportunities rather than on a small transient delay.
+MAX_AGE_MIN = 150
 SCHEDULE_MIN_INTERVAL_MIN = 50
 MIN_HOURLY_POINTS = 24
 
 
+def _cache_busted_url(url: str) -> str:
+    separator = "&" if urllib.parse.urlsplit(url).query else "?"
+    return f"{url}{separator}_fable_hc={int(time.time())}"
+
+
 def _get(url: str, timeout: int = 20) -> Any:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"})
+    req = urllib.request.Request(
+        _cache_busted_url(url),
+        headers={
+            "User-Agent": USER_AGENT,
+            "Cache-Control": "no-cache, no-store, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
@@ -55,8 +72,11 @@ def should_collect_live(
     return False, f"live status is {age_min:.0f} min old (threshold {min_interval_min})"
 
 
-def check_live(base_url: str = DEFAULT_BASE, max_age_min: int = MAX_AGE_MIN,
-               now: dt.datetime | None = None) -> list[str]:
+def check_live(
+    base_url: str = DEFAULT_BASE,
+    max_age_min: int = MAX_AGE_MIN,
+    now: dt.datetime | None = None,
+) -> list[str]:
     """Return list of problems (empty = healthy)."""
     problems: list[str] = []
     base = base_url.rstrip("/")

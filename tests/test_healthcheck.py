@@ -9,6 +9,20 @@ def test_status_age_minutes_uses_embedded_timezone():
     assert healthcheck.status_age_minutes(status, now=now) == 30.0
 
 
+def test_default_health_age_allows_transient_pages_delay():
+    assert healthcheck.MAX_AGE_MIN == 150
+
+
+def test_cache_busted_url_preserves_existing_query(monkeypatch):
+    monkeypatch.setattr(healthcheck.time, "time", lambda: 1234567890)
+    assert healthcheck._cache_busted_url("https://example.test/status.json") == (
+        "https://example.test/status.json?_fable_hc=1234567890"
+    )
+    assert healthcheck._cache_busted_url("https://example.test/status.json?x=1") == (
+        "https://example.test/status.json?x=1&_fable_hc=1234567890"
+    )
+
+
 def test_should_collect_live_skips_when_live_is_recent(monkeypatch):
     monkeypatch.setattr(healthcheck, "_get", lambda _url: {"generated_at": "2026-07-09T12:00:00+00:00"})
     now = dt.datetime.fromisoformat("2026-07-09T12:34:00+00:00")

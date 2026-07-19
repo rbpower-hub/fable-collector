@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.3.1 — 2026-07-15
+- **Carte centrée sur le golfe de Tunis** : la vue initiale et les boutons de recentrage reviennent désormais sur la zone Gammarth–golfe de Tunis au lieu d'englober automatiquement toutes les destinations longue distance.
+- **Tracés longue distance préservés** : Kélibia et Pantelleria restent consultables à la demande ; le recentrage efface simplement le trajet prévisualisé.
+
 ## 3.3.0 — 2026-07-15
 - **Horizon 72 h** : la collecte planifiée couvre désormais trois jours complets par défaut.
 - **Vue Famille trois jours** : Aujourd’hui, Demain et J+2 sont regroupés dans trois cartes responsive, horizontales sur mobile et en colonnes sur PC.

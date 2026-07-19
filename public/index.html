@@ -431,7 +431,9 @@
       high: { min_wave_sources: 2 }
     }
   };
-  const DEFAULT_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
+  // Vue d'accueil volontairement centrée sur le golfe de Tunis. Les trajets
+  // plus longs restent accessibles en sélectionnant une destination.
+  const DEFAULT_MAP_VIEW = { center:[36.88,10.48], zoom:9 };
 
   // --- Corridor helpers (cache + séries + vent au plus proche) ---
   const SPOT_CACHE = new Map();
@@ -996,16 +998,9 @@
   const spotsLayer    = L.layerGroup().addTo(map);
   function resetMapView(options={}){
     const animate = options.animate !== false;
-    const points = currentSpotLatLngs();
-    if(!points.length){
-      map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom, { animate });
-      return;
-    }
-    if(points.length === 1){
-      map.setView(points[0], 11, { animate });
-      return;
-    }
-    map.fitBounds(L.latLngBounds(points).pad(0.18), { animate, maxZoom: 10 });
+    corridorLayer.clearLayers();
+    resetMapSummary();
+    map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom, { animate });
   }
   window.panToFile = (file)=>{
     const s=spotConfig[file];

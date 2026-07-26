@@ -5,8 +5,15 @@ import datetime as dt
 import json
 from zoneinfo import ZoneInfo
 
-from fable.config import DEFAULT_RULES
-from fable.windows import Thresholds, detect_windows, load_site, run_reader
+from fable.config import DEFAULT_RULES, load_rules, rules_digest
+from fable.windows import (
+    Thresholds,
+    detect_windows,
+    hour_ok_for_phase,
+    load_site,
+    run_reader,
+    worst_metrics_at_hour,
+)
 from tests.helpers import TZ_NAME, make_spot_json
 
 TZ = ZoneInfo(TZ_NAME)
@@ -238,3 +245,150 @@ def test_worst_tp_wins_blocking(tmp_path):
     home = load(tmp_path, "Gammarth (port)", "gammarth-port", wave_models=CALM_WAVES_2)
     dest = load(tmp_path, "Sidi Bou Saïd", "sidi-bou-said", wave_models=waves)
     assert detect_windows(home, dest, 4, 6, TH) == []
+
+
+# ---------------------------------------------------------------------------
+# v3.2 — source-coherent wave scenarios and invalid-source filtering
+# ---------------------------------------------------------------------------
+
+
+def test_wave_thresholds_never_use_an_artificial_cross_model_pair(tmp_path):
+    waves = {
+        "high_long_period": (0.60, 6.5),
+        "low_short_period": (0.30, 3.0),
+    }
+    site = load(tmp_path, "Kélibia", "kelibia", wave_models=waves)
+
+    _, detail = hour_ok_for_phase(site, 0, "transit", TH)
+
+    assert "short_steep_hard" not in detail["reasons"]
+    assert detail["metrics"].hs == 0.60
+    assert detail["metrics"].tp == 6.5
+    assert detail["metrics"].wave_scenarios == [
+        {"source": "high_long_period", "hs": 0.60, "tp": 6.5},
+        {"source": "low_short_period", "hs": 0.30, "tp": 3.0},
+    ]
+
+
+def test_gammarth_real_short_steep_pair_keeps_its_veto_and_source(tmp_path):
+    waves = {
+        "ncep_gfswave025": (0.60, 3.45),
+        "ecmwf_wam025": (0.32, 4.20),
+        "meteofrance_wave": (0.26, 4.75),
+    }
+    site = load(tmp_path, "Gammarth (port)", "gammarth-port", wave_models=waves)
+
+    _, detail = hour_ok_for_phase(site, 0, "transit", TH)
+
+    assert "short_steep_hard" in detail["reasons"]
+    assert detail["blocking_wave_source"] == "ncep_gfswave025"
+    assert detail["blocking_wave_pair"] == {"hs": 0.60, "tp": 3.45}
+
+
+def test_dangerous_hs_with_missing_tp_keeps_hs_veto_only(tmp_path):
+    site = load(
+        tmp_path,
+        "Kélibia",
+        "kelibia",
+        wave_models={"dangerous_missing_tp": (0.85, None)},
+    )
+
+    _, detail = hour_ok_for_phase(site, 0, "transit", TH)
+
+    assert f"Hs>{TH.hs_no_go_min}" in detail["reasons"]
+    assert "short_steep_hard" not in detail["reasons"]
+    assert detail["metrics"].wave_scenarios == [
+        {"source": "dangerous_missing_tp", "hs": 0.85, "tp": None}
+    ]
+
+
+def test_missing_tp_is_never_borrowed_from_another_source(tmp_path):
+    site = load(
+        tmp_path,
+        "Kélibia",
+        "kelibia",
+        wave_models={
+            "dangerous_missing_tp": (0.85, None),
+            "low_short_period": (0.30, 3.0),
+        },
+    )
+
+    _, detail = hour_ok_for_phase(site, 0, "transit", TH)
+
+    assert f"Hs>{TH.hs_no_go_min}" in detail["reasons"]
+    assert "short_steep_hard" not in detail["reasons"]
+    assert {"source": "dangerous_missing_tp", "hs": 0.85, "tp": None} in (
+        detail["metrics"].wave_scenarios
+    )
+    assert {"source": "low_short_period", "hs": 0.30, "tp": 3.0} in (
+        detail["metrics"].wave_scenarios
+    )
+
+
+def test_all_zero_wave_series_is_excluded_from_hourly_statistics(tmp_path):
+    waves = {
+        "ncep_gfswave025": (0.0, 0.0),
+        "ecmwf_wam025": (1.12, 4.20),
+        "meteofrance_wave": (0.98, 4.30),
+    }
+    site = load(tmp_path, "Kélibia", "kelibia", wave_models=waves)
+
+    metrics = worst_metrics_at_hour(site, 0)
+
+    assert "ncep_gfswave025" not in site.waves_models
+    assert site.excluded_wave_sources == [
+        {"source": "ncep_gfswave025", "reason": "all_zero_wave_series"}
+    ]
+    assert metrics.n_wave_sources == 2
+    assert round(metrics.hs_spread, 2) == 0.14
+    assert metrics.hs == 1.12
+    assert metrics.tp == 4.20
+
+
+def test_zero_wave_pair_is_filtered_per_hour_without_disabling_source(tmp_path):
+    payload = make_spot_json(
+        "El Haouaria",
+        "el-haouaria",
+        DAY,
+        12,
+        wave_models={
+            "ncep_gfswave025": (0.20, 5.0),
+            "ecmwf_wam025": (0.30, 5.2),
+        },
+    )
+    payload["marine_models"]["ncep_gfswave025"]["hourly"]["wave_height"][0] = 0.0
+    payload["marine_models"]["ncep_gfswave025"]["hourly"]["wave_period"][0] = 0.0
+    path = tmp_path / "el-haouaria.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    site = load_site(path)
+
+    first = worst_metrics_at_hour(site, 0)
+    second = worst_metrics_at_hour(site, 1)
+
+    assert "ncep_gfswave025" in site.waves_models
+    assert first.n_wave_sources == 1
+    assert {
+        "source": "ncep_gfswave025",
+        "reason": "invalid_wave_pair",
+    } in first.excluded_wave_sources
+    assert second.n_wave_sources == 2
+
+
+def test_three_valid_pantelleria_sources_remain_unchanged(tmp_path):
+    waves = {
+        "ncep_gfswave025": (1.08, 4.90),
+        "ecmwf_wam025": (1.08, 4.15),
+        "meteofrance_wave": (1.16, 4.30),
+    }
+    site = load(tmp_path, "Pantelleria", "pantelleria", wave_models=waves)
+
+    metrics = worst_metrics_at_hour(site, 0)
+
+    assert metrics.n_wave_sources == 3
+    assert metrics.hs == 1.16
+    assert metrics.tp == 4.30
+    assert metrics.excluded_wave_sources == []
+
+
+def test_wave_fix_does_not_change_navigation_rules():
+    assert rules_digest(load_rules()) == "75d3a79038f4"

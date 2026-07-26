@@ -82,7 +82,10 @@ def hard_reasons(metrics: HourMetrics, th: Thresholds) -> list[str]:
     reasons = []
     if metrics.max_speed is None or metrics.max_gust is None:
         reasons.append("vent_inconnu")
-    if metrics.hs is None or metrics.tp is None:
+    valid_wave_scenarios = [
+        scenario for scenario in metrics.wave_scenarios if scenario.get("tp") is not None
+    ]
+    if not valid_wave_scenarios:
         reasons.append("vagues_inconnues")
     if any(code in th.thunder_codes for code in metrics.codes):
         reasons.append("orages")
@@ -100,33 +103,83 @@ def hard_reasons(metrics: HourMetrics, th: Thresholds) -> list[str]:
         reasons.append("squalls")
     if metrics.hs is not None and metrics.hs > th.hs_no_go_min:
         reasons.append(f"Hs>{th.hs_no_go_min}")
-    if (
-        metrics.hs is not None
-        and metrics.tp is not None
-        and metrics.hs >= th.short_steep_2_hs
-        and metrics.tp <= th.short_steep_2_tp
+    if any(
+        scenario["hs"] >= th.short_steep_2_hs
+        and scenario["tp"] <= th.short_steep_2_tp
+        for scenario in valid_wave_scenarios
     ):
         reasons.append("short_steep_hard")
     return reasons
 
 
 def standard_wave_reasons(metrics: HourMetrics, th: Thresholds, sheltered: bool) -> list[str]:
-    if metrics.hs is None or metrics.tp is None:
+    scenarios = [
+        scenario for scenario in metrics.wave_scenarios if scenario.get("tp") is not None
+    ]
+    if not scenarios:
         return ["vagues_inconnues"]
-    if sheltered and metrics.hs <= th.anchor_hs_ease_max:
-        if metrics.tp >= th.anchor_tp_family:
-            return []
-        return [f"Tp<{th.anchor_tp_family}@Hs<={th.anchor_hs_ease_max}"]
     reasons = []
-    if metrics.hs >= th.hs_family_max:
-        reasons.append(f"Hs>={th.hs_family_max}")
-    elif metrics.hs < 0.4 and metrics.tp < th.tp_min_at_lt04:
-        reasons.append(f"Tp<{th.tp_min_at_lt04}@Hs<0.4")
-    elif 0.4 <= metrics.hs < 0.5 and metrics.tp < th.tp_min_at_04_05:
-        reasons.append(f"Tp<{th.tp_min_at_04_05}@Hs0.4-0.5")
-    if metrics.hs >= th.short_steep_1_hs and metrics.tp <= th.short_steep_1_tp:
-        reasons.append("short_steep")
+    for scenario in scenarios:
+        hs, tp = scenario["hs"], scenario["tp"]
+        scenario_reasons = []
+        if sheltered and hs <= th.anchor_hs_ease_max:
+            if tp < th.anchor_tp_family:
+                scenario_reasons.append(f"Tp<{th.anchor_tp_family}@Hs<={th.anchor_hs_ease_max}")
+        else:
+            if hs >= th.hs_family_max:
+                scenario_reasons.append(f"Hs>={th.hs_family_max}")
+            elif hs < 0.4 and tp < th.tp_min_at_lt04:
+                scenario_reasons.append(f"Tp<{th.tp_min_at_lt04}@Hs<0.4")
+            elif 0.4 <= hs < 0.5 and tp < th.tp_min_at_04_05:
+                scenario_reasons.append(f"Tp<{th.tp_min_at_04_05}@Hs0.4-0.5")
+            if hs >= th.short_steep_1_hs and tp <= th.short_steep_1_tp:
+                scenario_reasons.append("short_steep")
+        for reason in scenario_reasons:
+            if reason not in reasons:
+                reasons.append(reason)
     return reasons
+
+
+def blocking_wave_scenario(
+    metrics: HourMetrics,
+    reasons: list[str],
+    th: Thresholds,
+) -> dict[str, Any] | None:
+    scenarios = metrics.wave_scenarios
+    for reason in reasons:
+        matches = []
+        if reason.startswith("Hs"):
+            matches = [scenario for scenario in scenarios if scenario["hs"] >= th.hs_family_max]
+        elif reason == "short_steep_hard":
+            matches = [
+                scenario
+                for scenario in scenarios
+                if scenario.get("tp") is not None
+                and scenario["hs"] >= th.short_steep_2_hs
+                and scenario["tp"] <= th.short_steep_2_tp
+            ]
+        elif reason == "short_steep":
+            matches = [
+                scenario
+                for scenario in scenarios
+                if scenario.get("tp") is not None
+                and scenario["hs"] >= th.short_steep_1_hs
+                and scenario["tp"] <= th.short_steep_1_tp
+            ]
+        elif reason.startswith("Tp"):
+            matches = [
+                scenario
+                for scenario in scenarios
+                if scenario.get("tp") is not None
+                and (
+                    scenario["tp"] < th.tp_min_at_lt04
+                    or scenario["tp"] < th.tp_min_at_04_05
+                    or scenario["tp"] < th.anchor_tp_family
+                )
+            ]
+        if matches:
+            return max(matches, key=lambda scenario: scenario["hs"])
+    return None
 
 
 def hour_ok_for_phase(
@@ -146,9 +199,17 @@ def hour_ok_for_phase(
             reasons.append(f"vent>{th.prudent_wind_max:g}@prudent")
         if metrics.max_gust is not None and metrics.max_gust >= th.prudent_gust_max:
             reasons.append(f"rafales>={th.prudent_gust_max:g}@prudent")
-        if metrics.hs is not None and metrics.hs > th.prudent_hs_max:
+        if any(
+            scenario["hs"] > th.prudent_hs_max
+            for scenario in metrics.wave_scenarios
+            if scenario.get("tp") is not None
+        ):
             reasons.append(f"Hs>{th.prudent_hs_max:g}@prudent")
-        if metrics.tp is not None and metrics.tp < th.prudent_tp_min:
+        if any(
+            scenario["tp"] < th.prudent_tp_min
+            for scenario in metrics.wave_scenarios
+            if scenario.get("tp") is not None
+        ):
             reasons.append(f"Tp<{th.prudent_tp_min:g}@prudent")
     elif not reasons:
         if metrics.max_speed is not None and metrics.any_onshore and metrics.max_speed > th.onshore_max_ok:
@@ -161,11 +222,18 @@ def hour_ok_for_phase(
         elif metrics.max_speed is not None and metrics.max_speed >= th.wind_family_max:
             reasons.append(f"vent>={int(th.wind_family_max)}")
         reasons.extend(standard_wave_reasons(metrics, th, sheltered))
+    blocking_scenario = blocking_wave_scenario(metrics, reasons, th)
     return not reasons, {
         "reasons": reasons,
         "metrics": metrics,
         "tier": tier,
         "shelter_validated": sheltered,
+        "blocking_wave_source": blocking_scenario.get("source") if blocking_scenario else None,
+        "blocking_wave_pair": (
+            {"hs": blocking_scenario["hs"], "tp": blocking_scenario.get("tp")}
+            if blocking_scenario
+            else None
+        ),
     }
 
 
@@ -217,6 +285,8 @@ def blocker(site: Site, index: int, stage: str, phase: str, detail: dict[str, An
         "reason_fr": fr,
         "reason_en": en,
         "metrics": asdict(metrics),
+        "blocking_wave_source": detail.get("blocking_wave_source"),
+        "blocking_wave_pair": detail.get("blocking_wave_pair"),
         "tier": detail.get("tier"),
         "shelter_validated": bool(detail.get("shelter_validated", False)),
     }

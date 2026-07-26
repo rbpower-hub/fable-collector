@@ -111,6 +111,7 @@ class Site:
     wind_models: dict[str, dict[str, list[float | None]]]
     waves: dict[str, list[float | None]]
     waves_models: dict[str, dict[str, list[float | None]]]
+    excluded_wave_sources: list[dict[str, str]]
     onshore_sectors: list[tuple[int, int]]
     transit_speed_kts: dict[str, float] | None
     route_origin: str | None
@@ -136,6 +137,8 @@ class HourMetrics:
     n_models: int
     hs_spread: float | None
     n_wave_sources: int
+    wave_scenarios: list[dict[str, Any]]
+    excluded_wave_sources: list[dict[str, str]]
 
 
 def is_spot_payload(value: Any) -> bool:
@@ -150,6 +153,29 @@ def is_spot_payload(value: Any) -> bool:
 
 def _safe(values: list[Any] | None, index: int) -> Any:
     return None if values is None or index >= len(values) else values[index]
+
+
+def _positive_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _all_zero_wave_series(hs: list[Any], tp: list[Any]) -> bool:
+    values = [*hs, *tp]
+    return bool(values) and all(
+        value is None
+        or (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and float(value) == 0
+        )
+        for value in values
+    )
 
 
 def _vis_to_km(values: Any) -> list[float | None] | None:
@@ -267,13 +293,23 @@ def load_site(path: Path) -> Site | None:
             "visibility_km": _vis_to_km(hourly.get("visibility")),
         }}
 
+    marine_models = payload.get("marine_models") or {}
     wave_models = {}
-    for name, model in (payload.get("marine_models") or {}).items():
+    excluded_wave_sources = []
+    for name, model in marine_models.items():
         values = (model or {}).get("hourly") or {}
         hs, tp = values.get("wave_height"), values.get("wave_period")
-        if isinstance(hs, list) and any(value is not None for value in hs):
-            wave_models[name] = {"hs": hs, "tp": tp if isinstance(tp, list) else []}
-    if not wave_models:
+        if isinstance(hs, list):
+            periods = tp if isinstance(tp, list) else []
+            if _all_zero_wave_series(hs, periods):
+                excluded_wave_sources.append({
+                    "source": str(name),
+                    "reason": "all_zero_wave_series",
+                })
+                continue
+            if any(value is not None for value in hs):
+                wave_models[name] = {"hs": hs, "tp": periods}
+    if not marine_models:
         hs, tp = hourly.get("hs") or hourly.get("wave_height"), hourly.get("tp") or hourly.get("wave_period")
         if isinstance(hs, list) and any(value is not None for value in hs):
             wave_models = {"om": {"hs": hs, "tp": tp if isinstance(tp, list) else []}}
@@ -292,6 +328,7 @@ def load_site(path: Path) -> Site | None:
             "wave_period": hourly.get("tp") or hourly.get("wave_period"),
         },
         waves_models=wave_models,
+        excluded_wave_sources=excluded_wave_sources,
         onshore_sectors=_sectors(meta, slug),
         transit_speed_kts=_speed_range(meta),
         route_origin=slugify(str(meta.get("route_origin", "")).strip()) or None,
@@ -324,20 +361,35 @@ def worst_metrics_at_hour(site: Site, index: int) -> HourMetrics:
                 pass
         models += 1
 
-    hs_values, tp_values = [], []
-    for values in site.waves_models.values():
-        hs, tp = _safe(values.get("hs"), index), _safe(values.get("tp"), index)
+    wave_scenarios = []
+    excluded_wave_sources = list(site.excluded_wave_sources)
+    for source, values in site.waves_models.items():
+        raw_hs, raw_tp = _safe(values.get("hs"), index), _safe(values.get("tp"), index)
+        hs, tp = _positive_float(raw_hs), _positive_float(raw_tp)
         if hs is not None:
-            hs_values.append(float(hs))
-        if tp is not None:
-            tp_values.append(float(tp))
-    if hs_values:
-        hs, tp = max(hs_values), min(tp_values) if tp_values else None
+            wave_scenarios.append({"source": source, "hs": hs, "tp": tp})
+        if hs is None or tp is None:
+            excluded_wave_sources.append({
+                "source": source,
+                "reason": "invalid_wave_pair",
+            })
+    hs_scenarios = [scenario for scenario in wave_scenarios if scenario["hs"] is not None]
+    valid_scenarios = [scenario for scenario in wave_scenarios if scenario["tp"] is not None]
+    if hs_scenarios:
+        representative = max(
+            hs_scenarios,
+            key=lambda scenario: (scenario["hs"], -(scenario["tp"] or float("inf"))),
+        )
+        hs, tp = representative["hs"], representative["tp"]
     else:
         raw_hs = _safe(site.waves.get("significant_wave_height"), index)
         raw_tp = _safe(site.waves.get("wave_period"), index)
-        hs = float(raw_hs) if raw_hs is not None else None
-        tp = float(raw_tp) if raw_tp is not None else None
+        hs, tp = _positive_float(raw_hs), _positive_float(raw_tp)
+        if hs is not None:
+            wave_scenarios = [{"source": "om", "hs": hs, "tp": tp}]
+            valid_scenarios = wave_scenarios if tp is not None else []
+
+    hs_values = [scenario["hs"] for scenario in valid_scenarios]
 
     return HourMetrics(
         max_speed=max(speeds) if speeds else None,
@@ -352,7 +404,9 @@ def worst_metrics_at_hour(site: Site, index: int) -> HourMetrics:
         tp=tp,
         n_models=models,
         hs_spread=max(hs_values) - min(hs_values) if len(hs_values) >= 2 else None,
-        n_wave_sources=len(hs_values),
+        n_wave_sources=len(valid_scenarios),
+        wave_scenarios=wave_scenarios,
+        excluded_wave_sources=excluded_wave_sources,
     )
 
 

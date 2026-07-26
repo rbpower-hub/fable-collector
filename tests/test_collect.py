@@ -119,7 +119,7 @@ def test_run_collect_writes_files(tmp_path, repo_root, monkeypatch):
 # ---------------------------------------------------------------------------
 # v2.1 — multi-model marine
 # ---------------------------------------------------------------------------
-def make_getter_marine_models(fail_primary=False):
+def make_getter_marine_models(fail_primary=False, zero_ncep=False):
     def getter(url: str):
         if "marine" in url:
             if "models=meteofrance_wave" in url:
@@ -127,7 +127,12 @@ def make_getter_marine_models(fail_primary=False):
                     raise RuntimeError("mfwam down")
                 return make_marine_payload(START, 48, hs=0.2, tp=5.0)
             if "models=ncep_gfswave025" in url:
-                return make_marine_payload(START, 48, hs=0.25, tp=5.2)
+                return make_marine_payload(
+                    START,
+                    48,
+                    hs=0.0 if zero_ncep else 0.25,
+                    tp=0.0 if zero_ncep else 5.2,
+                )
             if "models=ecmwf_wam025" in url:
                 return make_marine_payload(START, 48, hs=0.22, tp=5.1)
             return make_marine_payload(START, 48)
@@ -155,3 +160,40 @@ def test_marine_primary_fallback_on_failure():
     assert p["meta"]["sources"]["marine_open_meteo"]["model_used"] == "ncep_gfswave025"
     assert p["hourly"]["hs"][0] == 0.25                # fallback series became primary
     assert "meteofrance_wave" not in p["marine_models"]
+
+
+def test_all_zero_parallel_marine_series_is_not_published_or_counted():
+    p = build_site_payload(
+        SITE,
+        settings(),
+        {},
+        START,
+        START + dt.timedelta(hours=48),
+        getter=make_getter_marine_models(zero_ncep=True),
+    )
+
+    assert set(p["marine_models"]) == {"meteofrance_wave", "ecmwf_wam025"}
+    assert p["meta"]["debug"]["marine_models_count"] == 2
+    ncep_attempts = [
+        attempt
+        for attempt in p["meta"]["debug"]["marine_parallel_attempts"]
+        if attempt["model"] == "ncep_gfswave025"
+    ]
+    assert ncep_attempts
+    assert ncep_attempts[0]["status"] == "invalid_all_zero_wave_series"
+
+
+def test_all_zero_primary_marine_series_falls_back_to_next_model():
+    active_settings = settings()
+    active_settings.marine_model_order = ["ncep_gfswave025", "ecmwf_wam025"]
+    p = build_site_payload(
+        SITE,
+        active_settings,
+        {},
+        START,
+        START + dt.timedelta(hours=48),
+        getter=make_getter_marine_models(zero_ncep=True),
+    )
+
+    assert p["meta"]["sources"]["marine_open_meteo"]["model_used"] == "ecmwf_wam025"
+    assert p["hourly"]["hs"][0] == 0.22

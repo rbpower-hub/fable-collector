@@ -211,6 +211,30 @@ def has_non_null(arr: list) -> bool:
     return isinstance(arr, list) and any(v is not None for v in arr)
 
 
+def marine_series_is_all_zero(hourly: dict[str, Any]) -> bool:
+    hs = first_series(hourly, "wave_height")
+    tp = first_series(hourly, "wave_period")
+    values = [*hs, *tp]
+    return bool(values) and all(
+        value is None
+        or (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and float(value) == 0
+        )
+        for value in values
+    )
+
+
+def marine_series_has_usable_height(hourly: dict[str, Any]) -> bool:
+    return any(
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and float(value) > 0
+        for value in first_series(hourly, "wave_height")
+    )
+
+
 def has_wind_arrays(payload: dict[str, Any]) -> bool:
     h = payload.get("hourly") or {}
     return has_non_null(first_series(h, "wind_speed_10m")) and has_non_null(first_series(h, "wind_gusts_10m"))
@@ -303,7 +327,7 @@ def fetch_forecast(lat: float, lon: float, tz_name: str, start: dt.date, end: dt
 
 def _marine_has_waves(p: dict[str, Any]) -> bool:
     h = p.get("hourly") or {}
-    return has_non_null(first_series(h, "wave_height"))
+    return marine_series_has_usable_height(h)
 
 
 def fetch_marine(lat: float, lon: float, tz_name: str, start: dt.date, end: dt.date,
@@ -331,8 +355,13 @@ def fetch_marine(lat: float, lon: float, tz_name: str, start: dt.date, end: dt.d
             continue
         p = normalize_hourly_keys(p)
         if not _marine_has_waves(p):
-            last_err = f"{model or 'default'}: empty wave arrays"
-            log.warning("marine model %s has empty wave arrays, trying next", model or "default")
+            reason = (
+                "invalid_all_zero_wave_series"
+                if marine_series_is_all_zero(p.get("hourly") or {})
+                else "empty_wave_arrays"
+            )
+            last_err = f"{model or 'default'}: {reason}"
+            log.warning("marine model %s has %s, trying next", model or "default", reason)
             continue
         p["_model_used"] = model or "default"
         log.info("marine model used: %s", p["_model_used"])
@@ -363,7 +392,12 @@ def fetch_parallel_marine(lat: float, lon: float, tz_name: str, start: dt.date, 
                 continue
             p = normalize_hourly_keys(p)
             if not _marine_has_waves(p):
-                attempts.append({"model": m, "status": "no_wave_arrays", "url": url})
+                status = (
+                    "invalid_all_zero_wave_series"
+                    if marine_series_is_all_zero(p.get("hourly") or {})
+                    else "no_wave_arrays"
+                )
+                attempts.append({"model": m, "status": status, "url": url})
                 continue
             models_out[m] = p
             status = "ok"

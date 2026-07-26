@@ -31,6 +31,8 @@ from .openmeteo import (
     fetch_marine,
     first_series,
     has_wind_arrays,
+    marine_series_has_usable_height,
+    marine_series_is_all_zero,
     normalize_hourly_keys,
     payload_has_error,
 )
@@ -284,16 +286,21 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
                                          start_local, end_local, tz)
                 msl = slice_by_indices(mp, MARINE_KEYS, keep)
                 aligned = align_series_to_axis(msl, axis, MARINE_KEYS)
-                if any(v is not None for v in (aligned.get("wave_height") or [])):
+                if marine_series_has_usable_height(aligned):
                     marine_models_out[mname] = {"hourly": aligned}
                 else:
-                    marine_attempts.append({"model": mname, "status": "no_overlap_with_axis"})
+                    status = (
+                        "invalid_all_zero_wave_series"
+                        if marine_series_is_all_zero(aligned)
+                        else "no_overlap_with_axis"
+                    )
+                    marine_attempts.append({"model": mname, "status": status})
         except Exception as e:  # noqa: BLE001
             log.debug("parallel marine fetch failed: %s", e)
         # republish primary marine under marine_models.* for schema homogeneity
         if marine_primary_used not in marine_models_out:
             primary_aligned = align_series_to_axis(marine_slice, axis, MARINE_KEYS)
-            if any(v is not None for v in (primary_aligned.get("wave_height") or [])):
+            if marine_series_has_usable_height(primary_aligned):
                 marine_models_out[marine_primary_used] = {"hourly": primary_aligned}
                 marine_attempts.append({"model": marine_primary_used, "status": "published_primary_copy"})
 

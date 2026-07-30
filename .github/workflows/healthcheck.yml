@@ -1,24 +1,48 @@
 # Healthcheck EXTERNE : vérifie le déploiement Pages en production.
 #
-# v3 : confirme les erreurs transitoires avant d'alerter, neutralise le cache
-# Pages et clôt automatiquement l'incident lorsque la production redevient saine.
+# v4 :
+# - confirme les erreurs transitoires sur 5 tentatives ;
+# - conserve le journal complet de toutes les tentatives ;
+# - évite les exécutions concurrentes ;
+# - met à jour une seule issue au lieu d'ajouter un commentaire à chaque échec ;
+# - clôt uniquement l'incident healthcheck correspondant ;
+# - utilise github-script v8 / Node.js 24.
+#
+# Important :
+# La logique de fraîcheur et les seuils restent gérés par fable.healthcheck.
+# Aucun seuil météo ou métier n'est modifié ici.
+
 name: Healthcheck (fable-collector)
 
 on:
   schedule:
-    - cron: "41 */6 * * *"   # toutes les 6 h, minute décalée
+    - cron: "41 */6 * * *" # toutes les 6 h, minute décalée
   workflow_dispatch: {}
 
 permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: fable-production-healthcheck
+  cancel-in-progress: true
+
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+
+    # 5 tentatives espacées de 60 secondes représentent environ 4 minutes
+    # d'attente, auxquelles s'ajoutent checkout, Python et les appels réseau.
+    timeout-minutes: 12
+
+    env:
+      HEALTHCHECK_ATTEMPTS: "5"
+      HEALTHCHECK_DELAY_SECONDS: "60"
+      HEALTHCHECK_BASE_URL: "https://rbpower-hub.github.io/fable-collector"
+
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -27,67 +51,202 @@ jobs:
 
       - name: Check live Pages deployment with confirmation retries
         id: check
+        shell: bash
         run: |
-          set +e
+          set -uo pipefail
+
+          attempts="${HEALTHCHECK_ATTEMPTS}"
+          delay="${HEALTHCHECK_DELAY_SECONDS}"
           code=1
-          for attempt in 1 2 3; do
-            echo "Healthcheck attempt ${attempt}/3"
-            python -m fable.healthcheck "https://rbpower-hub.github.io/fable-collector" > /tmp/health.log 2>&1
+          attempts_used=0
+
+          # Journal cumulatif utilisé par l'issue GitHub.
+          : > /tmp/healthcheck.log
+
+          for attempt in $(seq 1 "$attempts"); do
+            attempts_used="$attempt"
+            attempt_log="/tmp/healthcheck-attempt-${attempt}.log"
+            timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+            echo "::group::Healthcheck attempt ${attempt}/${attempts}"
+            echo "Healthcheck attempt ${attempt}/${attempts}"
+            echo "UTC timestamp: ${timestamp}"
+            echo "Target: ${HEALTHCHECK_BASE_URL}"
+
+            # Le code retour est capturé sans interrompre le step.
+            set +e
+            python -m fable.healthcheck "${HEALTHCHECK_BASE_URL}" \
+              > "${attempt_log}" 2>&1
             code=$?
-            cat /tmp/health.log
-            if [ "$code" -eq 0 ]; then
+            set -e
+
+            cat "${attempt_log}"
+            echo "Attempt exit code: ${code}"
+
+            {
+              echo "============================================================"
+              echo "Attempt ${attempt}/${attempts}"
+              echo "UTC timestamp: ${timestamp}"
+              echo "Exit code: ${code}"
+              echo "============================================================"
+              cat "${attempt_log}"
+              echo
+            } >> /tmp/healthcheck.log
+
+            echo "::endgroup::"
+
+            if [ "${code}" -eq 0 ]; then
+              echo "Production healthcheck succeeded on attempt ${attempt}."
               break
             fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "Transient failure possible; retrying in 45 seconds..."
-              sleep 45
+
+            if [ "${attempt}" -lt "${attempts}" ]; then
+              echo "Transient failure possible; retrying in ${delay} seconds..."
+              sleep "${delay}"
             fi
           done
-          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
 
-      - name: Open/update issue on persistent failure
-        if: steps.check.outputs.exit_code != '0'
+          if [ "${code}" -eq 0 ]; then
+            result="healthy"
+          else
+            result="persistent_failure"
+          fi
+
+          {
+            echo "exit_code=${code}"
+            echo "result=${result}"
+            echo "attempts_used=${attempts_used}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## FABLE production healthcheck"
+            echo
+            echo "- Result: \`${result}\`"
+            echo "- Attempts used: \`${attempts_used}/${attempts}\`"
+            echo "- Final exit code: \`${code}\`"
+            echo "- Target: ${HEALTHCHECK_BASE_URL}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          # Ce step reste techniquement vert.
+          # La décision de mettre le job en échec intervient dans le dernier step.
+          exit 0
+
+      - name: Open or update issue on persistent failure
+        if: always() && steps.check.outputs.result == 'persistent_failure'
         uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
-            const log = fs.readFileSync('/tmp/health.log', 'utf8');
-            const title = '🔴 Healthcheck: production Pages stale or broken';
-            const {data: issues} = await github.rest.issues.listForRepo({
-              owner: context.repo.owner, repo: context.repo.repo,
-              state: 'open', labels: 'healthcheck'
-            });
-            const body = `Healthcheck persistant du ${new Date().toISOString()} après 3 tentatives :\n\n\`\`\`\n${log}\n\`\`\`\n` +
-              `➡️ Vérifier le workflow **Collect & Deploy** : collecte, API météo, file GitHub Actions ou déploiement Pages.`;
-            if (issues.length > 0) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: issues[0].number, body
+
+            const title =
+              '🔴 Healthcheck: production Pages stale or broken';
+
+            const logPath = '/tmp/healthcheck.log';
+
+            let fullLog = fs.existsSync(logPath)
+              ? fs.readFileSync(logPath, 'utf8')
+              : 'Healthcheck log file was not produced.';
+
+            // Les corps d'issues GitHub ont une taille limitée.
+            // Conserver prioritairement la fin du journal.
+            const maxLogCharacters = 50000;
+
+            if (fullLog.length > maxLogCharacters) {
+              fullLog =
+                '[Journal tronqué — seules les dernières lignes sont conservées]\n\n' +
+                fullLog.slice(-maxLogCharacters);
+            }
+
+            const runUrl =
+              `https://github.com/${context.repo.owner}/${context.repo.repo}` +
+              `/actions/runs/${context.runId}`;
+
+            const body =
+              `Le healthcheck de production a échoué de manière persistante.\n\n` +
+              `- Date UTC : ${new Date().toISOString()}\n` +
+              `- Tentatives : ${{ steps.check.outputs.attempts_used }}/${{ env.HEALTHCHECK_ATTEMPTS }}\n` +
+              `- Code final : ${{ steps.check.outputs.exit_code }}\n` +
+              `- Workflow run : ${runUrl}\n\n` +
+              `### Journal complet\n\n` +
+              `\`\`\`text\n${fullLog}\n\`\`\`\n\n` +
+              `### Vérifications recommandées\n\n` +
+              `1. Workflow **Collect & Deploy (fable-collector)**\n` +
+              `2. Collecte des API météo\n` +
+              `3. Génération de status.json, windows.json et recommendations.json\n` +
+              `4. Déploiement GitHub Pages\n` +
+              `5. Fraîcheur réelle de status.json`;
+
+            const issues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: 'healthcheck',
+                per_page: 100
+              }
+            );
+
+            const incident = issues.find(
+              issue => issue.title === title
+            );
+
+            if (incident) {
+              // Mettre à jour l'issue existante au lieu d'ajouter
+              // un commentaire à chaque exécution planifiée.
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: incident.number,
+                body
               });
             } else {
               await github.rest.issues.create({
-                owner: context.repo.owner, repo: context.repo.repo,
-                title, body, labels: ['healthcheck']
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['healthcheck']
               });
             }
 
-      - name: Close recovered healthcheck incidents
-        if: steps.check.outputs.exit_code == '0'
+      - name: Close recovered healthcheck incident
+        if: always() && steps.check.outputs.result == 'healthy'
         uses: actions/github-script@v8
         with:
           script: |
-            const {data: issues} = await github.rest.issues.listForRepo({
-              owner: context.repo.owner, repo: context.repo.repo,
-              state: 'open', labels: 'healthcheck'
-            });
-            for (const issue of issues) {
+            const title =
+              '🔴 Healthcheck: production Pages stale or broken';
+
+            const issues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: 'healthcheck',
+                per_page: 100
+              }
+            );
+
+            const incidents = issues.filter(
+              issue => issue.title === title
+            );
+
+            for (const issue of incidents) {
               await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `✅ Production rétablie et confirmée par le healthcheck du ${new Date().toISOString()}. Incident clôturé automatiquement.`
+                body:
+                  `✅ Production rétablie et confirmée par cinq contrôles ` +
+                  `au maximum le ${new Date().toISOString()}. ` +
+                  `Incident clôturé automatiquement.`
               });
+
               await github.rest.issues.update({
-                owner: context.repo.owner, repo: context.repo.repo,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
                 issue_number: issue.number,
                 state: 'closed',
                 state_reason: 'completed'
@@ -95,5 +254,8 @@ jobs:
             }
 
       - name: Fail job if persistently unhealthy
-        if: steps.check.outputs.exit_code != '0'
-        run: exit 1
+        if: always() && steps.check.outputs.result == 'persistent_failure'
+        shell: bash
+        run: |
+          echo "Production remained unhealthy after all confirmation attempts."
+          exit 1

@@ -1225,7 +1225,7 @@
           isOffHours,
           dest_slug: dest.dest_slug,
           html: `<div class="window-line ${isOffHours?'expert-only':''}"
-                          data-slug="${dest.dest_slug||''}" data-start="${seg.start||''}" data-end="${seg.end||''}">
+                          data-slug="${dest.dest_slug||''}" data-start="${seg.start||''}" data-end="${seg.end||''}" data-direction="${seg.direction||''}">
                   <div class="title">${dest.dest_name} <span class="go ${goCls}">${goTxt}</span> ${confBadge}</div>
                   <div class="small">${fmtFriendly(seg.start)} ⟷ ${fmtFriendly(seg.end)} ⟷ ${Math.round((new Date(seg.end)-new Date(seg.start))/36e5)} h</div>
                   ${compositeStageStripHtml(compositeView)}

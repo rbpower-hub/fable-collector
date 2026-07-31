@@ -41,3 +41,7 @@ def test_family_view_groups_three_days_and_plans_long_trip_returns():
     assert "[0, 1, 2].map" in script
     assert "one_way_multi_day" in script
     assert "Aucun retour validé dans l’horizon de 72 heures" in script
+    assert "getDisplayedNavigationWindows(key, data)" in script
+    assert "créneaux long trajet" in script
+    assert "data-nav-family-count" in script
+    assert "data-nav-long-count" in script

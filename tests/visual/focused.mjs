@@ -82,7 +82,7 @@ function payloadsFor(state) {
         {dest_slug: 'ghar-el-melh.json', dest_name: 'Ghar El Melh', required_hours: 4, windows: [], diagnostics: marine ? blocker('Données de vagues manquantes — fenêtres non confirmées', 'Wave data unavailable — windows are not confirmed', 'marine_error') : blocker('Mer trop agitée', 'Sea too rough', 'sea')},
         {dest_slug: 'kelibia.json', dest_name: 'Kélibia', trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', windows: [
           {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'outbound', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
-          {...windowItem, start: iso(1500), end: iso(1920), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'return', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
+          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'return', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
         ]},
         {dest_slug: 'pantelleria.json', dest_name: 'Pantelleria', beta: true, trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', windows: [
           {...windowItem, start: iso(1560), end: iso(1980), trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', direction: 'outbound', origin_name: 'Kélibia', destination_name: 'Pantelleria', beta: true},

@@ -53,6 +53,13 @@ def test_long_trip_cards_are_not_hidden_from_family_navigation():
     assert "line.classList.toggle('expert-only', isLongTrip(slug))" not in gate
 
 
+def test_direction_is_part_of_the_annotation_identity():
+    annotations = (ROOT / "public" / "reasons-debug.js").read_text(encoding="utf-8")
+
+    assert "item.direction || \"\"" in annotations
+    assert "node.dataset.direction || \"\"" in annotations
+
+
 def test_activity_mutations_are_not_observed_as_feedback():
     script = (ROOT / "public" / "js" / "day-selection.js").read_text(encoding="utf-8")
 

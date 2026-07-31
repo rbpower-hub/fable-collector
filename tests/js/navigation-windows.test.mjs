@@ -25,8 +25,6 @@ const outbound = {
 };
 const returned = {
   ...outbound,
-  start: '2026-08-02T10:00:00+01:00',
-  end: '2026-08-02T17:00:00+01:00',
   direction: 'return',
 };
 

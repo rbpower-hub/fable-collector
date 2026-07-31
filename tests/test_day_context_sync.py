@@ -14,6 +14,11 @@ def test_day_selection_filters_all_family_context_panels():
     assert "activity-fallback" in script
     assert "Africa/Tunis" in script
     assert "fable:day-selected" in script
+    assert "getDisplayedNavigationWindows(key, state.windows)" in script
+    assert "renderLongTripLine(line, row)" in script
+    assert "line.dataset.normalizedNavigation = 'true'" in script
+    assert "aller simple — retour à planifier séparément" in script
+    assert "offshore_one_way_beta" in script
 
 
 def test_activity_cards_publish_stable_day_metadata():
@@ -39,6 +44,13 @@ def test_activity_fallback_does_not_claim_specialized_safety():
     assert "Aucune activité spécialisée ne passe ses propres limites de confort" in script
     assert "Une sortie familiale sur l’eau reste possible" in script
     assert "tripMode !== 'one_way_multi_day'" in script
+
+
+def test_long_trip_cards_are_not_hidden_from_family_navigation():
+    gate = (ROOT / "public" / "family-content-gate.js").read_text(encoding="utf-8")
+
+    assert "line.classList.remove('expert-only')" in gate
+    assert "line.classList.toggle('expert-only', isLongTrip(slug))" not in gate
 
 
 def test_activity_mutations_are_not_observed_as_feedback():

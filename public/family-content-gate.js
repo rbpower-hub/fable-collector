@@ -67,12 +67,14 @@
   }
 
   function windowRecord(line) {
-    return state.windows.get(`${line.dataset.slug}|${line.dataset.start}|${line.dataset.end}`) || null;
+    return state.windows.get(`${line.dataset.slug}|${line.dataset.start}|${line.dataset.end}|${line.dataset.direction || ''}`) || null;
   }
 
   function applyWindow(line) {
     const slug = line.dataset.slug || '';
-    line.classList.toggle('expert-only', isLongTrip(slug));
+    // Long directional trips are first-class Family navigation windows.
+    // Technical source details remain expert-only, but the card itself stays visible.
+    line.classList.remove('expert-only');
     const title = line.querySelector('.title');
     const conf = title?.querySelector('.conf');
     conf?.classList.add('expert-only');
@@ -159,7 +161,7 @@
     state.windows.clear();
     (windows?.windows || []).forEach((destination) => {
       (destination?.windows || []).forEach((item) => {
-        state.windows.set(`${destination.dest_slug}|${item.start}|${item.end}`, item);
+        state.windows.set(`${destination.dest_slug}|${item.start}|${item.end}|${item.direction || ''}`, item);
       });
     });
     const slugs = Object.keys(state.sites);

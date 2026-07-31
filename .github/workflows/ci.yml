@@ -50,6 +50,7 @@ jobs:
           node --check public/js/day-selection.js
           node --check public/js/i18n.js
           node --check public/js/map.js
+          node --check public/js/navigation-windows.js
           node --check public/js/reasons-i18n.js
           node --check public/js/verdict.js
 

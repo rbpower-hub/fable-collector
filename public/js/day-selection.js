@@ -1,3 +1,9 @@
+import {
+  getDisplayedNavigationWindows,
+  isLongTripNavigationWindow,
+  navigationWindowCounts,
+} from './navigation-windows.js';
+
 const TUNIS_TZ = 'Africa/Tunis';
 const STORAGE_KEY = 'fable_selected_day';
 const DAY_COUNT = 3;
@@ -71,6 +77,11 @@ function copy() {
     noSpecialized: 'No specialised activity passed its own comfort limits. A family outing on the water remains possible inside this validated Family GO window.',
     familyOuting: 'Family outing on the water',
     noWindows: 'No navigation window is validated for this selected day.',
+    outbound: 'Outbound',
+    return: 'Return',
+    oneWay: 'one way — return to be planned separately',
+    beta: 'Beta',
+    confidence: 'Confidence',
     noWarnings: 'No NO-GO warning for the selected day.',
     genericNoGo: 'No Family GO window is validated for this destination on the selected day.',
     offHoursOnly: 'Only an out-of-hours window is available on the selected day.',
@@ -86,6 +97,11 @@ function copy() {
     noSpecialized: 'لم يتجاوز أي نشاط متخصص حدود الراحة الخاصة به. تبقى خرجة عائلية على الماء ممكنة داخل نافذة Family GO الصالحة.',
     familyOuting: 'خرجة عائلية على الماء',
     noWindows: 'لا توجد نافذة ملاحة صالحة لليوم المختار.',
+    outbound: 'الذهاب',
+    return: 'العودة',
+    oneWay: 'ذهاب فقط — يجب التخطيط للعودة بشكل منفصل',
+    beta: 'تجريبي',
+    confidence: 'الثقة',
     noWarnings: 'لا يوجد تحذير عدم خروج لليوم المختار.',
     genericNoGo: 'لا توجد نافذة Family GO صالحة لهذه الوجهة في اليوم المختار.',
     offHoursOnly: 'توجد فقط نافذة خارج الساعات العائلية في اليوم المختار.',
@@ -101,6 +117,11 @@ function copy() {
     noSpecialized: 'Aucune activité spécialisée ne passe ses propres limites de confort. Une sortie familiale sur l’eau reste possible dans cette fenêtre Family GO validée.',
     familyOuting: 'Sortie familiale sur l’eau',
     noWindows: 'Aucune fenêtre de navigation validée pour la journée sélectionnée.',
+    outbound: 'Aller',
+    return: 'Retour',
+    oneWay: 'aller simple — retour à planifier séparément',
+    beta: 'Bêta',
+    confidence: 'Confiance',
     noWarnings: 'Aucun avertissement NO-GO pour la journée sélectionnée.',
     genericNoGo: 'Aucune fenêtre Family GO validée pour cette destination pendant la journée sélectionnée.',
     offHoursOnly: 'Seule une fenêtre hors horaires familiaux est disponible pendant la journée sélectionnée.',
@@ -202,22 +223,48 @@ function coastalWindowsForSelectedDay() {
 function syncNavigationWindows() {
   const root = document.getElementById('wins');
   if (!root) return;
-  const lines = Array.from(root.querySelectorAll('.window-line[data-start]'));
+  let lines = Array.from(root.querySelectorAll('.window-line[data-start]'));
   const oldContext = root.querySelector('.day-filter-context');
   const oldEmpty = root.querySelector('.navigation-day-empty');
   if (!familyMode()) {
-    lines.forEach((line) => { line.hidden = false; });
+    lines.filter((line) => line.dataset.normalizedNavigation === 'true').forEach((line) => line.remove());
+    lines.filter((line) => line.dataset.normalizedNavigation !== 'true').forEach((line) => { line.hidden = false; });
     oldContext?.remove();
     oldEmpty?.remove();
     return;
   }
 
   const key = selectedKey();
+  const displayed = getDisplayedNavigationWindows(key, state.windows);
+  const displayedKeys = new Map(displayed.map((row) => [navigationRowKey(row), row]));
+  const existingKeys = new Set(lines.map(
+    (line) => navigationLineKey(line)
+  ));
+  displayedKeys.forEach((row, rowKey) => {
+    if (existingKeys.has(rowKey)) return;
+    const line = document.createElement('div');
+    line.className = 'window-line';
+    line.dataset.slug = row.destination?.dest_slug || '';
+    line.dataset.start = row.windowItem.start;
+    line.dataset.end = row.windowItem.end;
+    line.dataset.direction = row.windowItem.direction || '';
+    line.dataset.normalizedNavigation = 'true';
+    root.appendChild(line);
+    lines.push(line);
+  });
+  const matchedKeys = new Set();
   let visible = 0;
   lines.forEach((line) => {
     const lineKey = tunisDateKey(line.dataset.start);
     line.dataset.familyDayKey = lineKey;
-    line.hidden = lineKey !== key;
+    const row = displayedKeys.get(navigationLineKey(line));
+    const rowKey = row ? navigationRowKey(row) : '';
+    line.hidden = !row || matchedKeys.has(rowKey);
+    if (row && !line.hidden) {
+      matchedKeys.add(rowKey);
+      if (isLongTripNavigationWindow(row)) renderLongTripLine(line, row);
+      else if (line.dataset.normalizedNavigation === 'true') renderStandardLine(line, row);
+    }
     if (!line.hidden) visible += 1;
   });
 
@@ -241,6 +288,98 @@ function syncNavigationWindows() {
     }
     if (empty.textContent !== copy().noWindows) empty.textContent = copy().noWindows;
   }
+
+  syncNavigationCounts(displayed);
+}
+
+function navigationRowKey(row) {
+  return [
+    row.destination?.dest_slug || '',
+    row.windowItem.start || '',
+    row.windowItem.end || '',
+    row.windowItem.direction || '',
+  ].join('|');
+}
+
+function navigationLineKey(line) {
+  return [
+    line.dataset.slug || '',
+    line.dataset.start || '',
+    line.dataset.end || '',
+    line.dataset.direction || '',
+  ].join('|');
+}
+
+function renderStandardLine(line, row) {
+  const item = row.windowItem;
+  const destination = row.destination;
+  const renderKey = [language(), item.start, item.end, item.confidence].join('|');
+  if (line.dataset.standardRenderKey === renderKey) return;
+  line.dataset.standardRenderKey = renderKey;
+  line.innerHTML = `<div class="title">${esc(destination.dest_name || destination.dest_slug || '—')} <span class="go family">FAMILY GO</span></div>
+    <div class="small">${esc(formatDateTime(item.start))} → ${esc(formatDateTime(item.end))}</div>
+    <div class="small">${esc(durationLabel(item.start, item.end))} · ${esc(copy().confidence)} ${esc(item.confidence || destination.confidence || '—')}</div>`;
+}
+
+function durationLabel(start, end) {
+  const hours = (new Date(end) - new Date(start)) / 36e5;
+  if (!Number.isFinite(hours)) return '—';
+  return Number.isInteger(hours) ? `${hours} h` : `${hours.toFixed(1)} h`;
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '—';
+  return date.toLocaleString(language() === 'en' ? 'en-GB' : language() === 'ar' ? 'ar-TN' : 'fr-FR', {
+    timeZone:TUNIS_TZ, weekday:'long', day:'2-digit', month:'short',
+    hour:'2-digit', minute:'2-digit', hour12:false,
+  });
+}
+
+function renderLongTripLine(line, row) {
+  const item = row.windowItem;
+  const destination = row.destination;
+  const text = copy();
+  const direction = item.direction === 'return' ? text.return : text.outbound;
+  const beta = item.route_kind === 'offshore_one_way_beta'
+    || destination.route_kind === 'offshore_one_way_beta'
+    || destination.beta || item.beta;
+  const outboundOrigin = item.origin_name || item.origin_slug || '—';
+  const outboundTarget = item.destination_name || destination.dest_name || destination.dest_slug || '—';
+  const origin = item.direction === 'return' ? outboundTarget : outboundOrigin;
+  const target = item.direction === 'return' ? outboundOrigin : outboundTarget;
+  const renderKey = [
+    language(), item.start, item.end, item.direction, item.confidence,
+    origin, target, beta ? 'beta' : '',
+  ].join('|');
+  line.classList.add('long-trip-window');
+  line.classList.remove('expert-only');
+  if (line.dataset.longTripRenderKey === renderKey) return;
+  line.dataset.longTripRenderKey = renderKey;
+  const confidenceKey = String(item.confidence || destination.confidence || '').toLowerCase();
+  const confidenceClass = ['high', 'medium', 'low'].includes(confidenceKey) ? confidenceKey : 'low';
+  line.innerHTML = `<div class="title">${esc(destination.dest_name || destination.dest_slug || target)} <span class="go family">${esc(direction)}</span> <span class="conf ${confidenceClass} expert-only">${esc(item.confidence || destination.confidence || '—')}</span>${beta ? ` <span class="family-badge prudent long-trip-beta">${esc(text.beta)}</span>` : ''}</div>
+    <div class="small long-trip-route"><b>${esc(origin)} → ${esc(target)}</b></div>
+    <div class="small">${esc(formatDateTime(item.start))} → ${esc(formatDateTime(item.end))}</div>
+    <div class="small">${esc(durationLabel(item.start, item.end))} · ${esc(text.confidence || 'Confiance')} ${esc(item.confidence || destination.confidence || '—')}</div>
+    <div class="offshore-note">${esc(text.oneWay)}</div>`;
+}
+
+function syncNavigationCounts(displayed) {
+  const counts = navigationWindowCounts(displayed);
+  const key = selectedKey();
+  document.querySelectorAll(`[data-nav-family-count="${key}"]`).forEach((node) => {
+    if (node.textContent !== String(counts.family)) node.textContent = String(counts.family);
+  });
+  document.querySelectorAll(`[data-nav-long-count="${key}"]`).forEach((node) => {
+    if (node.textContent !== String(counts.longTrip)) node.textContent = String(counts.longTrip);
+  });
+  document.querySelectorAll('[data-nav-selected-family-count]').forEach((node) => {
+    if (node.textContent !== String(counts.family)) node.textContent = String(counts.family);
+  });
+  document.querySelectorAll('[data-nav-selected-long-count]').forEach((node) => {
+    if (node.textContent !== String(counts.longTrip)) node.textContent = String(counts.longTrip);
+  });
 }
 
 function dayDiagnostic(destination, key) {
@@ -476,6 +615,7 @@ function start() {
     windowsForDay: (key = selectedKey()) => (state.windows?.windows || []).flatMap((destination) => (
       destinationWindowsForDay(destination, key).map((windowItem) => ({destination, windowItem}))
     )),
+    getDisplayedNavigationWindows: (key = selectedKey()) => getDisplayedNavigationWindows(key, state.windows),
     refresh: refreshData,
   });
 }

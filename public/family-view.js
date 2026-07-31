@@ -18,13 +18,13 @@
     today: '3 days', activities: 'Activities', map: 'Map', details: 'Details',
     nextGo: 'Next family outing', noGo: 'No validated Family GO window',
     strict: 'FAMILY GO', prudent: 'PRUDENT GO', options: 'Options',
-    offshore: 'Long-trip windows', updated: 'Updated', confidence: 'Confidence',
+    offshore: 'Long-trip slots', updated: 'Updated', confidence: 'Confidence',
     seeWindow: 'See window', seeMap: 'Open map', seeActivities: 'See activities',
     seeReasons: 'See reasons', waiting: 'Waiting for the next safe window.',
     noReason: 'Current forecasts do not provide a complete validated family window.',
     reduced: 'Reduced comfort: monitor strengthening conditions and plan an early return.',
     todayLabel: 'Today', tomorrowLabel: 'Tomorrow', noWindow: 'No validated window',
-    familyOptions: 'family options', travelOptions: 'long-trip windows',
+    familyOptions: 'family options', travelOptions: 'long-trip slots',
     travelPlanner: 'Long-trip planner', outbound: 'Outbound', return: 'Return',
     returnMissing: 'No validated return in the 72-hour horizon',
     planningHorizon: 'Three-day family planning · Tunisia time',
@@ -34,13 +34,13 @@
     today: '3 jours', activities: 'Activités', map: 'Carte', details: 'Détails',
     nextGo: 'Prochaine sortie familiale', noGo: 'Aucune fenêtre Family GO validée',
     strict: 'FAMILY GO', prudent: 'GO PRUDENT', options: 'Options',
-    offshore: 'Fenêtres long trajet', updated: 'Mise à jour', confidence: 'Confiance',
+    offshore: 'Créneaux long trajet', updated: 'Mise à jour', confidence: 'Confiance',
     seeWindow: 'Voir la fenêtre', seeMap: 'Ouvrir la carte', seeActivities: 'Voir les activités',
     seeReasons: 'Voir les raisons', waiting: 'En attente de la prochaine fenêtre sûre.',
     noReason: 'Les prévisions actuelles ne donnent pas de fenêtre familiale complète et validée.',
     reduced: 'Confort réduit : surveiller le renforcement et prévoir un retour anticipé.',
     todayLabel: 'Aujourd’hui', tomorrowLabel: 'Demain', noWindow: 'Aucune fenêtre validée',
-    familyOptions: 'options famille', travelOptions: 'fenêtres long trajet',
+    familyOptions: 'options famille', travelOptions: 'créneaux long trajet',
     travelPlanner: 'Planificateur de trajets longs', outbound: 'Aller', return: 'Retour',
     returnMissing: 'Aucun retour validé dans l’horizon de 72 heures',
     planningHorizon: 'Planification familiale sur trois jours · heure de Tunisie',
@@ -190,39 +190,12 @@
     });
   }
 
-  function flattenWindows(data) {
-    const coastal = [];
-    let offshoreCount = 0;
-    (data?.windows || []).forEach((destination) => {
-      (destination?.windows || []).forEach((windowItem) => {
-        const tripMode = windowItem?.trip_mode || destination?.trip_mode || '';
-        const row = { destination, windowItem };
-        if (tripMode === 'one_way_multi_day') offshoreCount += 1;
-        else if (windowItem?.start && windowItem?.end && String(windowItem.category || 'family') === 'family') coastal.push(row);
-      });
-    });
-    coastal.sort((a, b) => {
-      const tierA = (a.windowItem.family_tier || a.destination.family_tier) === 'prudent' ? 1 : 0;
-      const tierB = (b.windowItem.family_tier || b.destination.family_tier) === 'prudent' ? 1 : 0;
-      return tierA - tierB || new Date(a.windowItem.start) - new Date(b.windowItem.start);
-    });
-    return { coastal, offshoreCount };
+  function displayedNavigationWindows(key, data) {
+    return window.FABLENavigationWindows?.getDisplayedNavigationWindows(key, data) || [];
   }
 
-  function allPlanningWindows(data) {
-    const rows = [];
-    (data?.windows || []).forEach((destination) => {
-      (destination?.windows || []).forEach((windowItem) => {
-        if (!windowItem?.start || !windowItem?.end || String(windowItem.category || 'family') !== 'family') return;
-        rows.push({
-          destination,
-          windowItem,
-          tripMode:windowItem.trip_mode || destination.trip_mode || '',
-          dateKey:tunisDateKey(windowItem.start),
-        });
-      });
-    });
-    return rows.sort((a, b) => new Date(a.windowItem.start) - new Date(b.windowItem.start));
+  function isLongTrip(row) {
+    return window.FABLENavigationWindows?.isLongTripNavigationWindow(row) || false;
   }
 
   function routeText(row) {
@@ -232,26 +205,28 @@
 
   function renderThreeDayPlanning(container, windows) {
     const c = copy();
-    const rows = allPlanningWindows(windows);
     const firstKey = tunisDateKey(new Date());
     const keys = [0, 1, 2].map((offset) => offsetDateKey(firstKey, offset));
+    const rows = keys.flatMap((key) => displayedNavigationWindows(key, windows).map((row) => ({
+      ...row,
+      tripMode:row.windowItem.trip_mode || row.destination.trip_mode || '',
+      dateKey:key,
+    })));
     const cards = keys.map((key, index) => {
-      const dayRows = rows.filter((row) => row.dateKey === key);
-      const coastal = dayRows.filter((row) => row.tripMode !== 'one_way_multi_day');
-      const trips = dayRows.filter((row) => row.tripMode === 'one_way_multi_day');
-      const coastalOptions = [...new Map(coastal.map((row) => [row.destination.dest_slug || row.destination.dest_name, row])).values()];
-      const tripOptions = [...new Map(trips.map((row) => [`${row.destination.dest_slug || row.destination.dest_name}|${row.windowItem.direction || 'outbound'}`, row])).values()];
+      const displayed = displayedNavigationWindows(key, windows);
+      const coastalOptions = displayed.filter((row) => !isLongTrip(row));
+      const tripOptions = displayed.filter(isLongTrip);
       const strict = coastalOptions.filter((row) => (row.windowItem.family_tier || row.destination.family_tier) !== 'prudent');
       const prudent = coastalOptions.filter((row) => (row.windowItem.family_tier || row.destination.family_tier) === 'prudent');
       const tone = strict.length ? 'good' : prudent.length ? 'prudent' : '';
-      const stateLabel = strict.length ? c.strict : prudent.length ? c.prudent : trips.length ? 'TRAVEL' : 'NO-GO';
+      const stateLabel = strict.length ? c.strict : prudent.length ? c.prudent : tripOptions.length ? 'TRAVEL' : 'NO-GO';
       const choices = [...strict, ...prudent].slice(0, 2).map((row) => {
         const tier = (row.windowItem.family_tier || row.destination.family_tier) === 'prudent' ? c.prudent : c.strict;
         return `<div class="family-day-option"><b>${esc(row.destination.dest_name || row.destination.dest_slug)}</b><small>${esc(formatTime(row.windowItem.start))}–${esc(formatTime(row.windowItem.end))} · ${esc(tier)} · ${esc(row.windowItem.confidence || '—')}</small></div>`;
       }).join('');
       const tripChoices = tripOptions.slice(0, choices ? 1 : 2).map((row) => `<div class="family-day-option"><b>🧭 ${esc(routeText(row))}</b><small>${esc(formatTime(row.windowItem.start))}–${esc(formatTime(row.windowItem.end))} · ${esc(row.windowItem.direction === 'return' ? c.return : c.outbound)}</small></div>`).join('');
       const empty = !choices && !tripChoices ? `<div class="family-day-empty">${esc(c.noWindow)}</div>` : '';
-      return `<article class="family-day ${tone}"><div class="family-day-head"><div><div class="family-day-title">${esc(dateLabel(key, index))}</div><div class="family-day-date">${esc(shortDate(key))}</div></div><span class="family-day-state">${esc(stateLabel)}</span></div>${choices}${tripChoices}${empty}<div class="family-day-count">${coastalOptions.length} ${esc(c.familyOptions)} · ${tripOptions.length} ${esc(c.travelOptions)}</div></article>`;
+      return `<article class="family-day ${tone}"><div class="family-day-head"><div><div class="family-day-title">${esc(dateLabel(key, index))}</div><div class="family-day-date">${esc(shortDate(key))}</div></div><span class="family-day-state">${esc(stateLabel)}</span></div>${choices}${tripChoices}${empty}<div class="family-day-count"><span data-nav-family-count="${esc(key)}">${coastalOptions.length}</span> ${esc(c.familyOptions)} · <span data-nav-long-count="${esc(key)}">${tripOptions.length}</span> ${esc(c.travelOptions)}</div></article>`;
     }).join('');
 
     const groupedTrips = new Map();
@@ -356,7 +331,15 @@
     const summary = document.getElementById('family-summary');
     if (!summary) return;
     const c = copy();
-    const { coastal, offshoreCount } = flattenWindows(windows);
+    const selectedDay = window.FABLEDaySelection?.getSelectedDay?.() || tunisDateKey(new Date());
+    const displayed = displayedNavigationWindows(selectedDay, windows);
+    const coastal = displayed.filter((row) => !isLongTrip(row));
+    const offshoreCount = displayed.filter(isLongTrip).length;
+    coastal.sort((a, b) => {
+      const tierA = (a.windowItem.family_tier || a.destination.family_tier) === 'prudent' ? 1 : 0;
+      const tierB = (b.windowItem.family_tier || b.destination.family_tier) === 'prudent' ? 1 : 0;
+      return tierA - tierB || new Date(a.windowItem.start) - new Date(b.windowItem.start);
+    });
     state.best = coastal[0] || null;
     state.windowCount = coastal.length;
     state.offshoreCount = offshoreCount;
@@ -387,11 +370,11 @@
           </div>
         </div>
         <div class="family-kpis">
-          <div class="family-kpi"><span>${esc(c.options)}</span><strong>${coastal.length}</strong></div>
+          <div class="family-kpi"><span>${esc(c.options)}</span><strong data-nav-selected-family-count>${coastal.length}</strong></div>
           <div class="family-kpi"><span>${esc(c.confidence)}</span><strong>${esc(String(confidence))}</strong></div>
           <div class="family-kpi"><span>${esc(c.updated)}</span><strong>${esc(generatedAt ? formatDateTime(generatedAt) : '—')}</strong></div>
         </div>
-        ${offshoreCount ? `<div class="family-summary-hint">${esc(c.offshore)} : ${offshoreCount}</div>` : ''}
+        <div class="family-summary-hint">${esc(c.offshore)} : <span data-nav-selected-long-count>${offshoreCount}</span></div>
         <div class="family-summary-hint">${esc(c.expertHint)}</div>`;
       renderThreeDayPlanning(summary, windows);
       return;
@@ -416,8 +399,8 @@
         </div>
       </div>
       <div class="family-kpis">
-        <div class="family-kpi"><span>${esc(c.options)}</span><strong>0</strong></div>
-        <div class="family-kpi"><span>${esc(c.offshore)}</span><strong>${offshoreCount}</strong></div>
+        <div class="family-kpi"><span>${esc(c.options)}</span><strong data-nav-selected-family-count>0</strong></div>
+        <div class="family-kpi"><span>${esc(c.offshore)}</span><strong data-nav-selected-long-count>${offshoreCount}</strong></div>
         <div class="family-kpi"><span>${esc(c.updated)}</span><strong>${esc(generatedAt ? formatDateTime(generatedAt) : '—')}</strong></div>
       </div>
       <div class="family-summary-hint">${esc(c.expertHint)}</div>`;

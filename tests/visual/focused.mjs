@@ -80,8 +80,13 @@ function payloadsFor(state) {
       windows: [
         {dest_slug: 'sidi-bou-said.json', dest_name: 'Sidi Bou Saïd', required_hours: 4, windows: empty ? [] : [windowItem], diagnostics: empty ? blocker('Rafales trop fortes', 'Gusts too strong', 'gust') : null},
         {dest_slug: 'ghar-el-melh.json', dest_name: 'Ghar El Melh', required_hours: 4, windows: [], diagnostics: marine ? blocker('Données de vagues manquantes — fenêtres non confirmées', 'Wave data unavailable — windows are not confirmed', 'marine_error') : blocker('Mer trop agitée', 'Sea too rough', 'sea')},
-        {dest_slug: 'kelibia.json', dest_name: 'Kélibia', trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', windows: [{...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day'}]},
-        {dest_slug: 'pantelleria.json', dest_name: 'Pantelleria', beta: true, trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', windows: [{...windowItem, start: iso(1500), end: iso(1920), trip_mode: 'one_way_multi_day', beta: true}]},
+        {dest_slug: 'kelibia.json', dest_name: 'Kélibia', trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', windows: [
+          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'outbound', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
+          {...windowItem, start: iso(1500), end: iso(1920), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'return', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
+        ]},
+        {dest_slug: 'pantelleria.json', dest_name: 'Pantelleria', beta: true, trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', windows: [
+          {...windowItem, start: iso(1560), end: iso(1980), trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', direction: 'outbound', origin_name: 'Kélibia', destination_name: 'Pantelleria', beta: true},
+        ]},
       ],
     },
     'rules.normalized.json': {window_hours: {min: 4, max: 6}, family: {window_hours: {min: 4, max: 6}, hours_local: {start: 8, end: 21}, corridor: {validate_departure_and_return: true}}, confidence: {high: {min_wave_sources: 2}}},
@@ -196,6 +201,22 @@ async function execute(browser, scenario) {
     if (values.badgeContrast < 4.5) failures.push(`badge contrast ${values.badgeContrast.toFixed(2)} < 4.5`);
     if (scenario.device === 'mobile' && !values.mobileSettings) failures.push('mobile settings button missing');
     if (scenario.state === 'marine-error' && !values.marineMessage) failures.push('marine data error not visible');
+    if (scenario.device === 'desktop' && scenario.state === 'fresh-windows' && scenario.locale === 'fr') {
+      await page.locator('.family-days .family-day').nth(1).click();
+      await page.waitForTimeout(200);
+      const navigation = await page.evaluate(() => {
+        const selected = document.querySelector('.family-day[aria-pressed="true"]');
+        const family = Number(selected?.querySelector('[data-nav-family-count]')?.textContent || 0);
+        const longTrip = Number(selected?.querySelector('[data-nav-long-count]')?.textContent || 0);
+        const cards = [...document.querySelectorAll('#wins .window-line')].filter((line) => !line.hidden);
+        return {family, longTrip, cardCount:cards.length, longCards:cards.filter((line) => line.classList.contains('long-trip-window')).length, text:cards.map((line) => line.innerText).join('\n')};
+      });
+      if (navigation.family + navigation.longTrip !== navigation.cardCount) failures.push(`navigation counters ${navigation.family}+${navigation.longTrip} != ${navigation.cardCount} cards`);
+      if (navigation.longTrip !== navigation.longCards) failures.push(`long-trip counter ${navigation.longTrip} != ${navigation.longCards} cards`);
+      if (!/Aller/i.test(navigation.text) || !/Retour/i.test(navigation.text)) failures.push(`outbound/return directions missing (${JSON.stringify(navigation)})`);
+      if (!/aller simple — retour à planifier séparément/.test(navigation.text)) failures.push('one-way planning warning missing');
+      if (!/Pantelleria/.test(navigation.text) || !/Bêta/.test(navigation.text)) failures.push(`Pantelleria beta card missing (${JSON.stringify(navigation)})`);
+    }
     if (errors.length) failures.push(...errors);
     await page.screenshot({path: path.join(SHOTS, `${key}.png`), fullPage: false});
   } catch (error) {

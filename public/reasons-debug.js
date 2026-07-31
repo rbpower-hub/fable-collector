@@ -193,13 +193,23 @@ window.FABLE = window.FABLE || {};
     const byKey = new Map();
     (data?.windows || []).forEach((destination) => {
       (destination?.windows || []).forEach((item) => {
-        const key = [destination.dest_slug || "", item.start || "", item.end || ""].join("|");
+        const key = [
+          destination.dest_slug || "",
+          item.start || "",
+          item.end || "",
+          item.direction || "",
+        ].join("|");
         byKey.set(key, { ...item, destination_trip_mode: destination.trip_mode });
       });
     });
 
     document.querySelectorAll(".window-line[data-slug]").forEach((node) => {
-      const key = [node.dataset.slug || "", node.dataset.start || "", node.dataset.end || ""].join("|");
+      const key = [
+        node.dataset.slug || "",
+        node.dataset.start || "",
+        node.dataset.end || "",
+        node.dataset.direction || "",
+      ].join("|");
       const item = byKey.get(key);
       if (!item) return;
       const badge = node.querySelector(".go");

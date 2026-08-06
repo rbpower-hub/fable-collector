@@ -2,7 +2,11 @@
 
 ## Diagnostic
 
-Le bandeau `Données périmées` et le Healthcheck rouge ne proviennent pas du moteur Family GO. Ils signifient que le `status.json` publié sur GitHub Pages a dépassé 95 minutes.
+Le bandeau `Données périmées` provient de la fraîcheur publiée, tandis qu’un
+workflow rouge peut aussi échouer avant l’exécution de FABLE. Le healthcheck
+serveur considère actuellement `status.json` périmé au-delà de 150 minutes,
+soit environ deux occasions de rafraîchissement manquées avec la latence du
+scheduler et de GitHub Pages.
 
 Le workflow interroge la production à 7, 27 et 47 minutes de chaque heure. Lorsqu’une collecte est nécessaire, le build et le déploiement utilisaient chacun le groupe de concurrence `pages` avec `cancel-in-progress: true`.
 
@@ -20,14 +24,26 @@ concurrency:
 
 Une collecte déjà lancée doit donc terminer. Les déclenchements suivants attendent au lieu d’annuler la production en cours.
 
+Les jobs `schedule_guard` et `health` disposent respectivement de 10 et 12
+minutes. Les anciennes limites de 3 et 8 minutes pouvaient expirer pendant la
+préparation d’un runner hébergé ou avant la fin des cinq contrôles confirmant
+une panne. Cette marge ne masque pas une erreur applicative : les commandes et
+leurs délais réseau restent bornés, et le job final échoue toujours après cinq
+contrôles négatifs.
+
 ## Ce qui ne change pas
 
 - la cadence publiée reste 60 minutes ;
-- le seuil de données périmées reste 95 minutes ;
-- le healthcheck reste bloquant au-delà de 95 minutes ;
+- le seuil client de données périmées reste géré indépendamment par le board ;
+- le healthcheck serveur reste bloquant au-delà de 150 minutes ;
 - le board continue à neutraliser tous les GO lorsque les données sont périmées ;
 - aucun seuil météo n’est modifié par ce correctif.
 
 ## Contrôle attendu après fusion
 
 La fusion déclenche immédiatement `Collect & Deploy`. Après le déploiement, `status.json` doit recevoir un nouvel horodatage, le bandeau rouge doit disparaître, et le prochain Healthcheck doit repasser au vert. Si le statut reste ancien après une collecte terminée, il faudra alors examiner le job `Deploy to GitHub Pages` ou la propagation Pages, et non le calcul Family GO.
+
+Une annotation `The job was not acquired by Runner ... after multiple
+attempts` vient de GitHub Actions : le job n’a obtenu aucun runner et aucune
+étape du dépôt n’a démarré. Ce cas externe ne peut pas être corrigé dans le
+code ; une relance est requise.

@@ -16,6 +16,25 @@ def test_collect_workflow_never_cancels_active_production_refresh():
     assert "concurrency" not in workflow["jobs"]["deploy"]
 
 
+def test_scheduled_guard_allows_slow_hosted_runner_setup():
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "collect.yml").read_text(encoding="utf-8")
+    )
+
+    # GitHub-hosted runner setup has occasionally exceeded three minutes.
+    # The guard must not fail before the checkout or FABLE check can start.
+    assert workflow["jobs"]["schedule_guard"]["timeout-minutes"] >= 10
+
+
+def test_external_healthcheck_budget_covers_confirmation_retries():
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "healthcheck.yml").read_text(encoding="utf-8")
+    )
+
+    # Two 45-second waits, network checks and runner setup must fit in the job.
+    assert workflow["jobs"]["health"]["timeout-minutes"] >= 12
+
+
 def test_refresh_polling_and_fail_safe_freshness_remain_bounded():
     text = (ROOT / ".github" / "workflows" / "collect.yml").read_text(encoding="utf-8")
     health = (ROOT / "fable" / "healthcheck.py").read_text(encoding="utf-8")

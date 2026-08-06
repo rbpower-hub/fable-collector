@@ -65,3 +65,12 @@ def test_family_map_is_reframed_after_hidden_tab_is_revealed(tmp_path):
     assert "resetMapView({ animate:false });" in app
     assert "attributeFilter:['data-family-tab','class']" in app
     assert '[data-family-tab="map"]' in app
+
+
+def test_family_view_refreshes_when_async_dashboard_data_arrives(tmp_path):
+    _, _ = published_dashboard(tmp_path)
+    app = (tmp_path / "js" / "app.js").read_text(encoding="utf-8")
+    family = (ROOT / "public" / "family-view.js").read_text(encoding="utf-8")
+
+    assert "new CustomEvent('fable:dashboard-updated'" in app
+    assert "document.addEventListener('fable:dashboard-updated', refreshSummary)" in family

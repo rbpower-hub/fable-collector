@@ -141,6 +141,17 @@ Une section vide peut être normale lorsque toutes les activités sont filtrées
 3. vérifier le dernier run `Collect & Deploy` ;
 4. relancer manuellement le workflow si le cron semble bloqué.
 
+Avant de conclure à une panne FABLE, regarder la première annotation du job :
+
+- `HEALTHCHECK FAILED` signifie que le contrôle a réellement atteint la
+  production et détecté des données anciennes, incomplètes ou illisibles ;
+- `maximum execution time` pendant `Set up job` indique un délai de
+  provisionnement du runner. Les jobs courts disposent désormais de 10 à
+  12 minutes pour absorber ce délai ;
+- `job was not acquired by Runner ... after multiple attempts` est une panne
+  d’allocation du service GitHub Actions : aucun checkout ni code FABLE n’a
+  tourné. Relancer le workflow et consulter GitHub Status si elle se répète.
+
 ## Incidents probables
 
 - **Cron GitHub inactif** : relancer le workflow et vérifier l’activité du dépôt.

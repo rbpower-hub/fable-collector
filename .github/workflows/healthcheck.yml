@@ -16,7 +16,9 @@ permissions:
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    # Leave enough room for hosted-runner provisioning plus the two 45-second
+    # confirmation delays.  The healthcheck still has bounded HTTP timeouts.
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
 

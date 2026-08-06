@@ -1605,6 +1605,9 @@
     $('#dashboard-content').classList.remove('updating');
     fitToViewport();
     map.invalidateSize();  // important quand la hauteur de la carte change
+    document.dispatchEvent(new CustomEvent('fable:dashboard-updated', {
+      detail: { generatedAt: gen, windowCount: winItems.length }
+    }));
   }
 
   // Délégation clics dans le tableau (pan sur spot)

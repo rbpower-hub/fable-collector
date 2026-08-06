@@ -1,5 +1,10 @@
 # Changelog
 
+## Non publié
+- **Faux échecs de collecte corrigés** : `schedule_guard` dispose de 10 minutes au lieu de 3 afin que la préparation parfois lente d’un runner GitHub ne l’annule plus avant le checkout.
+- **Healthcheck plus robuste** : budget porté à 12 minutes pour couvrir le provisionnement, les accès réseau et les trois tentatives de confirmation sans supprimer l’échec final en cas de panne persistante.
+- **Diagnostic d’exploitation** : le runbook distingue désormais une panne réelle de production d’un job que GitHub Actions n’a jamais attribué à un runner.
+
 ## 3.3.0 — 2026-07-15
 - **Horizon 72 h** : la collecte planifiée couvre désormais trois jours complets par défaut.
 - **Vue Famille trois jours** : Aujourd’hui, Demain et J+2 sont regroupés dans trois cartes responsive, horizontales sur mobile et en colonnes sur PC.

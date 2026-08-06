@@ -85,6 +85,11 @@ GitHub Pages                      board + JSON publics
 
 Le moteur d’activités consomme `windows.json` **après** la décision de sécurité. Il ne peut pas créer une fenêtre ni neutraliser un NO-GO.
 
+Le board charge `rules.normalized.json` et `sites.normalized.json` au démarrage,
+puis synchronise la Vue Famille dès que le chargement asynchrone des prévisions
+est terminé. Les valeurs embarquées ne servent que de repli si un export de
+configuration est momentanément indisponible.
+
 Documentation détaillée :
 
 - [Architecture](docs/ARCHITECTURE.md)

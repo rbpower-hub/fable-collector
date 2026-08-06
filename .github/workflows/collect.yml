@@ -75,7 +75,10 @@ jobs:
 
   schedule_guard:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    # Runner provisioning can itself take several minutes.  A three-minute
+    # limit used to cancel this job during "Set up job", before any FABLE
+    # code ran, and made the scheduled collection appear unhealthy.
+    timeout-minutes: 10
     outputs:
       should_run: ${{ steps.guard.outputs.should_run }}
       reason: ${{ steps.guard.outputs.reason }}

@@ -488,6 +488,10 @@
     setMode(localStorage.getItem(MODE_KEY) || 'family', false);
     setTab(localStorage.getItem(TAB_KEY) || 'today', false);
     refreshSummary();
+    // The module-based collector finishes its first network refresh after
+    // DOMContentLoaded. Refresh immediately when that data reaches the legacy
+    // board instead of leaving the Family View empty for up to ten minutes.
+    document.addEventListener('fable:dashboard-updated', refreshSummary);
     setInterval(refreshSummary, 10 * 60 * 1000);
   }
 

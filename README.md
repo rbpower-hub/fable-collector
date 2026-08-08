@@ -92,6 +92,7 @@ configuration est momentanément indisponible.
 
 Documentation détaillée :
 
+- [Vue Simple — principes, phases et non-régressions](docs/SIMPLE-VIEW-PHASE-1.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Family GO prudent et diagnostics](docs/FAMILY-GO-PRUDENT.md)
 - [Port Knowledge et offshore aller simple](docs/PORT-KNOWLEDGE.md)

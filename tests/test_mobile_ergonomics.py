@@ -24,9 +24,10 @@ def test_mobile_ergonomics_is_injected_once(tmp_path):
 def test_mobile_controls_reuse_existing_nodes_and_touch_targets():
     script = (ROOT / "public" / "mobile-ergonomics.js").read_text(encoding="utf-8")
 
-    for element_id in ("viewToggleBtn", "themeToggle", "muteBtn", "langToggle", "fullscreenBtn"):
+    for element_id in ("simpleViewBtn", "viewToggleBtn", "themeToggle", "muteBtn", "langToggle", "fullscreenBtn"):
         assert element_id in script
     assert "controls.appendChild(node)" in script
+    assert "fable:simple-view-ready" in script
     assert "@media(pointer:coarse)" in script
     assert "min-height:44px!important" in script
     assert "role=\"dialog\"" in script

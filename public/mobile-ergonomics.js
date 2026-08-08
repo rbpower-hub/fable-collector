@@ -102,7 +102,7 @@
   }
 
   function applyMobileHeader(controls) {
-    const ids = ['viewToggleBtn', 'themeToggle', 'muteBtn', 'langToggle', 'fullscreenBtn'];
+    const ids = ['simpleViewBtn', 'viewToggleBtn', 'themeToggle', 'muteBtn', 'langToggle', 'fullscreenBtn'];
     if (MOBILE_QUERY.matches) {
       ids.forEach((id) => {
         const node = document.getElementById(id);
@@ -222,6 +222,7 @@
     restoreSelection();
 
     MOBILE_QUERY.addEventListener?.('change', () => ensureSettings());
+    document.addEventListener('fable:simple-view-ready', ensureSettings);
     window.addEventListener('resize', clampTooltip);
     document.addEventListener('pointerover', (event) => {
       if (!COARSE_QUERY.matches && event.target.closest('button.why')) setTimeout(clampTooltip, 0);

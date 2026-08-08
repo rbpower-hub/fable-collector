@@ -1,6 +1,10 @@
 # Changelog
 
 ## Non publié
+- **Vue Simple expérimentale** : nouveau mode mobile volontaire centré sur la décision, la meilleure destination, la fenêtre de sortie et un aperçu de trois jours, sans modifier la décision de sécurité Python.
+- **Visualisation opérationnelle** : frise horaire GO / prudent / NO-GO et graphiques vent/houle avec limites Family, plages min–max, tendances et heure limite de retour.
+- **Accessibilité** : français, anglais et arabe RTL, navigation clavier, focus visibles, contraste forcé, réduction des animations et adaptations de 320 px au bureau.
+- **Adoption réversible** : entrée « Essayer la Vue Simple », préférence locale au navigateur et accès durable aux Vues Famille et Expert.
 - **Faux échecs de collecte corrigés** : `schedule_guard` dispose de 10 minutes au lieu de 3 afin que la préparation parfois lente d’un runner GitHub ne l’annule plus avant le checkout.
 - **Healthcheck plus robuste** : budget de 12 minutes pour couvrir le provisionnement, les accès réseau et les cinq tentatives de confirmation sans supprimer l’échec final en cas de panne persistante.
 - **Diagnostic d’exploitation** : le runbook distingue désormais une panne réelle de production d’un job que GitHub Actions n’a jamais attribué à un runner.

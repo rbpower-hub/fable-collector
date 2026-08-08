@@ -1,9 +1,10 @@
 /* FABLE Simple View — isolated, mobile-first decision prototype. */
 (function () {
   const MODE_KEY = 'fable_board_mode';
+  const SIMPLE_DEFAULT_KEY = 'fable_simple_default_v1';
   const SIMPLE_MODE = 'simple';
   const TUNIS_TZ = 'Africa/Tunis';
-  const state = { windows: {}, status: {}, forecast: {}, activeDay: 0, loading: true, error: '' };
+  const state = { windows: {}, status: {}, forecast: {}, recommendations: {}, activeDay: 0, loading: true, error: '' };
 
   const esc = (value) => String(value ?? '').replace(
     /[&<>"']/g,
@@ -23,6 +24,7 @@
     timeline:'التوقعات حسب الساعة', trends:'الظروف أثناء النافذة', wind:'الرياح', wave:'الأمواج', returnBy:'العودة قبل',
     loading:'جارٍ تحميل التوقعات…', missing:'التوقعات غير متاحة', stale:'البيانات قديمة — تحقّق من النشرة البحرية الرسمية.',
     threshold:'حد العائلة', from:'من', to:'إلى', stable:'مستقر', rising:'في ارتفاع', falling:'في انخفاض', trySimple:'جرّب الوضع المبسّط',
+    activities:'أنشطة مقترحة', noActivities:'لا توجد أنشطة متوافقة مع نافذة عائلية مؤكدة.', activityNote:'اقتراح بعد قرار السلامة',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
     prudent:'CAUTIOUS OUTING', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
@@ -33,6 +35,7 @@
     timeline:'Hourly outlook', trends:'Conditions during the window', wind:'Wind', wave:'Wave', returnBy:'Return by',
     loading:'Loading forecast…', missing:'Forecast unavailable', stale:'Data is out of date — check the official marine bulletin.',
     threshold:'Family limit', from:'from', to:'to', stable:'stable', rising:'rising', falling:'falling', trySimple:'Try Simple View',
+    activities:'Suggested activities', noActivities:'No compatible activity in a validated Family window.', activityNote:'Suggestion after the safety decision',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
     prudent:'SORTIE PRUDENTE', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
@@ -43,6 +46,7 @@
     timeline:'Frise horaire', trends:'Conditions pendant la fenêtre', wind:'Vent', wave:'Houle', returnBy:'Retour avant',
     loading:'Chargement des prévisions…', missing:'Prévisions indisponibles', stale:'Données périmées — vérifiez le bulletin maritime officiel.',
     threshold:'Limite famille', from:'de', to:'à', stable:'stable', rising:'en hausse', falling:'en baisse', trySimple:'Essayer la Vue Simple',
+    activities:'Activités conseillées', noActivities:'Aucune activité compatible dans une fenêtre Famille validée.', activityNote:'Suggestion après la décision de sécurité',
   };
 
   function installStyles() {
@@ -87,6 +91,7 @@
       .simple-timeline{display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-top:10px}.simple-hour{height:22px;border-radius:5px;background:color-mix(in srgb,var(--bad) 35%,var(--pill-bg))}.simple-hour.good{background:var(--ok)}.simple-hour.prudent{background:var(--warn)}
       .simple-axis{display:flex;justify-content:space-between;margin-top:5px;color:var(--muted);font-size:.68rem}.simple-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;color:var(--muted);font-size:.72rem}.simple-key::before{content:'';display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:3px;background:var(--bad)}.simple-key.good::before{background:var(--ok)}.simple-key.prudent::before{background:var(--warn)}
       .simple-condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.simple-condition{min-width:0;padding:14px;border-radius:16px;background:var(--pill-bg)}.simple-condition.return{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.simple-condition-label{display:block;color:var(--muted);font-size:.76rem}.simple-condition-value{display:block;margin-top:4px;font-size:1.18rem}.simple-condition-range{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:600}.simple-chart{margin:10px 0 0}.simple-spark{display:block;width:100%;height:88px;overflow:visible}.simple-spark .grid{stroke:color-mix(in srgb,var(--muted) 22%,transparent);stroke-width:1}.simple-spark .safe-zone{fill:color-mix(in srgb,var(--ok) 10%,transparent)}.simple-spark .threshold{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}.simple-spark .area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}.simple-spark .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.simple-spark .point{fill:var(--card);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.simple-condition.wave .simple-spark .area{fill:color-mix(in srgb,var(--ok) 13%,transparent)}.simple-condition.wave .simple-spark .line,.simple-condition.wave .simple-spark .point{stroke:var(--ok)}.simple-chart-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:.65rem}.simple-chart-threshold{margin-top:7px;color:var(--muted);font-size:.68rem}.simple-chart-threshold::before{content:'';display:inline-block;width:15px;margin-right:5px;border-top:2px dashed var(--warn);vertical-align:middle}html[dir="rtl"] .simple-chart-threshold::before{margin-right:0;margin-left:5px}
+      .simple-activities{display:grid;gap:8px}.simple-activity{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg)}.simple-activity-icon{font-size:1.35rem}.simple-activity strong{display:block}.simple-activity small{display:block;margin-top:3px;color:var(--muted);line-height:1.35}.simple-activity-score{padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-size:.72rem;font-weight:900}.simple-empty{color:var(--muted);line-height:1.45}
       html[dir="rtl"] .simple-shell{direction:rtl;text-align:right}html[dir="rtl"] .simple-day{text-align:right}html[dir="rtl"] .simple-key::before{margin-right:0;margin-left:5px}
       .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)
       .simple-nav-action{min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:.7rem;font-weight:800;cursor:pointer}.simple-nav-action span{display:block;font-size:1.15rem;margin-bottom:2px}.simple-nav-action.active{background:color-mix(in srgb,var(--accent) 18%,var(--pill-bg));color:var(--fg)}
@@ -200,6 +205,21 @@
     const range = (values, digits, unit) => values.length ? `${Math.min(...values).toFixed(digits)}–${Math.max(...values).toFixed(digits)} ${unit}` : '—';
     return `<section class="simple-panel"><div class="simple-panel-head"><h2>〽️ ${esc(c.trends)}</h2></div><div class="simple-condition-grid"><div class="simple-condition"><span class="simple-condition-label">${esc(c.wind)}</span><strong class="simple-condition-value">${maxWind === null ? '—' : `${maxWind.toFixed(0)} km/h`}<small class="simple-condition-range">${esc(range(data.wind,0,'km/h'))}</small></strong>${chart(data.wind,{unit:'km/h',threshold:windLimit,start,end})}</div><div class="simple-condition wave"><span class="simple-condition-label">${esc(c.wave)}</span><strong class="simple-condition-value">${maxWave === null ? '—' : `${maxWave.toFixed(2)} m`}<small class="simple-condition-range">${esc(range(data.wave,2,'m'))}</small></strong>${chart(data.wave,{unit:'m',threshold:waveLimit,start,end})}</div><div class="simple-condition return"><span class="simple-condition-label">${esc(c.returnBy)}</span><strong class="simple-condition-value">${best ? formatTime(best.windowItem.end) : '—'}</strong></div></div></section>`;
   }
+  function renderActivities(best) {
+    const c = copy();
+    const records = (state.recommendations?.recommendations || []).filter((record) => (
+      best && String(record.category || 'family').toLowerCase() === 'family' &&
+      record.dest_slug === best.destination.dest_slug &&
+      record.start === best.windowItem.start && record.end === best.windowItem.end
+    ));
+    const activities = records.flatMap((record) => record.activities || []).sort((a,b) => Number(b.score || 0) - Number(a.score || 0)).slice(0,3);
+    const content = activities.length ? activities.map((item) => {
+      const label = lang() === 'en' ? item.label_en : item.label_fr;
+      const why = lang() === 'en' ? item.why_en : item.why_fr;
+      return `<article class="simple-activity"><span class="simple-activity-icon" aria-hidden="true">${esc(item.icon || '🌊')}</span><div><strong>${esc(label || c.activities)}</strong><small>${esc(why || c.activityNote)}</small></div><span class="simple-activity-score">${Math.round(Number(item.score || 0))}/100</span></article>`;
+    }).join('') : `<div class="simple-empty">${esc(c.noActivities)}</div>`;
+    return `<section id="simple-activities" class="simple-panel"><div class="simple-panel-head"><h2>🌊 ${esc(c.activities)}</h2><span class="simple-panel-note">${esc(c.activityNote)}</span></div><div class="simple-activities">${content}</div></section>`;
+  }
   function renderDays(rows) {
     const c = copy();
     return [0, 1, 2].map((index) => {
@@ -241,13 +261,13 @@
         <div class="simple-overline">${esc(c.decision)} · ${esc(c.next)}</div>
         <h1 class="simple-verdict"><span class="simple-verdict-icon" aria-hidden="true">${icon}</span>${esc(verdict)}</h1>
         <div class="simple-destination">📍 ${esc(destination)}</div><div class="simple-window">${esc(windowText)}</div>
-        <div class="simple-actions">${best ? `<button class="simple-action primary" data-simple-action="map" type="button">🗺️ ${esc(c.route)}</button><button class="simple-action" data-simple-action="family" type="button">${esc(c.details)}</button>` : `<button class="simple-action primary" aria-expanded="false" aria-controls="simple-reasons" data-simple-action="reasons" type="button">${esc(c.why)}</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>`}</div>
+        <div class="simple-actions">${best ? `<button class="simple-action primary" data-simple-action="map" type="button">🗺️ ${esc(c.route)}</button><button class="simple-action" data-simple-action="details" type="button">${esc(c.details)}</button>` : `<button class="simple-action primary" aria-expanded="false" aria-controls="simple-reasons" data-simple-action="reasons" type="button">${esc(c.why)}</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>`}</div>
         <div id="simple-reasons" class="simple-reasons" hidden><p>⚠️ <strong>${esc(reason)}</strong></p><small>${esc(c.details)} : ${esc(blocked?.dest_name || blocked?.dest_slug || '—')}</small></div>
       </section>
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.confidence)}</span><strong>${esc(confidence)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${rows.length}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
-      ${renderTimeline(rows)}${renderConditions(best)}
-      <section class="simple-panel"><div class="simple-panel-head"><h2>📅 ${esc(c.planning)}</h2><span class="simple-panel-note">72 h</span></div><div class="simple-days">${renderDays(rows)}</div></section>
-    </div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="family" type="button"><span>•••</span>${esc(c.more)}</button></nav>`;
+      ${renderTimeline(rows)}${renderConditions(best)}${renderActivities(best)}
+      <section id="simple-three-days" class="simple-panel"><div class="simple-panel-head"><h2>📅 ${esc(c.planning)}</h2><span class="simple-panel-note">72 h</span></div><div class="simple-days">${renderDays(rows)}</div></section>
+    </div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="details" type="button"><span>•••</span>${esc(c.more)}</button></nav>`;
   }
 
   function setMode(mode, persist = true) {
@@ -260,8 +280,9 @@
       window.scrollTo({top:0,behavior:'smooth'});
     } else {
       document.body.classList.remove('simple-board-mode');
-      localStorage.setItem(MODE_KEY, 'family');
+      if (persist) localStorage.setItem(MODE_KEY, 'family');
       document.getElementById('viewToggleBtn')?.click();
+      if (!persist) localStorage.setItem(MODE_KEY, SIMPLE_MODE);
     }
   }
   function bestForDay(offset = state.activeDay) {
@@ -277,15 +298,35 @@
       if (!response.ok) state.error = 'forecast-unavailable';
     } catch { state.forecast = {}; state.error = 'forecast-network'; }
   }
+  function openFamilyTab(tab) {
+    setMode('family', false);
+    setTimeout(() => document.querySelector(`[data-family-tab="${tab}"]`)?.click(), 120);
+  }
+  function openSelectedMap() {
+    const best = bestForDay(); const slug = best?.destination?.dest_slug;
+    openFamilyTab('map');
+    setTimeout(() => {
+      const line = Array.from(document.querySelectorAll('.window-line')).find((item) => (
+        item.dataset.slug === slug && item.dataset.start === best?.windowItem?.start && item.dataset.end === best?.windowItem?.end
+      ));
+      line?.click();
+      setTimeout(() => window.panToFile?.(slug), 120);
+    }, 320);
+  }
   async function refresh() {
     state.loading = true; state.error = ''; render();
     try {
-      const [windowsResponse, statusResponse] = await Promise.all([fetch('windows.json',{cache:'no-store'}),fetch('status.json',{cache:'no-store'})]);
+      const [windowsResponse, statusResponse, recommendationsResponse] = await Promise.all([
+        fetch('windows.json',{cache:'no-store'}),
+        fetch('status.json',{cache:'no-store'}),
+        fetch('recommendations.json',{cache:'no-store'}).catch(() => null),
+      ]);
       state.windows = windowsResponse.ok ? await windowsResponse.json() : {};
       state.status = statusResponse.ok ? await statusResponse.json() : {};
+      state.recommendations = recommendationsResponse?.ok ? await recommendationsResponse.json() : {};
       if (!windowsResponse.ok || !statusResponse.ok) state.error = 'published-data-unavailable';
       await loadForecast(bestForDay());
-    } catch { state.windows = {}; state.status = {}; state.forecast = {}; state.error = 'network'; }
+    } catch { state.windows = {}; state.status = {}; state.forecast = {}; state.recommendations = {}; state.error = 'network'; }
     state.loading = false;
     render();
   }
@@ -311,9 +352,10 @@
           const panel = document.getElementById('simple-reasons'); const button = event.target.closest('button');
           panel.hidden = !panel.hidden; button.setAttribute('aria-expanded', String(!panel.hidden)); button.textContent = panel.hidden ? copy().why : copy().hide;
         }
-        if (action === 'family') setMode('family');
-        if (action === 'map') { setMode('family'); setTimeout(() => document.querySelector('[data-family-tab="map"]')?.click(), 80); }
-        if (action === 'days') document.querySelector('.simple-panel')?.scrollIntoView({behavior:'smooth'});
+        if (action === 'details') openFamilyTab('details');
+        if (action === 'map') openSelectedMap();
+        if (action === 'days') document.getElementById('simple-three-days')?.scrollIntoView({behavior:'smooth',block:'start'});
+        if (action === 'decision') window.scrollTo({top:0,behavior:'smooth'});
         const dayButton = event.target.closest('[data-simple-day]');
         const day = dayButton?.dataset.simpleDay;
         if (day !== undefined) {
@@ -326,7 +368,13 @@
       });
     }
     refresh();
-    if (localStorage.getItem(MODE_KEY) === SIMPLE_MODE) setTimeout(() => setMode(SIMPLE_MODE, false), 0);
+    let savedMode = localStorage.getItem(MODE_KEY);
+    if (!localStorage.getItem(SIMPLE_DEFAULT_KEY)) {
+      localStorage.setItem(SIMPLE_DEFAULT_KEY, '1');
+      localStorage.setItem(MODE_KEY, SIMPLE_MODE);
+      savedMode = SIMPLE_MODE;
+    }
+    if (!savedMode || savedMode === SIMPLE_MODE) setTimeout(() => setMode(SIMPLE_MODE, false), 0);
     document.addEventListener('fable:dashboard-updated', refresh);
     const updateLanguage = () => setTimeout(() => { document.getElementById('simpleViewBtn').textContent = `✨ ${copy().trySimple}`; render(); }, 0);
     document.getElementById('langToggle')?.addEventListener('click', updateLanguage);

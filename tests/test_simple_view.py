@@ -40,6 +40,7 @@ def test_simple_view_refreshes_from_published_dashboard_contract():
 
     assert "fetch('windows.json'" in script
     assert "fetch('status.json'" in script
+    assert "fetch('recommendations.json'" in script
     assert "document.addEventListener('fable:dashboard-updated', refresh)" in script
 
 
@@ -88,3 +89,26 @@ def test_simple_view_phase_four_is_an_explicit_reversible_offer():
     assert "جرّب الوضع المبسّط" in script
     assert "localStorage.setItem(MODE_KEY, 'family')" in script
     assert "fable:simple-view-ready" in script
+
+
+def test_simple_view_is_default_and_deep_links_are_explicit():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "if (!savedMode || savedMode === SIMPLE_MODE)" in script
+    assert "fable_simple_default_v1" in script
+    assert "if (!localStorage.getItem(SIMPLE_DEFAULT_KEY))" in script
+    assert "openFamilyTab('details')" in script
+    assert "openSelectedMap()" in script
+    assert "window.panToFile?.(slug)" in script
+    assert "setMode('family', false)" in script
+
+
+def test_simple_view_three_day_action_and_safe_activities_are_rendered():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert 'id="simple-three-days"' in script
+    assert "getElementById('simple-three-days')" in script
+    assert "renderActivities(best)" in script
+    assert "String(record.category || 'family').toLowerCase() === 'family'" in script
+    assert "record.start === best.windowItem.start" in script
+    assert "Aucune activité compatible dans une fenêtre Famille validée." in script

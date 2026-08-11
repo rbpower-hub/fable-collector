@@ -25,6 +25,7 @@
     loading:'جارٍ تحميل التوقعات…', missing:'التوقعات غير متاحة', stale:'البيانات قديمة — تحقّق من النشرة البحرية الرسمية.',
     threshold:'حد العائلة', from:'من', to:'إلى', stable:'مستقر', rising:'في ارتفاع', falling:'في انخفاض', trySimple:'جرّب الوضع المبسّط',
     activities:'أنشطة مقترحة', noActivities:'لا توجد أنشطة متوافقة مع نافذة عائلية مؤكدة.', activityNote:'اقتراح بعد قرار السلامة',
+    marineMissing:'بيانات الأمواج غير متاحة — بعض الوجهات غير مؤكدة.',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
     prudent:'CAUTIOUS OUTING', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
@@ -36,6 +37,7 @@
     loading:'Loading forecast…', missing:'Forecast unavailable', stale:'Data is out of date — check the official marine bulletin.',
     threshold:'Family limit', from:'from', to:'to', stable:'stable', rising:'rising', falling:'falling', trySimple:'Try Simple View',
     activities:'Suggested activities', noActivities:'No compatible activity in a validated Family window.', activityNote:'Suggestion after the safety decision',
+    marineMissing:'Wave data unavailable — some destinations are not confirmed.',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
     prudent:'SORTIE PRUDENTE', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
@@ -47,6 +49,7 @@
     loading:'Chargement des prévisions…', missing:'Prévisions indisponibles', stale:'Données périmées — vérifiez le bulletin maritime officiel.',
     threshold:'Limite famille', from:'de', to:'à', stable:'stable', rising:'en hausse', falling:'en baisse', trySimple:'Essayer la Vue Simple',
     activities:'Activités conseillées', noActivities:'Aucune activité compatible dans une fenêtre Famille validée.', activityNote:'Suggestion après la décision de sécurité',
+    marineMissing:'Données de vagues indisponibles — certaines destinations ne sont pas confirmées.',
   };
 
   function installStyles() {
@@ -88,6 +91,7 @@
       .simple-day-segment{height:100%;border-radius:inherit;background:var(--ok)}.simple-day.prudent .simple-day-segment{background:var(--warn)}.simple-day.blocked .simple-day-segment{width:100%!important;background:color-mix(in srgb,var(--bad) 35%,transparent)}
       .simple-day-state{font-size:.72rem;font-weight:900;color:var(--ok)}.simple-day.prudent .simple-day-state{color:var(--warn)}.simple-day.blocked .simple-day-state{color:var(--bad)}
       .simple-data-state{margin:12px 0;padding:12px 14px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg);font-weight:800}.simple-data-state.stale,.simple-data-state.error{border-color:color-mix(in srgb,var(--warn) 55%,var(--br))}
+      .simple-data-state.marine{border-color:color-mix(in srgb,var(--warn) 65%,var(--br));background:color-mix(in srgb,var(--warn) 10%,var(--card))}
       .simple-timeline{display:grid;grid-template-columns:repeat(16,1fr);gap:2px;margin-top:10px}.simple-hour{height:22px;border-radius:5px;background:color-mix(in srgb,var(--bad) 35%,var(--pill-bg))}.simple-hour.good{background:var(--ok)}.simple-hour.prudent{background:var(--warn)}
       .simple-axis{display:flex;justify-content:space-between;margin-top:5px;color:var(--muted);font-size:.68rem}.simple-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;color:var(--muted);font-size:.72rem}.simple-key::before{content:'';display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:3px;background:var(--bad)}.simple-key.good::before{background:var(--ok)}.simple-key.prudent::before{background:var(--warn)}
       .simple-condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.simple-condition{min-width:0;padding:14px;border-radius:16px;background:var(--pill-bg)}.simple-condition.return{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.simple-condition-label{display:block;color:var(--muted);font-size:.76rem}.simple-condition-value{display:block;margin-top:4px;font-size:1.18rem}.simple-condition-range{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:600}.simple-chart{margin:10px 0 0}.simple-spark{display:block;width:100%;height:88px;overflow:visible}.simple-spark .grid{stroke:color-mix(in srgb,var(--muted) 22%,transparent);stroke-width:1}.simple-spark .safe-zone{fill:color-mix(in srgb,var(--ok) 10%,transparent)}.simple-spark .threshold{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}.simple-spark .area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}.simple-spark .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.simple-spark .point{fill:var(--card);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.simple-condition.wave .simple-spark .area{fill:color-mix(in srgb,var(--ok) 13%,transparent)}.simple-condition.wave .simple-spark .line,.simple-condition.wave .simple-spark .point{stroke:var(--ok)}.simple-chart-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:.65rem}.simple-chart-threshold{margin-top:7px;color:var(--muted);font-size:.68rem}.simple-chart-threshold::before{content:'';display:inline-block;width:15px;margin-right:5px;border-top:2px dashed var(--warn);vertical-align:middle}html[dir="rtl"] .simple-chart-threshold::before{margin-right:0;margin-left:5px}
@@ -151,6 +155,17 @@
     return lang() === 'en'
       ? diagnostics.summary_en || diagnostics.first_blocker?.reason_en
       : diagnostics.summary_fr || diagnostics.first_blocker?.reason_fr;
+  }
+  function hasMarineDataError(data) {
+    return (data?.windows || []).some((destination) => {
+      const diagnostics = destination?.diagnostics || {};
+      const values = [
+        diagnostics.summary_fr, diagnostics.summary_en,
+        diagnostics.first_blocker?.reason_fr, diagnostics.first_blocker?.reason_en,
+        ...(diagnostics.first_blocker?.reasons || []),
+      ].filter(Boolean).join(' ').toLowerCase();
+      return /marine_error|données de vagues|wave data|houle.*indisponible/.test(values);
+    });
   }
   function freshness(generatedAt) {
     const c = copy();
@@ -256,7 +271,8 @@
     const generatedAt = state.windows?.generated_at || state.status?.generated_at;
     const reason = blockerText(blocked) || c.conditions;
     const dataState = state.loading ? `<div class="simple-data-state" role="status">⏳ ${esc(c.loading)}</div>` : state.error ? `<div class="simple-data-state error" role="alert">⚠️ ${esc(c.missing)}</div>` : isStale() ? `<div class="simple-data-state stale" role="alert">⚠️ ${esc(c.stale)}</div>` : '';
-    root.innerHTML = `<div class="simple-shell">${dataState}
+    const marineState = hasMarineDataError(state.windows) ? `<div class="simple-data-state marine" role="alert">🌊 ${esc(c.marineMissing)}</div>` : '';
+    root.innerHTML = `<div class="simple-shell">${dataState}${marineState}
       <section class="simple-hero ${tone}" aria-live="polite">
         <div class="simple-overline">${esc(c.decision)} · ${esc(c.next)}</div>
         <h1 class="simple-verdict"><span class="simple-verdict-icon" aria-hidden="true">${icon}</span>${esc(verdict)}</h1>

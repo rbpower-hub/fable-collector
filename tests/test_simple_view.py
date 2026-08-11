@@ -23,6 +23,11 @@ def test_simple_view_is_decision_first_and_keeps_no_go_reasons_collapsed():
     assert 'id="simple-reasons" class="simple-reasons" hidden' in script
     assert 'aria-expanded="false"' in script
     assert "diagnostics.first_blocker" in script
+    assert "hasMarineDataError" in script
+    assert "Données de vagues indisponibles" in script
+    assert "Wave data unavailable" in script
+    assert "بيانات الأمواج غير متاحة" in script
+    assert 'class="simple-data-state marine" role="alert"' in script
 
 
 def test_simple_view_has_mobile_navigation_and_three_day_overview():

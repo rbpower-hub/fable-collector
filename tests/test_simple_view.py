@@ -38,6 +38,8 @@ def test_simple_view_has_mobile_navigation_and_three_day_overview():
     assert "[0, 1, 2].map" in script
     assert "@media(max-width:520px)" in script
     assert "env(safe-area-inset-bottom)" in script
+    assert 'id="simple-navigation"' in script
+    assert "simple-window-card" in script
 
 
 def test_simple_view_refreshes_from_published_dashboard_contract():
@@ -46,6 +48,7 @@ def test_simple_view_refreshes_from_published_dashboard_contract():
     assert "fetch('windows.json'" in script
     assert "fetch('status.json'" in script
     assert "fetch('recommendations.json'" in script
+    assert "fetch('rules.normalized.json'" in script
     assert "document.addEventListener('fable:dashboard-updated', refresh)" in script
 
 
@@ -68,7 +71,8 @@ def test_simple_view_phase_two_has_timeline_trends_and_data_states():
     assert "simple-chart-threshold" in script
     assert "family_max_kmh" in script
     assert "family_max_hs_m" in script
-    assert "stale_after" in script
+    assert "navigationVerdictForDay" in script
+    assert "result?.state === 'STALE'" in script
     assert "Prévisions indisponibles" in script
 
 
@@ -102,7 +106,7 @@ def test_simple_view_is_default_and_deep_links_are_explicit():
     assert "if (!savedMode || savedMode === SIMPLE_MODE)" in script
     assert "fable_simple_default_v1" in script
     assert "if (!localStorage.getItem(SIMPLE_DEFAULT_KEY))" in script
-    assert "openFamilyTab('details')" in script
+    assert "getElementById('simple-conditions')" in script
     assert "openSelectedMap()" in script
     assert "window.panToFile?.(slug)" in script
     assert "setMode('family', false)" in script
@@ -117,3 +121,17 @@ def test_simple_view_three_day_action_and_safe_activities_are_rendered():
     assert "String(record.category || 'family').toLowerCase() === 'family'" in script
     assert "record.start === best.windowItem.start" in script
     assert "Aucune activité compatible dans une fenêtre Famille validée." in script
+
+
+def test_simple_view_uses_unified_selected_day_verdicts_without_cross_day_fallback():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+    verdicts = (ROOT / "public" / "js" / "navigation-verdicts.js").read_text(encoding="utf-8")
+
+    assert "navigationVerdictForDay" in script
+    assert "OFF_HOURS" in script
+    assert "TRAVEL_ONLY" in script
+    assert "Fenêtre hors horaires disponible" in script
+    assert "preferred[0] || rows[0]" not in script
+    assert "selectedDay:dayKey(offset)" in script
+    assert "getNavigationWindowsForDay" in verdicts
+    assert "['family', 'off_hours']" in verdicts

@@ -160,6 +160,12 @@ jobs:
           cat visual-artifacts/SUMMARY.md
           exit $status
 
+      - name: Run Mobile UI V2 selected-day visual
+        if: matrix.id == 'mobile-fresh-fr-nautical'
+        run: |
+          node --check tests/visual/mobile-v2.mjs
+          timeout --signal=TERM --kill-after=5s 45s node tests/visual/mobile-v2.mjs
+
       - name: Upload visual recipe
         if: always()
         uses: actions/upload-artifact@v4

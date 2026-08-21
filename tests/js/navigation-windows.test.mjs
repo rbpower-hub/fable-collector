@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   getDisplayedNavigationWindows,
+  getNavigationWindowsForDay,
   isLongTripNavigationWindow,
+  navigationWindowBreakdown,
   navigationWindowCounts,
   tunisNavigationDateKey,
 } from '../../public/js/navigation-windows.js';
@@ -82,4 +84,25 @@ test('counted window total is exactly the displayed card input total', () => {
   });
   const counts = navigationWindowCounts(displayed);
   assert.equal(counts.family + counts.longTrip, displayed.length);
+});
+
+test('unified navigation rows distinguish family, prudent, off-hours and long-trip slots', () => {
+  const prudent = {...standard, start:'2026-08-02T13:00:00+01:00', end:'2026-08-02T17:00:00+01:00', family_tier:'prudent'};
+  const offHours = {...standard, start:'2026-08-02T20:00:00+01:00', end:'2026-08-02T23:00:00+01:00', category:'off_hours'};
+  const rows = getNavigationWindowsForDay(sunday, {windows:[
+    {dest_slug:'sidi-bou-said.json', windows:[standard, prudent, offHours]},
+    {dest_slug:'kelibia.json', trip_mode:'one_way_multi_day', route_kind:'long_trip_one_way', windows:[outbound]},
+  ]}, {categories:['family', 'off_hours']});
+
+  assert.deepEqual(navigationWindowBreakdown(rows), {
+    strict:1,
+    prudent:1,
+    offHours:1,
+    family:2,
+    longTrip:1,
+    total:4,
+  });
+  assert.equal(getDisplayedNavigationWindows(sunday, {windows:[
+    {dest_slug:'sidi-bou-said.json', windows:[standard, offHours]},
+  ]}).length, 1);
 });

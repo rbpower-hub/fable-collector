@@ -87,3 +87,22 @@ terrain préalable.
 - la Vue Famille et la Vue Expert continuent de fonctionner sans la Vue Simple ;
 - le choix du mode est local au navigateur ;
 - toute information cachée par défaut reste accessible en une action explicite.
+
+## Mobile UI V2 — verdicts de navigation unifiés
+
+La V2 ne déduit plus sa décision à partir de sa propre copie des fenêtres. Le
+module pur `public/js/navigation-verdicts.js` consomme la normalisation commune
+de `navigation-windows.js` et publie, pour la journée sélectionnée, un état
+unique parmi :
+
+- `GO_FAMILY` et `GO_PRUDENT` pour les sorties familiales validées ;
+- `OFF_HOURS` pour un créneau météo favorable hors horaires familiaux ;
+- `TRAVEL_ONLY` pour une navigation longue distance, jamais assimilée à une
+  sortie familiale locale ;
+- `NO_GO`, `NO_DATA` ou `STALE` selon les données disponibles.
+
+La journée sélectionnée est stricte : l'absence de fenêtre ce jour ne peut plus
+être masquée par une fenêtre appartenant à un autre jour. La même sélection est
+transmise aux vues Famille et Carte. Le mobile suit désormais la hiérarchie
+`Décision → frise horaire → 3 jours → fenêtres de navigation → conditions`, avec
+des styles distincts pour Family GO, Prudent, hors horaires et long trajet.

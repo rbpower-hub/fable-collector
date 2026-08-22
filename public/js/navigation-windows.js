@@ -4,6 +4,10 @@ const LONG_ROUTE_KINDS = new Set(['long_trip_one_way', 'offshore_one_way_beta'])
 
 const asArray = (value) => Array.isArray(value) ? value : [];
 
+function normalizedCategory(destination, windowItem) {
+  return String(windowItem?.category || destination?.category || 'family').toLowerCase();
+}
+
 export function tunisNavigationDateKey(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return '';
@@ -42,16 +46,21 @@ export function isLongTripNavigationWindow(row) {
     || LONG_ROUTE_KINDS.has(String(item.route_kind || destination.route_kind || ''));
 }
 
-export function getDisplayedNavigationWindows(selectedDay, windowsData) {
+export function getNavigationWindowsForDay(
+  selectedDay,
+  windowsData,
+  {categories = ['family']} = {},
+) {
+  const allowedCategories = new Set(categories.map((value) => String(value).toLowerCase()));
   const rows = [];
   asArray(windowsData?.windows).forEach((destination) => {
     const candidates = [...asArray(destination?.windows), ...directionalWindows(destination)];
     candidates.forEach((windowItem) => {
       if (!windowItem?.start || !windowItem?.end) return;
       if (tunisNavigationDateKey(windowItem.start) !== selectedDay) return;
-      const category = String(windowItem.category || destination.category || 'family').toLowerCase();
-      if (category !== 'family') return;
-      rows.push({destination, windowItem});
+      const category = normalizedCategory(destination, windowItem);
+      if (!allowedCategories.has(category)) return;
+      rows.push({destination, windowItem, category});
     });
   });
 
@@ -67,6 +76,39 @@ export function getDisplayedNavigationWindows(selectedDay, windowsData) {
   );
 }
 
+export function getDisplayedNavigationWindows(selectedDay, windowsData) {
+  return getNavigationWindowsForDay(selectedDay, windowsData, {categories:['family']});
+}
+
+export function navigationWindowBreakdown(rows) {
+  const result = {
+    strict: 0,
+    prudent: 0,
+    offHours: 0,
+    family: 0,
+    longTrip: 0,
+    total: rows.length,
+  };
+  rows.forEach((row) => {
+    if (isLongTripNavigationWindow(row)) {
+      result.longTrip += 1;
+      return;
+    }
+    const category = normalizedCategory(row.destination, row.windowItem);
+    if (category === 'off_hours') {
+      result.offHours += 1;
+      return;
+    }
+    result.family += 1;
+    if (String(row.windowItem?.family_tier || row.destination?.family_tier || '').toLowerCase() === 'prudent') {
+      result.prudent += 1;
+    } else {
+      result.strict += 1;
+    }
+  });
+  return result;
+}
+
 export function navigationWindowCounts(displayedWindows) {
   const longTrip = displayedWindows.filter(isLongTripNavigationWindow).length;
   return {family: displayedWindows.length - longTrip, longTrip, total:displayedWindows.length};
@@ -75,7 +117,9 @@ export function navigationWindowCounts(displayedWindows) {
 if (typeof window !== 'undefined') {
   window.FABLENavigationWindows = Object.assign(window.FABLENavigationWindows || {}, {
     getDisplayedNavigationWindows,
+    getNavigationWindowsForDay,
     isLongTripNavigationWindow,
+    navigationWindowBreakdown,
     navigationWindowCounts,
     tunisNavigationDateKey,
   });

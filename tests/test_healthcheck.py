@@ -13,6 +13,11 @@ def test_default_health_age_allows_transient_pages_delay():
     assert healthcheck.MAX_AGE_MIN == 150
 
 
+def test_schedule_guard_refreshes_before_dashboard_can_turn_stale():
+    assert healthcheck.SCHEDULE_MIN_INTERVAL_MIN == 35
+    assert healthcheck.SCHEDULE_MIN_INTERVAL_MIN + 60 <= 95
+
+
 def test_cache_busted_url_preserves_existing_query(monkeypatch):
     monkeypatch.setattr(healthcheck.time, "time", lambda: 1234567890)
     assert healthcheck._cache_busted_url("https://example.test/status.json") == (
@@ -37,3 +42,13 @@ def test_should_collect_live_runs_when_live_is_stale(monkeypatch):
     should_run, reason = healthcheck.should_collect_live("https://example.test", min_interval_min=50, now=now)
     assert should_run is True
     assert "67 min old" in reason
+
+
+def test_should_collect_live_uses_available_trigger_after_scheduler_gap(monkeypatch):
+    monkeypatch.setattr(healthcheck, "_get", lambda _url: {"generated_at": "2026-08-24T05:07:00+00:00"})
+    now = dt.datetime.fromisoformat("2026-08-24T05:47:00+00:00")
+
+    should_run, reason = healthcheck.should_collect_live("https://example.test", now=now)
+
+    assert should_run is True
+    assert "40 min old" in reason

@@ -41,7 +41,7 @@ def test_refresh_polling_and_fail_safe_freshness_remain_bounded():
     status = (ROOT / "fable" / "status.py").read_text(encoding="utf-8")
 
     assert 'cron: "7,27,47 * * * *"' in text
-    assert 'FABLE_MIN_INTERVAL_MIN: "50"' in text
+    assert 'FABLE_MIN_INTERVAL_MIN: "35"' in text
     assert "MAX_AGE_MIN = 150" in health
     assert "LEEWAY_MIN = 35" in status
 

@@ -23,7 +23,10 @@ DEFAULT_BASE = "https://rbpower-hub.github.io/fable-collector"
 # significant queue/deployment latency. Alert only after roughly two missed
 # refresh opportunities rather than on a small transient delay.
 MAX_AGE_MIN = 150
-SCHEDULE_MIN_INTERVAL_MIN = 50
+# The workflow is polled every 20 minutes, but GitHub can delay scheduled
+# events. A 35-minute guard leaves a full 60-minute safety margin before the
+# dashboard's 95-minute fail-safe freshness limit.
+SCHEDULE_MIN_INTERVAL_MIN = 35
 MIN_HOURLY_POINTS = 24
 
 

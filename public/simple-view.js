@@ -119,11 +119,14 @@
       .simple-metric span{display:block;color:var(--muted);font-size:.72rem}.simple-metric strong{display:block;margin-top:4px;font-size:.95rem;overflow:hidden;text-overflow:ellipsis}
       .simple-panel{margin-top:12px;padding:17px;border:1px solid var(--br);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}
       .simple-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.simple-panel h2{margin:0;font-size:1rem}.simple-panel-note{color:var(--muted);font-size:.76rem}
-      .simple-day-selector{margin-top:4px;padding:14px}.simple-day-selector .simple-panel-head{margin-bottom:10px}.simple-selected-day-content>.simple-hero{margin-top:12px}
+      .simple-day-context{--selection-color:var(--bad);position:relative;margin-top:4px}.simple-day-context.good{--selection-color:var(--ok)}.simple-day-context.prudent,.simple-day-context.stale{--selection-color:var(--warn)}.simple-day-context.off-hours{--selection-color:#22d3ee}.simple-day-context.travel{--selection-color:#60a5fa}.simple-day-context.loading,.simple-day-context.unavailable{--selection-color:var(--muted)}
+      .simple-day-selector{position:relative;z-index:2;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.simple-day-selector .simple-panel-head{margin:0 2px 10px}
+      .simple-selected-day-content{position:relative;z-index:1;margin-top:14px;padding:12px;border:2px solid var(--selection-color);border-radius:20px;background:color-mix(in srgb,var(--selection-color) 5%,var(--card));box-shadow:var(--shadow)}.simple-selected-day-content>.simple-hero{margin-top:0}
       .simple-days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-      .simple-day{--day-color:var(--bad);width:100%;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0;min-height:116px;padding:10px;border:1px solid var(--br);border-top:4px solid var(--day-color);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}
+      .simple-day{--day-color:var(--bad);position:relative;width:100%;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0;min-height:116px;padding:10px;border:1px solid var(--br);border-top:4px solid var(--day-color);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}
       .simple-day.good{--day-color:var(--ok)}.simple-day.prudent,.simple-day.stale{--day-color:var(--warn)}.simple-day.off-hours{--day-color:#22d3ee}.simple-day.travel{--day-color:#60a5fa}.simple-day.loading,.simple-day.unavailable{--day-color:var(--muted)}
-      .simple-day[aria-selected="true"]{border-color:var(--day-color);background:color-mix(in srgb,var(--day-color) 12%,var(--card));box-shadow:0 0 0 2px color-mix(in srgb,var(--day-color) 26%,transparent),var(--shadow)}
+      .simple-day[aria-selected="true"]{z-index:3;border-color:var(--day-color);border-end-start-radius:7px;border-end-end-radius:7px;background:color-mix(in srgb,var(--day-color) 12%,var(--card));box-shadow:0 0 0 2px color-mix(in srgb,var(--day-color) 26%,transparent),var(--shadow)}
+      .simple-day[aria-selected="true"]::after{content:'';position:absolute;inset-inline:14px;bottom:-17px;height:17px;border-inline:2px solid var(--day-color);background:color-mix(in srgb,var(--day-color) 5%,var(--card));pointer-events:none}
       .simple-day-heading{display:flex;align-items:baseline;justify-content:space-between;gap:5px;min-width:0}.simple-day-title{font-weight:900;overflow:hidden;text-overflow:ellipsis}.simple-day-calendar{flex:0 0 auto;color:var(--muted);font-size:.64rem}
       .simple-day-state{color:var(--day-color);font-size:.75rem;font-weight:950;line-height:1.15}.simple-day-date{display:block;min-height:2.3em;color:var(--muted);font-size:.68rem;line-height:1.15}
       .simple-day-track{height:7px;margin-top:auto;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--muted) 18%,transparent)}
@@ -141,8 +144,8 @@
       .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)
       .simple-nav-action{min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:.7rem;font-weight:800;cursor:pointer}.simple-nav-action span{display:block;font-size:1.15rem;margin-bottom:2px}.simple-nav-action.active{background:color-mix(in srgb,var(--accent) 18%,var(--pill-bg));color:var(--fg)}
       @media(max-width:640px){.simple-hero-grid{grid-template-columns:1fr}.simple-confidence{display:none}.simple-window-card{grid-template-columns:1fr auto}.simple-window-badge{grid-column:1/-1;justify-self:start}}
-      @media(max-width:520px){.simple-shell{padding-top:2px}.simple-hero{padding:18px;border-radius:20px}.simple-metrics{grid-template-columns:1fr 1fr}.simple-metric:last-child{grid-column:1/-1}.simple-condition-grid{grid-template-columns:1fr}.simple-condition.return{grid-column:auto}.simple-day-selector{padding:11px}.simple-day{min-height:112px;padding:8px}.simple-day-heading{display:block}.simple-day-calendar{display:block;margin-top:2px}.simple-entry{font-size:0}.simple-entry::after{content:'✨';font-size:1rem}}
-      @media(max-width:350px){.simple-actions{grid-template-columns:1fr}.simple-days{gap:5px}.simple-day{min-height:108px;padding:7px 6px}.simple-day-title{font-size:.76rem}.simple-day-state{font-size:.66rem}.simple-day-date{font-size:.61rem}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}}
+      @media(max-width:520px){.simple-shell{padding-top:2px}.simple-hero{padding:18px;border-radius:18px}.simple-selected-day-content{padding:9px;border-radius:18px}.simple-metrics{grid-template-columns:1fr 1fr}.simple-metric:last-child{grid-column:1/-1}.simple-condition-grid{grid-template-columns:1fr}.simple-condition.return{grid-column:auto}.simple-day{min-height:112px;padding:8px}.simple-day-heading{display:block}.simple-day-calendar{display:block;margin-top:2px}.simple-entry{font-size:0}.simple-entry::after{content:'✨';font-size:1rem}}
+      @media(max-width:350px){.simple-actions{grid-template-columns:1fr}.simple-days{gap:5px}.simple-day{min-height:108px;padding:7px 6px}.simple-day[aria-selected="true"]::after{inset-inline:8px}.simple-day-title{font-size:.76rem}.simple-day-state{font-size:.66rem}.simple-day-date{font-size:.61rem}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}.simple-selected-day-content{padding:7px}}
       @media(min-width:521px) and (max-width:900px){.simple-shell{max-width:680px}.simple-hero{padding:24px}}
       @media(min-width:901px){body.simple-board-mode{padding-bottom:24px}.simple-bottom-nav{position:sticky;bottom:12px;margin-top:14px}}
       @media(prefers-reduced-motion:reduce){.simple-action,.simple-day,.simple-nav-action{scroll-behavior:auto}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -330,6 +333,12 @@
     }).join('') : `<div class="simple-empty">${esc(c.noWindow)}</div>`;
     return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${rows.length}</span></div><div class="simple-navigation">${content}</div></section>`;
   }
+  function toneForState(value) {
+    return {
+      GO_FAMILY:'good', GO_PRUDENT:'prudent', OFF_HOURS:'off-hours', TRAVEL_ONLY:'travel',
+      STALE:'stale', NO_DATA:'unavailable', NO_GO:'blocked',
+    }[value] || 'loading';
+  }
   function renderDays() {
     const c = copy();
     return [0, 1, 2].map((index) => {
@@ -340,10 +349,7 @@
       const duration = best ? Math.max(1, (new Date(best.windowItem.end) - new Date(best.windowItem.start)) / 3600000) : 0;
       const width = Math.min(100, Math.max(12, duration / 16 * 100));
       const offset = Math.min(88, Math.max(0, (startHour - 5) / 16 * 100));
-      const tone = {
-        GO_FAMILY:'good', GO_PRUDENT:'prudent', OFF_HOURS:'off-hours', TRAVEL_ONLY:'travel',
-        STALE:'stale', NO_DATA:'unavailable', NO_GO:'blocked',
-      }[result?.state] || 'loading';
+      const tone = toneForState(result?.state);
       const label = {
         GO_FAMILY:c.good, GO_PRUDENT:c.cautious, OFF_HOURS:c.offHoursSlot, TRAVEL_ONLY:c.longTripSlot,
         STALE:c.unavailable, NO_DATA:c.unavailable,
@@ -361,6 +367,7 @@
     if (!root) return;
     const c = copy();
     const result = verdictForDay();
+    const selectedTone = toneForState(result?.state);
     const best = result?.row || null;
     const presentation = {
       GO_FAMILY:{tone:'good', title:c.possible, icon:'✓', detail:''},
@@ -380,7 +387,7 @@
     const reason = blockerText(blocked) || presentation.detail || c.conditions;
     const dataState = state.loading ? `<div class="simple-data-state" role="status">⏳ ${esc(c.loading)}</div>` : state.error ? `<div class="simple-data-state error" role="alert">⚠️ ${esc(c.missing)}</div>` : result?.state === 'STALE' ? `<div class="simple-data-state stale" role="alert">⚠️ ${esc(c.stale)}</div>` : '';
     const marineState = hasMarineDataError(state.windows) ? `<div class="simple-data-state marine" role="alert">🌊 ${esc(c.marineMissing)}</div>` : '';
-    root.innerHTML = `<div class="simple-shell">${dataState}${marineState}
+    root.innerHTML = `<div class="simple-shell">${dataState}${marineState}<div class="simple-day-context ${selectedTone}" data-selected-tone="${selectedTone}">
       <section id="simple-three-days" class="simple-panel simple-day-selector"><div class="simple-panel-head"><h2>📅 ${esc(c.planning)}</h2><span class="simple-panel-note">${esc(c.horizon)}</span></div><div class="simple-days" role="tablist" aria-label="${esc(c.planning)}">${renderDays()}</div></section>
       <div id="simple-selected-day-content" class="simple-selected-day-content" role="tabpanel" aria-labelledby="simple-day-tab-${state.activeDay}" tabindex="0">
       <section id="simple-decision" class="simple-hero ${presentation.tone}" data-verdict-state="${esc(result?.state || 'LOADING')}" aria-live="polite">
@@ -395,6 +402,7 @@
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.confidence)}</span><strong>${esc(confidence)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
       ${renderTimeline(result?.rows || [], result?.counts || {})}
       ${renderNavigation(result)}${renderConditions(best)}${renderActivities(best)}
+      </div>
       </div>
     </div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="details" type="button"><span>•••</span>${esc(c.more)}</button></nav>`;
   }

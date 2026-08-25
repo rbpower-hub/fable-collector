@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260825-three-day-tabs" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260825-connected-panel" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -51,6 +51,10 @@ def test_three_day_selector_precedes_and_controls_all_selected_day_widgets():
     assert 'aria-selected="${selected}"' in script
     assert 'id="simple-selected-day-content"' in script
     assert 'role="tabpanel"' in script
+    assert 'class="simple-day-context ${selectedTone}"' in script
+    assert 'data-selected-tone="${selectedTone}"' in script
+    assert '.simple-day[aria-selected="true"]::after' in script
+    assert 'border:2px solid var(--selection-color)' in script
     assert "['ArrowLeft', 'ArrowRight', 'Home', 'End']" in script
 
 

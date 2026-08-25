@@ -73,6 +73,10 @@ const initial = await page.evaluate(() => ({
   rows:document.querySelectorAll('.simple-window-card').length,
   tabs:document.querySelectorAll('.simple-day[role="tab"]').length,
   selectedTab:document.querySelector('.simple-day[aria-selected="true"]')?.dataset.simpleDay,
+  panelOwner:document.querySelector('#simple-selected-day-content')?.getAttribute('aria-labelledby'),
+  panelTone:document.querySelector('.simple-day-context')?.dataset.selectedTone,
+  connectorHeight:parseFloat(getComputedStyle(document.querySelector('.simple-day[aria-selected="true"]'),'::after').height),
+  panelBorder:parseFloat(getComputedStyle(document.querySelector('#simple-selected-day-content')).borderTopWidth),
   selectorBeforeDecision:Boolean(document.querySelector('#simple-three-days')?.compareDocumentPosition(document.querySelector('#simple-decision')) & Node.DOCUMENT_POSITION_FOLLOWING),
   navVisible:getComputedStyle(document.querySelector('.simple-bottom-nav')).display !== 'none',
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -81,6 +85,9 @@ if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected tit
 if (initial.rows !== 1) throw new Error(`expected 1 selected-day row, got ${initial.rows}`);
 if (initial.tabs !== 3) throw new Error(`expected 3 day tabs, got ${initial.tabs}`);
 if (initial.selectedTab !== String(offOffset)) throw new Error(`unexpected initial selected tab: ${initial.selectedTab}`);
+if (initial.panelOwner !== `simple-day-tab-${offOffset}`) throw new Error(`selected panel belongs to ${initial.panelOwner}`);
+if (initial.panelTone !== 'off-hours') throw new Error(`unexpected selected panel tone: ${initial.panelTone}`);
+if (initial.connectorHeight < 16 || initial.panelBorder < 2) throw new Error('selected day is not visually connected to its panel');
 if (!initial.selectorBeforeDecision) throw new Error('three-day selector must precede the decision');
 if (!initial.navVisible) throw new Error('bottom navigation is hidden');
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
@@ -88,6 +95,7 @@ if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overfl
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();
 await page.waitForSelector('.simple-hero[data-verdict-state="GO_FAMILY"]');
 await page.waitForSelector(`[data-simple-day="${familyOffset}"][aria-selected="true"]`);
+await page.waitForSelector('.simple-day-context[data-selected-tone="good"]');
 const tomorrowRows = await page.locator('.simple-window-card').count();
 if (tomorrowRows !== 1) throw new Error(`tomorrow should have one row, got ${tomorrowRows}`);
 if (errors.length) throw new Error(errors.join('; '));

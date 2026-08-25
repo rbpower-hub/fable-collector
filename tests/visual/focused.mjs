@@ -85,7 +85,9 @@ function payloadsFor(state) {
           {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'return', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
         ]},
         {dest_slug: 'pantelleria.json', dest_name: 'Pantelleria', beta: true, trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', windows: [
-          {...windowItem, start: iso(1560), end: iso(1980), trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', direction: 'outbound', origin_name: 'Kélibia', destination_name: 'Pantelleria', beta: true},
+          // Keep the beta crossing on the same selected day as the Kélibia
+          // routes, including when CI runs close to local midnight.
+          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', direction: 'outbound', origin_name: 'Kélibia', destination_name: 'Pantelleria', beta: true},
         ]},
       ],
     },

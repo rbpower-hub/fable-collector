@@ -42,6 +42,18 @@ def test_simple_view_has_mobile_navigation_and_three_day_overview():
     assert "simple-window-card" in script
 
 
+def test_three_day_selector_precedes_and_controls_all_selected_day_widgets():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert script.index('id="simple-three-days"') < script.index('id="simple-decision"')
+    assert 'role="tablist"' in script
+    assert 'role="tab"' in script
+    assert 'aria-selected="${selected}"' in script
+    assert 'id="simple-selected-day-content"' in script
+    assert 'role="tabpanel"' in script
+    assert "['ArrowLeft', 'ArrowRight', 'Home', 'End']" in script
+
+
 def test_simple_view_refreshes_from_published_dashboard_contract():
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 

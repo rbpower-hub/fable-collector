@@ -119,12 +119,15 @@
       .simple-metric span{display:block;color:var(--muted);font-size:.72rem}.simple-metric strong{display:block;margin-top:4px;font-size:.95rem;overflow:hidden;text-overflow:ellipsis}
       .simple-panel{margin-top:12px;padding:17px;border:1px solid var(--br);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}
       .simple-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.simple-panel h2{margin:0;font-size:1rem}.simple-panel-note{color:var(--muted);font-size:.76rem}
-      .simple-days{display:grid;gap:8px}.simple-day{width:100%;display:grid;grid-template-columns:minmax(90px,.8fr) minmax(0,1.6fr) auto;align-items:center;gap:10px;min-height:62px;padding:10px 12px;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:left;cursor:pointer}
-      .simple-day-title{font-weight:900}.simple-day-date{display:block;color:var(--muted);font-size:.72rem;margin-top:2px}
-      .simple-day-track{height:9px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--muted) 18%,transparent)}
-      .simple-day-segment{height:100%;border-radius:inherit;background:var(--ok)}.simple-day.prudent .simple-day-segment{background:var(--warn)}.simple-day.blocked .simple-day-segment{width:100%!important;background:color-mix(in srgb,var(--bad) 35%,transparent)}
-      .simple-day.off-hours .simple-day-segment{background:#22d3ee}.simple-day.travel .simple-day-segment{background:#60a5fa}
-      .simple-day-state{font-size:.72rem;font-weight:900;color:var(--ok)}.simple-day.prudent .simple-day-state{color:var(--warn)}.simple-day.off-hours .simple-day-state{color:#22d3ee}.simple-day.travel .simple-day-state{color:#60a5fa}.simple-day.blocked .simple-day-state{color:var(--bad)}
+      .simple-day-selector{margin-top:4px;padding:14px}.simple-day-selector .simple-panel-head{margin-bottom:10px}.simple-selected-day-content>.simple-hero{margin-top:12px}
+      .simple-days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+      .simple-day{--day-color:var(--bad);width:100%;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0;min-height:116px;padding:10px;border:1px solid var(--br);border-top:4px solid var(--day-color);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}
+      .simple-day.good{--day-color:var(--ok)}.simple-day.prudent,.simple-day.stale{--day-color:var(--warn)}.simple-day.off-hours{--day-color:#22d3ee}.simple-day.travel{--day-color:#60a5fa}.simple-day.loading,.simple-day.unavailable{--day-color:var(--muted)}
+      .simple-day[aria-selected="true"]{border-color:var(--day-color);background:color-mix(in srgb,var(--day-color) 12%,var(--card));box-shadow:0 0 0 2px color-mix(in srgb,var(--day-color) 26%,transparent),var(--shadow)}
+      .simple-day-heading{display:flex;align-items:baseline;justify-content:space-between;gap:5px;min-width:0}.simple-day-title{font-weight:900;overflow:hidden;text-overflow:ellipsis}.simple-day-calendar{flex:0 0 auto;color:var(--muted);font-size:.64rem}
+      .simple-day-state{color:var(--day-color);font-size:.75rem;font-weight:950;line-height:1.15}.simple-day-date{display:block;min-height:2.3em;color:var(--muted);font-size:.68rem;line-height:1.15}
+      .simple-day-track{height:7px;margin-top:auto;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--muted) 18%,transparent)}
+      .simple-day-segment{height:100%;border-radius:inherit;background:var(--day-color)}.simple-day.blocked .simple-day-segment{width:100%!important;background:color-mix(in srgb,var(--bad) 35%,transparent)}
       .simple-data-state{margin:12px 0;padding:12px 14px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg);font-weight:800}.simple-data-state.stale,.simple-data-state.error{border-color:color-mix(in srgb,var(--warn) 55%,var(--br))}
       .simple-data-state.marine{border-color:color-mix(in srgb,var(--warn) 65%,var(--br));background:color-mix(in srgb,var(--warn) 10%,var(--card))}
       .simple-timeline{display:grid;grid-template-columns:repeat(17,1fr);gap:2px;margin-top:10px}.simple-hour{height:22px;border-radius:5px;background:color-mix(in srgb,var(--bad) 35%,var(--pill-bg))}.simple-hour.good{background:var(--ok)}.simple-hour.prudent{background:var(--warn)}
@@ -138,12 +141,12 @@
       .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)
       .simple-nav-action{min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:.7rem;font-weight:800;cursor:pointer}.simple-nav-action span{display:block;font-size:1.15rem;margin-bottom:2px}.simple-nav-action.active{background:color-mix(in srgb,var(--accent) 18%,var(--pill-bg));color:var(--fg)}
       @media(max-width:640px){.simple-hero-grid{grid-template-columns:1fr}.simple-confidence{display:none}.simple-window-card{grid-template-columns:1fr auto}.simple-window-badge{grid-column:1/-1;justify-self:start}}
-      @media(max-width:520px){.simple-shell{padding-top:2px}.simple-hero{padding:18px;border-radius:20px}.simple-metrics{grid-template-columns:1fr 1fr}.simple-metric:last-child{grid-column:1/-1}.simple-condition-grid{grid-template-columns:1fr}.simple-condition.return{grid-column:auto}.simple-day{grid-template-columns:86px minmax(0,1fr) auto;padding:9px}.simple-day-state{max-width:72px;text-align:right}.simple-entry{font-size:0}.simple-entry::after{content:'✨';font-size:1rem}}
-      @media(max-width:350px){.simple-actions{grid-template-columns:1fr}.simple-day{grid-template-columns:76px minmax(0,1fr)}.simple-day-state{grid-column:2;text-align:start;max-width:none}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}}
+      @media(max-width:520px){.simple-shell{padding-top:2px}.simple-hero{padding:18px;border-radius:20px}.simple-metrics{grid-template-columns:1fr 1fr}.simple-metric:last-child{grid-column:1/-1}.simple-condition-grid{grid-template-columns:1fr}.simple-condition.return{grid-column:auto}.simple-day-selector{padding:11px}.simple-day{min-height:112px;padding:8px}.simple-day-heading{display:block}.simple-day-calendar{display:block;margin-top:2px}.simple-entry{font-size:0}.simple-entry::after{content:'✨';font-size:1rem}}
+      @media(max-width:350px){.simple-actions{grid-template-columns:1fr}.simple-days{gap:5px}.simple-day{min-height:108px;padding:7px 6px}.simple-day-title{font-size:.76rem}.simple-day-state{font-size:.66rem}.simple-day-date{font-size:.61rem}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}}
       @media(min-width:521px) and (max-width:900px){.simple-shell{max-width:680px}.simple-hero{padding:24px}}
       @media(min-width:901px){body.simple-board-mode{padding-bottom:24px}.simple-bottom-nav{position:sticky;bottom:12px;margin-top:14px}}
       @media(prefers-reduced-motion:reduce){.simple-action,.simple-day,.simple-nav-action{scroll-behavior:auto}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
-      @media(forced-colors:active){.simple-hour{border:1px solid CanvasText}.simple-hour.good{background:Highlight}.simple-hour.prudent{background:Canvas}.simple-key::before{border:1px solid CanvasText}}
+      @media(forced-colors:active){.simple-hour{border:1px solid CanvasText}.simple-hour.good{background:Highlight}.simple-hour.prudent{background:Canvas}.simple-key::before{border:1px solid CanvasText}.simple-day[aria-selected="true"]{outline:3px solid Highlight}}
     `;
     document.head.appendChild(style);
   }
@@ -169,6 +172,12 @@
     if (index === 0) return c.today;
     if (index === 1) return c.tomorrow;
     return new Date(`${key}T12:00:00Z`).toLocaleDateString(lang() === 'ar' ? 'ar-TN' : lang() === 'en' ? 'en-GB' : 'fr-FR', {weekday:'long',timeZone:'UTC'});
+  }
+  function shortDate(key) {
+    return new Date(`${key}T12:00:00Z`).toLocaleDateString(
+      lang() === 'ar' ? 'ar-TN' : lang() === 'en' ? 'en-GB' : 'fr-FR',
+      {day:'numeric',month:'short',timeZone:'UTC'},
+    );
   }
   function verdictForDay(offset = state.activeDay) {
     if (!state.verdictModule) return null;
@@ -333,15 +342,17 @@
       const offset = Math.min(88, Math.max(0, (startHour - 5) / 16 * 100));
       const tone = {
         GO_FAMILY:'good', GO_PRUDENT:'prudent', OFF_HOURS:'off-hours', TRAVEL_ONLY:'travel',
-      }[result?.state] || 'blocked';
+        STALE:'stale', NO_DATA:'unavailable', NO_GO:'blocked',
+      }[result?.state] || 'loading';
       const label = {
         GO_FAMILY:c.good, GO_PRUDENT:c.cautious, OFF_HOURS:c.offHoursSlot, TRAVEL_ONLY:c.longTripSlot,
         STALE:c.unavailable, NO_DATA:c.unavailable,
-      }[result?.state] || c.noGo;
+      }[result?.state] || (result?.state === 'NO_GO' ? c.noGo : c.loading);
       const counts = result?.counts || {};
-      const countText = `${counts.family || 0} ${c.options}${counts.offHours ? ` · ${counts.offHours} ${c.offHoursSlot}` : ''}${counts.longTrip ? ` · ${counts.longTrip} ${c.longTripSlot}` : ''}`;
+      const countText = `${counts.total || 0} ${c.options}`;
       const windowText = best ? `${formatTime(best.windowItem.start)}–${formatTime(best.windowItem.end)} · ${countText}` : countText;
-      return `<button class="simple-day ${tone}" data-simple-day="${index}" type="button" aria-pressed="${index === state.activeDay}"${index === state.activeDay ? ' aria-current="date"' : ''}><span><span class="simple-day-title">${esc(dayLabel(key,index))}</span><span class="simple-day-date">${esc(windowText)}</span></span><span class="simple-day-track" aria-hidden="true"><span class="simple-day-segment" style="width:${width}%;margin-left:${best ? offset : 0}%"></span></span><span class="simple-day-state">${esc(label)}</span></button>`;
+      const selected = index === state.activeDay;
+      return `<button id="simple-day-tab-${index}" class="simple-day ${tone}" data-simple-day="${index}" type="button" role="tab" aria-selected="${selected}" aria-controls="simple-selected-day-content" tabindex="${selected ? 0 : -1}"${selected ? ' aria-current="date"' : ''}><span class="simple-day-heading"><span class="simple-day-title">${esc(dayLabel(key,index))}</span><time class="simple-day-calendar" datetime="${esc(key)}">${esc(shortDate(key))}</time></span><strong class="simple-day-state">${esc(label)}</strong><span class="simple-day-date">${esc(windowText)}</span><span class="simple-day-track" aria-hidden="true"><span class="simple-day-segment" style="width:${width}%;margin-left:${best ? offset : 0}%"></span></span></button>`;
     }).join('');
   }
 
@@ -370,6 +381,8 @@
     const dataState = state.loading ? `<div class="simple-data-state" role="status">⏳ ${esc(c.loading)}</div>` : state.error ? `<div class="simple-data-state error" role="alert">⚠️ ${esc(c.missing)}</div>` : result?.state === 'STALE' ? `<div class="simple-data-state stale" role="alert">⚠️ ${esc(c.stale)}</div>` : '';
     const marineState = hasMarineDataError(state.windows) ? `<div class="simple-data-state marine" role="alert">🌊 ${esc(c.marineMissing)}</div>` : '';
     root.innerHTML = `<div class="simple-shell">${dataState}${marineState}
+      <section id="simple-three-days" class="simple-panel simple-day-selector"><div class="simple-panel-head"><h2>📅 ${esc(c.planning)}</h2><span class="simple-panel-note">${esc(c.horizon)}</span></div><div class="simple-days" role="tablist" aria-label="${esc(c.planning)}">${renderDays()}</div></section>
+      <div id="simple-selected-day-content" class="simple-selected-day-content" role="tabpanel" aria-labelledby="simple-day-tab-${state.activeDay}" tabindex="0">
       <section id="simple-decision" class="simple-hero ${presentation.tone}" data-verdict-state="${esc(result?.state || 'LOADING')}" aria-live="polite">
         <div class="simple-hero-grid"><div><div class="simple-overline">${esc(c.decision)} · ${esc(dayLabel(dayKey(state.activeDay),state.activeDay))}</div>
         <h1 class="simple-verdict"><span class="simple-verdict-icon" aria-hidden="true">${presentation.icon}</span>${esc(presentation.title)}</h1>
@@ -381,8 +394,8 @@
       </section>
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.confidence)}</span><strong>${esc(confidence)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
       ${renderTimeline(result?.rows || [], result?.counts || {})}
-      <section id="simple-three-days" class="simple-panel"><div class="simple-panel-head"><h2>📅 ${esc(c.planning)}</h2><span class="simple-panel-note">${esc(c.horizon)}</span></div><div class="simple-days">${renderDays()}</div></section>
       ${renderNavigation(result)}${renderConditions(best)}${renderActivities(best)}
+      </div>
     </div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="details" type="button"><span>•••</span>${esc(c.more)}</button></nav>`;
   }
 
@@ -499,6 +512,16 @@
             document.querySelector(`[data-simple-day="${day}"]`)?.focus();
           });
         }
+      });
+      view.addEventListener('keydown', (event) => {
+        const tab = event.target.closest('[data-simple-day][role="tab"]');
+        if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const current = Number(tab.dataset.simpleDay);
+        const rtl = document.documentElement.dir === 'rtl';
+        const step = event.key === 'ArrowRight' ? (rtl ? -1 : 1) : (rtl ? 1 : -1);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (current + step + 3) % 3;
+        view.querySelector(`[data-simple-day="${next}"]`)?.click();
       });
     }
     state.activeDay = selectedDayOffset(localStorage.getItem('fable_selected_day') || dayKey(0));

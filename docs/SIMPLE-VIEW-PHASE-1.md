@@ -10,8 +10,9 @@ backend.
 
 1. Répondre en premier à : puis-je sortir, quand, où et avec quel niveau de
    prudence ?
-2. Présenter l'information dans l'ordre `Décision → fenêtre → conditions →
-   alternatives → détails`.
+2. Après les retours bêta, présenter l'information dans l'ordre `Choix du jour
+   → décision → fenêtre → conditions → alternatives → détails` afin que la
+   portée temporelle des widgets soit comprise avant leur lecture.
 3. Ne pas afficher les raisons du NO-GO par défaut. Le bouton « Pourquoi ? »
    ouvre une explication progressive, sans masquer l'accès aux diagnostics.
 4. Toujours combiner icône, texte et couleur. Une couleur ou un emoji seuls ne
@@ -103,6 +104,9 @@ unique parmi :
 
 La journée sélectionnée est stricte : l'absence de fenêtre ce jour ne peut plus
 être masquée par une fenêtre appartenant à un autre jour. La même sélection est
-transmise aux vues Famille et Carte. Le mobile suit désormais la hiérarchie
-`Décision → frise horaire → 3 jours → fenêtres de navigation → conditions`, avec
-des styles distincts pour Family GO, Prudent, hors horaires et long trajet.
+transmise aux vues Famille et Carte. À la suite des retours des utilisateurs
+bêta, le sélecteur trois jours précède tous les widgets qu'il pilote. Ses trois
+onglets combinent jour, date, texte de verdict et couleur, avec une sélection
+accessible au clavier. Le mobile suit désormais la hiérarchie `3 jours →
+décision → frise horaire → fenêtres de navigation → conditions`, avec des
+styles distincts pour Family GO, Prudent, hors horaires et long trajet.

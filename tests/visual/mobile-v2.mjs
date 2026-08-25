@@ -18,6 +18,7 @@ const familyStart = new Date(Date.now() + 25 * 60 * 60_000);
 const familyEnd = new Date(Date.now() + 31 * 60 * 60_000);
 const offDay = dateKey(offStart);
 const familyDay = dateKey(familyStart);
+const offOffset = [day(0), day(1), day(2)].indexOf(offDay);
 const familyOffset = [day(0), day(1), day(2)].indexOf(familyDay);
 const offHours = {
   start:offStart.toISOString(), end:offEnd.toISOString(), category:'off_hours', confidence:'Medium', confidence_score:64,
@@ -70,16 +71,23 @@ await page.waitForTimeout(300);
 const initial = await page.evaluate(() => ({
   title:document.querySelector('.simple-verdict')?.textContent?.trim(),
   rows:document.querySelectorAll('.simple-window-card').length,
+  tabs:document.querySelectorAll('.simple-day[role="tab"]').length,
+  selectedTab:document.querySelector('.simple-day[aria-selected="true"]')?.dataset.simpleDay,
+  selectorBeforeDecision:Boolean(document.querySelector('#simple-three-days')?.compareDocumentPosition(document.querySelector('#simple-decision')) & Node.DOCUMENT_POSITION_FOLLOWING),
   navVisible:getComputedStyle(document.querySelector('.simple-bottom-nav')).display !== 'none',
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
 }));
 if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected title: ${initial.title}`);
 if (initial.rows !== 1) throw new Error(`expected 1 selected-day row, got ${initial.rows}`);
+if (initial.tabs !== 3) throw new Error(`expected 3 day tabs, got ${initial.tabs}`);
+if (initial.selectedTab !== String(offOffset)) throw new Error(`unexpected initial selected tab: ${initial.selectedTab}`);
+if (!initial.selectorBeforeDecision) throw new Error('three-day selector must precede the decision');
 if (!initial.navVisible) throw new Error('bottom navigation is hidden');
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
 
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();
 await page.waitForSelector('.simple-hero[data-verdict-state="GO_FAMILY"]');
+await page.waitForSelector(`[data-simple-day="${familyOffset}"][aria-selected="true"]`);
 const tomorrowRows = await page.locator('.simple-window-card').count();
 if (tomorrowRows !== 1) throw new Error(`tomorrow should have one row, got ${tomorrowRows}`);
 if (errors.length) throw new Error(errors.join('; '));

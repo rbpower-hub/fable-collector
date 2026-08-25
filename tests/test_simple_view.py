@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260825-connected-panel" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260825-weather-layout" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -90,6 +90,20 @@ def test_simple_view_phase_two_has_timeline_trends_and_data_states():
     assert "navigationVerdictForDay" in script
     assert "result?.state === 'STALE'" in script
     assert "Prévisions indisponibles" in script
+
+
+def test_simple_view_weather_context_and_mobile_hierarchy():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "simple-overline" not in script
+    assert "temperature_2m" in script
+    assert "apparent_temperature" in script
+    assert "relative_humidity_2m" in script
+    assert "cloud_cover" in script
+    assert "uv_index" in script
+    assert "simple-weather-grid" in script
+    assert "grid-template-columns:minmax(0,1fr) 104px" in script
+    assert ".simple-confidence{display:none}" not in script
 
 
 def test_simple_view_phase_three_supports_rtl_keyboard_and_small_screens():

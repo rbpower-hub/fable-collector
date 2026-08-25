@@ -408,6 +408,7 @@
   }
 
   async function refreshSummary() {
+    if (!document.getElementById('family-summary')) return;
     try {
       const [windowsResponse, recommendationsResponse, statusResponse] = await Promise.all([
         fetch('windows.json', {cache:'no-store'}),
@@ -450,24 +451,9 @@
       });
     }
 
-    if (!document.getElementById('family-summary')) {
-      const summary = document.createElement('section');
-      summary.id = 'family-summary';
-      summary.className = 'family-summary';
-      summary.setAttribute('aria-live', 'polite');
-      dashboard.insertAdjacentElement('beforebegin', summary);
-      summary.addEventListener('click', (event) => {
-        const action = event.target.closest('[data-family-action]')?.dataset.familyAction;
-        if (action === 'window') focusBest(false);
-        if (action === 'map') focusBest(true);
-        if (action === 'activities') setTab('activities');
-        if (action === 'map-tab') setTab('map');
-        if (action === 'reasons') {
-          setTab('today');
-          setTimeout(() => document.querySelector('.card.conditions')?.scrollIntoView({behavior:'smooth'}), 80);
-        }
-      });
-    }
+    // The Simple View now owns the family verdict and three-day planning.
+    // Remove their legacy host from the first Family page to avoid duplicates.
+    document.getElementById('family-summary')?.remove();
 
     const modeButton = document.getElementById('viewToggleBtn');
     if (modeButton && !modeButton.dataset.familyViewBound) {

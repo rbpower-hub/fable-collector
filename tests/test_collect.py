@@ -87,6 +87,33 @@ def test_build_site_payload_nominal():
     assert p["meta"]["onshore_sectors"] == [[30, 150]]
 
 
+def test_build_site_payload_publishes_optional_weather_context():
+    fx = make_forecast_payload(START, 48)
+    extras = {
+        "temperature_2m": 27.0,
+        "apparent_temperature": 29.0,
+        "relative_humidity_2m": 62.0,
+        "cloud_cover": 18.0,
+        "uv_index": 6.5,
+    }
+    fx["hourly"].update({key: [value] * 48 for key, value in extras.items()})
+    configured = settings()
+    configured.include_extras = True
+
+    payload = build_site_payload(
+        SITE,
+        configured,
+        {},
+        START,
+        START + dt.timedelta(hours=48),
+        getter=make_getter(fx=fx),
+    )
+
+    for key, value in extras.items():
+        assert payload["hourly"][key][0] == value
+        assert payload["forecast_primary"]["hourly"][key][0] == value
+
+
 def test_build_site_payload_marine_down_degrades_not_fails():
     """v1 lost the whole site when marine failed; v2 must publish wind-only."""
     p = build_site_payload(SITE, settings(), {}, START, START + dt.timedelta(hours=48),

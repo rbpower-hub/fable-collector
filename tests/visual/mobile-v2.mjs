@@ -42,6 +42,8 @@ const payloads = {
     hourly:{
       time:[offStart.toISOString(),new Date(offStart.getTime()+2*60*60_000).toISOString(),offEnd.toISOString(),familyStart.toISOString(),new Date(familyStart.getTime()+3*60*60_000).toISOString(),familyEnd.toISOString()],
       wind_speed_10m:[11,15,20,9,12,16], hs:[.25,.35,.45,.2,.3,.4], precipitation:[0,0,0,0,0,0],
+      temperature_2m:[25,27,29,24,26,28], apparent_temperature:[26,29,31,25,28,30],
+      relative_humidity_2m:[65,60,55,70,64,58], cloud_cover:[10,20,35,5,15,25], uv_index:[1,4,7,0,3,6],
       wind_gusts_10m:[18,22,28,15,19,24], wind_direction_10m:[310,320,330,300,310,320],
       wave_height:[.25,.35,.45,.2,.3,.4], wave_period:[5,5,4.8,5.5,5.2,5], visibility:[10000,10000,10000,10000,10000,10000], weather_code:[0,0,1,0,0,1],
     },
@@ -79,6 +81,16 @@ const initial = await page.evaluate(() => ({
   panelBorder:parseFloat(getComputedStyle(document.querySelector('#simple-selected-day-content')).borderTopWidth),
   selectorBeforeDecision:Boolean(document.querySelector('#simple-three-days')?.compareDocumentPosition(document.querySelector('#simple-decision')) & Node.DOCUMENT_POSITION_FOLLOWING),
   navVisible:getComputedStyle(document.querySelector('.simple-bottom-nav')).display !== 'none',
+  weatherItems:document.querySelectorAll('.simple-weather-item').length,
+  overline:Boolean(document.querySelector('.simple-overline')),
+  confidenceVisible:getComputedStyle(document.querySelector('.simple-confidence')).display !== 'none',
+  verdictRect:(() => { const box = document.querySelector('.simple-verdict')?.getBoundingClientRect(); return box ? {left:box.left,top:box.top,right:box.right,bottom:box.bottom} : null; })(),
+  confidenceRect:(() => { const box = document.querySelector('.simple-confidence')?.getBoundingClientRect(); return box ? {left:box.left,top:box.top,right:box.right,bottom:box.bottom} : null; })(),
+  confidenceBesideVerdict:(() => {
+    const verdict = document.querySelector('.simple-verdict')?.getBoundingClientRect();
+    const confidence = document.querySelector('.simple-confidence')?.getBoundingClientRect();
+    return Boolean(verdict && confidence && confidence.left > verdict.left && Math.abs(confidence.top - verdict.top) < 80);
+  })(),
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
 }));
 if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected title: ${initial.title}`);
@@ -90,6 +102,9 @@ if (initial.panelTone !== 'off-hours') throw new Error(`unexpected selected pane
 if (initial.connectorHeight < 16 || initial.panelBorder < 2) throw new Error('selected day is not visually connected to its panel');
 if (!initial.selectorBeforeDecision) throw new Error('three-day selector must precede the decision');
 if (!initial.navVisible) throw new Error('bottom navigation is hidden');
+if (initial.weatherItems < 4) throw new Error(`expected four weather context cards, got ${initial.weatherItems}`);
+if (initial.overline) throw new Error('redundant decision overline is still visible');
+if (!initial.confidenceVisible || !initial.confidenceBesideVerdict) throw new Error(`confidence must remain beside the verdict on mobile: ${JSON.stringify(initial)}`);
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
 
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();

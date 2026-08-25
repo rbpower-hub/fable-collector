@@ -150,6 +150,7 @@ jobs:
           FABLE_HTTP_TIMEOUT_S: "12"
           FABLE_PARALLEL_MODELS: "icon_seamless,gfs_seamless,ecmwf_ifs04"
           FABLE_PARALLEL_TIMEOUT_S: "12"
+          FABLE_INCLUDE_EXTRAS: "1"
           FABLE_ASTRAL_FALLBACK: "1"
           FABLE_RULES_PATH: rules.yaml
           LOG_LEVEL: INFO

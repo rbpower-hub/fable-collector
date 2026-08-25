@@ -33,6 +33,13 @@ def test_family_view_summary_uses_backend_decisions():
     assert "recommendations.json" in script
 
 
+def test_family_view_removes_the_redundant_legacy_summary_host():
+    script = (ROOT / "public" / "family-view.js").read_text(encoding="utf-8")
+
+    assert "document.getElementById('family-summary')?.remove();" in script
+    assert "summary.id = 'family-summary'" not in script
+
+
 def test_family_view_groups_three_days_and_plans_long_trip_returns():
     script = (ROOT / "public" / "family-view.js").read_text(encoding="utf-8")
 

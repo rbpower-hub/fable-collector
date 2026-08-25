@@ -21,6 +21,7 @@ from . import __version__
 from .astro import attach_daily_best_effort, needs_daily_backfill
 from .config import SitesConfig, load_rules, load_sites, rules_digest, rules_path
 from .openmeteo import (
+    EXTRA_HOURLY,
     FORECAST_KEYS,
     MARINE_KEYS,
     Getter,
@@ -165,8 +166,7 @@ def flatten_hourly_aligned(fx_slice: dict[str, Any], marine_slice: dict[str, Any
         return [arr[i] if (i := idx_map.get(t)) is not None and i < len(arr) else None for t in time_axis]
 
     flat: dict[str, list] = {"time": time_axis}
-    for k in ["wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "weather_code",
-              "visibility", "surface_pressure", "precipitation"]:
+    for k in [*FORECAST_KEYS, *EXTRA_HOURLY]:
         if k in fx_slice:
             flat[k] = pick(fx_slice, k, idx_e)
     for k in ["wave_height", "wave_period"]:
@@ -250,7 +250,11 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
     keep_wx = indices_in_window(wx_times, start_local, end_local, tz)
     keep_sea = indices_in_window(sea_times, start_local, end_local, tz)
 
-    fx_slice = slice_by_indices(wx, FORECAST_KEYS, keep_wx)
+    published_forecast_keys = [
+        *FORECAST_KEYS,
+        *(EXTRA_HOURLY if settings.include_extras else []),
+    ]
+    fx_slice = slice_by_indices(wx, published_forecast_keys, keep_wx)
     marine_slice = slice_by_indices(sea, MARINE_KEYS, keep_sea)
     hourly_flat = flatten_hourly_aligned(fx_slice, marine_slice)
 
@@ -358,7 +362,7 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
             "debug": {
                 "hourly_keys_present_forecast": sorted((wx.get("hourly") or {}).keys()),
                 "hourly_keys_present_marine": sorted((sea.get("hourly") or {}).keys()),
-                "ecmwf_non_null_counts": non_null_count(fx_slice, FORECAST_KEYS),
+                "ecmwf_non_null_counts": non_null_count(fx_slice, published_forecast_keys),
                 "marine_non_null_counts": non_null_count(marine_slice, MARINE_KEYS),
                 "forecast_primary_model": primary_used,
                 "forecast_primary_key": "ecmwf",  # historical alias kept for compat

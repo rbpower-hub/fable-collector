@@ -104,6 +104,8 @@ def test_simple_view_weather_context_and_mobile_hierarchy():
     assert "simple-weather-grid" in script
     assert "grid-template-columns:minmax(0,1fr) 104px" in script
     assert ".simple-confidence{display:none}" not in script
+    assert '[data-theme="nautical"] .simple-action.primary{color:#fff}' in script
+    assert "outbound:'Aller', return:'Retour', beta:'Bêta'" in script
 
 
 def test_simple_view_phase_three_supports_rtl_keyboard_and_small_screens():

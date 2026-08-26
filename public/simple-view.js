@@ -42,7 +42,7 @@
     travelOnly:'فترة سفر بحري طويلة متاحة', travelOnlyDetail:'هذه نافذة ملاحة لمسافة طويلة وليست موافقة على خرجة عائلية محلية.',
     staleTitle:'بيانات قديمة — لا تخرج اعتماداً عليها', noDataTitle:'بيانات الملاحة غير متاحة',
     windows:'نوافذ الملاحة', viewWindows:'عرض النوافذ', horizon:'أفق 72 ساعة', offHoursSlot:'خارج الأوقات', longTripSlot:'رحلة طويلة',
-    confidenceHigh:'مرتفعة', confidenceMedium:'متوسطة', confidenceLow:'محدودة',
+    confidenceHigh:'مرتفعة', confidenceMedium:'متوسطة', confidenceLow:'محدودة', outbound:'ذهاب', return:'عودة', beta:'تجريبي',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
     prudent:'CAUTIOUS OUTING', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
@@ -61,7 +61,7 @@
     travelOnly:'Long-distance navigation slot available', travelOnlyDetail:'This is a long-distance navigation window, not a local family-outing approval.',
     staleTitle:'Stale data — do not depart on this basis', noDataTitle:'Navigation data unavailable',
     windows:'Navigation windows', viewWindows:'View windows', horizon:'72-hour horizon', offHoursSlot:'Out of hours', longTripSlot:'Long trip',
-    confidenceHigh:'High', confidenceMedium:'Medium', confidenceLow:'Limited',
+    confidenceHigh:'High', confidenceMedium:'Medium', confidenceLow:'Limited', outbound:'Outbound', return:'Return', beta:'Beta',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
     prudent:'SORTIE PRUDENTE', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
@@ -80,7 +80,7 @@
     travelOnly:'Créneau de navigation longue distance', travelOnlyDetail:'Ce créneau concerne une navigation longue distance, pas une validation de sortie familiale locale.',
     staleTitle:'Données périmées — ne pas partir sur cette base', noDataTitle:'Données de navigation indisponibles',
     windows:'Fenêtres de navigation', viewWindows:'Voir les fenêtres', horizon:'Horizon 72 h', offHoursSlot:'Hors horaires', longTripSlot:'Long trajet',
-    confidenceHigh:'Élevée', confidenceMedium:'Moyenne', confidenceLow:'Limitée',
+    confidenceHigh:'Élevée', confidenceMedium:'Moyenne', confidenceLow:'Limitée', outbound:'Aller', return:'Retour', beta:'Bêta',
   };
 
   function installStyles() {
@@ -117,6 +117,7 @@
       .simple-action{min-height:48px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg);color:var(--fg);font-weight:900;cursor:pointer}
       .simple-action:focus-visible,.simple-day:focus-visible,.simple-nav-action:focus-visible,.simple-entry:focus-visible,.simple-window-card:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
       .simple-action.primary{border-color:transparent;background:var(--accent);color:#041019}
+      [data-theme="nautical"] .simple-action.primary{color:#fff}
       .simple-reasons{margin-top:12px;padding:14px;border:1px solid color-mix(in srgb,var(--bad) 40%,var(--br));border-radius:14px;background:var(--pill-bg)}
       .simple-reasons[hidden]{display:none}.simple-reasons p{margin:0;line-height:1.45}.simple-reasons small{display:block;margin-top:8px;color:var(--muted)}
       .simple-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 0}
@@ -378,7 +379,10 @@
       const target = item.destination_name || destination.dest_name || destination.dest_slug || '—';
       const name = longTrip && origin ? `${origin} → ${target}` : target;
       const duration = Math.max(0, (new Date(item.end) - new Date(item.start)) / 3600000);
-      return `<button class="simple-window-card" data-simple-action="map-window" data-simple-window-index="${index}" type="button"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(formatTime(item.start))} → ${esc(formatTime(item.end))} · ${duration.toFixed(duration % 1 ? 1 : 0)} h</small></span><span class="simple-window-arrow" aria-hidden="true">›</span></button>`;
+      const direction = item.direction === 'outbound' ? c.outbound : item.direction === 'return' ? c.return : '';
+      const beta = item.beta || destination.beta ? c.beta : '';
+      const details = [direction, beta, `${formatTime(item.start)} → ${formatTime(item.end)} · ${duration.toFixed(duration % 1 ? 1 : 0)} h`].filter(Boolean).join(' · ');
+      return `<button class="simple-window-card" data-simple-action="map-window" data-simple-window-index="${index}" type="button"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(details)}</small></span><span class="simple-window-arrow" aria-hidden="true">›</span></button>`;
     }).join('') : `<div class="simple-empty">${esc(c.noWindow)}</div>`;
     return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${rows.length}</span></div><div class="simple-navigation">${content}</div></section>`;
   }

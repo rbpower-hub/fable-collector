@@ -5,17 +5,17 @@ from fable.dashboard_patch import patch_dashboard_index
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_legacy_family_verdict_is_no_longer_injected(tmp_path):
+def test_verdict_hero_is_injected_once(tmp_path):
     source = ROOT / "public" / "index.html"
     target = tmp_path / "index.html"
     target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
     assert patch_dashboard_index(target) is True
     html = target.read_text(encoding="utf-8")
-    assert '<script src="./verdict-hero.js"></script>' not in html
+    assert html.count('<script src="./verdict-hero.js"></script>') == 1
 
     assert patch_dashboard_index(target) is False
-    assert '<script src="./verdict-hero.js"></script>' not in target.read_text(encoding="utf-8")
+    assert target.read_text(encoding="utf-8").count('<script src="./verdict-hero.js"></script>') == 1
 
 
 def test_family_verdict_has_five_states_and_map_action():

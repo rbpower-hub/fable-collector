@@ -95,10 +95,9 @@ def hard_reasons(metrics: HourMetrics, th: Thresholds) -> list[str]:
         reasons.append(f"rafales>={int(th.gust_no_go_min)}")
     if metrics.max_speed is not None and metrics.max_speed >= th.wind_no_go_min:
         reasons.append(f"vent>={int(th.wind_no_go_min)}")
-    if (
-        metrics.max_gust is not None
-        and metrics.min_speed is not None
-        and metrics.max_gust - metrics.min_speed >= th.squall_delta
+    if any(
+        scenario["gust_delta"] >= th.squall_delta
+        for scenario in metrics.wind_scenarios
     ):
         reasons.append("squalls")
     if metrics.hs is not None and metrics.hs > th.hs_no_go_min:
@@ -148,8 +147,13 @@ def blocking_wave_scenario(
     scenarios = metrics.wave_scenarios
     for reason in reasons:
         matches = []
-        if reason.startswith("Hs"):
+        select_shortest_period = False
+        if reason == f"Hs>{th.hs_no_go_min}":
+            matches = [scenario for scenario in scenarios if scenario["hs"] > th.hs_no_go_min]
+        elif reason == f"Hs>={th.hs_family_max}":
             matches = [scenario for scenario in scenarios if scenario["hs"] >= th.hs_family_max]
+        elif reason == f"Hs>{th.prudent_hs_max:g}@prudent":
+            matches = [scenario for scenario in scenarios if scenario["hs"] > th.prudent_hs_max]
         elif reason == "short_steep_hard":
             matches = [
                 scenario
@@ -158,6 +162,7 @@ def blocking_wave_scenario(
                 and scenario["hs"] >= th.short_steep_2_hs
                 and scenario["tp"] <= th.short_steep_2_tp
             ]
+            select_shortest_period = True
         elif reason == "short_steep":
             matches = [
                 scenario
@@ -166,18 +171,45 @@ def blocking_wave_scenario(
                 and scenario["hs"] >= th.short_steep_1_hs
                 and scenario["tp"] <= th.short_steep_1_tp
             ]
-        elif reason.startswith("Tp"):
+            select_shortest_period = True
+        elif reason == f"Tp<{th.tp_min_at_lt04}@Hs<0.4":
             matches = [
                 scenario
                 for scenario in scenarios
                 if scenario.get("tp") is not None
-                and (
-                    scenario["tp"] < th.tp_min_at_lt04
-                    or scenario["tp"] < th.tp_min_at_04_05
-                    or scenario["tp"] < th.anchor_tp_family
-                )
+                and scenario["hs"] < 0.4
+                and scenario["tp"] < th.tp_min_at_lt04
             ]
+            select_shortest_period = True
+        elif reason == f"Tp<{th.tp_min_at_04_05}@Hs0.4-0.5":
+            matches = [
+                scenario
+                for scenario in scenarios
+                if scenario.get("tp") is not None
+                and 0.4 <= scenario["hs"] < 0.5
+                and scenario["tp"] < th.tp_min_at_04_05
+            ]
+            select_shortest_period = True
+        elif reason == f"Tp<{th.anchor_tp_family}@Hs<={th.anchor_hs_ease_max}":
+            matches = [
+                scenario
+                for scenario in scenarios
+                if scenario.get("tp") is not None
+                and scenario["hs"] <= th.anchor_hs_ease_max
+                and scenario["tp"] < th.anchor_tp_family
+            ]
+            select_shortest_period = True
+        elif reason == f"Tp<{th.prudent_tp_min:g}@prudent":
+            matches = [
+                scenario
+                for scenario in scenarios
+                if scenario.get("tp") is not None
+                and scenario["tp"] < th.prudent_tp_min
+            ]
+            select_shortest_period = True
         if matches:
+            if select_shortest_period:
+                return min(matches, key=lambda scenario: (scenario["tp"], -scenario["hs"]))
             return max(matches, key=lambda scenario: scenario["hs"])
     return None
 
@@ -237,7 +269,11 @@ def hour_ok_for_phase(
     }
 
 
-def reason_text(code: str, metrics: HourMetrics | None = None) -> tuple[str, str]:
+def reason_text(
+    code: str,
+    metrics: HourMetrics | None = None,
+    blocking_wave_pair: dict[str, Any] | None = None,
+) -> tuple[str, str]:
     fixed = {
         "orages": ("orage détecté", "thunderstorm detected"),
         "vent_inconnu": ("données de vent incomplètes", "incomplete wind data"),
@@ -260,11 +296,11 @@ def reason_text(code: str, metrics: HourMetrics | None = None) -> tuple[str, str
         suffix = f" ({value:.0f} km/h)" if value is not None else ""
         return f"vent trop fort{suffix}", f"wind too strong{suffix}"
     if code.startswith("Hs"):
-        value = metrics.hs if metrics else None
+        value = blocking_wave_pair.get("hs") if blocking_wave_pair else (metrics.hs if metrics else None)
         suffix = f" ({value:.2f} m)" if value is not None else ""
         return f"hauteur de vague trop élevée{suffix}", f"wave height too high{suffix}"
     if code.startswith("Tp"):
-        value = metrics.tp if metrics else None
+        value = blocking_wave_pair.get("tp") if blocking_wave_pair else (metrics.tp if metrics else None)
         suffix = f" ({value:.1f} s)" if value is not None else ""
         return f"période de vague trop courte{suffix}", f"wave period too short{suffix}"
     return code.replace("_", " "), code.replace("_", " ")
@@ -274,7 +310,7 @@ def blocker(site: Site, index: int, stage: str, phase: str, detail: dict[str, An
     metrics = detail["metrics"]
     reasons = list(detail.get("reasons") or [])
     code = reasons[0] if reasons else "condition_inconnue"
-    fr, en = reason_text(code, metrics)
+    fr, en = reason_text(code, metrics, detail.get("blocking_wave_pair"))
     return {
         "stage": stage,
         "location_slug": f"{site.slug}.json",

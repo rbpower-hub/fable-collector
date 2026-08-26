@@ -6,6 +6,7 @@ import json
 from zoneinfo import ZoneInfo
 
 from fable.config import DEFAULT_RULES, load_rules, rules_digest
+from fable.window_policy import blocker
 from fable.windows import (
     Thresholds,
     detect_windows,
@@ -283,6 +284,77 @@ def test_gammarth_real_short_steep_pair_keeps_its_veto_and_source(tmp_path):
     assert "short_steep_hard" in detail["reasons"]
     assert detail["blocking_wave_source"] == "ncep_gfswave025"
     assert detail["blocking_wave_pair"] == {"hs": 0.60, "tp": 3.45}
+
+
+def test_tp_diagnostic_uses_the_model_that_actually_fails_its_hs_band(tmp_path):
+    waves = {
+        "ncep_gfswave025": (0.32, 3.85),
+        "ecmwf_wam025": (0.14, 2.85),
+        "meteofrance_wave": (0.14, 3.25),
+    }
+    site = load(tmp_path, "Gammarth (port)", "gammarth-port", wave_models=waves)
+
+    ok, detail = hour_ok_for_phase(site, 0, "transit", TH)
+
+    assert ok is False
+    assert f"Tp<{TH.tp_min_at_lt04}@Hs<0.4" in detail["reasons"]
+    assert detail["blocking_wave_source"] == "ecmwf_wam025"
+    assert detail["blocking_wave_pair"] == {"hs": 0.14, "tp": 2.85}
+    diagnostic = blocker(site, 0, "destination", "transit", detail)
+    assert diagnostic["reason_fr"] == "période de vague trop courte (2.9 s)"
+    assert diagnostic["reason_en"] == "wave period too short (2.9 s)"
+
+
+def test_squall_delta_never_combines_gust_and_speed_from_different_models(tmp_path):
+    payload = make_spot_json(
+        "Kélibia",
+        "kelibia",
+        DAY,
+        4,
+        wave_models=CALM_WAVES_2,
+    )
+    gfs = payload["models"]["gfs_seamless"]["hourly"]
+    icon = payload["models"]["icon_seamless"]["hourly"]
+    gfs["wind_speed_10m"] = [12.7] * 4
+    gfs["wind_gusts_10m"] = [24.1] * 4
+    icon["wind_speed_10m"] = [3.8] * 4
+    icon["wind_gusts_10m"] = [11.2] * 4
+    path = tmp_path / "kelibia.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    site = load_site(path)
+
+    ok, detail = hour_ok_for_phase(site, 0, "transit", TH)
+
+    assert ok is True
+    assert "squalls" not in detail["reasons"]
+    assert {
+        scenario["source"]: round(scenario["gust_delta"], 1)
+        for scenario in detail["metrics"].wind_scenarios
+    } == {
+        "icon_seamless": 7.4,
+        "gfs_seamless": 11.4,
+    }
+
+
+def test_real_single_model_squall_delta_still_blocks(tmp_path):
+    payload = make_spot_json(
+        "Kélibia",
+        "kelibia",
+        DAY,
+        4,
+        wave_models=CALM_WAVES_2,
+    )
+    icon = payload["models"]["icon_seamless"]["hourly"]
+    icon["wind_speed_10m"] = [10.0] * 4
+    icon["wind_gusts_10m"] = [28.0] * 4
+    path = tmp_path / "kelibia.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    site = load_site(path)
+
+    ok, detail = hour_ok_for_phase(site, 0, "transit", TH)
+
+    assert ok is False
+    assert "squalls" in detail["reasons"]
 
 
 def test_dangerous_hs_with_missing_tp_keeps_hs_veto_only(tmp_path):

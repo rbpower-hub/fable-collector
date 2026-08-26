@@ -24,12 +24,12 @@ def test_offshore_map_does_not_prepend_positioning_route(tmp_path):
 
 def test_family_and_freshness_components_are_injected_once(tmp_path):
     target, html, _ = publish_to(tmp_path)
-    assert html.count('<script src="./family-view.js"></script>') == 1
+    assert html.count('<script src="./family-view.js?v=20260825-clean-home"></script>') == 1
     assert html.count('<script src="./freshness-gate.js"></script>') == 1
 
     assert patch_dashboard_index(target) is False
     stable = target.read_text(encoding="utf-8")
-    assert stable.count('<script src="./family-view.js"></script>') == 1
+    assert stable.count('<script src="./family-view.js?v=20260825-clean-home"></script>') == 1
     assert stable.count('<script src="./freshness-gate.js"></script>') == 1
 
 

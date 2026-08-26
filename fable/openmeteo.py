@@ -35,7 +35,10 @@ FORECAST_KEYS = [
 SAFE_HOURLY = ["wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "weather_code", "visibility"]
 MARINE_KEYS = ["wave_height", "wave_period", "swell_wave_height", "swell_wave_period"]
 DAILY_KEYS = ["sunrise", "sunset"]
-EXTRA_HOURLY = ["relative_humidity_2m", "cloud_cover"]
+EXTRA_HOURLY = [
+    "temperature_2m", "apparent_temperature", "relative_humidity_2m",
+    "cloud_cover", "uv_index",
+]
 
 KEY_SYNONYMS = {
     "wind_speed_10m": ["wind_speed_10m", "windspeed_10m"],
@@ -49,6 +52,11 @@ KEY_SYNONYMS = {
     "swell_wave_period": ["swell_wave_period"],
     "surface_pressure": ["surface_pressure"],
     "precipitation": ["precipitation"],
+    "temperature_2m": ["temperature_2m"],
+    "apparent_temperature": ["apparent_temperature"],
+    "relative_humidity_2m": ["relative_humidity_2m"],
+    "cloud_cover": ["cloud_cover"],
+    "uv_index": ["uv_index"],
 }
 
 # Models officially accepted by Open-Meteo `models=` parameter.

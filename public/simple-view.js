@@ -32,6 +32,8 @@
     details:'التفاصيل', map:'الخريطة', more:'المزيد', good:'مناسب', cautious:'بحذر', noGo:'غير مناسب',
     next:'أفضل نافذة عائلية', planning:'نظرة على ثلاثة أيام', fresh:'بيانات حديثة', unavailable:'غير متاح',
     timeline:'التوقعات حسب الساعة', trends:'الظروف أثناء النافذة', wind:'الرياح', wave:'الأمواج', returnBy:'العودة قبل',
+    weather:'الطقس', temperature:'الحرارة', feelsLike:'المحسوسة حتى', uv:'الأشعة فوق البنفسجية', humidity:'الرطوبة', sky:'السماء', rain:'الأمطار', visibility:'أدنى رؤية', cloud:'السحب',
+    clear:'صافية', partlyCloudy:'قليلة السحب', cloudy:'غائمة', fog:'ضباب', showers:'أمطار أو زخات', storm:'عاصفة رعدية', uvLow:'منخفض', uvModerate:'متوسط', uvHigh:'مرتفع', uvVeryHigh:'مرتفع جداً',
     loading:'جارٍ تحميل التوقعات…', missing:'التوقعات غير متاحة', stale:'البيانات قديمة — تحقّق من النشرة البحرية الرسمية.',
     threshold:'حد العائلة', from:'من', to:'إلى', stable:'مستقر', rising:'في ارتفاع', falling:'في انخفاض', trySimple:'جرّب الوضع المبسّط',
     activities:'أنشطة مقترحة', noActivities:'لا توجد أنشطة متوافقة مع نافذة عائلية مؤكدة.', activityNote:'اقتراح بعد قرار السلامة',
@@ -40,7 +42,7 @@
     travelOnly:'فترة سفر بحري طويلة متاحة', travelOnlyDetail:'هذه نافذة ملاحة لمسافة طويلة وليست موافقة على خرجة عائلية محلية.',
     staleTitle:'بيانات قديمة — لا تخرج اعتماداً عليها', noDataTitle:'بيانات الملاحة غير متاحة',
     windows:'نوافذ الملاحة', viewWindows:'عرض النوافذ', horizon:'أفق 72 ساعة', offHoursSlot:'خارج الأوقات', longTripSlot:'رحلة طويلة',
-    confidenceHigh:'مرتفعة', confidenceMedium:'متوسطة', confidenceLow:'محدودة',
+    confidenceHigh:'مرتفعة', confidenceMedium:'متوسطة', confidenceLow:'محدودة', outbound:'ذهاب', return:'عودة', beta:'تجريبي',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
     prudent:'CAUTIOUS OUTING', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
@@ -49,6 +51,8 @@
     details:'Details', map:'Map', more:'More', good:'Good', cautious:'Cautious', noGo:'NO-GO',
     next:'Best family window', planning:'Three-day overview', fresh:'Fresh data', unavailable:'Unavailable',
     timeline:'Hourly outlook', trends:'Conditions during the window', wind:'Wind', wave:'Wave', returnBy:'Return by',
+    weather:'Weather', temperature:'Temperature', feelsLike:'Feels like up to', uv:'UV index', humidity:'Humidity', sky:'Sky', rain:'Rain', visibility:'Minimum visibility', cloud:'Cloud',
+    clear:'Clear', partlyCloudy:'Partly cloudy', cloudy:'Cloudy', fog:'Fog', showers:'Rain or showers', storm:'Thunderstorm', uvLow:'Low', uvModerate:'Moderate', uvHigh:'High', uvVeryHigh:'Very high',
     loading:'Loading forecast…', missing:'Forecast unavailable', stale:'Data is out of date — check the official marine bulletin.',
     threshold:'Family limit', from:'from', to:'to', stable:'stable', rising:'rising', falling:'falling', trySimple:'Try Simple View',
     activities:'Suggested activities', noActivities:'No compatible activity in a validated Family window.', activityNote:'Suggestion after the safety decision',
@@ -57,7 +61,7 @@
     travelOnly:'Long-distance navigation slot available', travelOnlyDetail:'This is a long-distance navigation window, not a local family-outing approval.',
     staleTitle:'Stale data — do not depart on this basis', noDataTitle:'Navigation data unavailable',
     windows:'Navigation windows', viewWindows:'View windows', horizon:'72-hour horizon', offHoursSlot:'Out of hours', longTripSlot:'Long trip',
-    confidenceHigh:'High', confidenceMedium:'Medium', confidenceLow:'Limited',
+    confidenceHigh:'High', confidenceMedium:'Medium', confidenceLow:'Limited', outbound:'Outbound', return:'Return', beta:'Beta',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
     prudent:'SORTIE PRUDENTE', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
@@ -66,6 +70,8 @@
     details:'Détails', map:'Carte', more:'Plus', good:'Bonne', cautious:'Prudente', noGo:'NO-GO',
     next:'Meilleure fenêtre familiale', planning:'Aperçu sur trois jours', fresh:'Données fraîches', unavailable:'Indisponible',
     timeline:'Frise horaire', trends:'Conditions pendant la fenêtre', wind:'Vent', wave:'Houle', returnBy:'Retour avant',
+    weather:'Météo', temperature:'Température', feelsLike:'Ressenti jusqu’à', uv:'Indice UV', humidity:'Humidité', sky:'Ciel', rain:'Pluie', visibility:'Visibilité minimale', cloud:'Nuages',
+    clear:'Dégagé', partlyCloudy:'Peu nuageux', cloudy:'Couvert', fog:'Brume ou brouillard', showers:'Pluie ou averses', storm:'Orage', uvLow:'Faible', uvModerate:'Modéré', uvHigh:'Élevé', uvVeryHigh:'Très élevé',
     loading:'Chargement des prévisions…', missing:'Prévisions indisponibles', stale:'Données périmées — vérifiez le bulletin maritime officiel.',
     threshold:'Limite famille', from:'de', to:'à', stable:'stable', rising:'en hausse', falling:'en baisse', trySimple:'Essayer la Vue Simple',
     activities:'Activités conseillées', noActivities:'Aucune activité compatible dans une fenêtre Famille validée.', activityNote:'Suggestion après la décision de sécurité',
@@ -74,7 +80,7 @@
     travelOnly:'Créneau de navigation longue distance', travelOnlyDetail:'Ce créneau concerne une navigation longue distance, pas une validation de sortie familiale locale.',
     staleTitle:'Données périmées — ne pas partir sur cette base', noDataTitle:'Données de navigation indisponibles',
     windows:'Fenêtres de navigation', viewWindows:'Voir les fenêtres', horizon:'Horizon 72 h', offHoursSlot:'Hors horaires', longTripSlot:'Long trajet',
-    confidenceHigh:'Élevée', confidenceMedium:'Moyenne', confidenceLow:'Limitée',
+    confidenceHigh:'Élevée', confidenceMedium:'Moyenne', confidenceLow:'Limitée', outbound:'Aller', return:'Retour', beta:'Bêta',
   };
 
   function installStyles() {
@@ -96,8 +102,7 @@
       .simple-hero.travel{background:linear-gradient(145deg,color-mix(in srgb,#60a5fa 16%,var(--card)),var(--card) 62%);border-color:color-mix(in srgb,#60a5fa 50%,var(--br))}
       .simple-hero.blocked{background:linear-gradient(145deg,color-mix(in srgb,var(--bad) 13%,var(--card)),var(--card) 62%)}
       .simple-hero-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(180px,.5fr);gap:18px;align-items:center}
-      .simple-overline{font-size:.76rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-      .simple-verdict{display:flex;align-items:center;gap:10px;margin:8px 0 4px;font-size:clamp(1.45rem,7vw,2.2rem);line-height:1.08}
+      .simple-verdict{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-size:clamp(1.45rem,7vw,2.2rem);line-height:1.08}
       .simple-verdict-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border-radius:14px;background:color-mix(in srgb,var(--ok) 25%,var(--pill-bg))}
       .simple-hero.prudent .simple-verdict-icon{background:color-mix(in srgb,var(--warn) 27%,var(--pill-bg))}
       .simple-hero.off-hours .simple-verdict-icon{background:color-mix(in srgb,#22d3ee 24%,var(--pill-bg))}
@@ -112,6 +117,7 @@
       .simple-action{min-height:48px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg);color:var(--fg);font-weight:900;cursor:pointer}
       .simple-action:focus-visible,.simple-day:focus-visible,.simple-nav-action:focus-visible,.simple-entry:focus-visible,.simple-window-card:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
       .simple-action.primary{border-color:transparent;background:var(--accent);color:#041019}
+      [data-theme="nautical"] .simple-action.primary{color:#fff}
       .simple-reasons{margin-top:12px;padding:14px;border:1px solid color-mix(in srgb,var(--bad) 40%,var(--br));border-radius:14px;background:var(--pill-bg)}
       .simple-reasons[hidden]{display:none}.simple-reasons p{margin:0;line-height:1.45}.simple-reasons small{display:block;margin-top:8px;color:var(--muted)}
       .simple-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 0}
@@ -138,14 +144,15 @@
       .simple-axis{display:flex;justify-content:space-between;margin-top:5px;color:var(--muted);font-size:.68rem}.simple-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;color:var(--muted);font-size:.72rem}.simple-key::before{content:'';display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:3px;background:var(--bad)}.simple-key.good::before{background:var(--ok)}.simple-key.prudent::before{background:var(--warn)}
       .simple-key.off-hours::before{background:#22d3ee}.simple-key.travel::before{background:#60a5fa}
       .simple-condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.simple-condition{min-width:0;padding:14px;border-radius:16px;background:var(--pill-bg)}.simple-condition.return{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.simple-condition-label{display:block;color:var(--muted);font-size:.76rem}.simple-condition-value{display:block;margin-top:4px;font-size:1.18rem}.simple-condition-range{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:600}.simple-chart{margin:10px 0 0}.simple-spark{display:block;width:100%;height:88px;overflow:visible}.simple-spark .grid{stroke:color-mix(in srgb,var(--muted) 22%,transparent);stroke-width:1}.simple-spark .safe-zone{fill:color-mix(in srgb,var(--ok) 10%,transparent)}.simple-spark .threshold{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}.simple-spark .area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}.simple-spark .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.simple-spark .point{fill:var(--card);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.simple-condition.wave .simple-spark .area{fill:color-mix(in srgb,var(--ok) 13%,transparent)}.simple-condition.wave .simple-spark .line,.simple-condition.wave .simple-spark .point{stroke:var(--ok)}.simple-chart-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:.65rem}.simple-chart-threshold{margin-top:7px;color:var(--muted);font-size:.68rem}.simple-chart-threshold::before{content:'';display:inline-block;width:15px;margin-right:5px;border-top:2px dashed var(--warn);vertical-align:middle}html[dir="rtl"] .simple-chart-threshold::before{margin-right:0;margin-left:5px}
+      .simple-weather-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.simple-weather-item{min-width:0;padding:11px 12px;border:1px solid var(--br);border-radius:14px;background:color-mix(in srgb,var(--card) 55%,var(--pill-bg))}.simple-weather-label{display:block;color:var(--muted);font-size:.72rem}.simple-weather-value{display:block;margin-top:4px;font-size:.98rem}.simple-weather-detail{display:block;margin-top:3px;color:var(--muted);font-size:.68rem;line-height:1.3}
       .simple-activities{display:grid;gap:8px}.simple-activity{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg)}.simple-activity-icon{font-size:1.35rem}.simple-activity strong{display:block}.simple-activity small{display:block;margin-top:3px;color:var(--muted);line-height:1.35}.simple-activity-score{padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-size:.72rem;font-weight:900}.simple-empty{color:var(--muted);line-height:1.45}
       .simple-navigation{display:grid;gap:8px}.simple-window-card{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;min-height:68px;padding:12px;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}.simple-window-card:hover{border-color:var(--accent)}.simple-window-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);font-size:.68rem;font-weight:900;text-transform:uppercase}.simple-window-badge.prudent{background:color-mix(in srgb,var(--warn) 17%,transparent);color:var(--warn)}.simple-window-badge.off-hours{background:color-mix(in srgb,#22d3ee 16%,transparent);color:#22d3ee}.simple-window-badge.travel{background:color-mix(in srgb,#60a5fa 16%,transparent);color:#60a5fa}.simple-window-main strong,.simple-window-main small{display:block}.simple-window-main small{margin-top:4px;color:var(--muted)}.simple-window-arrow{font-size:1.4rem;color:var(--muted)}
       html[dir="rtl"] .simple-shell{direction:rtl;text-align:right}html[dir="rtl"] .simple-day{text-align:right}html[dir="rtl"] .simple-key::before{margin-right:0;margin-left:5px}
-      .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)
+      .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)}
       .simple-nav-action{min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:.7rem;font-weight:800;cursor:pointer}.simple-nav-action span{display:block;font-size:1.15rem;margin-bottom:2px}.simple-nav-action.active{background:color-mix(in srgb,var(--accent) 18%,var(--pill-bg));color:var(--fg)}
-      @media(max-width:640px){.simple-hero-grid{grid-template-columns:1fr}.simple-confidence{display:none}.simple-window-card{grid-template-columns:1fr auto}.simple-window-badge{grid-column:1/-1;justify-self:start}}
+      @media(max-width:640px){.simple-hero-grid{grid-template-columns:minmax(0,1fr) 104px;gap:10px;align-items:start}.simple-confidence{min-height:0;padding-top:2px;border-inline-start:0;align-self:start}.simple-confidence-ring{width:92px;height:92px}.simple-confidence-ring strong{font-size:1.35rem}.simple-confidence-word{margin-top:6px;font-size:.62rem}.simple-verdict{font-size:clamp(1.3rem,7vw,1.9rem)}.simple-window-card{grid-template-columns:1fr auto}.simple-window-badge{grid-column:1/-1;justify-self:start}}
       @media(max-width:520px){.simple-shell{padding-top:2px}.simple-hero{padding:18px;border-radius:18px}.simple-selected-day-content{padding:9px;border-radius:18px}.simple-metrics{grid-template-columns:1fr 1fr}.simple-metric:last-child{grid-column:1/-1}.simple-condition-grid{grid-template-columns:1fr}.simple-condition.return{grid-column:auto}.simple-day{min-height:112px;padding:8px}.simple-day-heading{display:block}.simple-day-calendar{display:block;margin-top:2px}.simple-entry{font-size:0}.simple-entry::after{content:'✨';font-size:1rem}}
-      @media(max-width:350px){.simple-actions{grid-template-columns:1fr}.simple-days{gap:5px}.simple-day{min-height:108px;padding:7px 6px}.simple-day[aria-selected="true"]::after{inset-inline:8px}.simple-day-title{font-size:.76rem}.simple-day-state{font-size:.66rem}.simple-day-date{font-size:.61rem}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}.simple-selected-day-content{padding:7px}}
+      @media(max-width:350px){.simple-hero-grid{grid-template-columns:minmax(0,1fr) 80px;gap:7px}.simple-confidence-ring{width:74px;height:74px}.simple-confidence-ring strong{font-size:1.12rem}.simple-confidence-ring span{font-size:.58rem}.simple-confidence-word{font-size:.54rem}.simple-actions{grid-template-columns:1fr}.simple-days{gap:5px}.simple-day{min-height:108px;padding:7px 6px}.simple-day[aria-selected="true"]::after{inset-inline:8px}.simple-day-title{font-size:.76rem}.simple-day-state{font-size:.66rem}.simple-day-date{font-size:.61rem}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}.simple-selected-day-content{padding:7px}.simple-weather-grid{grid-template-columns:1fr}}
       @media(min-width:521px) and (max-width:900px){.simple-shell{max-width:680px}.simple-hero{padding:24px}}
       @media(min-width:901px){body.simple-board-mode{padding-bottom:24px}.simple-bottom-nav{position:sticky;bottom:12px;margin-top:14px}}
       @media(prefers-reduced-motion:reduce){.simple-action,.simple-day,.simple-nav-action{scroll-behavior:auto}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -269,7 +276,14 @@
     const end = best ? new Date(best.windowItem.end).getTime() : new Date(`${key}T21:00:00`).getTime();
     const indexes = times.map((value,index) => ({index,time:new Date(value).getTime()})).filter(({time}) => time >= start && time <= end).map(({index}) => index);
     const values = (name) => indexes.map((index) => Number(hourly[name]?.[index])).filter(Number.isFinite);
-    return {wind:values('wind_speed_10m'), wave:values('hs'), rain:values('precipitation'), indexes};
+    return {
+      wind:values('wind_speed_10m'), wave:values('hs'), rain:values('precipitation'),
+      temperature:values('temperature_2m'), apparent:values('apparent_temperature'),
+      humidity:values('relative_humidity_2m'), cloud:values('cloud_cover'), uv:values('uv_index'),
+      visibility:values('visibility'),
+      weatherCodes:indexes.map((index) => Number(hourly.weather_code?.[index])).filter(Number.isFinite),
+      indexes,
+    };
   }
   function trend(values) {
     if (values.length < 2) return copy().stable;
@@ -287,6 +301,19 @@
     const label = `${c.from} ${Math.min(...values).toFixed(unit === 'm' ? 2 : 0)} ${unit} ${c.to} ${Math.max(...values).toFixed(unit === 'm' ? 2 : 0)} ${unit}, ${trend(values)}. ${c.threshold} ${threshold} ${unit}.`;
     return `<figure class="simple-chart" role="img" aria-label="${esc(label)}"><svg class="simple-spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true"><rect class="safe-zone" x="0" y="${thresholdY}" width="${width}" height="${bottom-thresholdY}"></rect><line class="grid" x1="0" y1="${top}" x2="${width}" y2="${top}"></line><line class="grid" x1="0" y1="${bottom}" x2="${width}" y2="${bottom}"></line><line class="threshold" x1="0" y1="${thresholdY}" x2="${width}" y2="${thresholdY}"></line><polygon class="area" points="${area}"></polygon><polyline class="line" points="${line}"></polyline>${points.map((point) => `<circle class="point" cx="${point.split(',')[0]}" cy="${point.split(',')[1]}" r="2.5"></circle>`).join('')}</svg><div class="simple-chart-axis"><span>${esc(start)}</span><span>${esc(end)}</span></div><figcaption class="simple-chart-threshold">${esc(c.threshold)} ${threshold} ${esc(unit)} · ${esc(trend(values))}</figcaption></figure>`;
   }
+  function uvLevel(value) {
+    const c = copy();
+    return value >= 8 ? c.uvVeryHigh : value >= 6 ? c.uvHigh : value >= 3 ? c.uvModerate : c.uvLow;
+  }
+  function weatherDescription(codes) {
+    const c = copy();
+    if (codes.some((code) => code >= 95)) return c.storm;
+    if (codes.some((code) => (code >= 51 && code <= 67) || (code >= 80 && code <= 82))) return c.showers;
+    if (codes.some((code) => code === 45 || code === 48)) return c.fog;
+    if (codes.some((code) => code >= 3)) return c.cloudy;
+    if (codes.some((code) => code === 1 || code === 2)) return c.partlyCloudy;
+    return c.clear;
+  }
   function renderConditions(best) {
     const c = copy(); const data = seriesForWindow(best, dayKey(state.activeDay));
     const maxWind = data.wind.length ? Math.max(...data.wind) : null;
@@ -295,7 +322,30 @@
     const waveLimit = Number(state.forecast?.meta?.rules?.sea?.family_max_hs_m || .5);
     const start = best ? formatTime(best.windowItem.start) : '05:00'; const end = best ? formatTime(best.windowItem.end) : '21:00';
     const range = (values, digits, unit) => values.length ? `${Math.min(...values).toFixed(digits)}–${Math.max(...values).toFixed(digits)} ${unit}` : '—';
-    return `<section id="simple-conditions" class="simple-panel"><div class="simple-panel-head"><h2>〽️ ${esc(c.trends)}</h2></div><div class="simple-condition-grid"><div class="simple-condition"><span class="simple-condition-label">${esc(c.wind)}</span><strong class="simple-condition-value">${maxWind === null ? '—' : `${maxWind.toFixed(0)} km/h`}<small class="simple-condition-range">${esc(range(data.wind,0,'km/h'))}</small></strong>${chart(data.wind,{unit:'km/h',threshold:windLimit,start,end})}</div><div class="simple-condition wave"><span class="simple-condition-label">${esc(c.wave)}</span><strong class="simple-condition-value">${maxWave === null ? '—' : `${maxWave.toFixed(2)} m`}<small class="simple-condition-range">${esc(range(data.wave,2,'m'))}</small></strong>${chart(data.wave,{unit:'m',threshold:waveLimit,start,end})}</div><div class="simple-condition return"><span class="simple-condition-label">${esc(c.returnBy)}</span><strong class="simple-condition-value">${best ? formatTime(best.windowItem.end) : '—'}</strong></div></div></section>`;
+    const weatherItems = [];
+    const item = (icon, label, value, detail = '') => `<div class="simple-weather-item"><span class="simple-weather-label">${icon} ${esc(label)}</span><strong class="simple-weather-value">${esc(value)}</strong>${detail ? `<small class="simple-weather-detail">${esc(detail)}</small>` : ''}</div>`;
+    if (data.temperature.length) {
+      const feelsLike = data.apparent.length ? `${c.feelsLike} ${Math.max(...data.apparent).toFixed(0)} °C` : '';
+      weatherItems.push(item('🌡️', c.temperature, range(data.temperature,0,'°C'), feelsLike));
+    }
+    if (data.uv.length) {
+      const maxUv = Math.max(...data.uv);
+      weatherItems.push(item('☀️', c.uv, maxUv.toFixed(1), uvLevel(maxUv)));
+    }
+    if (data.weatherCodes.length || data.cloud.length || data.humidity.length) {
+      const skyDetail = [
+        data.cloud.length ? `${c.cloud} ${Math.round(data.cloud.reduce((sum,value) => sum + value,0) / data.cloud.length)} %` : '',
+        data.humidity.length ? `${c.humidity} ${range(data.humidity,0,'%')}` : '',
+      ].filter(Boolean).join(' · ');
+      weatherItems.push(item('🌤️', c.sky, weatherDescription(data.weatherCodes), skyDetail));
+    }
+    if (data.rain.length || data.visibility.length) {
+      const rainTotal = data.rain.length ? `${data.rain.reduce((sum,value) => sum + value,0).toFixed(1)} mm` : '—';
+      const visibility = data.visibility.length ? `${c.visibility} ${(Math.min(...data.visibility) / 1000).toFixed(1)} km` : '';
+      weatherItems.push(item('🌧️', c.rain, rainTotal, visibility));
+    }
+    const weather = weatherItems.length ? `<div class="simple-weather-grid" aria-label="${esc(c.weather)}">${weatherItems.join('')}</div>` : '';
+    return `<section id="simple-conditions" class="simple-panel"><div class="simple-panel-head"><h2>〽️ ${esc(c.trends)}</h2></div><div class="simple-condition-grid"><div class="simple-condition"><span class="simple-condition-label">${esc(c.wind)}</span><strong class="simple-condition-value">${maxWind === null ? '—' : `${maxWind.toFixed(0)} km/h`}<small class="simple-condition-range">${esc(range(data.wind,0,'km/h'))}</small></strong>${chart(data.wind,{unit:'km/h',threshold:windLimit,start,end})}</div><div class="simple-condition wave"><span class="simple-condition-label">${esc(c.wave)}</span><strong class="simple-condition-value">${maxWave === null ? '—' : `${maxWave.toFixed(2)} m`}<small class="simple-condition-range">${esc(range(data.wave,2,'m'))}</small></strong>${chart(data.wave,{unit:'m',threshold:waveLimit,start,end})}</div>${weather}<div class="simple-condition return"><span class="simple-condition-label">${esc(c.returnBy)}</span><strong class="simple-condition-value">${best ? formatTime(best.windowItem.end) : '—'}</strong></div></div></section>`;
   }
   function renderActivities(best) {
     const c = copy();
@@ -329,7 +379,10 @@
       const target = item.destination_name || destination.dest_name || destination.dest_slug || '—';
       const name = longTrip && origin ? `${origin} → ${target}` : target;
       const duration = Math.max(0, (new Date(item.end) - new Date(item.start)) / 3600000);
-      return `<button class="simple-window-card" data-simple-action="map-window" data-simple-window-index="${index}" type="button"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(formatTime(item.start))} → ${esc(formatTime(item.end))} · ${duration.toFixed(duration % 1 ? 1 : 0)} h</small></span><span class="simple-window-arrow" aria-hidden="true">›</span></button>`;
+      const direction = item.direction === 'outbound' ? c.outbound : item.direction === 'return' ? c.return : '';
+      const beta = item.beta || destination.beta ? c.beta : '';
+      const details = [direction, beta, `${formatTime(item.start)} → ${formatTime(item.end)} · ${duration.toFixed(duration % 1 ? 1 : 0)} h`].filter(Boolean).join(' · ');
+      return `<button class="simple-window-card" data-simple-action="map-window" data-simple-window-index="${index}" type="button"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(details)}</small></span><span class="simple-window-arrow" aria-hidden="true">›</span></button>`;
     }).join('') : `<div class="simple-empty">${esc(c.noWindow)}</div>`;
     return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${rows.length}</span></div><div class="simple-navigation">${content}</div></section>`;
   }
@@ -391,8 +444,7 @@
       <section id="simple-three-days" class="simple-panel simple-day-selector"><div class="simple-panel-head"><h2>📅 ${esc(c.planning)}</h2><span class="simple-panel-note">${esc(c.horizon)}</span></div><div class="simple-days" role="tablist" aria-label="${esc(c.planning)}">${renderDays()}</div></section>
       <div id="simple-selected-day-content" class="simple-selected-day-content" role="tabpanel" aria-labelledby="simple-day-tab-${state.activeDay}" tabindex="0">
       <section id="simple-decision" class="simple-hero ${presentation.tone}" data-verdict-state="${esc(result?.state || 'LOADING')}" aria-live="polite">
-        <div class="simple-hero-grid"><div><div class="simple-overline">${esc(c.decision)} · ${esc(dayLabel(dayKey(state.activeDay),state.activeDay))}</div>
-        <h1 class="simple-verdict"><span class="simple-verdict-icon" aria-hidden="true">${presentation.icon}</span>${esc(presentation.title)}</h1>
+        <div class="simple-hero-grid"><div><h1 class="simple-verdict"><span class="simple-verdict-icon" aria-hidden="true">${presentation.icon}</span>${esc(presentation.title)}</h1>
         ${best ? `<div class="simple-destination">📍 ${esc(destination)}</div><div class="simple-window">${esc(windowText)}</div>` : ''}
         ${presentation.detail ? `<p class="simple-hero-detail">${esc(presentation.detail)}</p>` : ''}
         <div class="simple-actions">${result?.rows?.length ? `<button class="simple-action primary" data-simple-action="windows" type="button">${esc(c.viewWindows)} →</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>` : `<button class="simple-action primary" aria-expanded="false" aria-controls="simple-reasons" data-simple-action="reasons" type="button">${esc(c.why)}</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>`}</div>

@@ -36,11 +36,7 @@ const expectedState = (state) => {
   if (state === 'missing-windows') return 'NO_DATA';
   if (state === 'stale') return 'STALE';
   if (state === 'fresh-empty') return 'NO_GO';
-  if (state === 'fresh-windows' || state === 'marine-error') {
-    const today = tunisDateKey(new Date());
-    const windowStart = tunisDateKey(new Date(Date.now() + 60 * 60_000));
-    return windowStart === today ? 'GO_TODAY' : 'GO_SOON';
-  }
+  if (state === 'fresh-windows' || state === 'marine-error') return 'GO_FAMILY';
   return 'NO_GO';
 };
 
@@ -143,13 +139,20 @@ async function execute(browser, scenario) {
   page.setDefaultTimeout(8000);
   const errors = [];
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
-  page.on('console', (message) => { if (message.type() === 'error') errors.push(`console: ${message.text()}`); });
-  await page.addInitScript(({locale, theme}) => {
+  page.on('console', (message) => {
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    if (scenario.state === 'missing-windows' && /status of 404/.test(text)) return;
+    errors.push(`console: ${text}`);
+  });
+  await page.addInitScript(({locale, theme, selectedDay}) => {
     localStorage.setItem('lang', locale);
     localStorage.setItem('theme', theme);
-    localStorage.setItem('fable_board_mode', 'family');
+    localStorage.setItem('fable_board_mode', 'simple');
+    localStorage.setItem('fable_simple_default_v1', '1');
+    localStorage.setItem('fable_selected_day', selectedDay);
     localStorage.setItem('fable_family_tab', 'today');
-  }, {locale: scenario.locale, theme: scenario.theme});
+  }, {locale: scenario.locale, theme: scenario.theme, selectedDay: tunisDateKey(new Date(Date.now() + 60 * 60_000))});
 
   const payloads = payloadsFor(scenario.state);
   await page.route('**/*.json', async (route) => {
@@ -166,15 +169,15 @@ async function execute(browser, scenario) {
   let values = null;
   try {
     await page.goto(BASE, {waitUntil: 'commit', timeout: 10000});
-    await page.waitForSelector('#family-verdict-hero[data-state]', {state: 'visible'});
+    await page.waitForSelector('.simple-hero[data-verdict-state]', {state: 'visible'});
     await page.waitForTimeout(700);
     values = await page.evaluate(() => {
       const root = getComputedStyle(document.documentElement);
-      const hero = document.getElementById('family-verdict-hero');
-      const title = hero?.querySelector('h2');
-      const badge = hero?.querySelector('.verdict-badge');
+      const hero = document.querySelector('.simple-hero[data-verdict-state]');
+      const title = hero?.querySelector('h1');
+      const primaryAction = hero?.querySelector('.simple-action.primary');
       return {
-        state: hero?.dataset.state || '',
+        state: hero?.dataset.verdictState || '',
         title: title?.textContent?.trim() || '',
         lang: document.documentElement.lang,
         dir: document.documentElement.dir,
@@ -183,10 +186,11 @@ async function execute(browser, scenario) {
         clientWidth: document.documentElement.clientWidth,
         titleColor: title ? getComputedStyle(title).color : '',
         cardColor: root.getPropertyValue('--card').trim(),
-        badgeColor: badge ? getComputedStyle(badge).color : '',
-        badgeBackground: badge ? getComputedStyle(badge).backgroundColor : '',
+        badgeColor: primaryAction ? getComputedStyle(primaryAction).color : '',
+        badgeBackground: primaryAction ? getComputedStyle(primaryAction).backgroundColor : '',
         mobileSettings: Boolean(document.getElementById('mobileSettingsBtn') && getComputedStyle(document.getElementById('mobileSettingsBtn')).display !== 'none'),
         marineMessage: /Données de vagues|Wave data|بيانات الأمواج/.test(document.body.innerText),
+        legacySummaryAbsent: !document.getElementById('family-summary') && !document.getElementById('family-verdict-hero'),
       };
     });
     values.titleContrast = contrast(values.titleColor, values.cardColor);
@@ -201,22 +205,18 @@ async function execute(browser, scenario) {
     } else if (values.lang !== scenario.locale || values.dir === 'rtl') failures.push(`locale mismatch (${values.lang}/${values.dir})`);
     if (values.titleContrast < 4.5) failures.push(`title contrast ${values.titleContrast.toFixed(2)} < 4.5`);
     if (values.badgeContrast < 4.5) failures.push(`badge contrast ${values.badgeContrast.toFixed(2)} < 4.5`);
+    if (!values.legacySummaryAbsent) failures.push('legacy family summary is still present');
     if (scenario.device === 'mobile' && !values.mobileSettings) failures.push('mobile settings button missing');
     if (scenario.state === 'marine-error' && !values.marineMessage) failures.push('marine data error not visible');
     if (scenario.device === 'desktop' && scenario.state === 'fresh-windows' && scenario.locale === 'fr') {
-      await page.locator('.family-days .family-day').nth(1).click();
+      await page.locator('[data-simple-day="1"]').click();
       await page.waitForTimeout(200);
       const navigation = await page.evaluate(() => {
-        const selected = document.querySelector('.family-day[aria-pressed="true"]');
-        const family = Number(selected?.querySelector('[data-nav-family-count]')?.textContent || 0);
-        const longTrip = Number(selected?.querySelector('[data-nav-long-count]')?.textContent || 0);
-        const cards = [...document.querySelectorAll('#wins .window-line')].filter((line) => !line.hidden);
-        return {family, longTrip, cardCount:cards.length, longCards:cards.filter((line) => line.classList.contains('long-trip-window')).length, text:cards.map((line) => line.innerText).join('\n')};
+        const cards = [...document.querySelectorAll('.simple-window-card')];
+        return {cardCount:cards.length, longCards:cards.filter((card) => card.querySelector('.simple-window-badge.travel')).length, text:cards.map((card) => card.innerText).join('\n')};
       });
-      if (navigation.family + navigation.longTrip !== navigation.cardCount) failures.push(`navigation counters ${navigation.family}+${navigation.longTrip} != ${navigation.cardCount} cards`);
-      if (navigation.longTrip !== navigation.longCards) failures.push(`long-trip counter ${navigation.longTrip} != ${navigation.longCards} cards`);
+      if (!navigation.cardCount || navigation.cardCount !== navigation.longCards) failures.push(`expected only long-trip cards (${JSON.stringify(navigation)})`);
       if (!/Aller/i.test(navigation.text) || !/Retour/i.test(navigation.text)) failures.push(`outbound/return directions missing (${JSON.stringify(navigation)})`);
-      if (!/aller simple — retour à planifier séparément/.test(navigation.text)) failures.push('one-way planning warning missing');
       if (!/Pantelleria/.test(navigation.text) || !/Bêta/.test(navigation.text)) failures.push(`Pantelleria beta card missing (${JSON.stringify(navigation)})`);
     }
     if (errors.length) failures.push(...errors);

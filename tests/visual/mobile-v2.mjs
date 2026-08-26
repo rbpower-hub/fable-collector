@@ -20,6 +20,7 @@ const offDay = dateKey(offStart);
 const familyDay = dateKey(familyStart);
 const offOffset = [day(0), day(1), day(2)].indexOf(offDay);
 const familyOffset = [day(0), day(1), day(2)].indexOf(familyDay);
+const noGoOffset = [0, 1, 2].find((offset) => offset !== offOffset && offset !== familyOffset);
 const offHours = {
   start:offStart.toISOString(), end:offEnd.toISOString(), category:'off_hours', confidence:'Medium', confidence_score:64,
 };
@@ -84,6 +85,8 @@ const initial = await page.evaluate(() => ({
   weatherItems:document.querySelectorAll('.simple-weather-item').length,
   overline:Boolean(document.querySelector('.simple-overline')),
   confidenceVisible:getComputedStyle(document.querySelector('.simple-confidence')).display !== 'none',
+  qualityText:document.querySelector('.simple-confidence')?.textContent?.replace(/\s+/g,' ').trim(),
+  qualityHasPercent:/\d+\s*%/.test(document.querySelector('.simple-confidence')?.textContent || ''),
   verdictRect:(() => { const box = document.querySelector('.simple-verdict')?.getBoundingClientRect(); return box ? {left:box.left,top:box.top,right:box.right,bottom:box.bottom} : null; })(),
   confidenceRect:(() => { const box = document.querySelector('.simple-confidence')?.getBoundingClientRect(); return box ? {left:box.left,top:box.top,right:box.right,bottom:box.bottom} : null; })(),
   confidenceBesideVerdict:(() => {
@@ -105,6 +108,8 @@ if (!initial.navVisible) throw new Error('bottom navigation is hidden');
 if (initial.weatherItems < 4) throw new Error(`expected four weather context cards, got ${initial.weatherItems}`);
 if (initial.overline) throw new Error('redundant decision overline is still visible');
 if (!initial.confidenceVisible || !initial.confidenceBesideVerdict) throw new Error(`confidence must remain beside the verdict on mobile: ${JSON.stringify(initial)}`);
+if (initial.qualityHasPercent) throw new Error(`forecast quality must not be shown as a percentage: ${initial.qualityText}`);
+if (!/Qualité des prévisions.*Moyenne/i.test(initial.qualityText || '')) throw new Error(`unexpected forecast quality: ${initial.qualityText}`);
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
 
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();
@@ -113,6 +118,13 @@ await page.waitForSelector(`[data-simple-day="${familyOffset}"][aria-selected="t
 await page.waitForSelector('.simple-day-context[data-selected-tone="good"]');
 const tomorrowRows = await page.locator('.simple-window-card').count();
 if (tomorrowRows !== 1) throw new Error(`tomorrow should have one row, got ${tomorrowRows}`);
+const tomorrowQuality = await page.locator('.simple-confidence').textContent();
+if (!/Qualité des prévisions.*Élevée/is.test(tomorrowQuality || '')) throw new Error(`unexpected GO forecast quality: ${tomorrowQuality}`);
+await page.locator(`[data-simple-day="${noGoOffset}"]`).click();
+await page.waitForSelector('.simple-hero[data-verdict-state="NO_GO"]');
+const noGoQuality = await page.locator('.simple-confidence').textContent();
+if (/\d+\s*%/.test(noGoQuality || '')) throw new Error(`NO-GO quality must not be a percentage: ${noGoQuality}`);
+if (!/Qualité des prévisions.*Non évaluée/is.test(noGoQuality || '')) throw new Error(`unexpected NO-GO forecast quality: ${noGoQuality}`);
 if (errors.length) throw new Error(errors.join('; '));
 await page.screenshot({path:OUT, fullPage:true});
 await browser.close();

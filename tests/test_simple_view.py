@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260825-weather-layout" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260826-weather-context-v2" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -106,6 +106,7 @@ def test_simple_view_weather_context_and_mobile_hierarchy():
     assert ".simple-confidence{display:none}" not in script
     assert '[data-theme="nautical"] .simple-action.primary{color:#fff}' in script
     assert "outbound:'Aller', return:'Retour', beta:'Bêta'" in script
+    assert "value !== null && value !== undefined" in script
 
 
 def test_simple_view_phase_three_supports_rtl_keyboard_and_small_screens():

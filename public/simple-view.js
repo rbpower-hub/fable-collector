@@ -275,13 +275,17 @@
     const start = best ? new Date(best.windowItem.start).getTime() : new Date(`${key}T05:00:00`).getTime();
     const end = best ? new Date(best.windowItem.end).getTime() : new Date(`${key}T21:00:00`).getTime();
     const indexes = times.map((value,index) => ({index,time:new Date(value).getTime()})).filter(({time}) => time >= start && time <= end).map(({index}) => index);
-    const values = (name) => indexes.map((index) => Number(hourly[name]?.[index])).filter(Number.isFinite);
+    const values = (name) => indexes.map((index) => hourly[name]?.[index])
+      .filter((value) => value !== null && value !== undefined && value !== '')
+      .map(Number).filter(Number.isFinite);
     return {
       wind:values('wind_speed_10m'), wave:values('hs'), rain:values('precipitation'),
       temperature:values('temperature_2m'), apparent:values('apparent_temperature'),
       humidity:values('relative_humidity_2m'), cloud:values('cloud_cover'), uv:values('uv_index'),
       visibility:values('visibility'),
-      weatherCodes:indexes.map((index) => Number(hourly.weather_code?.[index])).filter(Number.isFinite),
+      weatherCodes:indexes.map((index) => hourly.weather_code?.[index])
+        .filter((value) => value !== null && value !== undefined && value !== '')
+        .map(Number).filter(Number.isFinite),
       indexes,
     };
   }

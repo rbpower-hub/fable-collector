@@ -98,6 +98,7 @@ test('unified navigation rows distinguish family, prudent, off-hours and long-tr
     strict:1,
     prudent:1,
     offHours:1,
+    watch:0,
     family:2,
     longTrip:1,
     total:4,

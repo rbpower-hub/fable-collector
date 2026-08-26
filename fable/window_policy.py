@@ -32,18 +32,12 @@ def compute_confidence(site: Site, start: int, end: int, th: Thresholds) -> str:
         min_models = min(min_models, metrics.n_models or 0)
         min_wave_sources = min(min_wave_sources, metrics.n_wave_sources or 0)
         if metrics.hs_spread is not None:
-            max_hs_spread = (
-                metrics.hs_spread
-                if max_hs_spread is None
-                else max(max_hs_spread, metrics.hs_spread)
-            )
+            max_hs_spread = metrics.hs_spread if max_hs_spread is None else max(max_hs_spread, metrics.hs_spread)
     if min_models < th.min_models_not_low:
         return "Low"
     average = statistics.mean(spreads) if spreads else None
     corroborated = (
-        min_wave_sources >= th.min_wave_sources
-        and max_hs_spread is not None
-        and max_hs_spread < th.high_hs_spread_lt
+        min_wave_sources >= th.min_wave_sources and max_hs_spread is not None and max_hs_spread < th.high_hs_spread_lt
     )
     if average is not None and average < th.high_wind_spread_lt and corroborated:
         return "High"
@@ -82,9 +76,7 @@ def hard_reasons(metrics: HourMetrics, th: Thresholds) -> list[str]:
     reasons = []
     if metrics.max_speed is None or metrics.max_gust is None:
         reasons.append("vent_inconnu")
-    valid_wave_scenarios = [
-        scenario for scenario in metrics.wave_scenarios if scenario.get("tp") is not None
-    ]
+    valid_wave_scenarios = [scenario for scenario in metrics.wave_scenarios if scenario.get("tp") is not None]
     if not valid_wave_scenarios:
         reasons.append("vagues_inconnues")
     if any(code in th.thunder_codes for code in metrics.codes):
@@ -95,16 +87,12 @@ def hard_reasons(metrics: HourMetrics, th: Thresholds) -> list[str]:
         reasons.append(f"rafales>={int(th.gust_no_go_min)}")
     if metrics.max_speed is not None and metrics.max_speed >= th.wind_no_go_min:
         reasons.append(f"vent>={int(th.wind_no_go_min)}")
-    if any(
-        scenario["gust_delta"] >= th.squall_delta
-        for scenario in metrics.wind_scenarios
-    ):
+    if any(scenario["gust_delta"] >= th.squall_delta for scenario in metrics.wind_scenarios):
         reasons.append("squalls")
     if metrics.hs is not None and metrics.hs > th.hs_no_go_min:
         reasons.append(f"Hs>{th.hs_no_go_min}")
     if any(
-        scenario["hs"] >= th.short_steep_2_hs
-        and scenario["tp"] <= th.short_steep_2_tp
+        scenario["hs"] >= th.short_steep_2_hs and scenario["tp"] <= th.short_steep_2_tp
         for scenario in valid_wave_scenarios
     ):
         reasons.append("short_steep_hard")
@@ -112,9 +100,7 @@ def hard_reasons(metrics: HourMetrics, th: Thresholds) -> list[str]:
 
 
 def standard_wave_reasons(metrics: HourMetrics, th: Thresholds, sheltered: bool) -> list[str]:
-    scenarios = [
-        scenario for scenario in metrics.wave_scenarios if scenario.get("tp") is not None
-    ]
+    scenarios = [scenario for scenario in metrics.wave_scenarios if scenario.get("tp") is not None]
     if not scenarios:
         return ["vagues_inconnues"]
     reasons = []
@@ -137,6 +123,131 @@ def standard_wave_reasons(metrics: HourMetrics, th: Thresholds, sheltered: bool)
             if reason not in reasons:
                 reasons.append(reason)
     return reasons
+
+
+def watch_hour_assessment(
+    site: Site,
+    index: int,
+    phase: str,
+    th: Thresholds,
+) -> tuple[bool, dict[str, Any]]:
+    """Evaluate one hour inside the technical uncertainty band.
+
+    This is deliberately separate from the Family and Prudent evaluators.  It
+    can accept only small comfort-threshold misses; hard vetoes, missing data,
+    strong onshore wind and short/steep sea remain disqualifying.
+    """
+    metrics = worst_metrics_at_hour(site, index)
+    hard = hard_reasons(metrics, th)
+    sheltered = phase == "anchor" and shelter_validated(site, metrics)
+    if hard:
+        return False, {
+            "reasons": hard,
+            "metrics": metrics,
+            "tier": "expert_review",
+            "shelter_validated": sheltered,
+            "margins": [],
+        }
+
+    rejected: list[str] = []
+    margins: list[dict[str, Any]] = []
+    if metrics.max_speed is not None and metrics.any_onshore and metrics.max_speed > th.onshore_max_ok:
+        rejected.append(f"onshore>{int(th.onshore_max_ok)}")
+    if not sheltered and metrics.max_speed is not None and metrics.max_speed >= th.wind_family_max:
+        excess = metrics.max_speed - th.wind_family_max
+        if excess <= th.watch_wind_margin:
+            margins.append(
+                {
+                    "metric": "wind_kmh",
+                    "source": "worst_case",
+                    "actual": metrics.max_speed,
+                    "family_limit": th.wind_family_max,
+                    "difference": round(excess, 3),
+                }
+            )
+        else:
+            rejected.append(f"vent>={int(th.wind_family_max)}")
+
+    scenarios = [scenario for scenario in metrics.wave_scenarios if scenario.get("tp") is not None]
+    for scenario in scenarios:
+        source = str(scenario.get("source") or "unknown")
+        hs, tp = float(scenario["hs"]), float(scenario["tp"])
+        if sheltered and hs <= th.anchor_hs_ease_max:
+            if tp < th.anchor_tp_family:
+                difference = th.anchor_tp_family - tp
+                if difference <= th.watch_tp_margin:
+                    margins.append(
+                        {
+                            "metric": "tp_s",
+                            "source": source,
+                            "actual": tp,
+                            "family_limit": th.anchor_tp_family,
+                            "difference": round(difference, 3),
+                        }
+                    )
+                else:
+                    rejected.append(f"Tp<{th.anchor_tp_family}@Hs<={th.anchor_hs_ease_max}")
+            continue
+
+        if hs >= th.short_steep_1_hs and tp <= th.short_steep_1_tp:
+            rejected.append("short_steep")
+            continue
+        if hs >= th.hs_family_max:
+            difference = hs - th.hs_family_max
+            if difference <= th.watch_hs_margin:
+                margins.append(
+                    {
+                        "metric": "hs_m",
+                        "source": source,
+                        "actual": hs,
+                        "family_limit": th.hs_family_max,
+                        "difference": round(difference, 3),
+                    }
+                )
+            else:
+                rejected.append(f"Hs>={th.hs_family_max}")
+        elif hs < 0.4 and tp < th.tp_min_at_lt04:
+            difference = th.tp_min_at_lt04 - tp
+            if difference <= th.watch_tp_margin:
+                margins.append(
+                    {
+                        "metric": "tp_s",
+                        "source": source,
+                        "actual": tp,
+                        "family_limit": th.tp_min_at_lt04,
+                        "difference": round(difference, 3),
+                    }
+                )
+            else:
+                rejected.append(f"Tp<{th.tp_min_at_lt04}@Hs<0.4")
+        elif 0.4 <= hs < 0.5 and tp < th.tp_min_at_04_05:
+            difference = th.tp_min_at_04_05 - tp
+            if difference <= th.watch_tp_margin:
+                margins.append(
+                    {
+                        "metric": "tp_s",
+                        "source": source,
+                        "actual": tp,
+                        "family_limit": th.tp_min_at_04_05,
+                        "difference": round(difference, 3),
+                    }
+                )
+            else:
+                rejected.append(f"Tp<{th.tp_min_at_04_05}@Hs0.4-0.5")
+
+    detail = {
+        "reasons": list(dict.fromkeys(rejected)),
+        "metrics": metrics,
+        "tier": "expert_review",
+        "shelter_validated": sheltered,
+        "margins": margins,
+    }
+    blocking_scenario = blocking_wave_scenario(metrics, detail["reasons"], th)
+    detail["blocking_wave_source"] = blocking_scenario.get("source") if blocking_scenario else None
+    detail["blocking_wave_pair"] = (
+        {"hs": blocking_scenario["hs"], "tp": blocking_scenario.get("tp")} if blocking_scenario else None
+    )
+    return not rejected, detail
 
 
 def blocking_wave_scenario(
@@ -176,9 +287,7 @@ def blocking_wave_scenario(
             matches = [
                 scenario
                 for scenario in scenarios
-                if scenario.get("tp") is not None
-                and scenario["hs"] < 0.4
-                and scenario["tp"] < th.tp_min_at_lt04
+                if scenario.get("tp") is not None and scenario["hs"] < 0.4 and scenario["tp"] < th.tp_min_at_lt04
             ]
             select_shortest_period = True
         elif reason == f"Tp<{th.tp_min_at_04_05}@Hs0.4-0.5":
@@ -203,8 +312,7 @@ def blocking_wave_scenario(
             matches = [
                 scenario
                 for scenario in scenarios
-                if scenario.get("tp") is not None
-                and scenario["tp"] < th.prudent_tp_min
+                if scenario.get("tp") is not None and scenario["tp"] < th.prudent_tp_min
             ]
             select_shortest_period = True
         if matches:
@@ -262,9 +370,7 @@ def hour_ok_for_phase(
         "shelter_validated": sheltered,
         "blocking_wave_source": blocking_scenario.get("source") if blocking_scenario else None,
         "blocking_wave_pair": (
-            {"hs": blocking_scenario["hs"], "tp": blocking_scenario.get("tp")}
-            if blocking_scenario
-            else None
+            {"hs": blocking_scenario["hs"], "tp": blocking_scenario.get("tp")} if blocking_scenario else None
         ),
     }
 
@@ -281,7 +387,10 @@ def reason_text(
         "squalls": ("écart rafales/vent compatible avec une ligne de grains", "gust/wind spread indicates squalls"),
         "short_steep": ("mer courte et raide", "short and steep sea"),
         "short_steep_hard": ("mer courte et raide — veto dur", "short and steep sea — hard veto"),
-        "prudent_onshore": ("vent onshore incompatible avec le GO prudent", "onshore wind incompatible with prudent GO"),
+        "prudent_onshore": (
+            "vent onshore incompatible avec le GO prudent",
+            "onshore wind incompatible with prudent GO",
+        ),
     }
     if code in fixed:
         return fixed[code]
@@ -380,10 +489,12 @@ def evaluate_window(
             "blocker": blocker(home, end - 1, "return", "transit", detail),
         }
 
-    confidence = min_confidence([
-        compute_confidence(home, start, end - 1, th),
-        compute_confidence(dest, start, end - 1, th),
-    ])
+    confidence = min_confidence(
+        [
+            compute_confidence(home, start, end - 1, th),
+            compute_confidence(dest, start, end - 1, th),
+        ]
+    )
     daylight = all_in_operating_light(dest.times[start:end], dest, th)
     if tier == "prudent" and not daylight:
         return False, {
@@ -418,6 +529,139 @@ def evaluate_window(
             },
         }
     return True, {"validated_hours": validated, "confidence": confidence, "daylight": daylight}
+
+
+def evaluate_watch_window(
+    home: Site,
+    dest: Site,
+    start: int,
+    end: int,
+    th: Thresholds,
+) -> tuple[bool, dict[str, Any]]:
+    """Return a review-only candidate without changing any GO threshold."""
+    tier = "expert_review"
+    if end > min(len(home.times), len(dest.times)):
+        return False, {"validated_hours": 0, "blocker": None, "tier": tier}
+    if not has_wind_range(home, start, end - 1) or not has_wind_range(dest, start, end - 1):
+        target = home if not has_wind_range(home, start, end - 1) else dest
+        detail = watch_hour_assessment(target, start, "transit", th)[1]
+        return False, {
+            "validated_hours": 0,
+            "blocker": blocker(target, start, "data", "transit", detail),
+            "tier": tier,
+        }
+
+    evidence: list[dict[str, Any]] = []
+
+    def assess(site: Site, index: int, stage: str, phase: str) -> tuple[bool, dict[str, Any]]:
+        ok, detail = watch_hour_assessment(site, index, phase, th)
+        for margin in detail.get("margins") or []:
+            evidence.append(
+                {
+                    **margin,
+                    "stage": stage,
+                    "phase": phase,
+                    "location_slug": f"{site.slug}.json",
+                    "time": site.times[index].isoformat(),
+                }
+            )
+        return ok, detail
+
+    ok, detail = assess(home, start, "departure", "transit")
+    if not ok:
+        return False, {
+            "validated_hours": 0,
+            "blocker": blocker(home, start, "departure", "transit", detail),
+            "tier": tier,
+        }
+
+    validated = 0
+    phases = phases_for_window(end - start)
+    for offset, index in enumerate(range(start, end)):
+        phase = phases[offset]
+        ok, detail = assess(dest, index, "destination", phase)
+        if not ok:
+            return False, {
+                "validated_hours": validated,
+                "blocker": blocker(dest, index, "destination", phase, detail),
+                "tier": tier,
+            }
+        validated += 1
+
+    ok, detail = assess(home, end - 1, "return", "transit")
+    if not ok:
+        return False, {
+            "validated_hours": validated,
+            "blocker": blocker(home, end - 1, "return", "transit", detail),
+            "tier": tier,
+        }
+
+    unique = {
+        (
+            item["location_slug"],
+            item["time"],
+            item["stage"],
+            item["metric"],
+            item["source"],
+        ): item
+        for item in evidence
+    }
+    evidence = list(unique.values())
+    if not evidence:
+        return False, {"validated_hours": validated, "blocker": None, "tier": tier}
+    failing_wave_sources = {item["source"] for item in evidence if item["metric"] in {"hs_m", "tp_s"}}
+    if len(failing_wave_sources) > th.watch_max_failing_wave_sources:
+        return False, {
+            "validated_hours": validated,
+            "blocker": {
+                "stage": "confidence",
+                "location_slug": f"{dest.slug}.json",
+                "location_name": dest.name,
+                "phase": "window",
+                "time": dest.times[start].isoformat(),
+                "reasons": ["too_many_marginal_wave_sources"],
+                "reason_fr": "trop de modèles de vagues dépassent les seuils Family",
+                "reason_en": "too many wave models exceed Family thresholds",
+                "metrics": {"failing_wave_sources": sorted(failing_wave_sources)},
+                "tier": tier,
+            },
+            "tier": tier,
+        }
+
+    confidence = min_confidence(
+        [
+            compute_confidence(home, start, end - 1, th),
+            compute_confidence(dest, start, end - 1, th),
+        ]
+    )
+    daylight = all_in_operating_light(dest.times[start:end], dest, th)
+    if not daylight:
+        return False, {"validated_hours": validated, "blocker": None, "tier": tier}
+    if confidence_rank(confidence) < confidence_rank(th.watch_min_confidence):
+        return False, {
+            "validated_hours": validated,
+            "blocker": {
+                "stage": "confidence",
+                "location_slug": f"{dest.slug}.json",
+                "location_name": dest.name,
+                "phase": "window",
+                "time": dest.times[start].isoformat(),
+                "reasons": ["confidence_too_low_for_watch"],
+                "reason_fr": f"confiance {confidence} insuffisante pour le statut À SURVEILLER",
+                "reason_en": f"{confidence} confidence is insufficient for WATCH status",
+                "metrics": {},
+                "tier": tier,
+            },
+            "tier": tier,
+        }
+    return True, {
+        "validated_hours": validated,
+        "confidence": confidence,
+        "daylight": True,
+        "tier": tier,
+        "margins": evidence,
+        "failing_wave_sources": sorted(failing_wave_sources),
+    }
 
 
 def confidence_details(site: Site, start: int, end: int) -> dict[str, Any]:

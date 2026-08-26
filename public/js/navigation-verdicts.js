@@ -100,8 +100,9 @@ function emptyVerdict(state, selectedDay, args = {}) {
     rows: [],
     family_rows: [],
     off_hours_rows: [],
+    watch_rows: [],
     long_trip_rows: [],
-    counts: {strict:0, prudent:0, offHours:0, family:0, longTrip:0, total:0},
+    counts: {strict:0, prudent:0, offHours:0, watch:0, family:0, longTrip:0, total:0},
     message_key: state.toLowerCase(),
     args,
   };
@@ -126,7 +127,7 @@ export function navigationVerdictForDay({
   if (!windows || !Array.isArray(windows.windows)) return emptyVerdict('NO_DATA', day);
 
   const rows = getNavigationWindowsForDay(day, windows, {
-    categories:['family', 'off_hours'],
+    categories:['family', 'off_hours', 'watch'],
   });
   const actionable = rows.filter((row) => (
     isStillActionable(row, day, current, rules)
@@ -140,6 +141,12 @@ export function navigationVerdictForDay({
     row.category === 'off_hours'
     && !isLongTripNavigationWindow(row)
   ));
+  const watchRows = actionable.filter((row) => (
+    row.category === 'watch'
+    && !isLongTripNavigationWindow(row)
+    && row.windowItem?.family_go === false
+    && row.windowItem?.review_required === true
+  ));
   const longTripRows = actionable.filter(isLongTripNavigationWindow);
   const counts = navigationWindowBreakdown(actionable);
   const blocker = nearestBlocker(windows, day);
@@ -148,6 +155,7 @@ export function navigationVerdictForDay({
     rows: actionable,
     family_rows: familyRows,
     off_hours_rows: offHoursRows,
+    watch_rows: watchRows,
     long_trip_rows: longTripRows,
     counts,
     blocker: blocker?.destination || null,
@@ -164,6 +172,18 @@ export function navigationVerdictForDay({
       row,
       message_key: prudent ? 'go_prudent' : 'go_family',
       args: {confidence: row.windowItem.confidence || row.destination.confidence || 'low'},
+    };
+  }
+  if (watchRows.length) {
+    const row = watchRows[0];
+    return {
+      ...shared,
+      state: 'WATCH',
+      spot: row.destination,
+      window: row.windowItem,
+      row,
+      message_key: 'watch',
+      args: {count: watchRows.length},
     };
   }
   if (offHoursRows.length) {

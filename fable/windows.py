@@ -70,6 +70,7 @@ combine_composite_windows = _detect.combine_composite_windows
 detect_transfer_windows = _detect.detect_transfer_windows
 detect_windows = _detect.detect_windows
 detect_windows_detailed = _detect.detect_windows_detailed
+detect_watch_windows = _detect.detect_watch_windows
 route_checkpoints = _detect.route_checkpoints
 route_distance_km = _detect.route_distance_km
 route_transit_profile = _detect.route_transit_profile
@@ -125,6 +126,7 @@ def _apply_one_way_routes(
             continue
         if origin is None:
             entry["windows"] = []
+            entry["watch_windows"] = []
             entry["trip_mode"] = "one_way_multi_day"
             entry["route_kind"] = route_kind
             entry["same_day_round_trip_required"] = False
@@ -148,6 +150,7 @@ def _apply_one_way_routes(
             checkpoints=_detect.route_checkpoints(origin, destination, sites),
         )
         entry["windows"] = windows
+        entry["watch_windows"] = []
         entry["diagnostics"] = diagnostics
         entry["trip_mode"] = "one_way_multi_day"
         entry["route_kind"] = route_kind
@@ -157,7 +160,7 @@ def _apply_one_way_routes(
         if route_kind == "offshore_one_way_beta":
             entry["offshore_profile"] = profile
 
-    output["version"] = max(int(output.get("version", 3)), 5)
+    output["version"] = max(int(output.get("version", 4)), 6)
     output.setdefault("policy", {})["one_way_multi_day_supported"] = True
     output["policy"]["long_trip_same_day_round_trip_required"] = False
     output.setdefault("policy", {})["offshore_one_way_supported"] = True
@@ -199,6 +202,7 @@ __all__ = [
     "detect_transfer_windows",
     "detect_windows",
     "detect_windows_detailed",
+    "detect_watch_windows",
     "has_wind_range",
     "hour_ok_for_phase",
     "is_spot_payload",

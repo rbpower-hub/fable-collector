@@ -54,7 +54,11 @@ export function getNavigationWindowsForDay(
   const allowedCategories = new Set(categories.map((value) => String(value).toLowerCase()));
   const rows = [];
   asArray(windowsData?.windows).forEach((destination) => {
-    const candidates = [...asArray(destination?.windows), ...directionalWindows(destination)];
+    const candidates = [
+      ...asArray(destination?.windows),
+      ...asArray(destination?.watch_windows),
+      ...directionalWindows(destination),
+    ];
     candidates.forEach((windowItem) => {
       if (!windowItem?.start || !windowItem?.end) return;
       if (tunisNavigationDateKey(windowItem.start) !== selectedDay) return;
@@ -85,6 +89,7 @@ export function navigationWindowBreakdown(rows) {
     strict: 0,
     prudent: 0,
     offHours: 0,
+    watch: 0,
     family: 0,
     longTrip: 0,
     total: rows.length,
@@ -95,6 +100,10 @@ export function navigationWindowBreakdown(rows) {
       return;
     }
     const category = normalizedCategory(row.destination, row.windowItem);
+    if (category === 'watch') {
+      result.watch += 1;
+      return;
+    }
     if (category === 'off_hours') {
       result.offHours += 1;
       return;

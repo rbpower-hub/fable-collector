@@ -333,6 +333,76 @@ def fetch_forecast(lat: float, lon: float, tz_name: str, start: dt.date, end: dt
     return {"_model_used": "unknown", "hourly": {}}
 
 
+def supplement_missing_forecast_extras(
+    payload: dict[str, Any],
+    lat: float,
+    lon: float,
+    tz_name: str,
+    start: dt.date,
+    end: dt.date,
+    site_deadline: float,
+    getter: Getter | None = None,
+) -> dict[str, Any]:
+    """Backfill optional context missing from a model-specific forecast.
+
+    Some individual Open-Meteo models expose optional variables such as UV
+    with an all-null series. The provider's default best-match endpoint can
+    still supply those values. This best-effort request never replaces the
+    primary wind forecast and never turns an extras failure into a site
+    collection failure.
+    """
+    hourly = payload.get("hourly") or {}
+    axis = hourly.get("time") or []
+    missing = [key for key in EXTRA_HOURLY if not has_non_null(first_series(hourly, key))]
+    if not axis or not missing or time.monotonic() > site_deadline:
+        return payload
+
+    get = getter or default_getter()
+    url = forecast_url(
+        lat,
+        lon,
+        None,
+        tz_name,
+        start,
+        end,
+        hourly_keys=missing,
+        include_daily=False,
+    )
+    try:
+        extra = get(url)
+    except Exception as exc:  # noqa: BLE001 - optional best-effort request
+        log.warning("optional forecast extras fallback failed: %s", exc)
+        return payload
+    if payload_has_error(extra):
+        log.warning("optional forecast extras fallback returned an invalid payload")
+        return payload
+
+    extra = normalize_hourly_keys(extra)
+    extra_hourly = extra.get("hourly") or {}
+    extra_times = extra_hourly.get("time") or []
+    time_indexes = {value: index for index, value in enumerate(extra_times)}
+    filled: list[str] = []
+    for key in missing:
+        source = first_series(extra_hourly, key)
+        aligned = [
+            source[index] if (index := time_indexes.get(value)) is not None and index < len(source) else None
+            for value in axis
+        ]
+        if has_non_null(aligned):
+            hourly[key] = aligned
+            filled.append(key)
+
+    if not filled:
+        return payload
+    payload["hourly"] = hourly
+    units = extra.get("hourly_units") or {}
+    payload.setdefault("hourly_units", {}).update({key: units.get(key, "") for key in filled})
+    payload["_extras_model_used"] = "default"
+    payload["_extras_keys"] = filled
+    log.info("optional forecast extras backfilled from default model: %s", ",".join(filled))
+    return payload
+
+
 def _marine_has_waves(p: dict[str, Any]) -> bool:
     h = p.get("hourly") or {}
     return marine_series_has_usable_height(h)

@@ -36,6 +36,7 @@ from .openmeteo import (
     marine_series_is_all_zero,
     normalize_hourly_keys,
     payload_has_error,
+    supplement_missing_forecast_extras,
 )
 from .util import csv_to_slug_set, indices_in_window
 
@@ -238,6 +239,10 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
 
     wx = fetch_forecast(lat, lon, tz_name, start_date, end_date, settings.model_order,
                         site_deadline, getter=get, include_extras=settings.include_extras)
+    if settings.include_extras:
+        supplement_missing_forecast_extras(
+            wx, lat, lon, tz_name, start_date, end_date, site_deadline, getter=get,
+        )
     if has_wind_arrays(wx) and needs_daily_backfill(wx):
         attach_daily_best_effort(wx, lat, lon, tz, tz_name, start_date, end_date, get,
                                  disable_astronomy_http=disable_astro_http,
@@ -344,6 +349,8 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
                     "model_used": primary_used,
                     "units": e_units,
                     "parallel_models": list(models_parallel.keys()),
+                    "extras_model_used": wx.get("_extras_model_used"),
+                    "extras_keys": wx.get("_extras_keys", []),
                 },
                 "marine_open_meteo": {
                     "endpoint": "https://marine-api.open-meteo.com/v1/marine",

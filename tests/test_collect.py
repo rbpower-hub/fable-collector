@@ -114,6 +114,41 @@ def test_build_site_payload_publishes_optional_weather_context():
         assert payload["forecast_primary"]["hourly"][key][0] == value
 
 
+def test_build_site_payload_backfills_optional_context_missing_from_primary_model():
+    primary = make_forecast_payload(START, 48)
+    primary["hourly"]["temperature_2m"] = [27.0] * 48
+    primary["hourly"]["uv_index"] = [None] * 48
+    supplemental = {
+        "hourly": {
+            "time": primary["hourly"]["time"],
+            "uv_index": [6.5] * 48,
+        },
+        "hourly_units": {"time": "iso8601", "uv_index": ""},
+    }
+
+    def getter(url: str):
+        if "marine" in url:
+            return make_marine_payload(START, 48)
+        if "uv_index" in url and "models=" not in url:
+            return supplemental
+        return primary
+
+    configured = settings()
+    configured.include_extras = True
+    payload = build_site_payload(
+        SITE,
+        configured,
+        {},
+        START,
+        START + dt.timedelta(hours=48),
+        getter=getter,
+    )
+
+    assert payload["hourly"]["uv_index"] == [6.5] * 48
+    assert payload["meta"]["sources"]["ecmwf_open_meteo"]["extras_model_used"] == "default"
+    assert payload["meta"]["sources"]["ecmwf_open_meteo"]["extras_keys"] == ["uv_index"]
+
+
 def test_build_site_payload_marine_down_degrades_not_fails():
     """v1 lost the whole site when marine failed; v2 must publish wind-only."""
     p = build_site_payload(SITE, settings(), {}, START, START + dt.timedelta(hours=48),

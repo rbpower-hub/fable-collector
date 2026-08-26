@@ -167,4 +167,7 @@ def test_simple_view_uses_unified_selected_day_verdicts_without_cross_day_fallba
     assert "preferred[0] || rows[0]" not in script
     assert "selectedDay:dayKey(offset)" in script
     assert "getNavigationWindowsForDay" in verdicts
-    assert "['family', 'off_hours']" in verdicts
+    assert "['family', 'off_hours', 'watch']" in verdicts
+    assert "watch_windows" in verdicts or "watch_windows" in (
+        ROOT / "public" / "js" / "navigation-windows.js"
+    ).read_text(encoding="utf-8")

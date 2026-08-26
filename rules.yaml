@@ -62,6 +62,17 @@ hysteresis:
   wind_kmh: 1.0
   hs_m: 0.05
 
+# Bande d'incertitude technique : ce statut ne constitue jamais un Family GO.
+# Les seuils Family/Prudent et tous les vetoes durs ci-dessus restent inchangés.
+decision_policy:
+  watch:
+    enabled: true
+    tp_margin_s: 0.2
+    hs_margin_m: 0.05
+    wind_margin_kmh: 1.0
+    min_confidence: Medium
+    max_failing_wave_sources: 1
+
 shelter:
   radius_km_default: 3
   apply_on_transit: false

@@ -30,7 +30,40 @@ test('strict family GO wins over an earlier prudent slot', () => {
   const result = verdict({windows:[{dest_slug:'gammarth.json', windows:[prudent, strict]}]});
   assert.equal(result.state, 'GO_FAMILY');
   assert.equal(result.window, strict);
-  assert.deepEqual(result.counts, {strict:1, prudent:1, offHours:0, family:2, longTrip:0, total:2});
+  assert.deepEqual(result.counts, {strict:1, prudent:1, offHours:0, watch:0, family:2, longTrip:0, total:2});
+});
+
+test('review-only candidate is WATCH and never becomes a Family GO', () => {
+  const watch = {
+    ...strict,
+    category:'watch',
+    family_tier:undefined,
+    technical_tier:'expert_review',
+    family_go:false,
+    review_required:true,
+  };
+  const result = verdict({windows:[{dest_slug:'gammarth.json', windows:[], watch_windows:[watch]}]});
+  assert.equal(result.state, 'WATCH');
+  assert.equal(result.counts.family, 0);
+  assert.equal(result.counts.watch, 1);
+  assert.equal(result.window.family_go, false);
+});
+
+test('a validated Family GO always has priority over WATCH', () => {
+  const watch = {...strict, category:'watch', family_go:false, review_required:true};
+  const result = verdict({windows:[{
+    dest_slug:'gammarth.json', windows:[strict], watch_windows:[watch],
+  }]});
+  assert.equal(result.state, 'GO_FAMILY');
+  assert.equal(result.window, strict);
+});
+
+test('untrusted watch-shaped data cannot activate WATCH', () => {
+  const untrusted = {...strict, category:'watch'};
+  const result = verdict({windows:[{
+    dest_slug:'gammarth.json', windows:[], watch_windows:[untrusted],
+  }]});
+  assert.equal(result.state, 'NO_GO');
 });
 
 test('off-hours weather is explicit and never becomes a Family GO', () => {

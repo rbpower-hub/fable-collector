@@ -26,7 +26,7 @@
   };
   const copy = () => lang() === 'ar' ? {
     enter:'الوضع المبسّط', exit:'وضع العائلة', decision:'القرار', possible:'يمكن الخروج',
-    prudent:'خروج بحذر', blocked:'لا يُنصح بالخروج', conditions:'ظروف غير ملائمة',
+    prudent:'خروج بحذر', watch:'تحت المراقبة', watchDetail:'الظروف قريبة من حدود العائلة. هذه ليست موافقة للخروج، ويجب التحقق من النشرة البحرية قبل القرار.', blocked:'لا يُنصح بالخروج', conditions:'ظروف غير ملائمة',
     why:'لماذا؟', hide:'إخفاء الأسباب', route:'فتح الخريطة', confidence:'الثقة', options:'الخيارات',
     updated:'آخر تحديث', days:'3 أيام', today:'اليوم', tomorrow:'غداً', noWindow:'لا توجد نافذة مؤكدة',
     details:'التفاصيل', map:'الخريطة', more:'المزيد', good:'مناسب', cautious:'بحذر', noGo:'غير مناسب',
@@ -42,10 +42,10 @@
     travelOnly:'فترة سفر بحري طويلة متاحة', travelOnlyDetail:'هذه نافذة ملاحة لمسافة طويلة وليست موافقة على خرجة عائلية محلية.',
     staleTitle:'بيانات قديمة — لا تخرج اعتماداً عليها', noDataTitle:'بيانات الملاحة غير متاحة',
     windows:'نوافذ الملاحة', viewWindows:'عرض النوافذ', horizon:'أفق 72 ساعة', offHoursSlot:'خارج الأوقات', longTripSlot:'رحلة طويلة',
-    confidenceHigh:'مرتفعة', confidenceMedium:'متوسطة', confidenceLow:'محدودة', outbound:'ذهاب', return:'عودة', beta:'تجريبي',
+    confidenceHigh:'مرتفعة', confidenceMedium:'متوسطة', confidenceLow:'محدودة', outbound:'ذهاب', return:'عودة', beta:'تجريبي', review:'تحقق مطلوب',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
-    prudent:'CAUTIOUS OUTING', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
+    prudent:'CAUTIOUS OUTING', watch:'WATCH', watchDetail:'Conditions are close to Family limits. This is not a GO; check the marine forecast before deciding.', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
     why:'Why?', hide:'Hide reasons', route:'Open map', confidence:'Confidence', options:'Options',
     updated:'Updated', days:'3 days', today:'Today', tomorrow:'Tomorrow', noWindow:'No validated window',
     details:'Details', map:'Map', more:'More', good:'Good', cautious:'Cautious', noGo:'NO-GO',
@@ -61,10 +61,10 @@
     travelOnly:'Long-distance navigation slot available', travelOnlyDetail:'This is a long-distance navigation window, not a local family-outing approval.',
     staleTitle:'Stale data — do not depart on this basis', noDataTitle:'Navigation data unavailable',
     windows:'Navigation windows', viewWindows:'View windows', horizon:'72-hour horizon', offHoursSlot:'Out of hours', longTripSlot:'Long trip',
-    confidenceHigh:'High', confidenceMedium:'Medium', confidenceLow:'Limited', outbound:'Outbound', return:'Return', beta:'Beta',
+    confidenceHigh:'High', confidenceMedium:'Medium', confidenceLow:'Limited', outbound:'Outbound', return:'Return', beta:'Beta', review:'Review required',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
-    prudent:'SORTIE PRUDENTE', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
+    prudent:'SORTIE PRUDENTE', watch:'À SURVEILLER', watchDetail:'Conditions proches des seuils Family. Ce créneau n’est pas un GO : vérifiez la météo marine avant de décider.', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
     why:'Pourquoi ?', hide:'Masquer les raisons', route:'Ouvrir la carte', confidence:'Confiance', options:'Options',
     updated:'Mise à jour', days:'3 jours', today:'Aujourd’hui', tomorrow:'Demain', noWindow:'Aucune fenêtre validée',
     details:'Détails', map:'Carte', more:'Plus', good:'Bonne', cautious:'Prudente', noGo:'NO-GO',
@@ -80,7 +80,7 @@
     travelOnly:'Créneau de navigation longue distance', travelOnlyDetail:'Ce créneau concerne une navigation longue distance, pas une validation de sortie familiale locale.',
     staleTitle:'Données périmées — ne pas partir sur cette base', noDataTitle:'Données de navigation indisponibles',
     windows:'Fenêtres de navigation', viewWindows:'Voir les fenêtres', horizon:'Horizon 72 h', offHoursSlot:'Hors horaires', longTripSlot:'Long trajet',
-    confidenceHigh:'Élevée', confidenceMedium:'Moyenne', confidenceLow:'Limitée', outbound:'Aller', return:'Retour', beta:'Bêta',
+    confidenceHigh:'Élevée', confidenceMedium:'Moyenne', confidenceLow:'Limitée', outbound:'Aller', return:'Retour', beta:'Bêta', review:'Vérification requise',
   };
 
   function installStyles() {
@@ -98,6 +98,7 @@
       .simple-shell{max-width:760px;margin:0 auto;padding:4px 0 22px}
       .simple-hero{position:relative;overflow:hidden;padding:22px;border:1px solid var(--br);border-radius:24px;background:linear-gradient(145deg,color-mix(in srgb,var(--ok) 18%,var(--card)),var(--card) 62%);box-shadow:var(--shadow)}
       .simple-hero.prudent{background:linear-gradient(145deg,color-mix(in srgb,var(--warn) 19%,var(--card)),var(--card) 62%)}
+      .simple-hero.watch{background:linear-gradient(145deg,color-mix(in srgb,#f59e0b 20%,var(--card)),var(--card) 62%);border-color:color-mix(in srgb,#f59e0b 58%,var(--br))}
       .simple-hero.off-hours{background:linear-gradient(145deg,color-mix(in srgb,#22d3ee 18%,var(--card)),var(--card) 62%);border-color:color-mix(in srgb,#22d3ee 55%,var(--br))}
       .simple-hero.travel{background:linear-gradient(145deg,color-mix(in srgb,#60a5fa 16%,var(--card)),var(--card) 62%);border-color:color-mix(in srgb,#60a5fa 50%,var(--br))}
       .simple-hero.blocked{background:linear-gradient(145deg,color-mix(in srgb,var(--bad) 13%,var(--card)),var(--card) 62%)}
@@ -105,6 +106,7 @@
       .simple-verdict{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-size:clamp(1.45rem,7vw,2.2rem);line-height:1.08}
       .simple-verdict-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border-radius:14px;background:color-mix(in srgb,var(--ok) 25%,var(--pill-bg))}
       .simple-hero.prudent .simple-verdict-icon{background:color-mix(in srgb,var(--warn) 27%,var(--pill-bg))}
+      .simple-hero.watch .simple-verdict-icon{background:color-mix(in srgb,#f59e0b 29%,var(--pill-bg))}
       .simple-hero.off-hours .simple-verdict-icon{background:color-mix(in srgb,#22d3ee 24%,var(--pill-bg))}
       .simple-hero.travel .simple-verdict-icon{background:color-mix(in srgb,#60a5fa 23%,var(--pill-bg))}
       .simple-hero.blocked .simple-verdict-icon{background:color-mix(in srgb,var(--bad) 20%,var(--pill-bg))}
@@ -125,12 +127,12 @@
       .simple-metric span{display:block;color:var(--muted);font-size:.72rem}.simple-metric strong{display:block;margin-top:4px;font-size:.95rem;overflow:hidden;text-overflow:ellipsis}
       .simple-panel{margin-top:12px;padding:17px;border:1px solid var(--br);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}
       .simple-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.simple-panel h2{margin:0;font-size:1rem}.simple-panel-note{color:var(--muted);font-size:.76rem}
-      .simple-day-context{--selection-color:var(--bad);position:relative;margin-top:4px}.simple-day-context.good{--selection-color:var(--ok)}.simple-day-context.prudent,.simple-day-context.stale{--selection-color:var(--warn)}.simple-day-context.off-hours{--selection-color:#22d3ee}.simple-day-context.travel{--selection-color:#60a5fa}.simple-day-context.loading,.simple-day-context.unavailable{--selection-color:var(--muted)}
+      .simple-day-context{--selection-color:var(--bad);position:relative;margin-top:4px}.simple-day-context.good{--selection-color:var(--ok)}.simple-day-context.prudent,.simple-day-context.stale{--selection-color:var(--warn)}.simple-day-context.watch{--selection-color:#f59e0b}.simple-day-context.off-hours{--selection-color:#22d3ee}.simple-day-context.travel{--selection-color:#60a5fa}.simple-day-context.loading,.simple-day-context.unavailable{--selection-color:var(--muted)}
       .simple-day-selector{position:relative;z-index:2;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.simple-day-selector .simple-panel-head{margin:0 2px 10px}
       .simple-selected-day-content{position:relative;z-index:1;margin-top:14px;padding:12px;border:2px solid var(--selection-color);border-radius:20px;background:color-mix(in srgb,var(--selection-color) 5%,var(--card));box-shadow:var(--shadow)}.simple-selected-day-content>.simple-hero{margin-top:0}
       .simple-days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
       .simple-day{--day-color:var(--bad);position:relative;width:100%;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0;min-height:116px;padding:10px;border:1px solid var(--br);border-top:4px solid var(--day-color);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}
-      .simple-day.good{--day-color:var(--ok)}.simple-day.prudent,.simple-day.stale{--day-color:var(--warn)}.simple-day.off-hours{--day-color:#22d3ee}.simple-day.travel{--day-color:#60a5fa}.simple-day.loading,.simple-day.unavailable{--day-color:var(--muted)}
+      .simple-day.good{--day-color:var(--ok)}.simple-day.prudent,.simple-day.stale{--day-color:var(--warn)}.simple-day.watch{--day-color:#f59e0b}.simple-day.off-hours{--day-color:#22d3ee}.simple-day.travel{--day-color:#60a5fa}.simple-day.loading,.simple-day.unavailable{--day-color:var(--muted)}
       .simple-day[aria-selected="true"]{z-index:3;border-color:var(--day-color);border-end-start-radius:7px;border-end-end-radius:7px;background:color-mix(in srgb,var(--day-color) 12%,var(--card));box-shadow:0 0 0 2px color-mix(in srgb,var(--day-color) 26%,transparent),var(--shadow)}
       .simple-day[aria-selected="true"]::after{content:'';position:absolute;inset-inline:14px;bottom:-17px;height:17px;border-inline:2px solid var(--day-color);background:color-mix(in srgb,var(--day-color) 5%,var(--card));pointer-events:none}
       .simple-day-heading{display:flex;align-items:baseline;justify-content:space-between;gap:5px;min-width:0}.simple-day-title{font-weight:900;overflow:hidden;text-overflow:ellipsis}.simple-day-calendar{flex:0 0 auto;color:var(--muted);font-size:.64rem}
@@ -139,14 +141,14 @@
       .simple-day-segment{height:100%;border-radius:inherit;background:var(--day-color)}.simple-day.blocked .simple-day-segment{width:100%!important;background:color-mix(in srgb,var(--bad) 35%,transparent)}
       .simple-data-state{margin:12px 0;padding:12px 14px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg);font-weight:800}.simple-data-state.stale,.simple-data-state.error{border-color:color-mix(in srgb,var(--warn) 55%,var(--br))}
       .simple-data-state.marine{border-color:color-mix(in srgb,var(--warn) 65%,var(--br));background:color-mix(in srgb,var(--warn) 10%,var(--card))}
-      .simple-timeline{display:grid;grid-template-columns:repeat(17,1fr);gap:2px;margin-top:10px}.simple-hour{height:22px;border-radius:5px;background:color-mix(in srgb,var(--bad) 35%,var(--pill-bg))}.simple-hour.good{background:var(--ok)}.simple-hour.prudent{background:var(--warn)}
+      .simple-timeline{display:grid;grid-template-columns:repeat(17,1fr);gap:2px;margin-top:10px}.simple-hour{height:22px;border-radius:5px;background:color-mix(in srgb,var(--bad) 35%,var(--pill-bg))}.simple-hour.good{background:var(--ok)}.simple-hour.prudent{background:var(--warn)}.simple-hour.watch{background:#f59e0b}
       .simple-hour.off-hours{background:#22d3ee}.simple-hour.travel{background:#60a5fa}
       .simple-axis{display:flex;justify-content:space-between;margin-top:5px;color:var(--muted);font-size:.68rem}.simple-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;color:var(--muted);font-size:.72rem}.simple-key::before{content:'';display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:3px;background:var(--bad)}.simple-key.good::before{background:var(--ok)}.simple-key.prudent::before{background:var(--warn)}
-      .simple-key.off-hours::before{background:#22d3ee}.simple-key.travel::before{background:#60a5fa}
+      .simple-key.watch::before{background:#f59e0b}.simple-key.off-hours::before{background:#22d3ee}.simple-key.travel::before{background:#60a5fa}
       .simple-condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.simple-condition{min-width:0;padding:14px;border-radius:16px;background:var(--pill-bg)}.simple-condition.return{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.simple-condition-label{display:block;color:var(--muted);font-size:.76rem}.simple-condition-value{display:block;margin-top:4px;font-size:1.18rem}.simple-condition-range{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:600}.simple-chart{margin:10px 0 0}.simple-spark{display:block;width:100%;height:88px;overflow:visible}.simple-spark .grid{stroke:color-mix(in srgb,var(--muted) 22%,transparent);stroke-width:1}.simple-spark .safe-zone{fill:color-mix(in srgb,var(--ok) 10%,transparent)}.simple-spark .threshold{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}.simple-spark .area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}.simple-spark .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.simple-spark .point{fill:var(--card);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.simple-condition.wave .simple-spark .area{fill:color-mix(in srgb,var(--ok) 13%,transparent)}.simple-condition.wave .simple-spark .line,.simple-condition.wave .simple-spark .point{stroke:var(--ok)}.simple-chart-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:.65rem}.simple-chart-threshold{margin-top:7px;color:var(--muted);font-size:.68rem}.simple-chart-threshold::before{content:'';display:inline-block;width:15px;margin-right:5px;border-top:2px dashed var(--warn);vertical-align:middle}html[dir="rtl"] .simple-chart-threshold::before{margin-right:0;margin-left:5px}
       .simple-weather-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.simple-weather-item{min-width:0;padding:11px 12px;border:1px solid var(--br);border-radius:14px;background:color-mix(in srgb,var(--card) 55%,var(--pill-bg))}.simple-weather-label{display:block;color:var(--muted);font-size:.72rem}.simple-weather-value{display:block;margin-top:4px;font-size:.98rem}.simple-weather-detail{display:block;margin-top:3px;color:var(--muted);font-size:.68rem;line-height:1.3}
       .simple-activities{display:grid;gap:8px}.simple-activity{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg)}.simple-activity-icon{font-size:1.35rem}.simple-activity strong{display:block}.simple-activity small{display:block;margin-top:3px;color:var(--muted);line-height:1.35}.simple-activity-score{padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-size:.72rem;font-weight:900}.simple-empty{color:var(--muted);line-height:1.45}
-      .simple-navigation{display:grid;gap:8px}.simple-window-card{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;min-height:68px;padding:12px;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}.simple-window-card:hover{border-color:var(--accent)}.simple-window-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);font-size:.68rem;font-weight:900;text-transform:uppercase}.simple-window-badge.prudent{background:color-mix(in srgb,var(--warn) 17%,transparent);color:var(--warn)}.simple-window-badge.off-hours{background:color-mix(in srgb,#22d3ee 16%,transparent);color:#22d3ee}.simple-window-badge.travel{background:color-mix(in srgb,#60a5fa 16%,transparent);color:#60a5fa}.simple-window-main strong,.simple-window-main small{display:block}.simple-window-main small{margin-top:4px;color:var(--muted)}.simple-window-arrow{font-size:1.4rem;color:var(--muted)}
+      .simple-navigation{display:grid;gap:8px}.simple-window-card{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;min-height:68px;padding:12px;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}.simple-window-card:hover{border-color:var(--accent)}.simple-window-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);font-size:.68rem;font-weight:900;text-transform:uppercase}.simple-window-badge.prudent{background:color-mix(in srgb,var(--warn) 17%,transparent);color:var(--warn)}.simple-window-badge.watch{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#f59e0b}.simple-window-badge.off-hours{background:color-mix(in srgb,#22d3ee 16%,transparent);color:#22d3ee}.simple-window-badge.travel{background:color-mix(in srgb,#60a5fa 16%,transparent);color:#60a5fa}.simple-window-main strong,.simple-window-main small{display:block}.simple-window-main small{margin-top:4px;color:var(--muted)}.simple-window-arrow{font-size:1.4rem;color:var(--muted)}
       html[dir="rtl"] .simple-shell{direction:rtl;text-align:right}html[dir="rtl"] .simple-day{text-align:right}html[dir="rtl"] .simple-key::before{margin-right:0;margin-left:5px}
       .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)}
       .simple-nav-action{min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:.7rem;font-weight:800;cursor:pointer}.simple-nav-action span{display:block;font-size:1.15rem;margin-bottom:2px}.simple-nav-action.active{background:color-mix(in srgb,var(--accent) 18%,var(--pill-bg));color:var(--fg)}
@@ -261,14 +263,16 @@
     const routeKind = String(match.windowItem.route_kind || match.destination.route_kind || '');
     if (tripMode === 'one_way_multi_day' || ['long_trip_one_way', 'offshore_one_way_beta'].includes(routeKind)) return 'travel';
     if (String(match.category || match.windowItem.category || '').toLowerCase() === 'off_hours') return 'off-hours';
+    if (String(match.category || match.windowItem.category || '').toLowerCase() === 'watch') return 'watch';
     return (match.windowItem.family_tier || match.destination.family_tier) === 'prudent' ? 'prudent' : 'good';
   }
   function renderTimeline(rows, counts = {}) {
     const c = copy(); const key = dayKey(state.activeDay);
     const hours = Array.from({length:17}, (_, index) => index + 5);
     const offHoursKey = counts.offHours ? `<span class="simple-key off-hours">${esc(c.offHoursSlot)}</span>` : '';
+    const watchKey = counts.watch ? `<span class="simple-key watch">${esc(c.watch)}</span>` : '';
     const travelKey = counts.longTrip ? `<span class="simple-key travel">${esc(c.longTripSlot)}</span>` : '';
-    return `<section id="simple-timeline" class="simple-panel"><div class="simple-panel-head"><h2>🕒 ${esc(c.timeline)}</h2><span class="simple-panel-note">05–21 h</span></div><div class="simple-timeline" role="img" aria-label="${esc(c.timeline)} — ${esc(dayLabel(key,state.activeDay))}">${hours.map((hour) => `<span class="simple-hour ${hourlyTone(rows,key,hour)}" title="${String(hour).padStart(2,'0')}:00"></span>`).join('')}</div><div class="simple-axis"><span>05 h</span><span>13 h</span><span>21 h</span></div><div class="simple-legend"><span class="simple-key good">GO</span><span class="simple-key prudent">${esc(c.cautious)}</span>${offHoursKey}${travelKey}<span class="simple-key">${esc(c.noGo)}</span></div></section>`;
+    return `<section id="simple-timeline" class="simple-panel"><div class="simple-panel-head"><h2>🕒 ${esc(c.timeline)}</h2><span class="simple-panel-note">05–21 h</span></div><div class="simple-timeline" role="img" aria-label="${esc(c.timeline)} — ${esc(dayLabel(key,state.activeDay))}">${hours.map((hour) => `<span class="simple-hour ${hourlyTone(rows,key,hour)}" title="${String(hour).padStart(2,'0')}:00"></span>`).join('')}</div><div class="simple-axis"><span>05 h</span><span>13 h</span><span>21 h</span></div><div class="simple-legend"><span class="simple-key good">GO</span><span class="simple-key prudent">${esc(c.cautious)}</span>${watchKey}${offHoursKey}${travelKey}<span class="simple-key">${esc(c.noGo)}</span></div></section>`;
   }
   function seriesForWindow(best, key) {
     const hourly = state.forecast?.hourly || {}; const times = hourly.time || [];
@@ -354,7 +358,8 @@
   function renderActivities(best) {
     const c = copy();
     const records = (state.recommendations?.recommendations || []).filter((record) => (
-      best && String(record.category || 'family').toLowerCase() === 'family' &&
+      best && String(best.windowItem?.category || '').toLowerCase() === 'family' &&
+      String(record.category || 'family').toLowerCase() === 'family' &&
       record.dest_slug === best.destination.dest_slug &&
       record.start === best.windowItem.start && record.end === best.windowItem.end
     ));
@@ -376,9 +381,10 @@
       const routeKind = String(item.route_kind || destination.route_kind || '');
       const longTrip = tripMode === 'one_way_multi_day' || ['long_trip_one_way', 'offshore_one_way_beta'].includes(routeKind);
       const offHours = String(row.category || item.category || '').toLowerCase() === 'off_hours';
+      const watch = String(row.category || item.category || '').toLowerCase() === 'watch';
       const prudent = String(item.family_tier || destination.family_tier || '').toLowerCase() === 'prudent';
-      const tone = longTrip ? 'travel' : offHours ? 'off-hours' : prudent ? 'prudent' : '';
-      const label = longTrip ? c.longTripSlot : offHours ? c.offHoursSlot : prudent ? c.cautious : 'FAMILY GO';
+      const tone = longTrip ? 'travel' : offHours ? 'off-hours' : watch ? 'watch' : prudent ? 'prudent' : '';
+      const label = longTrip ? c.longTripSlot : offHours ? c.offHoursSlot : watch ? c.review : prudent ? c.cautious : 'FAMILY GO';
       const origin = item.origin_name || '';
       const target = item.destination_name || destination.dest_name || destination.dest_slug || '—';
       const name = longTrip && origin ? `${origin} → ${target}` : target;
@@ -392,7 +398,7 @@
   }
   function toneForState(value) {
     return {
-      GO_FAMILY:'good', GO_PRUDENT:'prudent', OFF_HOURS:'off-hours', TRAVEL_ONLY:'travel',
+      GO_FAMILY:'good', GO_PRUDENT:'prudent', WATCH:'watch', OFF_HOURS:'off-hours', TRAVEL_ONLY:'travel',
       STALE:'stale', NO_DATA:'unavailable', NO_GO:'blocked',
     }[value] || 'loading';
   }
@@ -408,7 +414,7 @@
       const offset = Math.min(88, Math.max(0, (startHour - 5) / 16 * 100));
       const tone = toneForState(result?.state);
       const label = {
-        GO_FAMILY:c.good, GO_PRUDENT:c.cautious, OFF_HOURS:c.offHoursSlot, TRAVEL_ONLY:c.longTripSlot,
+        GO_FAMILY:c.good, GO_PRUDENT:c.cautious, WATCH:c.watch, OFF_HOURS:c.offHoursSlot, TRAVEL_ONLY:c.longTripSlot,
         STALE:c.unavailable, NO_DATA:c.unavailable,
       }[result?.state] || (result?.state === 'NO_GO' ? c.noGo : c.loading);
       const counts = result?.counts || {};
@@ -429,6 +435,7 @@
     const presentation = {
       GO_FAMILY:{tone:'good', title:c.possible, icon:'✓', detail:''},
       GO_PRUDENT:{tone:'prudent', title:c.prudent, icon:'⚠️', detail:''},
+      WATCH:{tone:'watch', title:c.watch, icon:'◐', detail:c.watchDetail},
       OFF_HOURS:{tone:'off-hours', title:c.offHours, icon:'🕒', detail:c.offHoursDetail},
       TRAVEL_ONLY:{tone:'travel', title:c.travelOnly, icon:'🧭', detail:c.travelOnlyDetail},
       STALE:{tone:'blocked', title:c.staleTitle, icon:'⚠️', detail:c.stale},
@@ -455,7 +462,7 @@
         <div id="simple-reasons" class="simple-reasons" hidden><p>⚠️ <strong>${esc(reason)}</strong></p><small>${esc(c.details)} : ${esc(blocked?.dest_name || blocked?.dest_slug || '—')}</small></div></div>
         <aside class="simple-confidence" aria-label="${esc(c.confidence)} ${score}%"><div class="simple-confidence-ring" style="--score:${score}"><div><span>${esc(c.confidence)}</span><strong>${score}%</strong></div></div><div class="simple-confidence-word">${esc(confidenceWord(score))}</div></aside></div>
       </section>
-      <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.confidence)}</span><strong>${esc(confidence)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
+      <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.confidence)}</span><strong>${esc(confidence)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
       ${renderTimeline(result?.rows || [], result?.counts || {})}
       ${renderNavigation(result)}${renderConditions(best)}${renderActivities(best)}
       </div>

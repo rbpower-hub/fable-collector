@@ -16,6 +16,7 @@ from .window_policy import (
     all_in_operating_light,
     compute_confidence,
     confidence_details,
+    evaluate_watch_window,
     evaluate_window,
     hour_ok_for_phase,
     min_confidence,
@@ -185,6 +186,67 @@ def detect_windows(home: Site, dest: Site, min_h: int, max_h: int, th: Threshold
     return detect_windows_detailed(home, dest, min_h, max_h, th, allow_prudent=False)[0]
 
 
+def _watch_record(
+    dest: Site,
+    start: int,
+    end: int,
+    evaluation: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "start": dest.times[start].isoformat(),
+        "end": (dest.times[end - 1] + dt.timedelta(hours=1)).isoformat(),
+        "hours": end - start,
+        "confidence": evaluation["confidence"],
+        "confidence_details": confidence_details(dest, start, end),
+        "category": "watch",
+        "decision_state": "watch",
+        "technical_tier": "expert_review",
+        "family_go": False,
+        "review_required": True,
+        "reason": "comfort_threshold_uncertainty_band",
+        "caution_fr": (
+            "Conditions proches des seuils Family : ce créneau n’est pas un GO. "
+            "Vérification météo marine requise avant toute décision."
+        ),
+        "caution_en": (
+            "Conditions are close to Family thresholds: this slot is not a GO. "
+            "A marine forecast review is required before any decision."
+        ),
+        "margins": evaluation.get("margins") or [],
+        "failing_wave_sources": evaluation.get("failing_wave_sources") or [],
+    }
+
+
+def detect_watch_windows(
+    home: Site,
+    dest: Site,
+    min_h: int,
+    max_h: int,
+    th: Thresholds,
+) -> list[dict[str, Any]]:
+    """Detect review-only near-threshold candidates in a separate collection."""
+    if not th.watch_enabled:
+        return []
+    count = min(len(dest.times), len(home.times))
+    windows: list[dict[str, Any]] = []
+    index = 0
+    while index < count:
+        selected = None
+        for length in range(max_h, min_h - 1, -1):
+            end = index + length
+            ok, evaluation = evaluate_watch_window(home, dest, index, end, th)
+            if ok:
+                selected = (end, evaluation)
+                break
+        if selected:
+            end, evaluation = selected
+            windows.append(_watch_record(dest, index, end, evaluation))
+            index = end
+        else:
+            index += 1
+    return windows
+
+
 def _distance_km(a: dict[str, float], b: dict[str, float]) -> float:
     lat1 = math.radians(float(a["lat"]))
     lat2 = math.radians(float(b["lat"]))
@@ -269,20 +331,20 @@ def detect_transfer_windows(
             confidences.append(compute_confidence(site, start, end - 1, th))
         if valid:
             start_dt = origin.times[start]
-            windows.append({
-                "start": start_dt.isoformat(),
-                "arrival_earliest": (start_dt + dt.timedelta(hours=minimum)).isoformat(),
-                "arrival_latest": (start_dt + dt.timedelta(hours=maximum)).isoformat(),
-                "hours": {"min": round(minimum, 2), "max": round(maximum, 2)},
-                "confidence": min_confidence(confidences),
-                "category": (
-                    "family"
-                    if all_in_operating_light(origin.times[start:end], origin, th)
-                    else "off_hours"
-                ),
-                "family_tier": "family",
-                "checkpoints": [site.slug for site in checkpoints],
-            })
+            windows.append(
+                {
+                    "start": start_dt.isoformat(),
+                    "arrival_earliest": (start_dt + dt.timedelta(hours=minimum)).isoformat(),
+                    "arrival_latest": (start_dt + dt.timedelta(hours=maximum)).isoformat(),
+                    "hours": {"min": round(minimum, 2), "max": round(maximum, 2)},
+                    "confidence": min_confidence(confidences),
+                    "category": (
+                        "family" if all_in_operating_light(origin.times[start:end], origin, th) else "off_hours"
+                    ),
+                    "family_tier": "family",
+                    "checkpoints": [site.slug for site in checkpoints],
+                }
+            )
     return windows
 
 
@@ -306,35 +368,39 @@ def combine_composite_windows(
         transfer = max(eligible, key=lambda item: item["arrival_latest"])
         arrival = dt.datetime.fromisoformat(transfer["arrival_latest"])
         staging = max(0.0, (start - arrival).total_seconds() / 3600)
-        output.append({
-            **offshore,
-            "confidence": min_confidence([
-                offshore.get("confidence", "Low"),
-                transfer.get("confidence", "Low"),
-            ]),
-            "category": (
-                "family"
-                if offshore.get("category") == "family" and transfer.get("category") == "family"
-                else "off_hours"
-            ),
-            "reason": "valid_composite_beta",
-            "composite": {
-                "transfer_origin": f"{home.slug}.json",
-                "route_origin": f"{relay.slug}.json",
-                "transfer_start": transfer["start"],
-                "transfer_arrival_earliest": transfer["arrival_earliest"],
-                "transfer_arrival_latest": transfer["arrival_latest"],
-                "transfer_hours": transfer["hours"],
-                "transfer_confidence": transfer["confidence"],
-                "transfer_category": transfer["category"],
-                "offshore_start": offshore["start"],
-                "offshore_end": offshore["end"],
-                "offshore_hours": offshore.get("hours"),
-                "offshore_confidence": offshore.get("confidence", "Low"),
-                "offshore_category": offshore.get("category"),
-                "staging_hours": round(staging, 2),
-            },
-        })
+        output.append(
+            {
+                **offshore,
+                "confidence": min_confidence(
+                    [
+                        offshore.get("confidence", "Low"),
+                        transfer.get("confidence", "Low"),
+                    ]
+                ),
+                "category": (
+                    "family"
+                    if offshore.get("category") == "family" and transfer.get("category") == "family"
+                    else "off_hours"
+                ),
+                "reason": "valid_composite_beta",
+                "composite": {
+                    "transfer_origin": f"{home.slug}.json",
+                    "route_origin": f"{relay.slug}.json",
+                    "transfer_start": transfer["start"],
+                    "transfer_arrival_earliest": transfer["arrival_earliest"],
+                    "transfer_arrival_latest": transfer["arrival_latest"],
+                    "transfer_hours": transfer["hours"],
+                    "transfer_confidence": transfer["confidence"],
+                    "transfer_category": transfer["category"],
+                    "offshore_start": offshore["start"],
+                    "offshore_end": offshore["end"],
+                    "offshore_hours": offshore.get("hours"),
+                    "offshore_confidence": offshore.get("confidence", "Low"),
+                    "offshore_category": offshore.get("category"),
+                    "staging_hours": round(staging, 2),
+                },
+            }
+        )
     return output
 
 
@@ -439,7 +505,7 @@ def run_reader(
 
     output = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "version": 3,
+        "version": 4,
         "home_slug": home_slug,
         "window_hours": {
             "configured_min": min_h,
@@ -450,6 +516,9 @@ def run_reader(
         "policy": {
             "hard_vetoes_unchanged": True,
             "prudent_enabled": th.prudent_enabled,
+            "watch_enabled": th.watch_enabled,
+            "watch_state_is_family_go": False,
+            "watch_review_required": True,
             "daylight_enabled": th.daylight_enabled,
             "shelter_tolerance_requires_configured_radius": True,
         },
@@ -469,6 +538,7 @@ def run_reader(
         required = adaptive_min_hours(home, destination, min_h, th)
         if required > max_h:
             windows = []
+            watch_windows = []
             diagnostics = {
                 "status": "blocked",
                 "summary_fr": (
@@ -497,6 +567,7 @@ def run_reader(
             relay = sites.get(f"{destination.route_origin}.json")
             if relay is None:
                 windows = []
+                watch_windows = []
                 diagnostics = {
                     "status": "blocked",
                     "summary_fr": "Port relais introuvable dans la configuration.",
@@ -517,6 +588,7 @@ def run_reader(
                 )
                 windows = combine_composite_windows(home, relay, destination, transfers, offshore)
                 diagnostics = composite_diagnostics(destination, transfers, offshore, windows)
+                watch_windows = []
         else:
             windows, diagnostics = detect_windows_detailed(
                 home,
@@ -526,13 +598,22 @@ def run_reader(
                 th,
                 allow_prudent=th.prudent_enabled,
             )
-        output["windows"].append({
-            "dest_slug": filename,
-            "dest_name": destination.name,
-            "required_hours": required,
-            "windows": windows,
-            "diagnostics": diagnostics,
-        })
+            watch_windows = detect_watch_windows(home, destination, required, max_h, th)
+            validated_days = {str(window.get("start") or "")[:10] for window in windows}
+            watch_windows = [
+                window for window in watch_windows if str(window.get("start") or "")[:10] not in validated_days
+            ]
+        diagnostics["technical_review_candidates"] = len(watch_windows)
+        output["windows"].append(
+            {
+                "dest_slug": filename,
+                "dest_name": destination.name,
+                "required_hours": required,
+                "windows": windows,
+                "watch_windows": watch_windows,
+                "diagnostics": diagnostics,
+            }
+        )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "windows.json").write_text(

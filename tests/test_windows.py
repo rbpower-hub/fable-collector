@@ -462,5 +462,9 @@ def test_three_valid_pantelleria_sources_remain_unchanged(tmp_path):
     assert metrics.excluded_wave_sources == []
 
 
-def test_wave_fix_does_not_change_navigation_rules():
-    assert rules_digest(load_rules()) == "75d3a79038f4"
+def test_decision_policy_does_not_change_existing_navigation_rules():
+    rules = load_rules()
+    watch = rules.pop("decision_policy")["watch"]
+
+    assert rules_digest(rules) == "75d3a79038f4"
+    assert watch["enabled"] is True

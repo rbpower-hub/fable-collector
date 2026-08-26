@@ -50,6 +50,16 @@ DEFAULT_RULES: dict[str, Any] = {
         "short_steep_hard_nogo": {"hs_min_m": 0.6, "tp_max_s": 5.0},
     },
     "hysteresis": {"wind_kmh": 1.0, "hs_m": 0.05},
+    "decision_policy": {
+        "watch": {
+            "enabled": True,
+            "tp_margin_s": 0.2,
+            "hs_margin_m": 0.05,
+            "wind_margin_kmh": 1.0,
+            "min_confidence": "Medium",
+            "max_failing_wave_sources": 1,
+        },
+    },
     "shelter": {
         "radius_km_default": 3,
         "apply_on_transit": False,
@@ -119,10 +129,16 @@ def load_rules(path: Path | None = None) -> dict[str, Any]:
 
 
 NUMERIC_RULE_KEYS = [
-    "overrides.gusts_hard_nogo_kmh", "overrides.squall_delta_kmh", "overrides.visibility_km_min",
-    "wind.family_max_kmh", "wind.nogo_min_kmh", "wind.onshore_degrade_kmh",
-    "sea.family_max_hs_m", "sea.nogo_min_hs_m",
-    "family_hours_local.start_h", "family_hours_local.end_h",
+    "overrides.gusts_hard_nogo_kmh",
+    "overrides.squall_delta_kmh",
+    "overrides.visibility_km_min",
+    "wind.family_max_kmh",
+    "wind.nogo_min_kmh",
+    "wind.onshore_degrade_kmh",
+    "sea.family_max_hs_m",
+    "sea.nogo_min_hs_m",
+    "family_hours_local.start_h",
+    "family_hours_local.end_h",
 ]
 
 
@@ -243,6 +259,20 @@ def normalize_rules(rules: dict[str, Any]) -> dict[str, Any]:
                     "hs_m": float(dget(rules, "hysteresis.hs_m", 0.05)),
                     "wind_kmh": float(dget(rules, "hysteresis.wind_kmh", 1.0)),
                 },
+                "decision_policy": {
+                    "watch": {
+                        "enabled": bool(dget(rules, "decision_policy.watch.enabled", True)),
+                        "tp_margin_s": float(dget(rules, "decision_policy.watch.tp_margin_s", 0.2)),
+                        "hs_margin_m": float(dget(rules, "decision_policy.watch.hs_margin_m", 0.05)),
+                        "wind_margin_kmh": float(dget(rules, "decision_policy.watch.wind_margin_kmh", 1.0)),
+                        "min_confidence": str(dget(rules, "decision_policy.watch.min_confidence", "Medium")),
+                        "max_failing_wave_sources": int(
+                            dget(rules, "decision_policy.watch.max_failing_wave_sources", 1)
+                        ),
+                        "family_go": False,
+                        "review_required": True,
+                    },
+                },
             },
             "shelter_bonus": {
                 "enabled": True,
@@ -353,11 +383,13 @@ def _norm_route_points(raw: Any) -> list[dict[str, Any]]:
             continue
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             continue
-        out.append({
-            "lat": lat,
-            "lon": lon,
-            "name": (str(point.get("name", "")).strip() or None),
-        })
+        out.append(
+            {
+                "lat": lat,
+                "lon": lon,
+                "name": (str(point.get("name", "")).strip() or None),
+            }
+        )
     return out
 
 
@@ -365,8 +397,8 @@ class SitesConfig:
     """Parsed sites.yaml (v1 list or v2 mapping)."""
 
     def __init__(self, sites: list[dict[str, Any]], home: str, tz: str, exclude: set, version: int):
-        self.sites = sites          # each: name, slug, lat, lon, map_lat, map_lon, transit_speed_kts, route_origin, route_points, windows_enabled, beta, route_kind, route_note, country, shelter_bonus_radius_km, onshore_sectors
-        self.home = home            # home-port slug
+        self.sites = sites  # each: name, slug, lat, lon, map_lat, map_lon, transit_speed_kts, route_origin, route_points, windows_enabled, beta, route_kind, route_note, country, shelter_bonus_radius_km, onshore_sectors
+        self.home = home  # home-port slug
         self.tz = tz
         self.exclude = exclude
         self.version = version
@@ -437,28 +469,31 @@ def load_sites(path: Path, only: set | None = None) -> SitesConfig:
         transit_speed = _norm_minmax(s.get("transit_speed_kts")) or default_transit_speed
         route_origin = slugify(str(s.get("route_origin", "")).strip()) or None
         route_points = _norm_route_points(s.get("route_points"))
-        sectors = _norm_sectors(s.get("onshore_sectors")) or default_sectors \
+        sectors = (
+            _norm_sectors(s.get("onshore_sectors"))
+            or default_sectors
             or LEGACY_ONSHORE_SECTORS.get(slug, DEFAULT_ONSHORE_SECTORS)
-        sites.append({
-            "name": name,
-            "slug": slug,
-            "lat": lat,
-            "lon": lon,
-            "map_lat": map_lat,
-            "map_lon": map_lon,
-            "transit_speed_kts": (
-                {"min": transit_speed[0], "max": transit_speed[1]} if transit_speed else None
-            ),
-            "route_origin": route_origin,
-            "route_points": route_points,
-            "windows_enabled": bool(s.get("windows_enabled", True)),
-            "beta": bool(s.get("beta", False)),
-            "route_kind": str(s.get("route_kind", "standard")).strip() or "standard",
-            "route_note": (str(s.get("route_note", "")).strip() or None),
-            "country": (str(s.get("country", "")).strip() or None),
-            "shelter_bonus_radius_km": float(s.get("shelter_bonus_radius_km", default_shelter)),
-            "onshore_sectors": sectors,
-        })
+        )
+        sites.append(
+            {
+                "name": name,
+                "slug": slug,
+                "lat": lat,
+                "lon": lon,
+                "map_lat": map_lat,
+                "map_lon": map_lon,
+                "transit_speed_kts": ({"min": transit_speed[0], "max": transit_speed[1]} if transit_speed else None),
+                "route_origin": route_origin,
+                "route_points": route_points,
+                "windows_enabled": bool(s.get("windows_enabled", True)),
+                "beta": bool(s.get("beta", False)),
+                "route_kind": str(s.get("route_kind", "standard")).strip() or "standard",
+                "route_note": (str(s.get("route_note", "")).strip() or None),
+                "country": (str(s.get("country", "")).strip() or None),
+                "shelter_bonus_radius_km": float(s.get("shelter_bonus_radius_km", default_shelter)),
+                "onshore_sectors": sectors,
+            }
+        )
 
     if not sites:
         raise ValueError("No site selected (empty sites.yaml or FABLE_ONLY_SITES filter too strict)")

@@ -47,6 +47,12 @@ class Thresholds:
     prudent_hs_max: float
     prudent_tp_min: float
     prudent_min_confidence: str
+    watch_enabled: bool
+    watch_tp_margin: float
+    watch_hs_margin: float
+    watch_wind_margin: float
+    watch_min_confidence: str
+    watch_max_failing_wave_sources: int
     adaptive_enabled: bool
     adaptive_absolute_min_h: int
     adaptive_zone_min_h: float
@@ -91,6 +97,12 @@ class Thresholds:
             prudent_hs_max=float(dget(rules, "prudent.hs_max_m", 0.4)),
             prudent_tp_min=float(dget(rules, "prudent.tp_min_s", 3.5)),
             prudent_min_confidence=str(dget(rules, "prudent.min_confidence", "Medium")),
+            watch_enabled=bool(dget(rules, "decision_policy.watch.enabled", True)),
+            watch_tp_margin=float(dget(rules, "decision_policy.watch.tp_margin_s", 0.2)),
+            watch_hs_margin=float(dget(rules, "decision_policy.watch.hs_margin_m", 0.05)),
+            watch_wind_margin=float(dget(rules, "decision_policy.watch.wind_margin_kmh", 1.0)),
+            watch_min_confidence=str(dget(rules, "decision_policy.watch.min_confidence", "Medium")),
+            watch_max_failing_wave_sources=int(dget(rules, "decision_policy.watch.max_failing_wave_sources", 1)),
             adaptive_enabled=bool(dget(rules, "adaptive_window.enabled", True)),
             adaptive_absolute_min_h=int(dget(rules, "adaptive_window.absolute_min_hours", 3)),
             adaptive_zone_min_h=float(dget(rules, "adaptive_window.min_zone_hours", 1.5)),
@@ -169,12 +181,7 @@ def _positive_float(value: Any) -> float | None:
 def _all_zero_wave_series(hs: list[Any], tp: list[Any]) -> bool:
     values = [*hs, *tp]
     return bool(values) and all(
-        value is None
-        or (
-            isinstance(value, (int, float))
-            and not isinstance(value, bool)
-            and float(value) == 0
-        )
+        value is None or (isinstance(value, (int, float)) and not isinstance(value, bool) and float(value) == 0)
         for value in values
     )
 
@@ -183,20 +190,13 @@ def _vis_to_km(values: Any) -> list[float | None] | None:
     if not isinstance(values, list):
         return None
     metres = any(isinstance(v, (int, float)) and v > 50 for v in values if v is not None)
-    return [
-        (float(v) / 1000 if metres else float(v)) if isinstance(v, (int, float)) else None
-        for v in values
-    ]
+    return [(float(v) / 1000 if metres else float(v)) if isinstance(v, (int, float)) else None for v in values]
 
 
 def _sectors(meta: dict[str, Any], slug: str) -> list[tuple[int, int]]:
     raw = meta.get("onshore_sectors")
     if isinstance(raw, list):
-        parsed = [
-            (int(pair[0]), int(pair[1]))
-            for pair in raw
-            if isinstance(pair, (list, tuple)) and len(pair) == 2
-        ]
+        parsed = [(int(pair[0]), int(pair[1])) for pair in raw if isinstance(pair, (list, tuple)) and len(pair) == 2]
         if parsed:
             return parsed
     return LEGACY_ONSHORE_SECTORS.get(slug.replace(".json", "").lower(), DEFAULT_ONSHORE_SECTORS)
@@ -227,12 +227,14 @@ def _route_points(meta: dict[str, Any]) -> list[dict[str, Any]]:
         except (KeyError, TypeError, ValueError):
             continue
         if -90 <= lat <= 90 and -180 <= lon <= 180:
-            output.append({
-                "lat": lat,
-                "lon": lon,
-                "name": str(point.get("name", "")).strip() or None,
-                "slug": slugify(str(point.get("slug", "")).strip()) or None,
-            })
+            output.append(
+                {
+                    "lat": lat,
+                    "lon": lon,
+                    "name": str(point.get("name", "")).strip() or None,
+                    "slug": slugify(str(point.get("slug", "")).strip()) or None,
+                }
+            )
     return output
 
 
@@ -286,13 +288,15 @@ def load_site(path: Path) -> Site | None:
                 "visibility_km": _vis_to_km(values.get("visibility")),
             }
     if not wind_models:
-        wind_models = {"om": {
-            "wind_speed_10m": hourly.get("wind_speed_10m"),
-            "wind_gusts_10m": hourly.get("wind_gusts_10m"),
-            "wind_direction_10m": hourly.get("wind_direction_10m"),
-            "weather_code": hourly.get("weather_code"),
-            "visibility_km": _vis_to_km(hourly.get("visibility")),
-        }}
+        wind_models = {
+            "om": {
+                "wind_speed_10m": hourly.get("wind_speed_10m"),
+                "wind_gusts_10m": hourly.get("wind_gusts_10m"),
+                "wind_direction_10m": hourly.get("wind_direction_10m"),
+                "weather_code": hourly.get("weather_code"),
+                "visibility_km": _vis_to_km(hourly.get("visibility")),
+            }
+        }
 
     marine_models = payload.get("marine_models") or {}
     wave_models = {}
@@ -303,10 +307,12 @@ def load_site(path: Path) -> Site | None:
         if isinstance(hs, list):
             periods = tp if isinstance(tp, list) else []
             if _all_zero_wave_series(hs, periods):
-                excluded_wave_sources.append({
-                    "source": str(name),
-                    "reason": "all_zero_wave_series",
-                })
+                excluded_wave_sources.append(
+                    {
+                        "source": str(name),
+                        "reason": "all_zero_wave_series",
+                    }
+                )
                 continue
             if any(value is not None for value in hs):
                 wave_models[name] = {"hs": hs, "tp": periods}
@@ -354,14 +360,18 @@ def worst_metrics_at_hour(site: Site, index: int) -> HourMetrics:
         speed_value = float(speed)
         gust_value = float(gust)
         direction_value = float(direction)
-        speeds.append(speed_value); gusts.append(gust_value); directions.append(direction_value)
-        wind_scenarios.append({
-            "source": source,
-            "speed": speed_value,
-            "gust": gust_value,
-            "direction": direction_value,
-            "gust_delta": gust_value - speed_value,
-        })
+        speeds.append(speed_value)
+        gusts.append(gust_value)
+        directions.append(direction_value)
+        wind_scenarios.append(
+            {
+                "source": source,
+                "speed": speed_value,
+                "gust": gust_value,
+                "direction": direction_value,
+                "gust_delta": gust_value - speed_value,
+            }
+        )
         visible = _safe(values.get("visibility_km"), index)
         if visible is not None:
             visibility.append(float(visible))
@@ -381,10 +391,12 @@ def worst_metrics_at_hour(site: Site, index: int) -> HourMetrics:
         if hs is not None:
             wave_scenarios.append({"source": source, "hs": hs, "tp": tp})
         if hs is None or tp is None:
-            excluded_wave_sources.append({
-                "source": source,
-                "reason": "invalid_wave_pair",
-            })
+            excluded_wave_sources.append(
+                {
+                    "source": source,
+                    "reason": "invalid_wave_pair",
+                }
+            )
     hs_scenarios = [scenario for scenario in wave_scenarios if scenario["hs"] is not None]
     valid_scenarios = [scenario for scenario in wave_scenarios if scenario["tp"] is not None]
     if hs_scenarios:

@@ -27,7 +27,7 @@
   const copy = () => lang() === 'ar' ? {
     enter:'الوضع المبسّط', exit:'وضع العائلة', decision:'القرار', possible:'يمكن الخروج',
     prudent:'خروج بحذر', watch:'تحت المراقبة', watchDetail:'الظروف قريبة من حدود العائلة. هذه ليست موافقة للخروج، ويجب التحقق من النشرة البحرية قبل القرار.', blocked:'لا يُنصح بالخروج', conditions:'ظروف غير ملائمة',
-    why:'لماذا؟', hide:'إخفاء الأسباب', route:'فتح الخريطة', confidence:'الثقة', options:'الخيارات',
+    why:'لماذا؟', hide:'إخفاء الأسباب', route:'فتح الخريطة', forecastQuality:'جودة التوقعات', options:'الخيارات',
     updated:'آخر تحديث', days:'3 أيام', today:'اليوم', tomorrow:'غداً', noWindow:'لا توجد نافذة مؤكدة',
     details:'التفاصيل', map:'الخريطة', more:'المزيد', good:'مناسب', cautious:'بحذر', noGo:'غير مناسب',
     next:'أفضل نافذة عائلية', planning:'نظرة على ثلاثة أيام', fresh:'بيانات حديثة', unavailable:'غير متاح',
@@ -42,11 +42,11 @@
     travelOnly:'فترة سفر بحري طويلة متاحة', travelOnlyDetail:'هذه نافذة ملاحة لمسافة طويلة وليست موافقة على خرجة عائلية محلية.',
     staleTitle:'بيانات قديمة — لا تخرج اعتماداً عليها', noDataTitle:'بيانات الملاحة غير متاحة',
     windows:'نوافذ الملاحة', viewWindows:'عرض النوافذ', horizon:'أفق 72 ساعة', offHoursSlot:'خارج الأوقات', longTripSlot:'رحلة طويلة',
-    confidenceHigh:'مرتفعة', confidenceMedium:'متوسطة', confidenceLow:'محدودة', outbound:'ذهاب', return:'عودة', beta:'تجريبي', review:'تحقق مطلوب',
+    qualityHigh:'مرتفعة', qualityMedium:'متوسطة', qualityLimited:'محدودة', qualityUnassessed:'غير مقيّمة', outbound:'ذهاب', return:'عودة', beta:'تجريبي', review:'تحقق مطلوب',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
     prudent:'CAUTIOUS OUTING', watch:'WATCH', watchDetail:'Conditions are close to Family limits. This is not a GO; check the marine forecast before deciding.', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
-    why:'Why?', hide:'Hide reasons', route:'Open map', confidence:'Confidence', options:'Options',
+    why:'Why?', hide:'Hide reasons', route:'Open map', forecastQuality:'Forecast quality', options:'Options',
     updated:'Updated', days:'3 days', today:'Today', tomorrow:'Tomorrow', noWindow:'No validated window',
     details:'Details', map:'Map', more:'More', good:'Good', cautious:'Cautious', noGo:'NO-GO',
     next:'Best family window', planning:'Three-day overview', fresh:'Fresh data', unavailable:'Unavailable',
@@ -61,11 +61,11 @@
     travelOnly:'Long-distance navigation slot available', travelOnlyDetail:'This is a long-distance navigation window, not a local family-outing approval.',
     staleTitle:'Stale data — do not depart on this basis', noDataTitle:'Navigation data unavailable',
     windows:'Navigation windows', viewWindows:'View windows', horizon:'72-hour horizon', offHoursSlot:'Out of hours', longTripSlot:'Long trip',
-    confidenceHigh:'High', confidenceMedium:'Medium', confidenceLow:'Limited', outbound:'Outbound', return:'Return', beta:'Beta', review:'Review required',
+    qualityHigh:'High', qualityMedium:'Medium', qualityLimited:'Limited', qualityUnassessed:'Not assessed', outbound:'Outbound', return:'Return', beta:'Beta', review:'Review required',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
     prudent:'SORTIE PRUDENTE', watch:'À SURVEILLER', watchDetail:'Conditions proches des seuils Family. Ce créneau n’est pas un GO : vérifiez la météo marine avant de décider.', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
-    why:'Pourquoi ?', hide:'Masquer les raisons', route:'Ouvrir la carte', confidence:'Confiance', options:'Options',
+    why:'Pourquoi ?', hide:'Masquer les raisons', route:'Ouvrir la carte', forecastQuality:'Qualité des prévisions', options:'Options',
     updated:'Mise à jour', days:'3 jours', today:'Aujourd’hui', tomorrow:'Demain', noWindow:'Aucune fenêtre validée',
     details:'Détails', map:'Carte', more:'Plus', good:'Bonne', cautious:'Prudente', noGo:'NO-GO',
     next:'Meilleure fenêtre familiale', planning:'Aperçu sur trois jours', fresh:'Données fraîches', unavailable:'Indisponible',
@@ -80,7 +80,7 @@
     travelOnly:'Créneau de navigation longue distance', travelOnlyDetail:'Ce créneau concerne une navigation longue distance, pas une validation de sortie familiale locale.',
     staleTitle:'Données périmées — ne pas partir sur cette base', noDataTitle:'Données de navigation indisponibles',
     windows:'Fenêtres de navigation', viewWindows:'Voir les fenêtres', horizon:'Horizon 72 h', offHoursSlot:'Hors horaires', longTripSlot:'Long trajet',
-    confidenceHigh:'Élevée', confidenceMedium:'Moyenne', confidenceLow:'Limitée', outbound:'Aller', return:'Retour', beta:'Bêta', review:'Vérification requise',
+    qualityHigh:'Élevée', qualityMedium:'Moyenne', qualityLimited:'Limitée', qualityUnassessed:'Non évaluée', outbound:'Aller', return:'Retour', beta:'Bêta', review:'Vérification requise',
   };
 
   function installStyles() {
@@ -112,9 +112,11 @@
       .simple-hero.blocked .simple-verdict-icon{background:color-mix(in srgb,var(--bad) 20%,var(--pill-bg))}
       .simple-destination{margin:13px 0 3px;font-size:1.18rem;font-weight:900}.simple-window{color:var(--muted);font-weight:700}
       .simple-hero-detail{max-width:48ch;margin:10px 0 0;color:var(--muted);font-weight:650;line-height:1.45}
-      .simple-confidence{display:grid;place-items:center;align-content:center;min-height:172px;border-inline-start:1px solid var(--br)}
-      .simple-confidence-ring{--score:0;display:grid;place-items:center;width:124px;height:124px;border-radius:50%;background:radial-gradient(circle at center,var(--card) 57%,transparent 59%),conic-gradient(var(--accent) calc(var(--score)*1%),color-mix(in srgb,var(--muted) 20%,transparent) 0);box-shadow:inset 0 0 22px #0004}
-      .simple-confidence-ring span{display:block;text-align:center;color:var(--muted);font-size:.68rem}.simple-confidence-ring strong{display:block;margin-top:2px;color:var(--fg);font-size:1.75rem;line-height:1}.simple-confidence-word{margin-top:8px;color:var(--accent);font-size:.72rem;font-weight:900;text-transform:uppercase}
+      .simple-confidence{--quality-color:var(--muted);display:grid;place-items:center;align-content:center;min-height:172px;border-inline-start:1px solid var(--br)}
+      .simple-confidence[data-quality-level="high"]{--quality-color:var(--ok)}.simple-confidence[data-quality-level="medium"]{--quality-color:var(--warn)}.simple-confidence[data-quality-level="limited"]{--quality-color:#60a5fa}
+      .simple-confidence-label{display:block;max-width:150px;margin-bottom:7px;color:var(--muted);font-size:.68rem;line-height:1.15;text-align:center}
+      .simple-confidence-ring{box-sizing:border-box;display:grid;place-items:center;width:124px;height:124px;padding:12px;border:10px solid color-mix(in srgb,var(--quality-color) 72%,var(--br));border-radius:50%;background:var(--card);box-shadow:inset 0 0 22px #0004}
+      .simple-confidence-ring strong{display:block;max-width:88px;color:var(--quality-color);font-size:1.05rem;line-height:1.05;text-align:center;overflow-wrap:anywhere}
       .simple-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}
       .simple-action{min-height:48px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg);color:var(--fg);font-weight:900;cursor:pointer}
       .simple-action:focus-visible,.simple-day:focus-visible,.simple-nav-action:focus-visible,.simple-entry:focus-visible,.simple-window-card:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
@@ -152,9 +154,9 @@
       html[dir="rtl"] .simple-shell{direction:rtl;text-align:right}html[dir="rtl"] .simple-day{text-align:right}html[dir="rtl"] .simple-key::before{margin-right:0;margin-left:5px}
       .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)}
       .simple-nav-action{min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:.7rem;font-weight:800;cursor:pointer}.simple-nav-action span{display:block;font-size:1.15rem;margin-bottom:2px}.simple-nav-action.active{background:color-mix(in srgb,var(--accent) 18%,var(--pill-bg));color:var(--fg)}
-      @media(max-width:640px){.simple-hero-grid{grid-template-columns:minmax(0,1fr) 104px;gap:10px;align-items:start}.simple-confidence{min-height:0;padding-top:2px;border-inline-start:0;align-self:start}.simple-confidence-ring{width:92px;height:92px}.simple-confidence-ring strong{font-size:1.35rem}.simple-confidence-word{margin-top:6px;font-size:.62rem}.simple-verdict{font-size:clamp(1.3rem,7vw,1.9rem)}.simple-window-card{grid-template-columns:1fr auto}.simple-window-badge{grid-column:1/-1;justify-self:start}}
+      @media(max-width:640px){.simple-hero-grid{grid-template-columns:minmax(0,1fr) 104px;gap:10px;align-items:start}.simple-confidence{min-height:0;padding-top:2px;border-inline-start:0;align-self:start}.simple-confidence-label{max-width:100px;margin-bottom:5px;font-size:.56rem}.simple-confidence-ring{width:92px;height:92px;padding:7px;border-width:8px}.simple-confidence-ring strong{max-width:68px;font-size:.8rem}.simple-verdict{font-size:clamp(1.3rem,7vw,1.9rem)}.simple-window-card{grid-template-columns:1fr auto}.simple-window-badge{grid-column:1/-1;justify-self:start}}
       @media(max-width:520px){.simple-shell{padding-top:2px}.simple-hero{padding:18px;border-radius:18px}.simple-selected-day-content{padding:9px;border-radius:18px}.simple-metrics{grid-template-columns:1fr 1fr}.simple-metric:last-child{grid-column:1/-1}.simple-condition-grid{grid-template-columns:1fr}.simple-condition.return{grid-column:auto}.simple-day{min-height:112px;padding:8px}.simple-day-heading{display:block}.simple-day-calendar{display:block;margin-top:2px}.simple-entry{font-size:0}.simple-entry::after{content:'✨';font-size:1rem}}
-      @media(max-width:350px){.simple-hero-grid{grid-template-columns:minmax(0,1fr) 80px;gap:7px}.simple-confidence-ring{width:74px;height:74px}.simple-confidence-ring strong{font-size:1.12rem}.simple-confidence-ring span{font-size:.58rem}.simple-confidence-word{font-size:.54rem}.simple-actions{grid-template-columns:1fr}.simple-days{gap:5px}.simple-day{min-height:108px;padding:7px 6px}.simple-day[aria-selected="true"]::after{inset-inline:8px}.simple-day-title{font-size:.76rem}.simple-day-state{font-size:.66rem}.simple-day-date{font-size:.61rem}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}.simple-selected-day-content{padding:7px}.simple-weather-grid{grid-template-columns:1fr}}
+      @media(max-width:350px){.simple-hero-grid{grid-template-columns:minmax(0,1fr) 80px;gap:7px}.simple-confidence-label{max-width:76px;font-size:.5rem}.simple-confidence-ring{width:74px;height:74px;padding:5px;border-width:7px}.simple-confidence-ring strong{max-width:56px;font-size:.66rem}.simple-actions{grid-template-columns:1fr}.simple-days{gap:5px}.simple-day{min-height:108px;padding:7px 6px}.simple-day[aria-selected="true"]::after{inset-inline:8px}.simple-day-title{font-size:.76rem}.simple-day-state{font-size:.66rem}.simple-day-date{font-size:.61rem}.simple-bottom-nav{left:4px;right:4px;padding:5px}.simple-nav-action{font-size:.64rem}.simple-panel{padding:13px}.simple-selected-day-content{padding:7px}.simple-weather-grid{grid-template-columns:1fr}}
       @media(min-width:521px) and (max-width:900px){.simple-shell{max-width:680px}.simple-hero{padding:24px}}
       @media(min-width:901px){body.simple-board-mode{padding-bottom:24px}.simple-bottom-nav{position:sticky;bottom:12px;margin-top:14px}}
       @media(prefers-reduced-motion:reduce){.simple-action,.simple-day,.simple-nav-action{scroll-behavior:auto}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -204,15 +206,13 @@
   function bestForDay(offset = state.activeDay) {
     return verdictForDay(offset)?.row || null;
   }
-  function confidenceScore(best) {
-    const raw = Number(best?.windowItem?.confidence_score ?? best?.destination?.confidence_score);
-    if (Number.isFinite(raw)) return Math.max(0, Math.min(100, Math.round(raw)));
-    const label = String(best?.windowItem?.confidence || best?.destination?.confidence || '').toLowerCase();
-    return label === 'high' ? 86 : label === 'medium' ? 64 : label === 'low' ? 38 : 0;
-  }
-  function confidenceWord(score) {
+  function forecastQuality(best) {
     const c = copy();
-    return score >= 75 ? c.confidenceHigh : score >= 50 ? c.confidenceMedium : c.confidenceLow;
+    const value = String(best?.windowItem?.confidence || best?.destination?.confidence || '').toLowerCase();
+    if (value === 'high') return {level:'high', label:c.qualityHigh};
+    if (value === 'medium') return {level:'medium', label:c.qualityMedium};
+    if (value === 'low') return {level:'limited', label:c.qualityLimited};
+    return {level:'unassessed', label:c.qualityUnassessed};
   }
   function selectedDayOffset(key) {
     return [0, 1, 2].find((offset) => dayKey(offset) === key) ?? 0;
@@ -445,8 +445,7 @@
     const blocked = result?.blocker || result?.spot || null;
     const destination = best ? best.destination.dest_name || best.destination.dest_slug : c.conditions;
     const windowText = best ? `${formatTime(best.windowItem.start)}–${formatTime(best.windowItem.end)}` : c.noWindow;
-    const confidence = best ? best.windowItem.confidence || best.destination.confidence || '—' : '—';
-    const score = confidenceScore(best);
+    const quality = forecastQuality(best);
     const generatedAt = state.windows?.generated_at || state.status?.generated_at;
     const reason = blockerText(blocked) || presentation.detail || c.conditions;
     const dataState = state.loading ? `<div class="simple-data-state" role="status">⏳ ${esc(c.loading)}</div>` : state.error ? `<div class="simple-data-state error" role="alert">⚠️ ${esc(c.missing)}</div>` : result?.state === 'STALE' ? `<div class="simple-data-state stale" role="alert">⚠️ ${esc(c.stale)}</div>` : '';
@@ -460,9 +459,9 @@
         ${presentation.detail ? `<p class="simple-hero-detail">${esc(presentation.detail)}</p>` : ''}
         <div class="simple-actions">${result?.rows?.length ? `<button class="simple-action primary" data-simple-action="windows" type="button">${esc(c.viewWindows)} →</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>` : `<button class="simple-action primary" aria-expanded="false" aria-controls="simple-reasons" data-simple-action="reasons" type="button">${esc(c.why)}</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>`}</div>
         <div id="simple-reasons" class="simple-reasons" hidden><p>⚠️ <strong>${esc(reason)}</strong></p><small>${esc(c.details)} : ${esc(blocked?.dest_name || blocked?.dest_slug || '—')}</small></div></div>
-        <aside class="simple-confidence" aria-label="${esc(c.confidence)} ${score}%"><div class="simple-confidence-ring" style="--score:${score}"><div><span>${esc(c.confidence)}</span><strong>${score}%</strong></div></div><div class="simple-confidence-word">${esc(confidenceWord(score))}</div></aside></div>
+        <aside class="simple-confidence" data-quality-level="${esc(quality.level)}" aria-label="${esc(c.forecastQuality)} : ${esc(quality.label)}"><span class="simple-confidence-label">${esc(c.forecastQuality)}</span><div class="simple-confidence-ring"><strong>${esc(quality.label)}</strong></div></aside></div>
       </section>
-      <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.confidence)}</span><strong>${esc(confidence)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
+      <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.forecastQuality)}</span><strong>${esc(quality.label)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
       ${renderTimeline(result?.rows || [], result?.counts || {})}
       ${renderNavigation(result)}${renderConditions(best)}${renderActivities(best)}
       </div>

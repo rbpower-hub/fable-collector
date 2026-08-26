@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260826-weather-context-v2" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260826-forecast-quality-v1" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -28,6 +28,22 @@ def test_simple_view_is_decision_first_and_keeps_no_go_reasons_collapsed():
     assert "Wave data unavailable" in script
     assert "بيانات الأمواج غير متاحة" in script
     assert 'class="simple-data-state marine" role="alert"' in script
+
+
+def test_simple_view_separates_forecast_quality_from_the_decision():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "Qualité des prévisions" in script
+    assert "Forecast quality" in script
+    assert "جودة التوقعات" in script
+    assert "qualityUnassessed:'Non évaluée'" in script
+    assert "function forecastQuality(best)" in script
+    assert "return {level:'unassessed', label:c.qualityUnassessed}" in script
+    assert 'data-quality-level="${esc(quality.level)}"' in script
+    assert "confidenceScore" not in script
+    assert "confidenceWord" not in script
+    assert "${score}%" not in script
+    assert "--score" not in script
 
 
 def test_simple_view_has_mobile_navigation_and_three_day_overview():

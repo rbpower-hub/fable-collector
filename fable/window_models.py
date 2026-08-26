@@ -135,6 +135,7 @@ class HourMetrics:
     hs: float | None
     tp: float | None
     n_models: int
+    wind_scenarios: list[dict[str, Any]]
     hs_spread: float | None
     n_wave_sources: int
     wave_scenarios: list[dict[str, Any]]
@@ -342,14 +343,25 @@ def load_site(path: Path) -> Site | None:
 
 def worst_metrics_at_hour(site: Site, index: int) -> HourMetrics:
     speeds, gusts, directions, visibility, codes = [], [], [], [], []
+    wind_scenarios = []
     models = 0
-    for values in site.wind_models.values():
+    for source, values in site.wind_models.items():
         speed = _safe(values.get("wind_speed_10m"), index)
         gust = _safe(values.get("wind_gusts_10m"), index)
         direction = _safe(values.get("wind_direction_10m"), index)
         if speed is None or gust is None or direction is None:
             continue
-        speeds.append(float(speed)); gusts.append(float(gust)); directions.append(float(direction))
+        speed_value = float(speed)
+        gust_value = float(gust)
+        direction_value = float(direction)
+        speeds.append(speed_value); gusts.append(gust_value); directions.append(direction_value)
+        wind_scenarios.append({
+            "source": source,
+            "speed": speed_value,
+            "gust": gust_value,
+            "direction": direction_value,
+            "gust_delta": gust_value - speed_value,
+        })
         visible = _safe(values.get("visibility_km"), index)
         if visible is not None:
             visibility.append(float(visible))
@@ -403,6 +415,7 @@ def worst_metrics_at_hour(site: Site, index: int) -> HourMetrics:
         hs=hs,
         tp=tp,
         n_models=models,
+        wind_scenarios=wind_scenarios,
         hs_spread=max(hs_values) - min(hs_values) if len(hs_values) >= 2 else None,
         n_wave_sources=len(valid_scenarios),
         wave_scenarios=wave_scenarios,

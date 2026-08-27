@@ -56,6 +56,21 @@ jobs:
           node --check public/js/reasons-i18n.js
           node --check public/js/verdict.js
 
+      - name: Mobile_view JavaScript syntax
+        run: |
+          node --check public/mobile/js/app.js
+          node --check public/mobile/js/carte.js
+          node --check public/mobile/js/chart.js
+          node --check public/mobile/js/data.js
+          node --check public/mobile/js/decision.js
+          node --check public/mobile/js/engine-assessment.js
+          node --check public/mobile/js/format.js
+          node --check public/mobile/js/hour-verdict.js
+          node --check public/mobile/js/runs.js
+          node --check public/mobile/js/spot.js
+          node --check public/mobile/js/thresholds.js
+          node --check public/mobile/js/ui.js
+
       - name: Generate and validate published app module
         run: |
           python - <<'PY'

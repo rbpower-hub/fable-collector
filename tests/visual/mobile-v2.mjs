@@ -83,6 +83,9 @@ const initial = await page.evaluate(() => ({
   selectorBeforeDecision:Boolean(document.querySelector('#simple-three-days')?.compareDocumentPosition(document.querySelector('#simple-decision')) & Node.DOCUMENT_POSITION_FOLLOWING),
   navVisible:getComputedStyle(document.querySelector('.simple-bottom-nav')).display !== 'none',
   weatherItems:document.querySelectorAll('.simple-weather-item').length,
+  weatherIcons:Array.from(document.querySelectorAll('.simple-weather-icon svg')).map((icon) => icon.getBoundingClientRect().width),
+  weatherKinds:Array.from(document.querySelectorAll('.simple-weather-item')).map((item) => item.dataset.weatherKind),
+  weatherValueSize:parseFloat(getComputedStyle(document.querySelector('.simple-weather-value')).fontSize),
   overline:Boolean(document.querySelector('.simple-overline')),
   confidenceVisible:getComputedStyle(document.querySelector('.simple-confidence')).display !== 'none',
   qualityText:document.querySelector('.simple-confidence')?.textContent?.replace(/\s+/g,' ').trim(),
@@ -106,6 +109,9 @@ if (initial.connectorHeight < 16 || initial.panelBorder < 2) throw new Error('se
 if (!initial.selectorBeforeDecision) throw new Error('three-day selector must precede the decision');
 if (!initial.navVisible) throw new Error('bottom navigation is hidden');
 if (initial.weatherItems < 4) throw new Error(`expected four weather context cards, got ${initial.weatherItems}`);
+if (initial.weatherIcons.length < 4 || Math.min(...initial.weatherIcons) < 21) throw new Error(`weather icons are missing or too small: ${initial.weatherIcons}`);
+if (!['temperature','uv','sky','rain'].every((kind) => initial.weatherKinds.includes(kind))) throw new Error(`weather icon kinds are incomplete: ${initial.weatherKinds}`);
+if (initial.weatherValueSize < 16) throw new Error(`weather values are too small: ${initial.weatherValueSize}px`);
 if (initial.overline) throw new Error('redundant decision overline is still visible');
 if (!initial.confidenceVisible || !initial.confidenceBesideVerdict) throw new Error(`confidence must remain beside the verdict on mobile: ${JSON.stringify(initial)}`);
 if (initial.qualityHasPercent) throw new Error(`forecast quality must not be shown as a percentage: ${initial.qualityText}`);

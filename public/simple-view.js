@@ -43,7 +43,7 @@
     staleTitle:'بيانات قديمة — لا تخرج اعتماداً عليها', noDataTitle:'بيانات الملاحة غير متاحة',
     windows:'نوافذ الملاحة', viewWindows:'عرض النوافذ', horizon:'أفق 72 ساعة', offHoursSlot:'خارج الأوقات', longTripSlot:'رحلة طويلة',
     qualityHigh:'مرتفعة', qualityMedium:'متوسطة', qualityLimited:'محدودة', qualityUnassessed:'غير مقيّمة', outbound:'ذهاب', return:'عودة', beta:'تجريبي', review:'تحقق مطلوب',
-    duration:'المدة المتاحة', required:'المدة الدنيا', showOnMap:'عرض على الخريطة', conditionsMenu:'الظروف الجوية', activitiesMenu:'الأنشطة المقترحة', familyMenu:'الانتقال إلى وضع العائلة',
+    duration:'المدة المتاحة', required:'المدة الدنيا', remaining:'الوقت المتبقي', inProgress:'قيد التنفيذ', fullDurationUnavailable:'لم يعد من الممكن إكمال مدة الخروج العائلية كاملة', showOnMap:'عرض على الخريطة', conditionsMenu:'الظروف الجوية', activitiesMenu:'الأنشطة المقترحة', familyMenu:'الانتقال إلى وضع العائلة',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
     prudent:'CAUTIOUS OUTING', watch:'WATCH', watchDetail:'Conditions are close to Family limits. This is not a GO; check the marine forecast before deciding.', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
@@ -63,7 +63,7 @@
     staleTitle:'Stale data — do not depart on this basis', noDataTitle:'Navigation data unavailable',
     windows:'Navigation windows', viewWindows:'View windows', horizon:'72-hour horizon', offHoursSlot:'Out of hours', longTripSlot:'Long trip',
     qualityHigh:'High', qualityMedium:'Medium', qualityLimited:'Limited', qualityUnassessed:'Not assessed', outbound:'Outbound', return:'Return', beta:'Beta', review:'Review required',
-    duration:'Available duration', required:'Minimum duration', showOnMap:'Show on map', conditionsMenu:'Weather conditions', activitiesMenu:'Suggested activities', familyMenu:'Switch to Family View',
+    duration:'Available duration', required:'Minimum duration', remaining:'Time remaining', inProgress:'In progress', fullDurationUnavailable:'The complete family-outing duration can no longer be completed', showOnMap:'Show on map', conditionsMenu:'Weather conditions', activitiesMenu:'Suggested activities', familyMenu:'Switch to Family View',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
     prudent:'SORTIE PRUDENTE', watch:'À SURVEILLER', watchDetail:'Conditions proches des seuils Family. Ce créneau n’est pas un GO : vérifiez la météo marine avant de décider.', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
@@ -83,7 +83,7 @@
     staleTitle:'Données périmées — ne pas partir sur cette base', noDataTitle:'Données de navigation indisponibles',
     windows:'Fenêtres de navigation', viewWindows:'Voir les fenêtres', horizon:'Horizon 72 h', offHoursSlot:'Hors horaires', longTripSlot:'Long trajet',
     qualityHigh:'Élevée', qualityMedium:'Moyenne', qualityLimited:'Limitée', qualityUnassessed:'Non évaluée', outbound:'Aller', return:'Retour', beta:'Bêta', review:'Vérification requise',
-    duration:'Durée disponible', required:'Durée minimale', showOnMap:'Voir sur la carte', conditionsMenu:'Conditions météo', activitiesMenu:'Activités conseillées', familyMenu:'Passer en Vue Famille',
+    duration:'Durée disponible', required:'Durée minimale', remaining:'Temps restant', inProgress:'En cours', fullDurationUnavailable:'La durée familiale complète n’est plus réalisable', showOnMap:'Voir sur la carte', conditionsMenu:'Conditions météo', activitiesMenu:'Activités conseillées', familyMenu:'Passer en Vue Famille',
   };
 
   function installStyles() {
@@ -154,7 +154,7 @@
       .simple-condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.simple-condition{min-width:0;padding:14px;border-radius:16px;background:var(--pill-bg)}.simple-condition.return{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.simple-condition-label{display:block;color:var(--muted);font-size:.76rem}.simple-condition-value{display:block;margin-top:4px;font-size:1.18rem}.simple-condition-range{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:600}.simple-chart{margin:10px 0 0}.simple-spark{display:block;width:100%;height:88px;overflow:visible}.simple-spark .grid{stroke:color-mix(in srgb,var(--muted) 22%,transparent);stroke-width:1}.simple-spark .safe-zone{fill:color-mix(in srgb,var(--ok) 10%,transparent)}.simple-spark .threshold{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}.simple-spark .area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}.simple-spark .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.simple-spark .point{fill:var(--card);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.simple-condition.wave .simple-spark .area{fill:color-mix(in srgb,var(--ok) 13%,transparent)}.simple-condition.wave .simple-spark .line,.simple-condition.wave .simple-spark .point{stroke:var(--ok)}.simple-chart-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:.65rem}.simple-chart-threshold{margin-top:7px;color:var(--muted);font-size:.68rem}.simple-chart-threshold::before{content:'';display:inline-block;width:15px;margin-right:5px;border-top:2px dashed var(--warn);vertical-align:middle}html[dir="rtl"] .simple-chart-threshold::before{margin-right:0;margin-left:5px}
       .simple-weather-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.simple-weather-item{--weather-color:var(--accent);min-width:0;min-height:108px;display:grid;grid-template-columns:42px minmax(0,1fr);grid-template-areas:"icon label" "icon value" "icon detail";align-content:center;align-items:center;column-gap:12px;row-gap:2px;padding:14px 15px;border:1px solid color-mix(in srgb,var(--weather-color) 28%,var(--br));border-inline-start:3px solid var(--weather-color);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--weather-color) 9%,var(--card)),color-mix(in srgb,var(--card) 62%,var(--pill-bg)));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 5%,transparent)}.simple-weather-item[data-weather-kind="temperature"]{--weather-color:#fb7185}.simple-weather-item[data-weather-kind="uv"]{--weather-color:#fbbf24}.simple-weather-item[data-weather-kind="sky"]{--weather-color:#38bdf8}.simple-weather-item[data-weather-kind="rain"]{--weather-color:#60a5fa}.simple-weather-icon{grid-area:icon;display:grid;place-items:center;width:42px;height:42px;border:1px solid color-mix(in srgb,var(--weather-color) 38%,transparent);border-radius:13px;background:color-mix(in srgb,var(--weather-color) 14%,var(--pill-bg));color:var(--weather-color)}.simple-weather-icon svg{display:block;width:25px;height:25px}.simple-weather-label{grid-area:label;display:block;color:var(--muted);font-size:.75rem;font-weight:750;line-height:1.2}.simple-weather-value{grid-area:value;display:block;font-size:clamp(1.08rem,2.5vw,1.3rem);line-height:1.15;letter-spacing:-.015em}.simple-weather-detail{grid-area:detail;display:block;color:var(--muted);font-size:.7rem;line-height:1.3}
       .simple-activities{display:grid;gap:8px}.simple-activity{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg)}.simple-activity-icon{font-size:1.35rem}.simple-activity strong{display:block}.simple-activity small{display:block;margin-top:3px;color:var(--muted);line-height:1.35}.simple-activity-score{padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-size:.72rem;font-weight:900}.simple-empty{color:var(--muted);line-height:1.45}
-      .simple-navigation{display:grid;gap:8px}.simple-window-item{overflow:hidden;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg)}.simple-window-item.expanded{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)}.simple-window-card{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;min-height:68px;padding:12px;border:0;background:transparent;color:var(--fg);text-align:start;cursor:pointer}.simple-window-card:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}.simple-window-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);font-size:.68rem;font-weight:900;text-transform:uppercase}.simple-window-badge.prudent{background:color-mix(in srgb,var(--warn) 17%,transparent);color:var(--warn)}.simple-window-badge.watch{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#f59e0b}.simple-window-badge.off-hours{background:color-mix(in srgb,#22d3ee 16%,transparent);color:#22d3ee}.simple-window-badge.travel{background:color-mix(in srgb,#60a5fa 16%,transparent);color:#60a5fa}.simple-window-main strong,.simple-window-main small{display:block}.simple-window-main small{margin-top:4px;color:var(--muted)}.simple-window-arrow{font-size:1.4rem;color:var(--muted);transition:transform .16s ease}.simple-window-card[aria-expanded="true"] .simple-window-arrow{transform:rotate(90deg)}.simple-window-details{display:grid;gap:7px;margin:0 12px 12px;padding:12px;border-top:1px solid var(--br);color:var(--muted);font-size:.78rem;line-height:1.35}.simple-window-details[hidden]{display:none}.simple-window-detail{display:flex;justify-content:space-between;gap:12px}.simple-window-detail strong{color:var(--fg);text-align:end}.simple-window-map{justify-self:start;min-height:42px;margin-top:3px;padding:8px 12px;border:0;border-radius:12px;background:var(--accent);color:#041019;font-weight:900;cursor:pointer}
+      .simple-navigation{display:grid;gap:8px}.simple-window-item{overflow:hidden;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg)}.simple-window-item.in-progress{border-color:color-mix(in srgb,var(--warn) 58%,var(--br));background:color-mix(in srgb,var(--warn) 7%,var(--pill-bg))}.simple-window-item.expanded{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)}.simple-window-card{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;min-height:68px;padding:12px;border:0;background:transparent;color:var(--fg);text-align:start;cursor:pointer}.simple-window-card:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}.simple-window-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);font-size:.68rem;font-weight:900;text-transform:uppercase}.simple-window-badge.prudent{background:color-mix(in srgb,var(--warn) 17%,transparent);color:var(--warn)}.simple-window-badge.watch{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#f59e0b}.simple-window-badge.off-hours{background:color-mix(in srgb,#22d3ee 16%,transparent);color:#22d3ee}.simple-window-badge.travel{background:color-mix(in srgb,#60a5fa 16%,transparent);color:#60a5fa}.simple-window-badge.in-progress{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}.simple-window-main strong,.simple-window-main small{display:block}.simple-window-main small{margin-top:4px;color:var(--muted)}.simple-window-main .simple-window-status{color:var(--warn);font-weight:800}.simple-window-arrow{font-size:1.4rem;color:var(--muted);transition:transform .16s ease}.simple-window-card[aria-expanded="true"] .simple-window-arrow{transform:rotate(90deg)}.simple-window-details{display:grid;gap:7px;margin:0 12px 12px;padding:12px;border-top:1px solid var(--br);color:var(--muted);font-size:.78rem;line-height:1.35}.simple-window-details[hidden]{display:none}.simple-window-detail{display:flex;justify-content:space-between;gap:12px}.simple-window-detail strong{color:var(--fg);text-align:end}.simple-window-warning{margin:2px 0;padding:9px;border-radius:10px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);font-weight:800}.simple-window-map{justify-self:start;min-height:42px;margin-top:3px;padding:8px 12px;border:0;border-radius:12px;background:var(--accent);color:#041019;font-weight:900;cursor:pointer}
       html[dir="rtl"] .simple-shell{direction:rtl;text-align:right}html[dir="rtl"] .simple-day{text-align:right}html[dir="rtl"] .simple-key::before{margin-right:0;margin-left:5px}
       .simple-more-menu{position:fixed;z-index:1099;left:max(18px,env(safe-area-inset-left));right:max(18px,env(safe-area-inset-right));bottom:84px;display:grid;gap:7px;max-width:520px;margin:auto;padding:10px;border:1px solid var(--br);border-radius:16px;background:color-mix(in srgb,var(--card) 97%,transparent);box-shadow:0 12px 35px #0008;backdrop-filter:blur(14px)}.simple-more-menu[hidden]{display:none}.simple-more-action{min-height:46px;padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--pill-bg);color:var(--fg);font-weight:850;text-align:start;cursor:pointer}.simple-more-action:hover{border-color:var(--accent)}
       .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)}
@@ -210,6 +210,13 @@
   }
   function bestForDay(offset = state.activeDay) {
     return verdictForDay(offset)?.row || null;
+  }
+  function displayRows(result) {
+    return [...(result?.rows || []), ...(result?.late_rows || [])];
+  }
+  function bestForDisplayDay(offset = state.activeDay) {
+    const result = verdictForDay(offset);
+    return result?.row || result?.late_rows?.[0] || null;
   }
   function forecastQuality(best) {
     const c = copy();
@@ -388,7 +395,8 @@
   }
   function renderNavigation(result) {
     const c = copy();
-    const rows = result?.rows || [];
+    const actionableRows = result?.rows || [];
+    const rows = displayRows(result);
     const content = rows.length ? rows.slice(0, 5).map((row, index) => {
       const item = row.windowItem;
       const destination = row.destination;
@@ -398,8 +406,9 @@
       const offHours = String(row.category || item.category || '').toLowerCase() === 'off_hours';
       const watch = String(row.category || item.category || '').toLowerCase() === 'watch';
       const prudent = String(item.family_tier || destination.family_tier || '').toLowerCase() === 'prudent';
-      const tone = longTrip ? 'travel' : offHours ? 'off-hours' : watch ? 'watch' : prudent ? 'prudent' : '';
-      const label = longTrip ? c.longTripSlot : offHours ? c.offHoursSlot : watch ? c.review : prudent ? c.cautious : 'FAMILY GO';
+      const late = index >= actionableRows.length;
+      const tone = late ? 'in-progress' : longTrip ? 'travel' : offHours ? 'off-hours' : watch ? 'watch' : prudent ? 'prudent' : '';
+      const label = late ? c.inProgress : longTrip ? c.longTripSlot : offHours ? c.offHoursSlot : watch ? c.review : prudent ? c.cautious : 'FAMILY GO';
       const origin = item.origin_name || '';
       const target = item.destination_name || destination.dest_name || destination.dest_slug || '—';
       const name = longTrip && origin ? `${origin} → ${target}` : target;
@@ -409,8 +418,12 @@
       const details = [direction, beta, `${formatTime(item.start)} → ${formatTime(item.end)} · ${duration.toFixed(duration % 1 ? 1 : 0)} h`].filter(Boolean).join(' · ');
       const required = Number(item.required_hours ?? destination.required_hours);
       const requiredLabel = Number.isFinite(required) ? `${required} h` : '—';
+      const remaining = Math.max(0, (new Date(item.end) - Date.now()) / 3600000);
+      const remainingLabel = `${Math.floor(remaining)} h ${String(Math.floor((remaining % 1) * 60)).padStart(2,'0')} min`;
       const quality = forecastQuality(row).label;
-      return `<article class="simple-window-item"><button class="simple-window-card" data-simple-action="window-details" data-simple-window-index="${index}" type="button" aria-expanded="false" aria-controls="simple-window-details-${index}"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(details)}</small></span><span class="simple-window-arrow" aria-hidden="true">›</span></button><div id="simple-window-details-${index}" class="simple-window-details" hidden><div class="simple-window-detail"><span>${esc(c.duration)}</span><strong>${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}</strong></div><div class="simple-window-detail"><span>${esc(c.required)}</span><strong>${esc(requiredLabel)}</strong></div><div class="simple-window-detail"><span>${esc(c.forecastQuality)}</span><strong>${esc(quality)}</strong></div><button class="simple-window-map" data-simple-action="map-window" data-simple-window-index="${index}" type="button">🗺️ ${esc(c.showOnMap)}</button></div></article>`;
+      const status = late ? `<small class="simple-window-status">${esc(c.remaining)} : ${esc(remainingLabel)} · ${esc(c.fullDurationUnavailable)} (${esc(requiredLabel)})</small>` : '';
+      const warning = late ? `<p class="simple-window-warning">⚠️ ${esc(c.fullDurationUnavailable)} : ${esc(c.required)} ${esc(requiredLabel)}.</p>` : '';
+      return `<article class="simple-window-item${late ? ' in-progress' : ''}"><button class="simple-window-card" data-simple-action="window-details" data-simple-window-index="${index}" type="button" aria-expanded="false" aria-controls="simple-window-details-${index}"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(details)}</small>${status}</span><span class="simple-window-arrow" aria-hidden="true">›</span></button><div id="simple-window-details-${index}" class="simple-window-details" hidden>${late ? `<div class="simple-window-detail"><span>${esc(c.remaining)}</span><strong>${esc(remainingLabel)}</strong></div>` : `<div class="simple-window-detail"><span>${esc(c.duration)}</span><strong>${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}</strong></div>`}<div class="simple-window-detail"><span>${esc(c.required)}</span><strong>${esc(requiredLabel)}</strong></div><div class="simple-window-detail"><span>${esc(c.forecastQuality)}</span><strong>${esc(quality)}</strong></div>${warning}<button class="simple-window-map" data-simple-action="map-window" data-simple-window-index="${index}" type="button">🗺️ ${esc(c.showOnMap)}</button></div></article>`;
     }).join('') : `<div class="simple-empty">${esc(c.noWindow)}</div>`;
     return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${rows.length}</span></div><div class="simple-navigation">${content}</div></section>`;
   }
@@ -436,7 +449,8 @@
         STALE:c.unavailable, NO_DATA:c.unavailable,
       }[result?.state] || (result?.state === 'NO_GO' ? c.noGo : c.loading);
       const counts = result?.counts || {};
-      const countText = `${counts.total || 0} ${c.options}`;
+      const lateCount = result?.late_rows?.length || 0;
+      const countText = lateCount && !counts.total ? `${lateCount} ${c.inProgress.toLowerCase()}` : `${counts.total || 0} ${c.options}`;
       const windowText = best ? `${formatTime(best.windowItem.start)}–${formatTime(best.windowItem.end)} · ${countText}` : countText;
       const selected = index === state.activeDay;
       return `<button id="simple-day-tab-${index}" class="simple-day ${tone}" data-simple-day="${index}" type="button" role="tab" aria-selected="${selected}" aria-controls="simple-selected-day-content" tabindex="${selected ? 0 : -1}"${selected ? ' aria-current="date"' : ''}><span class="simple-day-heading"><span class="simple-day-title">${esc(dayLabel(key,index))}</span><time class="simple-day-calendar" datetime="${esc(key)}">${esc(shortDate(key))}</time></span><strong class="simple-day-state">${esc(label)}</strong><span class="simple-day-date">${esc(windowText)}</span><span class="simple-day-track" aria-hidden="true"><span class="simple-day-segment" style="width:${width}%;margin-left:${best ? offset : 0}%"></span></span></button>`;
@@ -450,6 +464,8 @@
     const result = verdictForDay();
     const selectedTone = toneForState(result?.state);
     const best = result?.row || null;
+    const contextRow = best || result?.late_rows?.[0] || null;
+    const lateDetail = result?.late_rows?.length ? `${c.inProgress} : ${c.fullDurationUnavailable}.` : '';
     const presentation = {
       GO_FAMILY:{tone:'good', title:c.possible, icon:'✓', detail:''},
       GO_PRUDENT:{tone:'prudent', title:c.prudent, icon:'⚠️', detail:''},
@@ -458,12 +474,12 @@
       TRAVEL_ONLY:{tone:'travel', title:c.travelOnly, icon:'🧭', detail:c.travelOnlyDetail},
       STALE:{tone:'blocked', title:c.staleTitle, icon:'⚠️', detail:c.stale},
       NO_DATA:{tone:'blocked', title:c.noDataTitle, icon:'⛔', detail:c.missing},
-      NO_GO:{tone:'blocked', title:c.blocked, icon:'⛔', detail:c.conditions},
+      NO_GO:{tone:'blocked', title:c.blocked, icon:'⛔', detail:lateDetail || c.conditions},
     }[result?.state] || {tone:'blocked', title:c.loading, icon:'⏳', detail:''};
     const blocked = result?.blocker || result?.spot || null;
     const destination = best ? best.destination.dest_name || best.destination.dest_slug : c.conditions;
     const windowText = best ? `${formatTime(best.windowItem.start)}–${formatTime(best.windowItem.end)}` : c.noWindow;
-    const quality = forecastQuality(best);
+    const quality = forecastQuality(contextRow);
     const generatedAt = state.windows?.generated_at || state.status?.generated_at;
     const reason = blockerText(blocked) || presentation.detail || c.conditions;
     const dataState = state.loading ? `<div class="simple-data-state" role="status">⏳ ${esc(c.loading)}</div>` : state.error ? `<div class="simple-data-state error" role="alert">⚠️ ${esc(c.missing)}</div>` : result?.state === 'STALE' ? `<div class="simple-data-state stale" role="alert">⚠️ ${esc(c.stale)}</div>` : '';
@@ -475,13 +491,13 @@
         <div class="simple-hero-grid"><div><h1 class="simple-verdict"><span class="simple-verdict-icon" aria-hidden="true">${presentation.icon}</span>${esc(presentation.title)}</h1>
         ${best ? `<div class="simple-destination">📍 ${esc(destination)}</div><div class="simple-window">${esc(windowText)}</div>` : ''}
         ${presentation.detail ? `<p class="simple-hero-detail">${esc(presentation.detail)}</p>` : ''}
-        <div class="simple-actions">${result?.rows?.length ? `<button class="simple-action primary" data-simple-action="windows" type="button">${esc(c.viewWindows)} →</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>` : `<button class="simple-action primary" aria-expanded="false" aria-controls="simple-reasons" data-simple-action="reasons" type="button">${esc(c.why)}</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>`}</div>
+        <div class="simple-actions">${displayRows(result).length ? `<button class="simple-action primary" data-simple-action="windows" type="button">${esc(c.viewWindows)} →</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>` : `<button class="simple-action primary" aria-expanded="false" aria-controls="simple-reasons" data-simple-action="reasons" type="button">${esc(c.why)}</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>`}</div>
         <div id="simple-reasons" class="simple-reasons" hidden><p>⚠️ <strong>${esc(reason)}</strong></p><small>${esc(c.details)} : ${esc(blocked?.dest_name || blocked?.dest_slug || '—')}</small></div></div>
         <aside class="simple-confidence" data-quality-level="${esc(quality.level)}" aria-label="${esc(c.forecastQuality)} : ${esc(quality.label)}"><span class="simple-confidence-label">${esc(c.forecastQuality)}</span><div class="simple-confidence-ring"><strong>${esc(quality.label)}</strong></div></aside></div>
       </section>
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.forecastQuality)}</span><strong>${esc(quality.label)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
       ${renderTimeline(result?.rows || [], result?.counts || {})}
-      ${renderNavigation(result)}${renderConditions(best)}${renderActivities(best)}
+      ${renderNavigation(result)}${renderConditions(contextRow)}${renderActivities(best)}
       </div>
       </div>
     </div><div id="simple-more-menu" class="simple-more-menu" hidden><button class="simple-more-action" data-simple-action="conditions" type="button">〽️ ${esc(c.conditionsMenu)}</button><button class="simple-more-action" data-simple-action="activities" type="button">🌊 ${esc(c.activitiesMenu)}</button><button class="simple-more-action" data-simple-action="family" type="button">👨‍👩‍👧 ${esc(c.familyMenu)}</button></div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="more" type="button" aria-expanded="false" aria-controls="simple-more-menu"><span>•••</span>${esc(c.more)}</button></nav>`;
@@ -518,7 +534,7 @@
     setMode('family', false);
     setTimeout(() => document.querySelector(`[data-family-tab="${tab}"]`)?.click(), 120);
   }
-  function openSelectedMap(best = bestForDay()) {
+  function openSelectedMap(best = bestForDisplayDay()) {
     const slug = best?.destination?.dest_slug;
     openFamilyTab('map');
     setTimeout(() => {
@@ -547,7 +563,7 @@
       state.recommendations = recommendationsResponse?.ok ? await recommendationsResponse.json() : {};
       state.rules = rulesResponse?.ok ? await rulesResponse.json() : {};
       if (!windowsResponse.ok || !statusResponse.ok) state.error = 'published-data-unavailable';
-      await loadForecast(bestForDay());
+      await loadForecast(bestForDisplayDay());
     } catch { state.windows = null; state.status = null; state.forecast = {}; state.recommendations = {}; state.rules = {}; state.error = 'network'; }
     state.loading = false;
     render();
@@ -603,7 +619,7 @@
         if (action === 'map') openSelectedMap();
         if (action === 'map-window') {
           const index = Number(event.target.closest('[data-simple-window-index]')?.dataset.simpleWindowIndex);
-          const row = verdictForDay()?.rows?.[index] || null;
+          const row = displayRows(verdictForDay())?.[index] || null;
           openSelectedMap(row);
         }
         if (action === 'days') document.getElementById('simple-three-days')?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -626,7 +642,7 @@
           localStorage.setItem('fable_selected_day', selectedKey);
           window.FABLEDaySelection?.setSelectedDay?.(selectedKey, {persist:true, announce:true});
           state.loading = true; render();
-          loadForecast(bestForDay()).finally(() => {
+          loadForecast(bestForDisplayDay()).finally(() => {
             state.loading = false; render();
             document.querySelector(`[data-simple-day="${day}"]`)?.focus();
           });
@@ -671,7 +687,7 @@
       state.activeDay = offset;
       state.loading = true;
       render();
-      loadForecast(bestForDay()).finally(() => { state.loading = false; render(); });
+      loadForecast(bestForDisplayDay()).finally(() => { state.loading = false; render(); });
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build, {once:true}); else build();

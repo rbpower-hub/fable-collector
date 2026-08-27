@@ -18,9 +18,8 @@
     noReason: 'No complete safe family window was detected.',
     openMap: 'View on the map', seeReasons: 'See why', strict: 'FAMILY GO', prudent: 'PRUDENT GO',
     staleBadge: 'STALE DATA', noDataBadge: 'NO DATA', noGoBadge: 'NO-GO',
-    confidence: {
-      high: ['●●●', 'very good reliability'], medium: ['●●○', 'good reliability'],
-      low: ['●○○', 'limited reliability — reconfirm before departure'],
+    qualityLabel: 'Forecast quality', confidence: {
+      high: 'Very good', medium: 'Good', low: 'Limited — reconfirm before departure',
     },
   } : {
     eyebrow: 'Verdict famille du jour', stale: 'Données périmées — ne pas se fier au tableau',
@@ -33,9 +32,8 @@
     noReason: 'Aucune fenêtre familiale complète et sûre n’a été détectée.',
     openMap: 'Voir sur la carte', seeReasons: 'Voir pourquoi', strict: 'FAMILY GO', prudent: 'GO PRUDENT',
     staleBadge: 'DONNÉES PÉRIMÉES', noDataBadge: 'DONNÉES ABSENTES', noGoBadge: 'NO-GO',
-    confidence: {
-      high: ['●●●', 'fiabilité très bonne'], medium: ['●●○', 'fiabilité bonne'],
-      low: ['●○○', 'fiabilité limitée — à reconfirmer avant de partir'],
+    qualityLabel: 'Qualité des prévisions', confidence: {
+      high: 'Très bonne', medium: 'Bonne', low: 'Limitée — à reconfirmer avant de partir',
     },
   };
 
@@ -68,7 +66,7 @@
       .family-verdict[data-state="GO_SOON"],.family-verdict[data-state="NO_GO"]{background:linear-gradient(135deg,color-mix(in srgb,var(--warn) 15%,var(--card)),var(--card) 58%);border-color:color-mix(in srgb,var(--warn) 58%,var(--br))}
       .family-verdict[data-state="STALE"],.family-verdict[data-state="NO_DATA"]{background:linear-gradient(135deg,color-mix(in srgb,var(--bad) 18%,var(--card)),var(--card) 58%);border-color:color-mix(in srgb,var(--bad) 68%,var(--br))}
       .verdict-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center}.verdict-eyebrow{font-size:.76rem;text-transform:uppercase;letter-spacing:.09em;font-weight:900;color:var(--section)}
-      .family-verdict h2{margin:5px 0;font-size:clamp(1.45rem,2.8vw,2.25rem);line-height:1.12}.verdict-detail{color:var(--muted);font-size:1rem;line-height:1.45}.verdict-confidence{margin-top:8px;font-weight:800}
+      .family-verdict h2{margin:5px 0;font-size:clamp(1.45rem,2.8vw,2.25rem);line-height:1.12}.verdict-detail{color:var(--muted);font-size:1rem;line-height:1.45}.verdict-confidence{--quality-color:#60a5fa;display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:10px;color:var(--muted);font-size:.84rem;line-height:1.3}.verdict-confidence[data-quality-level="high"]{--quality-color:var(--ok)}.verdict-confidence[data-quality-level="medium"]{--quality-color:var(--warn)}.verdict-confidence .quality-label{color:var(--quality-color);font-size:.92rem;font-weight:900}.quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:18px;color:var(--quality-color)}.quality-bars i{display:block;width:5px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.quality-bars i:nth-child(1){height:7px}.quality-bars i:nth-child(2){height:12px}.quality-bars i:nth-child(3){height:17px}.verdict-confidence[data-quality-level="low"] .quality-bars i:nth-child(1),.verdict-confidence[data-quality-level="medium"] .quality-bars i:nth-child(-n+2),.verdict-confidence[data-quality-level="high"] .quality-bars i{background:currentColor}
       .verdict-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}.verdict-badge{display:inline-flex;padding:6px 11px;border-radius:999px;background:var(--ok);color:#04110a;font-weight:900;font-size:.78rem}
       .family-verdict[data-state="GO_SOON"] .verdict-badge,.family-verdict[data-state="NO_GO"] .verdict-badge{background:var(--warn);color:#1a1002}.family-verdict[data-state="STALE"] .verdict-badge,.family-verdict[data-state="NO_DATA"] .verdict-badge{background:#991b1b;color:#fff}
       .verdict-button{min-height:44px;border:1px solid var(--br);border-radius:999px;padding:9px 14px;background:var(--pill-bg);color:var(--fg);font-weight:900;cursor:pointer}.verdict-button.primary{background:var(--accent);color:#041019;border-color:transparent}
@@ -144,10 +142,13 @@
         ? `${name} · ${dateTime(item.start, true)} → ${dateTime(item.end, true)}`
         : `${name} · ${dateTime(item.start)} → ${dateTime(item.end, true)}`;
       badge.textContent = prudent ? text.prudent : text.strict;
-      const confidence = text.confidence[String(item?.confidence || verdict.args?.confidence || 'low').toLowerCase()] || text.confidence.low;
+      const confidenceKey = String(item?.confidence || verdict.args?.confidence || 'low').toLowerCase();
+      const confidence = text.confidence[confidenceKey] || text.confidence.low;
       const reliability = document.createElement('div');
       reliability.className = 'verdict-confidence';
-      reliability.textContent = `${confidence[0]} · ${confidence[1]}`;
+      reliability.dataset.qualityLevel = ['high', 'medium'].includes(confidenceKey) ? confidenceKey : 'low';
+      reliability.setAttribute('aria-label', `${text.qualityLabel}: ${confidence}`);
+      reliability.innerHTML = `<span>${text.qualityLabel}</span><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong class="quality-label">${confidence}</strong>`;
       message.append(eyebrow, title, detail, reliability);
       actions.append(badge, button(text.openMap, 'map', true));
     } else {

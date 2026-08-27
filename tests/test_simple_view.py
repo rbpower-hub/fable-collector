@@ -40,6 +40,8 @@ def test_simple_view_separates_forecast_quality_from_the_decision():
     assert "function forecastQuality(best)" in script
     assert "return {level:'unassessed', label:c.qualityUnassessed}" in script
     assert 'data-quality-level="${esc(quality.level)}"' in script
+    assert 'class="quality-bars" aria-hidden="true"' in script
+    assert "simple-confidence-ring" not in script
     assert "confidenceScore" not in script
     assert "confidenceWord" not in script
     assert "${score}%" not in script
@@ -155,7 +157,7 @@ def test_simple_view_weather_context_and_mobile_hierarchy():
     assert "item('uv'" in script
     assert "item('sky'" in script
     assert "item('rain'" in script
-    assert "grid-template-columns:minmax(0,1fr) 104px" in script
+    assert "@media(max-width:640px){.simple-hero-grid{grid-template-columns:1fr" in script
     assert ".simple-confidence{display:none}" not in script
     assert '[data-theme="nautical"] .simple-action.primary{color:#fff}' in script
     assert "outbound:'Aller', return:'Retour', beta:'Bêta'" in script

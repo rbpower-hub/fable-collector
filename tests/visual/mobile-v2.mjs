@@ -107,10 +107,10 @@ const initial = await page.evaluate(() => ({
   qualityHasPercent:/\d+\s*%/.test(document.querySelector('.simple-confidence')?.textContent || ''),
   verdictRect:(() => { const box = document.querySelector('.simple-verdict')?.getBoundingClientRect(); return box ? {left:box.left,top:box.top,right:box.right,bottom:box.bottom} : null; })(),
   confidenceRect:(() => { const box = document.querySelector('.simple-confidence')?.getBoundingClientRect(); return box ? {left:box.left,top:box.top,right:box.right,bottom:box.bottom} : null; })(),
-  confidenceBesideVerdict:(() => {
+  confidenceBelowVerdict:(() => {
     const verdict = document.querySelector('.simple-verdict')?.getBoundingClientRect();
     const confidence = document.querySelector('.simple-confidence')?.getBoundingClientRect();
-    return Boolean(verdict && confidence && confidence.left > verdict.left && Math.abs(confidence.top - verdict.top) < 80);
+    return Boolean(verdict && confidence && confidence.top >= verdict.bottom);
   })(),
   legacyFamilyHidden:['family-verdict-hero','family-planning-host'].every((id) => {
     const node = document.getElementById(id);
@@ -133,7 +133,7 @@ if (initial.weatherIcons.length < 4 || Math.min(...initial.weatherIcons) < 21) t
 if (!['temperature','uv','sky','rain'].every((kind) => initial.weatherKinds.includes(kind))) throw new Error(`weather icon kinds are incomplete: ${initial.weatherKinds}`);
 if (initial.weatherValueSize < 16) throw new Error(`weather values are too small: ${initial.weatherValueSize}px`);
 if (initial.overline) throw new Error('redundant decision overline is still visible');
-if (!initial.confidenceVisible || !initial.confidenceBesideVerdict) throw new Error(`confidence must remain beside the verdict on mobile: ${JSON.stringify(initial)}`);
+if (!initial.confidenceVisible || !initial.confidenceBelowVerdict) throw new Error(`forecast quality must remain readable below the verdict on mobile: ${JSON.stringify(initial)}`);
 if (initial.qualityHasPercent) throw new Error(`forecast quality must not be shown as a percentage: ${initial.qualityText}`);
 if (!/Qualité des prévisions.*Moyenne/i.test(initial.qualityText || '')) throw new Error(`unexpected forecast quality: ${initial.qualityText}`);
 if (!initial.legacyFamilyHidden) throw new Error('legacy Family verdict or planning is visible in Simple View');

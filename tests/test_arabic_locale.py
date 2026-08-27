@@ -43,7 +43,8 @@ def test_arabic_locale_adds_rtl_and_tunisia_aware_family_copy():
     assert "timeZone: TUNIS_TZ" in script
     assert "يمكن القيام بخروج عائلي اليوم" in script
     assert "بيانات الأمواج غير متاحة" in script
-    assert "موثوقية محدودة" in script
+    assert "جودة التوقعات" in script
+    assert "محدودة — يجب التأكد مجدداً قبل الانطلاق" in script
     assert "قرار العائلة اليوم" in script
     assert "لا توجد نافذة خروج آمنة" in script
     assert "تعذر تحميل سبب المنع" in script

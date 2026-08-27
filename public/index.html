@@ -64,8 +64,9 @@
     .go{display:inline-block;border-radius:10px;padding:2px 8px;margin-left:8px;font-weight:800}
     .go.family{background:var(--ok); color:#04110a}
     .go.expert{background:#f59e0b; color:#160f04}
-    .conf{border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;padding:2px 8px;margin-left:8px;font-weight:700;font-size:.82rem;color:var(--muted);white-space:nowrap}
-    .conf.high{color:var(--ok)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
+    .conf{--quality-color:#60a5fa;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--br);background:var(--pill-bg);border-radius:9px;padding:5px 8px;margin-left:8px;font-weight:800;font-size:.82rem;color:var(--quality-color);white-space:nowrap}
+    .conf.high{--quality-color:var(--ok)} .conf.medium{--quality-color:var(--warn)}
+    .quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:17px;color:var(--quality-color)}.quality-bars i{display:block;width:4px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.quality-bars i:nth-child(1){height:7px}.quality-bars i:nth-child(2){height:11px}.quality-bars i:nth-child(3){height:16px}.conf.low .quality-bars i:nth-child(1),.conf.medium .quality-bars i:nth-child(-n+2),.conf.high .quality-bars i{background:currentColor}
     .stage-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .stage-pill{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px solid var(--br);background:var(--pill-bg);border-radius:999px;padding:4px 8px;font-size:.8rem;font-weight:700}
     .stage-pill .state{color:var(--fg)}
@@ -82,10 +83,12 @@
     .stage-mini.high{color:var(--ok)}
     .stage-mini.medium{color:var(--warn)}
     .stage-mini.low{color:var(--bad)}
-    .conditions .line{border-left:4px solid var(--warn); padding:10px 12px; border-radius:8px; margin-bottom:8px}
+    .conditions h3{margin-bottom:12px}.conditions .line{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 11px;border:1px solid var(--br);border-left:4px solid var(--warn);padding:12px;border-radius:11px;margin-bottom:9px;background:color-mix(in srgb,var(--warn) 5%,var(--pill-bg))}
     .conditions .line.ok{   border-left-color: var(--ok); }
     .conditions .line.warn{ border-left-color: var(--warn); }
-    .conditions .line.bad{  border-left-color: var(--bad); }
+    .conditions .line.bad{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 6%,var(--pill-bg))}
+    .conditions .reason-status{grid-column:1;display:inline-flex;align-items:center;align-self:start;padding:4px 7px;border:1px solid color-mix(in srgb,var(--warn) 58%,var(--br));border-radius:999px;color:var(--warn);font-size:.75rem;font-weight:900;white-space:nowrap}.conditions .line.bad .reason-status{border-color:color-mix(in srgb,var(--bad) 58%,var(--br));color:var(--bad)}
+    .conditions .reason-content{grid-column:2;min-width:0}.conditions .reason{font-size:.92rem;font-weight:850;line-height:1.4}.conditions .small{margin-top:5px;color:var(--muted);font-size:.8rem;line-height:1.4}.conditions .reason-count{color:var(--muted);font-size:.78rem;font-weight:750}
 
     .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
     table{width:100%; border-collapse:collapse}
@@ -355,7 +358,7 @@
   
     <!-- 2) Avertissements (No-GO) -->
     <div class="card conditions">
-      <h3><span>🚦 Avertissements (No-GO)</span></h3>
+      <h3><span id="reasons-title">Pourquoi NO-GO</span><span id="reasons-count" class="reason-count"></span></h3>
       <div id="reasons">Chargement…</div>
     </div>
   
@@ -395,8 +398,8 @@
 
   // ===== I18N =====
   const I18N = {
-    fr:{status_ok:"Statut: OK",status_stale:"Statut: Données anciennes",updated:"Mise à jour",reasons_unavailable:"Raisons indisponibles.",none_windows:'Aucune fenêtre "GO" détectée.',fresh:"Frais",stale:"Ancien",next_refresh:s=>`Prochaine MAJ dans ${s}s.`,principal_port:"Port Principal",go_popup:{green:"Fenêtre 'GO' !",yellow:"Données à jour",red:"Données anciennes"},conf_title:(t,s)=>`Confiance: ${t}${s!=null?' · '+s+'%':''}`},
-    en:{status_ok:"Status: OK",status_stale:"Status: Stale data",updated:"Updated",reasons_unavailable:"Reasons unavailable.",none_windows:'No "GO" window detected.',fresh:"Fresh",stale:"Stale",next_refresh:s=>`Next refresh in ${s}s.`,principal_port:"Main Port",go_popup:{green:"GO window!",yellow:"Data up to date",red:"Stale data"},conf_title:(t,s)=>`Confidence: ${t}${s!=null?' · '+s+'%':''}`},
+    fr:{status_ok:"Statut: OK",status_stale:"Statut: Données anciennes",updated:"Mise à jour",reasons_unavailable:"Raisons indisponibles.",reasons_title:"Pourquoi NO-GO",reason_blocking:"Bloquant",reason_watch:"À surveiller",reason_count:n=>`${n} contrôle${n>1?'s':''}`,none_windows:'Aucune fenêtre "GO" détectée.',fresh:"Frais",stale:"Ancien",next_refresh:s=>`Prochaine MAJ dans ${s}s.`,principal_port:"Port Principal",quality_high:"Haute",quality_medium:"Moyenne",quality_low:"Limitée",go_popup:{green:"Fenêtre 'GO' !",yellow:"Données à jour",red:"Données anciennes"},conf_title:t=>`Qualité des prévisions : ${t}`},
+    en:{status_ok:"Status: OK",status_stale:"Status: Stale data",updated:"Updated",reasons_unavailable:"Reasons unavailable.",reasons_title:"Why NO-GO",reason_blocking:"Blocking",reason_watch:"Watch",reason_count:n=>`${n} check${n===1?'':'s'}`,none_windows:'No "GO" window detected.',fresh:"Fresh",stale:"Stale",next_refresh:s=>`Next refresh in ${s}s.`,principal_port:"Main Port",quality_high:"High",quality_medium:"Medium",quality_low:"Limited",go_popup:{green:"GO window!",yellow:"Data up to date",red:"Stale data"},conf_title:t=>`Forecast quality: ${t}`},
   };
   const LOCALES = { fr:'fr-FR', en:'en-GB' };
 
@@ -1180,9 +1183,8 @@
         const isOffHours = (cat === 'off_hours');
         const isFamilyAny  = isFamilyDay || isOffHours;
         const confKey = ((seg.confidence || dest.confidence) || '').toLowerCase();
-        const confText = confKey==='high'?'Haute':confKey==='medium'?'Moy.':confKey==='low'?'Faible':'';
-        const confScore = (typeof seg.confidence_score==='number') ? Math.round((seg.confidence_score<=1? seg.confidence_score*100 : seg.confidence_score)) : null;
-        const confBadge = confText ? `<span class="conf ${confKey}" title="${t('conf_title',confText,confScore)}">${confText}${confScore!=null?' · '+confScore:''}</span>` : '';
+        const confText = confKey==='high'?t('quality_high'):confKey==='medium'?t('quality_medium'):confKey==='low'?t('quality_low'):'';
+        const confBadge = confText ? `<span class="conf ${confKey}" title="${t('conf_title',confText)}" aria-label="${t('conf_title',confText)}"><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span>${confText}</span>` : '';
 
         // sources/spreads/details
         const models = seg.models || dest.models || [];
@@ -1419,18 +1421,19 @@
       const rowsHTML = reasonsRows.map(r=>{
       if (r?.composite) {
         const sev = r.composite.severity || 'warn';
-        const icon = sev === 'ok' ? '✅' : sev === 'bad' ? '🚫' : '⚠️';
         const stepIcon = step => step?.status === 'ok' ? '✅' : step?.status === 'off_hours' ? '🕒' : step?.status === 'waiting' ? '⏳' : '🚫';
         const stepLine = step => `<div class="small">${stepIcon(step)} <b>${escapeHtml(step?.title || '')}</b> · ${escapeHtml(step?.route || '')}${step?.reason ? ` · ${escapeHtml(prettifyReasonDates(step.reason))}` : ''}</div>`;
         const align = r.composite.alignment
           ? `<div class="small">🧩 <b>Alignement</b> · ${escapeHtml(prettifyReasonDates(r.composite.alignment.reason || '—'))}</div>`
           : '';
+        const statusText = sev === 'bad' ? t('reason_blocking') : t('reason_watch');
         return `<div class="line ${sev}" title="${escapeHtml(r.composite.summary || '')}">
-                  <div class="reason">${icon} ${escapeHtml(r.composite.summary || '')}</div>
+                  <span class="reason-status">${escapeHtml(statusText)}</span>
+                  <div class="reason-content"><div class="reason">${escapeHtml(r.composite.summary || '')}</div>
                   ${stepLine(r.composite.step1)}
                   ${stepLine(r.composite.step2)}
                   ${align}
-                  <div class="small">${r.spot || ''}</div>
+                  <div class="small">${r.spot || ''}</div></div>
                 </div>`;
       }
        // prefer Family line if present
@@ -1460,17 +1463,18 @@
       const flags = file ? spotFlags.get(file) : null;
       
       // severity + icon (check original raw)
-      let sev = 'warn', icon = '⚠️';
-      if (/^[✗🚫]/.test(raw)) { sev='bad';  icon='🚫'; }
-      else if (/^[✓✅]/.test(raw)) { sev='ok'; icon='✅'; }
+      let sev = 'warn';
+      if (/^[✗🚫]/.test(raw)) sev='bad';
+      else if (/^[✓✅]/.test(raw)) sev='ok';
       
       // scope label
       const scope = ` (journée ${familyStartHour()}h–${familyEndHour()}h)`;
       const offNote = flags?.off ? ' · fenêtres hors horaires disponibles' : '';
       
       return `<div class="line ${sev}" title="${cleaned}${scope}${offNote}">
-                <div class="reason">${icon} ${main}${scope}${offNote}</div>
-                <div class="small">${r.spot||''}</div>
+                <span class="reason-status">${escapeHtml(sev === 'bad' ? t('reason_blocking') : t('reason_watch'))}</span>
+                <div class="reason-content"><div class="reason">${escapeHtml(`${main}${scope}${offNote}`)}</div>
+                <div class="small">${r.spot||''}</div></div>
               </div>`;
 
       }).join('');
@@ -1480,9 +1484,13 @@
       _tmp.innerHTML = rowsHTML;
       _tmp.querySelectorAll('.line.ok').forEach(n=>n.remove());
       reasonsDiv.innerHTML = _tmp.innerHTML;
+      const count = reasonsDiv.querySelectorAll('.line').length;
+      $('#reasons-count').textContent = count ? t('reason_count', count) : '';
     } else {
       reasonsDiv.innerHTML = `<span class="small">${t('reasons_unavailable')}</span>`;
+      $('#reasons-count').textContent = '';
     }
+    $('#reasons-title').textContent = t('reasons_title');
 
     // Radar des spots + sparklines + bouton Info...
     const filesTableBody = $('#files tbody');

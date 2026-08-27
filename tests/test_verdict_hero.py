@@ -28,7 +28,9 @@ def test_family_verdict_has_five_states_and_map_action():
     assert "row.category === 'family'" in navigation
     assert "isLongTripNavigationWindow" in navigation
     assert "routeKind.includes('offshore')" in navigation
-    assert "limited reliability — reconfirm before departure" in hero
-    assert "fiabilité limitée — à reconfirmer avant de partir" in hero
+    assert "Limited — reconfirm before departure" in hero
+    assert "Limitée — à reconfirmer avant de partir" in hero
+    assert "quality-bars" in hero
+    assert "dataset.qualityLevel" in hero
     assert "data-verdict-action" in hero
     assert "scrollIntoView({behavior: 'smooth', block: 'start'})" in hero

@@ -33,9 +33,10 @@ def test_family_mode_hides_technical_and_long_trip_content():
 def test_family_mode_replaces_jargon_with_reliability_and_safe_warnings():
     script = (ROOT / "public" / "family-content-gate.js").read_text(encoding="utf-8")
 
-    assert "fiabilité très bonne" in script
-    assert "fiabilité bonne" in script
-    assert "à reconfirmer avant de partir" in script
+    assert "Qualité des prévisions" in script
+    assert "Très bonne" in script
+    assert "Limitée — à reconfirmer avant de partir" in script
+    assert "quality-bars" in script
     assert "modèles météo d’accord" in script
     assert "Données de vagues indisponibles — fenêtres non confirmées" in script
     assert "warning.title = String(marineError)" in script

@@ -20,13 +20,13 @@
       GO_SOON: ['ليس اليوم — أقرب نافذة عائلية آمنة', '', 'نافذة قادمة'],
       NO_GO: ['لا توجد خرجة عائلية آمنة ضمن أفق التوقعات', 'لم يتم رصد نافذة عائلية آمنة ومكتملة.', 'غير مناسب'],
     },
-    mapAction: 'عرض على الخريطة', reasonsAction: 'عرض الأسباب', planning: '📅 تخطيط عائلي لثلاثة أيام · توقيت تونس',
+    mapAction: 'عرض على الخريطة', reasonsAction: 'عرض الأسباب', reasonBlocking: 'مانع', reasonWatch: 'تحت المراقبة', reasonCount: (count) => `${count} فحوص`, planning: '📅 تخطيط عائلي لثلاثة أيام · توقيت تونس',
     longPlanner: '🧭 مخطط الرحلات الطويلة', today: 'اليوم', tomorrow: 'غداً', afterTomorrow: 'بعد غد', horizon: '72 س',
     noWindow: 'لا توجد نافذة آمنة', emptyWindows: 'لا توجد نافذة خروج آمنة.',
     outbound: 'الذهاب', return: 'العودة', noReturn: 'لا توجد نافذة عودة آمنة خلال 72 ساعة',
     states: {go: 'مناسب', prudent: 'بحذر', noGo: 'غير مناسب', travel: 'رحلة'},
     confidenceShort: {high: 'ثقة عالية', medium: 'ثقة متوسطة', low: 'ثقة محدودة'},
-    reliability: {high: '●●● · موثوقية ممتازة', medium: '●●○ · موثوقية جيدة', low: '●○○ · موثوقية محدودة — يجب التأكد مجدداً قبل الانطلاق'},
+    qualityLabel: 'جودة التوقعات', reliability: {high: 'ممتازة', medium: 'جيدة', low: 'محدودة — يجب التأكد مجدداً قبل الانطلاق'},
     models: (count) => `✓ توافق ${count} نماذج جوية`, marineMissing: '⚠️ بيانات الأمواج غير متاحة — النوافذ غير مؤكدة',
     backendUnavailable: '❓ تعذر تحميل سبب المنع.',
     staleBanner: (date) => `⚠️ البيانات تعود إلى ${date}. لم تعد اللوحة موثوقة — لا تنطلق اعتماداً عليها.`,
@@ -164,9 +164,10 @@
     }
     const reliability = hero.querySelector('.verdict-confidence');
     if (reliability) {
-      const dots = reliability.textContent.match(/[●○]{3}/)?.[0] || '●○○';
-      const key = dots === '●●●' ? 'high' : dots === '●●○' ? 'medium' : 'low';
-      setText(reliability, AR.reliability[key]);
+      const key = reliability.dataset.qualityLevel || 'low';
+      setText(reliability.firstElementChild, AR.qualityLabel);
+      setText(reliability.querySelector('.quality-label'), AR.reliability[key] || AR.reliability.low);
+      reliability.setAttribute('aria-label', `${AR.qualityLabel}: ${AR.reliability[key] || AR.reliability.low}`);
     }
     hero.querySelectorAll('[data-verdict-action="map"]').forEach((button) => setText(button, AR.mapAction));
     hero.querySelectorAll('[data-verdict-action="reasons"]').forEach((button) => setText(button, AR.reasonsAction));
@@ -278,8 +279,10 @@
       setText(badge, /PRUDENT/i.test(raw) ? AR.states.prudent : AR.states.go);
     });
     document.querySelectorAll('.family-reliability').forEach((node) => {
-      const dots = node.textContent.match(/[●○]{3}/)?.[0] || '●○○';
-      setText(node, dots === '●●●' ? AR.reliability.high : dots === '●●○' ? AR.reliability.medium : AR.reliability.low);
+      const key = node.dataset.qualityLevel || 'low';
+      setText(node.firstElementChild, AR.qualityLabel);
+      setText(node.querySelector('.quality-label'), AR.reliability[key] || AR.reliability.low);
+      node.setAttribute('aria-label', `${AR.qualityLabel}: ${AR.reliability[key] || AR.reliability.low}`);
     });
     document.querySelectorAll('.family-model-agreement').forEach((node) => {
       const count = node.textContent.match(/\d+/)?.[0] || '2';
@@ -290,7 +293,10 @@
       const friendly = line.querySelector('.friendly-reason') || line.querySelector('.reason');
       const raw = line.dataset.rawReason || line.title || diagnosticReasonForLine(line) || friendly?.textContent;
       if (friendly && raw) setText(friendly, ArabicReason(raw));
+      setText(line.querySelector('.reason-status'), line.classList.contains('bad') ? AR.reasonBlocking : AR.reasonWatch);
     });
+    const reasonCount = document.querySelectorAll('#reasons .line').length;
+    setText(document.getElementById('reasons-count'), reasonCount ? AR.reasonCount(reasonCount) : '');
     syncMarineDiagnosticNote();
     document.querySelectorAll('.stale-data-banner').forEach((banner) => {
       const date = statusPayload?.generated_at ? formatDate(statusPayload.generated_at, {weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';

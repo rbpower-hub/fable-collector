@@ -18,7 +18,7 @@
     today: '3 days', activities: 'Activities', map: 'Map', details: 'Details',
     nextGo: 'Next family outing', noGo: 'No validated Family GO window',
     strict: 'FAMILY GO', prudent: 'PRUDENT GO', options: 'Options',
-    offshore: 'Long-trip slots', updated: 'Updated', confidence: 'Confidence',
+    offshore: 'Long-trip slots', updated: 'Updated', confidence: 'Forecast quality',
     seeWindow: 'See window', seeMap: 'Open map', seeActivities: 'See activities',
     seeReasons: 'See reasons', waiting: 'Waiting for the next safe window.',
     noReason: 'Current forecasts do not provide a complete validated family window.',
@@ -34,7 +34,7 @@
     today: '3 jours', activities: 'Activités', map: 'Carte', details: 'Détails',
     nextGo: 'Prochaine sortie familiale', noGo: 'Aucune fenêtre Family GO validée',
     strict: 'FAMILY GO', prudent: 'GO PRUDENT', options: 'Options',
-    offshore: 'Créneaux long trajet', updated: 'Mise à jour', confidence: 'Confiance',
+    offshore: 'Créneaux long trajet', updated: 'Mise à jour', confidence: 'Qualité des prévisions',
     seeWindow: 'Voir la fenêtre', seeMap: 'Ouvrir la carte', seeActivities: 'Voir les activités',
     seeReasons: 'Voir les raisons', waiting: 'En attente de la prochaine fenêtre sûre.',
     noReason: 'Les prévisions actuelles ne donnent pas de fenêtre familiale complète et validée.',
@@ -71,6 +71,7 @@
       .family-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:15px}
       .family-kpi{border:1px solid var(--br);border-radius:11px;padding:9px 11px;background:color-mix(in srgb,var(--pill-bg) 78%,transparent)}
       .family-kpi span{display:block;color:var(--muted);font-size:.76rem;margin-bottom:2px}.family-kpi strong{font-size:.98rem}
+      .family-quality{--quality-color:#60a5fa;display:flex;align-items:center;gap:8px;color:var(--quality-color)}.family-quality[data-quality-level="high"]{--quality-color:var(--ok)}.family-quality[data-quality-level="medium"]{--quality-color:var(--warn)}.family-quality .quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:18px}.family-quality .quality-bars i{display:block;width:5px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.family-quality .quality-bars i:nth-child(1){height:7px}.family-quality .quality-bars i:nth-child(2){height:12px}.family-quality .quality-bars i:nth-child(3){height:17px}.family-quality[data-quality-level="low"] .quality-bars i:nth-child(1),.family-quality[data-quality-level="medium"] .quality-bars i:nth-child(-n+2),.family-quality[data-quality-level="high"] .quality-bars i{background:currentColor}
       .family-summary-hint{margin-top:11px;color:var(--muted);font-size:.78rem}
       .family-planning{margin-top:17px;padding-top:15px;border-top:1px solid var(--br)}
       .family-planning-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
@@ -351,7 +352,10 @@
       const destination = state.best.destination;
       const item = state.best.windowItem;
       const prudent = (item.family_tier || destination.family_tier) === 'prudent';
-      const confidence = item.confidence || destination.confidence || '—';
+      const confidence = String(item.confidence || destination.confidence || 'low').toLowerCase();
+      const confidenceLabel = lang() === 'en'
+        ? ({high:'Very good', medium:'Good', low:'Limited'}[confidence] || 'Not assessed')
+        : ({high:'Très bonne', medium:'Bonne', low:'Limitée'}[confidence] || 'Non évaluée');
       const caution = prudent
         ? (lang() === 'en' ? item.caution_en : item.caution_fr) || c.reduced
         : `${formatDateTime(item.start)} → ${formatDateTime(item.end)}`;
@@ -371,7 +375,7 @@
         </div>
         <div class="family-kpis">
           <div class="family-kpi"><span>${esc(c.options)}</span><strong data-nav-selected-family-count>${coastal.length}</strong></div>
-          <div class="family-kpi"><span>${esc(c.confidence)}</span><strong>${esc(String(confidence))}</strong></div>
+          <div class="family-kpi"><span>${esc(c.confidence)}</span><strong class="family-quality" data-quality-level="${esc(['high','medium'].includes(confidence) ? confidence : 'low')}" aria-label="${esc(c.confidence)} : ${esc(confidenceLabel)}"><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span>${esc(confidenceLabel)}</strong></div>
           <div class="family-kpi"><span>${esc(c.updated)}</span><strong>${esc(generatedAt ? formatDateTime(generatedAt) : '—')}</strong></div>
         </div>
         <div class="family-summary-hint">${esc(c.offshore)} : <span data-nav-selected-long-count>${offshoreCount}</span></div>

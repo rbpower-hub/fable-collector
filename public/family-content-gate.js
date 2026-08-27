@@ -8,19 +8,15 @@
   ).toLowerCase().startsWith('en') ? 'en' : 'fr';
 
   const copy = () => language() === 'en' ? {
-    confidence: {
-      high: '●●● · very good reliability',
-      medium: '●●○ · good reliability',
-      low: '●○○ · limited reliability — reconfirm before departure',
+    qualityLabel: 'Forecast quality', confidence: {
+      high: 'Very good', medium: 'Good', low: 'Limited — reconfirm before departure',
     },
     agreement: (count) => `✓ ${count} weather models agree`,
     marineMissing: '⚠️ Wave data unavailable — windows are not confirmed',
     longTrips: '🧭 Long trips',
   } : {
-    confidence: {
-      high: '●●● · fiabilité très bonne',
-      medium: '●●○ · fiabilité bonne',
-      low: '●○○ · fiabilité limitée — à reconfirmer avant de partir',
+    qualityLabel: 'Qualité des prévisions', confidence: {
+      high: 'Très bonne', medium: 'Bonne', low: 'Limitée — à reconfirmer avant de partir',
     },
     agreement: (count) => `✓ ${count} modèles météo d’accord`,
     marineMissing: '⚠️ Données de vagues indisponibles — fenêtres non confirmées',
@@ -44,7 +40,7 @@
       body.family-board-mode .expert-only{display:none!important}
       body.expert-board-mode .family-only{display:none!important}
       .family-reliability,.family-model-agreement,.family-marine-warning{margin-top:5px;font-size:.83rem;color:var(--muted);line-height:1.35}
-      .family-reliability{font-weight:800}.family-marine-warning{color:var(--warn);font-weight:800}
+      .family-reliability{--quality-color:#60a5fa;display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-weight:700}.family-reliability[data-quality-level="high"]{--quality-color:var(--ok)}.family-reliability[data-quality-level="medium"]{--quality-color:var(--warn)}.family-reliability .quality-label{color:var(--quality-color);font-size:.88rem;font-weight:900}.family-reliability .quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:17px;color:var(--quality-color)}.family-reliability .quality-bars i{display:block;width:4px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.family-reliability .quality-bars i:nth-child(1){height:7px}.family-reliability .quality-bars i:nth-child(2){height:11px}.family-reliability .quality-bars i:nth-child(3){height:16px}.family-reliability[data-quality-level="low"] .quality-bars i:nth-child(1),.family-reliability[data-quality-level="medium"] .quality-bars i:nth-child(-n+2),.family-reliability[data-quality-level="high"] .quality-bars i{background:currentColor}.family-marine-warning{color:var(--warn);font-weight:800}
       .family-long-trips{margin-top:14px;border-top:1px solid var(--br);padding-top:10px}.family-long-trips>summary{cursor:pointer;font-weight:900;color:var(--section)}
       .family-long-trips .trip-planner{margin-top:10px}
     `;
@@ -86,7 +82,14 @@
       reliability.className = 'family-reliability family-only';
       title.insertAdjacentElement('afterend', reliability);
     }
-    setText(reliability, copy().confidence[confKey] || copy().confidence.low);
+    const quality = copy().confidence[confKey] || copy().confidence.low;
+    const qualitySignature = `${language()}|${confKey}`;
+    if (reliability.dataset.qualitySignature !== qualitySignature) {
+      reliability.dataset.qualityLevel = confKey;
+      reliability.dataset.qualitySignature = qualitySignature;
+      reliability.setAttribute('aria-label', `${copy().qualityLabel}: ${quality}`);
+      reliability.innerHTML = `<span>${copy().qualityLabel}</span><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong class="quality-label">${quality}</strong>`;
+    }
 
     line.querySelectorAll('.small').forEach((node) => {
       if (!node.classList.contains('family-only') && technicalSmall(node)) node.classList.add('expert-only');

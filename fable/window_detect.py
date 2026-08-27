@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import load_rules, window_bounds
+from .hourly_assessment import build_hourly_assessment
 from .util import slugify
 from .window_models import Site, Thresholds, load_site
 from .window_policy import (
@@ -505,7 +506,7 @@ def run_reader(
 
     output = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "version": 4,
+        "version": 7,
         "home_slug": home_slug,
         "window_hours": {
             "configured_min": min_h,
@@ -521,10 +522,14 @@ def run_reader(
             "watch_review_required": True,
             "daylight_enabled": th.daylight_enabled,
             "shelter_tolerance_requires_configured_radius": True,
+            "hourly_assessment_is_window_decision": False,
+            "hourly_assessment_phase": "transit",
+            "hourly_assessment_files": True,
         },
         "rules_digest": None,
         "windows": [],
     }
+    hourly_payloads: dict[str, dict[str, Any]] = {}
     try:
         from .config import rules_digest
 
@@ -604,6 +609,19 @@ def run_reader(
                 window for window in watch_windows if str(window.get("start") or "")[:10] not in validated_days
             ]
         diagnostics["technical_review_candidates"] = len(watch_windows)
+        hourly_path = f"hourly/{filename}"
+        hourly_records = build_hourly_assessment(destination, th)
+        hourly_payloads[filename] = {
+            "generated_at": output["generated_at"],
+            "version": 1,
+            "rules_digest": output["rules_digest"],
+            "dest_slug": filename,
+            "dest_name": destination.name,
+            "scope": "single_hour_conditions",
+            "phase": "transit",
+            "is_window_decision": False,
+            "hours": hourly_records,
+        }
         output["windows"].append(
             {
                 "dest_slug": filename,
@@ -611,11 +629,28 @@ def run_reader(
                 "required_hours": required,
                 "windows": windows,
                 "watch_windows": watch_windows,
+                "hourly_assessment": {
+                    "path": hourly_path,
+                    "count": len(hourly_records),
+                    "scope": "single_hour_conditions",
+                    "phase": "transit",
+                    "is_window_decision": False,
+                },
                 "diagnostics": diagnostics,
             }
         )
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    hourly_dir = out_dir / "hourly"
+    hourly_dir.mkdir(parents=True, exist_ok=True)
+    for stale_file in hourly_dir.glob("*.json"):
+        if stale_file.name not in hourly_payloads:
+            stale_file.unlink()
+    for filename, payload in hourly_payloads.items():
+        (hourly_dir / filename).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     (out_dir / "windows.json").write_text(
         json.dumps(output, ensure_ascii=False, indent=2),
         encoding="utf-8",

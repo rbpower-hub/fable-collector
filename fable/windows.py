@@ -160,7 +160,7 @@ def _apply_one_way_routes(
         if route_kind == "offshore_one_way_beta":
             entry["offshore_profile"] = profile
 
-    output["version"] = max(int(output.get("version", 4)), 6)
+    output["version"] = max(int(output.get("version", 4)), 7)
     output.setdefault("policy", {})["one_way_multi_day_supported"] = True
     output["policy"]["long_trip_same_day_round_trip_required"] = False
     output.setdefault("policy", {})["offshore_one_way_supported"] = True

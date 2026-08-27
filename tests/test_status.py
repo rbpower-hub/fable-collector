@@ -62,3 +62,34 @@ def test_final_check_detects_problems(tmp_path):
     problems = final_check(tmp_path, ["gammarth-port.json"])
     assert any("index.json" in p for p in problems)
     assert any("gammarth-port.json" in p for p in problems)
+
+
+def test_final_check_validates_hourly_assessment_reference(tmp_path):
+    seed_public(tmp_path)
+    for required in [
+        "catalog.json",
+        "status.json",
+        "status.html",
+        "windows.md",
+        "index.html",
+        "rules.normalized.json",
+    ]:
+        (tmp_path / required).write_text("{}", encoding="utf-8")
+    (tmp_path / "windows.json").write_text(json.dumps({
+        "windows": [{
+            "dest_slug": "gammarth-port.json",
+            "hourly_assessment": {"path": "hourly/gammarth-port.json", "count": 2},
+        }],
+    }), encoding="utf-8")
+
+    problems = final_check(tmp_path, ["gammarth-port.json"])
+    assert "missing or empty hourly assessment: hourly/gammarth-port.json" in problems
+
+    hourly = tmp_path / "hourly"
+    hourly.mkdir()
+    (hourly / "gammarth-port.json").write_text(
+        json.dumps({"hours": [{"time": "a"}, {"time": "b"}]}),
+        encoding="utf-8",
+    )
+    problems = final_check(tmp_path, ["gammarth-port.json"])
+    assert not any("hourly assessment" in problem for problem in problems)

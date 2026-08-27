@@ -1,0 +1,527 @@
+{
+  "meta": {
+    "name": "Fixture",
+    "slug": "fixture-spot",
+    "lat": 36.92,
+    "lon": 10.28,
+    "tz": "Africa/Tunis",
+    "onshore_sectors": [
+      [
+        30,
+        150
+      ]
+    ],
+    "shelter_bonus_radius_km": 0.0,
+    "windows_enabled": true,
+    "rules": {
+      "overrides": {
+        "thunder_wmo": [
+          95,
+          96,
+          99
+        ],
+        "gusts_hard_nogo_kmh": 30,
+        "squall_delta_kmh": 17,
+        "visibility_km_min": 5
+      },
+      "wind": {
+        "family_max_kmh": 22,
+        "nogo_min_kmh": 25,
+        "onshore_degrade_kmh": 22
+      },
+      "sea": {
+        "family_max_hs_m": 0.5,
+        "nogo_min_hs_m": 0.8
+      },
+      "tp_matrix": {
+        "transit": {
+          "hs_lt_0_4_family_tp_s": 3.0,
+          "hs_0_4_0_5_family_tp_s": 4.2,
+          "hs_lt_0_4_expert_tp_min_s": 3.2,
+          "hs_0_4_0_5_expert_tp_min_s": 4.0
+        },
+        "anchor_sheltered": {
+          "hs_max_m": 0.35,
+          "hs_le_0_35_family_tp_s": 3.2,
+          "hs_le_0_35_expert_tp_min_s": 3.5
+        }
+      },
+      "combined": {
+        "short_steep_downgrade": {
+          "hs_min_m": 0.5,
+          "tp_max_s": 6.0
+        },
+        "short_steep_hard_nogo": {
+          "hs_min_m": 0.6,
+          "tp_max_s": 5.0
+        }
+      },
+      "prudent": {
+        "enabled": true,
+        "wind_max_kmh": 23,
+        "gust_max_kmh": 28,
+        "hs_max_m": 0.4,
+        "tp_min_s": 3.3,
+        "min_confidence": "Medium"
+      },
+      "adaptive_window": {
+        "enabled": true,
+        "absolute_min_hours": 3,
+        "min_zone_hours": 1.5
+      },
+      "daylight": {
+        "use_astronomy": true,
+        "start_after_sunrise_min": 30,
+        "end_before_sunset_min": 60
+      },
+      "hysteresis": {
+        "wind_kmh": 1.0,
+        "hs_m": 0.05
+      },
+      "decision_policy": {
+        "watch": {
+          "enabled": true,
+          "tp_margin_s": 0.2,
+          "hs_margin_m": 0.05,
+          "wind_margin_kmh": 1.0,
+          "min_confidence": "Medium",
+          "max_failing_wave_sources": 1
+        }
+      },
+      "shelter": {
+        "radius_km_default": 3,
+        "apply_on_transit": false,
+        "anchor_gusts_allow_up_to_kmh": 34,
+        "anchor_squall_delta_max_kmh": 20,
+        "require_lee": true,
+        "max_fetch_km": 1.5,
+        "anchor_sustained_allow_up_to_kmh": 32
+      },
+      "resolution_policy": {
+        "family_requires_hourly": true,
+        "expert_allows_3h": true,
+        "second_model_required_for_medium": true
+      },
+      "confidence": {
+        "high": {
+          "wind_spread_kmh_lt": 5,
+          "hs_spread_m_lt": 0.2,
+          "min_wave_sources": 2
+        },
+        "medium": {
+          "same_band_minor_disagreement": true,
+          "wind_spread_kmh_lt": 8
+        },
+        "low": {
+          "cross_band_disagreement_or_3h": true
+        }
+      },
+      "corridor": {
+        "samples": 9,
+        "validate_departure_and_return": true,
+        "leg_structure_hours": {
+          "transit_out": "1-1.5",
+          "anchor_min": 2,
+          "anchor_max": 4,
+          "transit_back": "1-1.5"
+        }
+      },
+      "family_hours_local": {
+        "start_h": 8,
+        "end_h": 21
+      },
+      "window_hours": {
+        "min": 4,
+        "max": 6
+      },
+      "http": {
+        "disable_astronomy_http": true,
+        "model_order": "icon_seamless,gfs_seamless,ecmwf_ifs04,default",
+        "marine_model_order": "meteofrance_wave,ncep_gfswave025,ecmwf_wam025,default",
+        "marine_parallel_models": "ncep_gfswave025,ecmwf_wam025"
+      }
+    }
+  },
+  "hourly": {
+    "time": [
+      "2026-08-27T08:00",
+      "2026-08-27T09:00",
+      "2026-08-27T10:00",
+      "2026-08-27T11:00",
+      "2026-08-27T12:00",
+      "2026-08-27T13:00",
+      "2026-08-27T14:00",
+      "2026-08-27T15:00",
+      "2026-08-27T16:00",
+      "2026-08-27T03:00"
+    ],
+    "wind_speed_10m": [
+      8.0,
+      22.5,
+      12.0,
+      8.0,
+      8.0,
+      23.0,
+      8.0,
+      8.0,
+      8.0,
+      8.0
+    ],
+    "wind_gusts_10m": [
+      15.0,
+      26.0,
+      31.0,
+      26.0,
+      15.0,
+      27.0,
+      15.0,
+      15.0,
+      15.0,
+      15.0
+    ],
+    "wind_direction_10m": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      90,
+      200,
+      200,
+      200,
+      200
+    ],
+    "weather_code": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      95,
+      1,
+      1
+    ],
+    "visibility": [
+      20000,
+      20000,
+      20000,
+      20000,
+      20000,
+      20000,
+      3000,
+      20000,
+      20000,
+      20000
+    ],
+    "hs": [
+      0.2,
+      0.3,
+      0.2,
+      0.2,
+      0.3,
+      0.2,
+      0.2,
+      0.2,
+      0.9,
+      0.2
+    ],
+    "tp": [
+      3.6,
+      3.4,
+      3.6,
+      3.6,
+      2.8,
+      3.6,
+      3.6,
+      3.6,
+      6.0,
+      3.6
+    ],
+    "wave_height": [
+      0.2,
+      0.3,
+      0.2,
+      0.2,
+      0.3,
+      0.2,
+      0.2,
+      0.2,
+      0.9,
+      0.2
+    ],
+    "wave_period": [
+      3.6,
+      3.4,
+      3.6,
+      3.6,
+      2.8,
+      3.6,
+      3.6,
+      3.6,
+      6.0,
+      3.6
+    ]
+  },
+  "models": {
+    "model_a": {
+      "hourly": {
+        "time": [
+          "2026-08-27T08:00",
+          "2026-08-27T09:00",
+          "2026-08-27T10:00",
+          "2026-08-27T11:00",
+          "2026-08-27T12:00",
+          "2026-08-27T13:00",
+          "2026-08-27T14:00",
+          "2026-08-27T15:00",
+          "2026-08-27T16:00",
+          "2026-08-27T03:00"
+        ],
+        "wind_speed_10m": [
+          8.0,
+          22.5,
+          12.0,
+          8.0,
+          8.0,
+          23.0,
+          8.0,
+          8.0,
+          8.0,
+          8.0
+        ],
+        "wind_gusts_10m": [
+          15.0,
+          26.0,
+          31.0,
+          26.0,
+          15.0,
+          27.0,
+          15.0,
+          15.0,
+          15.0,
+          15.0
+        ],
+        "wind_direction_10m": [
+          200,
+          200,
+          200,
+          200,
+          200,
+          90,
+          200,
+          200,
+          200,
+          200
+        ],
+        "weather_code": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          95,
+          1,
+          1
+        ],
+        "visibility": [
+          20000,
+          20000,
+          20000,
+          20000,
+          20000,
+          20000,
+          3000,
+          20000,
+          20000,
+          20000
+        ]
+      }
+    },
+    "model_b": {
+      "hourly": {
+        "time": [
+          "2026-08-27T08:00",
+          "2026-08-27T09:00",
+          "2026-08-27T10:00",
+          "2026-08-27T11:00",
+          "2026-08-27T12:00",
+          "2026-08-27T13:00",
+          "2026-08-27T14:00",
+          "2026-08-27T15:00",
+          "2026-08-27T16:00",
+          "2026-08-27T03:00"
+        ],
+        "wind_speed_10m": [
+          8.0,
+          22.5,
+          12.0,
+          8.0,
+          8.0,
+          23.0,
+          8.0,
+          8.0,
+          8.0,
+          8.0
+        ],
+        "wind_gusts_10m": [
+          15.0,
+          26.0,
+          31.0,
+          26.0,
+          15.0,
+          27.0,
+          15.0,
+          15.0,
+          15.0,
+          15.0
+        ],
+        "wind_direction_10m": [
+          200,
+          200,
+          200,
+          200,
+          200,
+          90,
+          200,
+          200,
+          200,
+          200
+        ],
+        "weather_code": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          95,
+          1,
+          1
+        ],
+        "visibility": [
+          20000,
+          20000,
+          20000,
+          20000,
+          20000,
+          20000,
+          3000,
+          20000,
+          20000,
+          20000
+        ]
+      }
+    }
+  },
+  "marine_models": {
+    "wave_a": {
+      "hourly": {
+        "time": [
+          "2026-08-27T08:00",
+          "2026-08-27T09:00",
+          "2026-08-27T10:00",
+          "2026-08-27T11:00",
+          "2026-08-27T12:00",
+          "2026-08-27T13:00",
+          "2026-08-27T14:00",
+          "2026-08-27T15:00",
+          "2026-08-27T16:00",
+          "2026-08-27T03:00"
+        ],
+        "wave_height": [
+          0.2,
+          0.3,
+          0.2,
+          0.2,
+          0.3,
+          0.2,
+          0.2,
+          0.2,
+          0.9,
+          0.2
+        ],
+        "wave_period": [
+          3.6,
+          3.4,
+          3.6,
+          3.6,
+          2.8,
+          3.6,
+          3.6,
+          3.6,
+          6.0,
+          3.6
+        ]
+      }
+    },
+    "wave_b": {
+      "hourly": {
+        "time": [
+          "2026-08-27T08:00",
+          "2026-08-27T09:00",
+          "2026-08-27T10:00",
+          "2026-08-27T11:00",
+          "2026-08-27T12:00",
+          "2026-08-27T13:00",
+          "2026-08-27T14:00",
+          "2026-08-27T15:00",
+          "2026-08-27T16:00",
+          "2026-08-27T03:00"
+        ],
+        "wave_height": [
+          0.2,
+          0.3,
+          0.2,
+          0.2,
+          0.3,
+          0.2,
+          0.2,
+          0.2,
+          0.9,
+          0.2
+        ],
+        "wave_period": [
+          3.6,
+          3.4,
+          3.6,
+          3.6,
+          2.8,
+          3.6,
+          3.6,
+          3.6,
+          6.0,
+          3.6
+        ]
+      }
+    }
+  },
+  "expected_states": [
+    "go",
+    "prudent",
+    "nogo",
+    "nogo",
+    "nogo",
+    "nogo",
+    "nogo",
+    "nogo",
+    "nogo",
+    "go"
+  ],
+  "case_labels": [
+    "famille GO, vent offshore",
+    "GO prudent : vent au-dessus de la limite famille",
+    "veto rafales",
+    "veto grain (ecart rafale/vent)",
+    "periode trop courte",
+    "vent onshore trop fort",
+    "veto visibilite",
+    "veto orage",
+    "veto houle",
+    "nuit, conditions famille"
+  ]
+}

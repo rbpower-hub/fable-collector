@@ -12,8 +12,12 @@ const dateKey = (date) => {
 };
 const day = (offset) => dateKey(new Date(Date.now() + offset * 86400000));
 const generated = new Date().toISOString();
-const offStart = new Date(Date.now() + 60 * 60_000);
-const offEnd = new Date(Date.now() + 6 * 60 * 60_000);
+const now = new Date();
+const inOneHour = new Date(now.getTime() + 60 * 60_000);
+// Garder les fenêtres off-hours et en cours sur le même jour tunisien, même
+// quand la recette démarre dans la dernière heure avant minuit.
+const offStart = dateKey(inOneHour) === dateKey(now) ? inOneHour : now;
+const offEnd = new Date(offStart.getTime() + 5 * 60 * 60_000);
 const familyStart = new Date(Date.now() + 25 * 60 * 60_000);
 const familyEnd = new Date(Date.now() + 31 * 60 * 60_000);
 const offDay = dateKey(offStart);
@@ -28,7 +32,10 @@ const family = {
   start:familyStart.toISOString(), end:familyEnd.toISOString(), category:'family', family_tier:'standard', confidence:'High', confidence_score:88,
 };
 const lateFamily = {
-  start:new Date(Date.now()-30*60_000).toISOString(), end:new Date(Date.now()+150*60_000).toISOString(),
+  start:new Date(Math.max(
+    new Date(`${day(0)}T00:00:00+01:00`).getTime(),
+    Date.now()-30*60_000,
+  )).toISOString(), end:new Date(Date.now()+150*60_000).toISOString(),
   category:'family', family_tier:'standard', confidence:'Medium', confidence_score:70,
 };
 const payloads = {

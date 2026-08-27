@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260826-forecast-quality-v1" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260827-weather-cards-v2" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -118,6 +118,13 @@ def test_simple_view_weather_context_and_mobile_hierarchy():
     assert "cloud_cover" in script
     assert "uv_index" in script
     assert "simple-weather-grid" in script
+    assert "function weatherIcon(kind)" in script
+    assert 'data-weather-kind="${kind}"' in script
+    assert '.simple-weather-icon svg{display:block;width:25px;height:25px}' in script
+    assert "item('temperature'" in script
+    assert "item('uv'" in script
+    assert "item('sky'" in script
+    assert "item('rain'" in script
     assert "grid-template-columns:minmax(0,1fr) 104px" in script
     assert ".simple-confidence{display:none}" not in script
     assert '[data-theme="nautical"] .simple-action.primary{color:#fff}' in script

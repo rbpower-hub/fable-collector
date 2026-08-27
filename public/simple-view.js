@@ -43,6 +43,7 @@
     staleTitle:'بيانات قديمة — لا تخرج اعتماداً عليها', noDataTitle:'بيانات الملاحة غير متاحة',
     windows:'نوافذ الملاحة', viewWindows:'عرض النوافذ', horizon:'أفق 72 ساعة', offHoursSlot:'خارج الأوقات', longTripSlot:'رحلة طويلة',
     qualityHigh:'مرتفعة', qualityMedium:'متوسطة', qualityLimited:'محدودة', qualityUnassessed:'غير مقيّمة', outbound:'ذهاب', return:'عودة', beta:'تجريبي', review:'تحقق مطلوب',
+    duration:'المدة المتاحة', required:'المدة الدنيا', showOnMap:'عرض على الخريطة', conditionsMenu:'الظروف الجوية', activitiesMenu:'الأنشطة المقترحة', familyMenu:'الانتقال إلى وضع العائلة',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
     prudent:'CAUTIOUS OUTING', watch:'WATCH', watchDetail:'Conditions are close to Family limits. This is not a GO; check the marine forecast before deciding.', blocked:'OUTING NOT ADVISED', conditions:'Unfavourable conditions',
@@ -62,6 +63,7 @@
     staleTitle:'Stale data — do not depart on this basis', noDataTitle:'Navigation data unavailable',
     windows:'Navigation windows', viewWindows:'View windows', horizon:'72-hour horizon', offHoursSlot:'Out of hours', longTripSlot:'Long trip',
     qualityHigh:'High', qualityMedium:'Medium', qualityLimited:'Limited', qualityUnassessed:'Not assessed', outbound:'Outbound', return:'Return', beta:'Beta', review:'Review required',
+    duration:'Available duration', required:'Minimum duration', showOnMap:'Show on map', conditionsMenu:'Weather conditions', activitiesMenu:'Suggested activities', familyMenu:'Switch to Family View',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
     prudent:'SORTIE PRUDENTE', watch:'À SURVEILLER', watchDetail:'Conditions proches des seuils Family. Ce créneau n’est pas un GO : vérifiez la météo marine avant de décider.', blocked:'SORTIE DÉCONSEILLÉE', conditions:'Conditions défavorables',
@@ -81,6 +83,7 @@
     staleTitle:'Données périmées — ne pas partir sur cette base', noDataTitle:'Données de navigation indisponibles',
     windows:'Fenêtres de navigation', viewWindows:'Voir les fenêtres', horizon:'Horizon 72 h', offHoursSlot:'Hors horaires', longTripSlot:'Long trajet',
     qualityHigh:'Élevée', qualityMedium:'Moyenne', qualityLimited:'Limitée', qualityUnassessed:'Non évaluée', outbound:'Aller', return:'Retour', beta:'Bêta', review:'Vérification requise',
+    duration:'Durée disponible', required:'Durée minimale', showOnMap:'Voir sur la carte', conditionsMenu:'Conditions météo', activitiesMenu:'Activités conseillées', familyMenu:'Passer en Vue Famille',
   };
 
   function installStyles() {
@@ -93,6 +96,7 @@
       body.simple-board-mode{padding-bottom:86px}
       body.simple-board-mode #simple-view{display:block}
       body.simple-board-mode #family-board-nav,body.simple-board-mode #family-summary,
+      body.simple-board-mode #family-verdict-hero,body.simple-board-mode #family-planning-host,
       body.simple-board-mode #dashboard-content,body.simple-board-mode footer{display:none!important}
       body.simple-board-mode #viewToggleBtn,body.simple-board-mode #simpleViewBtn{display:none!important}
       .simple-shell{max-width:760px;margin:0 auto;padding:4px 0 22px}
@@ -150,8 +154,9 @@
       .simple-condition-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.simple-condition{min-width:0;padding:14px;border-radius:16px;background:var(--pill-bg)}.simple-condition.return{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.simple-condition-label{display:block;color:var(--muted);font-size:.76rem}.simple-condition-value{display:block;margin-top:4px;font-size:1.18rem}.simple-condition-range{margin-left:6px;color:var(--muted);font-size:.72rem;font-weight:600}.simple-chart{margin:10px 0 0}.simple-spark{display:block;width:100%;height:88px;overflow:visible}.simple-spark .grid{stroke:color-mix(in srgb,var(--muted) 22%,transparent);stroke-width:1}.simple-spark .safe-zone{fill:color-mix(in srgb,var(--ok) 10%,transparent)}.simple-spark .threshold{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3}.simple-spark .area{fill:color-mix(in srgb,var(--accent) 13%,transparent)}.simple-spark .line{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.simple-spark .point{fill:var(--card);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.simple-condition.wave .simple-spark .area{fill:color-mix(in srgb,var(--ok) 13%,transparent)}.simple-condition.wave .simple-spark .line,.simple-condition.wave .simple-spark .point{stroke:var(--ok)}.simple-chart-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:.65rem}.simple-chart-threshold{margin-top:7px;color:var(--muted);font-size:.68rem}.simple-chart-threshold::before{content:'';display:inline-block;width:15px;margin-right:5px;border-top:2px dashed var(--warn);vertical-align:middle}html[dir="rtl"] .simple-chart-threshold::before{margin-right:0;margin-left:5px}
       .simple-weather-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.simple-weather-item{--weather-color:var(--accent);min-width:0;min-height:108px;display:grid;grid-template-columns:42px minmax(0,1fr);grid-template-areas:"icon label" "icon value" "icon detail";align-content:center;align-items:center;column-gap:12px;row-gap:2px;padding:14px 15px;border:1px solid color-mix(in srgb,var(--weather-color) 28%,var(--br));border-inline-start:3px solid var(--weather-color);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--weather-color) 9%,var(--card)),color-mix(in srgb,var(--card) 62%,var(--pill-bg)));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 5%,transparent)}.simple-weather-item[data-weather-kind="temperature"]{--weather-color:#fb7185}.simple-weather-item[data-weather-kind="uv"]{--weather-color:#fbbf24}.simple-weather-item[data-weather-kind="sky"]{--weather-color:#38bdf8}.simple-weather-item[data-weather-kind="rain"]{--weather-color:#60a5fa}.simple-weather-icon{grid-area:icon;display:grid;place-items:center;width:42px;height:42px;border:1px solid color-mix(in srgb,var(--weather-color) 38%,transparent);border-radius:13px;background:color-mix(in srgb,var(--weather-color) 14%,var(--pill-bg));color:var(--weather-color)}.simple-weather-icon svg{display:block;width:25px;height:25px}.simple-weather-label{grid-area:label;display:block;color:var(--muted);font-size:.75rem;font-weight:750;line-height:1.2}.simple-weather-value{grid-area:value;display:block;font-size:clamp(1.08rem,2.5vw,1.3rem);line-height:1.15;letter-spacing:-.015em}.simple-weather-detail{grid-area:detail;display:block;color:var(--muted);font-size:.7rem;line-height:1.3}
       .simple-activities{display:grid;gap:8px}.simple-activity{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px;border:1px solid var(--br);border-radius:14px;background:var(--pill-bg)}.simple-activity-icon{font-size:1.35rem}.simple-activity strong{display:block}.simple-activity small{display:block;margin-top:3px;color:var(--muted);line-height:1.35}.simple-activity-score{padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-size:.72rem;font-weight:900}.simple-empty{color:var(--muted);line-height:1.45}
-      .simple-navigation{display:grid;gap:8px}.simple-window-card{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;min-height:68px;padding:12px;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg);color:var(--fg);text-align:start;cursor:pointer}.simple-window-card:hover{border-color:var(--accent)}.simple-window-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);font-size:.68rem;font-weight:900;text-transform:uppercase}.simple-window-badge.prudent{background:color-mix(in srgb,var(--warn) 17%,transparent);color:var(--warn)}.simple-window-badge.watch{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#f59e0b}.simple-window-badge.off-hours{background:color-mix(in srgb,#22d3ee 16%,transparent);color:#22d3ee}.simple-window-badge.travel{background:color-mix(in srgb,#60a5fa 16%,transparent);color:#60a5fa}.simple-window-main strong,.simple-window-main small{display:block}.simple-window-main small{margin-top:4px;color:var(--muted)}.simple-window-arrow{font-size:1.4rem;color:var(--muted)}
+      .simple-navigation{display:grid;gap:8px}.simple-window-item{overflow:hidden;border:1px solid var(--br);border-radius:15px;background:var(--pill-bg)}.simple-window-item.expanded{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)}.simple-window-card{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;min-height:68px;padding:12px;border:0;background:transparent;color:var(--fg);text-align:start;cursor:pointer}.simple-window-card:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}.simple-window-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);font-size:.68rem;font-weight:900;text-transform:uppercase}.simple-window-badge.prudent{background:color-mix(in srgb,var(--warn) 17%,transparent);color:var(--warn)}.simple-window-badge.watch{background:color-mix(in srgb,#f59e0b 18%,transparent);color:#f59e0b}.simple-window-badge.off-hours{background:color-mix(in srgb,#22d3ee 16%,transparent);color:#22d3ee}.simple-window-badge.travel{background:color-mix(in srgb,#60a5fa 16%,transparent);color:#60a5fa}.simple-window-main strong,.simple-window-main small{display:block}.simple-window-main small{margin-top:4px;color:var(--muted)}.simple-window-arrow{font-size:1.4rem;color:var(--muted);transition:transform .16s ease}.simple-window-card[aria-expanded="true"] .simple-window-arrow{transform:rotate(90deg)}.simple-window-details{display:grid;gap:7px;margin:0 12px 12px;padding:12px;border-top:1px solid var(--br);color:var(--muted);font-size:.78rem;line-height:1.35}.simple-window-details[hidden]{display:none}.simple-window-detail{display:flex;justify-content:space-between;gap:12px}.simple-window-detail strong{color:var(--fg);text-align:end}.simple-window-map{justify-self:start;min-height:42px;margin-top:3px;padding:8px 12px;border:0;border-radius:12px;background:var(--accent);color:#041019;font-weight:900;cursor:pointer}
       html[dir="rtl"] .simple-shell{direction:rtl;text-align:right}html[dir="rtl"] .simple-day{text-align:right}html[dir="rtl"] .simple-key::before{margin-right:0;margin-left:5px}
+      .simple-more-menu{position:fixed;z-index:1099;left:max(18px,env(safe-area-inset-left));right:max(18px,env(safe-area-inset-right));bottom:84px;display:grid;gap:7px;max-width:520px;margin:auto;padding:10px;border:1px solid var(--br);border-radius:16px;background:color-mix(in srgb,var(--card) 97%,transparent);box-shadow:0 12px 35px #0008;backdrop-filter:blur(14px)}.simple-more-menu[hidden]{display:none}.simple-more-action{min-height:46px;padding:10px 12px;border:1px solid var(--br);border-radius:12px;background:var(--pill-bg);color:var(--fg);font-weight:850;text-align:start;cursor:pointer}.simple-more-action:hover{border-color:var(--accent)}
       .simple-bottom-nav{position:fixed;z-index:1100;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:auto;padding:7px;border:1px solid var(--br);border-radius:18px;background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 35px #0007;backdrop-filter:blur(14px)}
       .simple-nav-action{min-height:48px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:.7rem;font-weight:800;cursor:pointer}.simple-nav-action span{display:block;font-size:1.15rem;margin-bottom:2px}.simple-nav-action.active{background:color-mix(in srgb,var(--accent) 18%,var(--pill-bg));color:var(--fg)}
       @media(max-width:640px){.simple-hero-grid{grid-template-columns:minmax(0,1fr) 104px;gap:10px;align-items:start}.simple-confidence{min-height:0;padding-top:2px;border-inline-start:0;align-self:start}.simple-confidence-label{max-width:100px;margin-bottom:5px;font-size:.56rem}.simple-confidence-ring{width:92px;height:92px;padding:7px;border-width:8px}.simple-confidence-ring strong{max-width:68px;font-size:.8rem}.simple-verdict{font-size:clamp(1.3rem,7vw,1.9rem)}.simple-window-card{grid-template-columns:1fr auto}.simple-window-badge{grid-column:1/-1;justify-self:start}}
@@ -402,7 +407,10 @@
       const direction = item.direction === 'outbound' ? c.outbound : item.direction === 'return' ? c.return : '';
       const beta = item.beta || destination.beta ? c.beta : '';
       const details = [direction, beta, `${formatTime(item.start)} → ${formatTime(item.end)} · ${duration.toFixed(duration % 1 ? 1 : 0)} h`].filter(Boolean).join(' · ');
-      return `<button class="simple-window-card" data-simple-action="map-window" data-simple-window-index="${index}" type="button"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(details)}</small></span><span class="simple-window-arrow" aria-hidden="true">›</span></button>`;
+      const required = Number(item.required_hours ?? destination.required_hours);
+      const requiredLabel = Number.isFinite(required) ? `${required} h` : '—';
+      const quality = forecastQuality(row).label;
+      return `<article class="simple-window-item"><button class="simple-window-card" data-simple-action="window-details" data-simple-window-index="${index}" type="button" aria-expanded="false" aria-controls="simple-window-details-${index}"><span class="simple-window-badge ${tone}">${esc(label)}</span><span class="simple-window-main"><strong>${esc(name)}</strong><small>${esc(details)}</small></span><span class="simple-window-arrow" aria-hidden="true">›</span></button><div id="simple-window-details-${index}" class="simple-window-details" hidden><div class="simple-window-detail"><span>${esc(c.duration)}</span><strong>${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}</strong></div><div class="simple-window-detail"><span>${esc(c.required)}</span><strong>${esc(requiredLabel)}</strong></div><div class="simple-window-detail"><span>${esc(c.forecastQuality)}</span><strong>${esc(quality)}</strong></div><button class="simple-window-map" data-simple-action="map-window" data-simple-window-index="${index}" type="button">🗺️ ${esc(c.showOnMap)}</button></div></article>`;
     }).join('') : `<div class="simple-empty">${esc(c.noWindow)}</div>`;
     return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${rows.length}</span></div><div class="simple-navigation">${content}</div></section>`;
   }
@@ -476,7 +484,7 @@
       ${renderNavigation(result)}${renderConditions(best)}${renderActivities(best)}
       </div>
       </div>
-    </div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="details" type="button"><span>•••</span>${esc(c.more)}</button></nav>`;
+    </div><div id="simple-more-menu" class="simple-more-menu" hidden><button class="simple-more-action" data-simple-action="conditions" type="button">〽️ ${esc(c.conditionsMenu)}</button><button class="simple-more-action" data-simple-action="activities" type="button">🌊 ${esc(c.activitiesMenu)}</button><button class="simple-more-action" data-simple-action="family" type="button">👨‍👩‍👧 ${esc(c.familyMenu)}</button></div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="more" type="button" aria-expanded="false" aria-controls="simple-more-menu"><span>•••</span>${esc(c.more)}</button></nav>`;
   }
 
   function setMode(mode, persist = true) {
@@ -567,7 +575,31 @@
           panel.hidden = !panel.hidden; button.setAttribute('aria-expanded', String(!panel.hidden)); button.textContent = panel.hidden ? copy().why : copy().hide;
         }
         if (action === 'windows') document.getElementById('simple-navigation')?.scrollIntoView({behavior:'smooth',block:'start'});
-        if (action === 'details') document.getElementById('simple-conditions')?.scrollIntoView({behavior:'smooth',block:'start'});
+        if (action === 'window-details') {
+          const button = event.target.closest('[data-simple-window-index]');
+          const panel = document.getElementById(`simple-window-details-${button?.dataset.simpleWindowIndex}`);
+          const opening = panel?.hidden;
+          view.querySelectorAll('.simple-window-details').forEach((item) => { item.hidden = true; });
+          view.querySelectorAll('[data-simple-action="window-details"]').forEach((item) => item.setAttribute('aria-expanded', 'false'));
+          view.querySelectorAll('.simple-window-item').forEach((item) => item.classList.remove('expanded'));
+          if (panel && opening) {
+            panel.hidden = false;
+            button.setAttribute('aria-expanded', 'true');
+            button.closest('.simple-window-item')?.classList.add('expanded');
+          }
+        }
+        if (action === 'more') {
+          const menu = document.getElementById('simple-more-menu');
+          const button = event.target.closest('button');
+          const opening = menu?.hidden;
+          if (menu) menu.hidden = !opening;
+          button?.setAttribute('aria-expanded', String(Boolean(opening)));
+          button?.classList.toggle('active', Boolean(opening));
+          if (opening) menu?.querySelector('button')?.focus();
+        }
+        if (action === 'conditions') document.getElementById('simple-conditions')?.scrollIntoView({behavior:'smooth',block:'start'});
+        if (action === 'activities') document.getElementById('simple-activities')?.scrollIntoView({behavior:'smooth',block:'start'});
+        if (action === 'family') setMode('family');
         if (action === 'map') openSelectedMap();
         if (action === 'map-window') {
           const index = Number(event.target.closest('[data-simple-window-index]')?.dataset.simpleWindowIndex);
@@ -576,7 +608,14 @@
         }
         if (action === 'days') document.getElementById('simple-three-days')?.scrollIntoView({behavior:'smooth',block:'start'});
         if (action === 'decision') document.getElementById('simple-decision')?.scrollIntoView({behavior:'smooth',block:'start'});
-        if (['decision', 'days', 'details'].includes(action)) {
+        if (['conditions', 'activities'].includes(action)) {
+          const menu = document.getElementById('simple-more-menu');
+          if (menu) menu.hidden = true;
+          const more = view.querySelector('[data-simple-action="more"]');
+          more?.setAttribute('aria-expanded', 'false');
+          more?.classList.remove('active');
+        }
+        if (['decision', 'days'].includes(action)) {
           view.querySelectorAll('.simple-nav-action').forEach((button) => button.classList.toggle('active', button.dataset.simpleAction === action));
         }
         const dayButton = event.target.closest('[data-simple-day]');
@@ -594,6 +633,15 @@
         }
       });
       view.addEventListener('keydown', (event) => {
+        const menu = document.getElementById('simple-more-menu');
+        if (event.key === 'Escape' && menu && !menu.hidden) {
+          menu.hidden = true;
+          const more = view.querySelector('[data-simple-action="more"]');
+          more?.setAttribute('aria-expanded', 'false');
+          more?.classList.remove('active');
+          more?.focus();
+          return;
+        }
         const tab = event.target.closest('[data-simple-day][role="tab"]');
         if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();

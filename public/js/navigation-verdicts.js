@@ -46,12 +46,19 @@ function isBetaOrOffshore(row) {
 }
 
 function isStillActionable(row, selectedDay, now, rules) {
+  const start = new Date(row?.windowItem?.start || '');
   const end = new Date(row?.windowItem?.end || '');
-  if (!Number.isFinite(end.getTime())) return false;
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return false;
   const today = tunisNavigationDateKey(now);
   if (selectedDay !== today) return true;
-  const minHours = Number(rules?.window_hours?.min || 4);
-  return end.getTime() >= now.getTime() + minHours * 3600000;
+  const publishedRequiredHours = Number(
+    row?.windowItem?.required_hours ?? row?.destination?.required_hours
+  );
+  const fallbackHours = Number(rules?.window_hours?.min || 4);
+  const requiredHours = Number.isFinite(publishedRequiredHours) && publishedRequiredHours > 0
+    ? publishedRequiredHours : fallbackHours;
+  const effectiveDeparture = Math.max(now.getTime(), start.getTime());
+  return end.getTime() >= effectiveDeparture + requiredHours * 3600000;
 }
 
 function sortFamilyRows(rows) {

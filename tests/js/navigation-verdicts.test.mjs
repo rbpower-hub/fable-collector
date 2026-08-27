@@ -105,3 +105,33 @@ test('missing payload and fresh empty payload remain distinct', () => {
   assert.equal(verdict(null).state, 'NO_DATA');
   assert.equal(verdict({windows:[]}).state, 'NO_GO');
 });
+
+test('an upcoming adaptive three-hour window is not removed by the global four-hour rule', () => {
+  const current = new Date('2026-08-02T10:13:00Z');
+  const adaptive = {
+    start:'2026-08-02T12:00:00+01:00', end:'2026-08-02T15:00:00+01:00',
+    category:'family', family_tier:'standard', confidence:'Medium',
+  };
+  const result = navigationVerdictForDay({
+    windows:{windows:[{dest_slug:'sidi-bou-said.json', required_hours:3, windows:[adaptive]}]},
+    status:{generated_at:'2026-08-02T10:00:00Z', cadence_minutes:60},
+    selectedDay:'2026-08-02', rules, now:current,
+  });
+  assert.equal(result.state, 'GO_FAMILY');
+  assert.equal(result.rows.length, 1);
+});
+
+test('a started window disappears when its destination duration no longer fits', () => {
+  const current = new Date('2026-08-02T11:15:00Z');
+  const adaptive = {
+    start:'2026-08-02T12:00:00+01:00', end:'2026-08-02T15:00:00+01:00',
+    category:'family', family_tier:'standard', confidence:'Medium',
+  };
+  const result = navigationVerdictForDay({
+    windows:{windows:[{dest_slug:'sidi-bou-said.json', required_hours:3, windows:[adaptive]}]},
+    status:{generated_at:'2026-08-02T11:00:00Z', cadence_minutes:60},
+    selectedDay:'2026-08-02', rules, now:current,
+  });
+  assert.equal(result.state, 'NO_GO');
+  assert.equal(result.rows.length, 0);
+});

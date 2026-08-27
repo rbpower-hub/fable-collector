@@ -97,6 +97,10 @@ const initial = await page.evaluate(() => ({
     const confidence = document.querySelector('.simple-confidence')?.getBoundingClientRect();
     return Boolean(verdict && confidence && confidence.left > verdict.left && Math.abs(confidence.top - verdict.top) < 80);
   })(),
+  legacyFamilyHidden:['family-verdict-hero','family-planning-host'].every((id) => {
+    const node = document.getElementById(id);
+    return !node || getComputedStyle(node).display === 'none';
+  }),
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
 }));
 if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected title: ${initial.title}`);
@@ -116,6 +120,7 @@ if (initial.overline) throw new Error('redundant decision overline is still visi
 if (!initial.confidenceVisible || !initial.confidenceBesideVerdict) throw new Error(`confidence must remain beside the verdict on mobile: ${JSON.stringify(initial)}`);
 if (initial.qualityHasPercent) throw new Error(`forecast quality must not be shown as a percentage: ${initial.qualityText}`);
 if (!/Qualité des prévisions.*Moyenne/i.test(initial.qualityText || '')) throw new Error(`unexpected forecast quality: ${initial.qualityText}`);
+if (!initial.legacyFamilyHidden) throw new Error('legacy Family verdict or planning is visible in Simple View');
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
 
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();
@@ -126,6 +131,21 @@ const tomorrowRows = await page.locator('.simple-window-card').count();
 if (tomorrowRows !== 1) throw new Error(`tomorrow should have one row, got ${tomorrowRows}`);
 const tomorrowQuality = await page.locator('.simple-confidence').textContent();
 if (!/Qualité des prévisions.*Élevée/is.test(tomorrowQuality || '')) throw new Error(`unexpected GO forecast quality: ${tomorrowQuality}`);
+await page.locator('.simple-window-card').click();
+await page.waitForSelector('.simple-window-details:not([hidden])');
+const inlineWindow = await page.evaluate(() => ({
+  simpleMode:document.body.classList.contains('simple-board-mode'),
+  expanded:document.querySelector('.simple-window-card')?.getAttribute('aria-expanded'),
+  details:document.querySelector('.simple-window-details')?.textContent?.replace(/\s+/g,' ').trim(),
+}));
+if (!inlineWindow.simpleMode || inlineWindow.expanded !== 'true') throw new Error(`window click left Simple View: ${JSON.stringify(inlineWindow)}`);
+if (!/Durée disponible.*Durée minimale.*Qualité des prévisions/is.test(inlineWindow.details || '')) throw new Error(`inline window details are incomplete: ${inlineWindow.details}`);
+await page.locator('[data-simple-action="more"]').click();
+await page.waitForSelector('#simple-more-menu:not([hidden])');
+const moreActions = await page.locator('#simple-more-menu .simple-more-action').count();
+if (moreActions !== 3) throw new Error(`More menu should expose 3 actions, got ${moreActions}`);
+await page.keyboard.press('Escape');
+await page.waitForSelector('#simple-more-menu', {state:'hidden'});
 await page.locator(`[data-simple-day="${noGoOffset}"]`).click();
 await page.waitForSelector('.simple-hero[data-verdict-state="NO_GO"]');
 const noGoQuality = await page.locator('.simple-confidence').textContent();

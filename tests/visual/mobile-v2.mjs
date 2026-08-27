@@ -31,10 +31,23 @@ const lateFamily = {
   start:new Date(Date.now()-30*60_000).toISOString(), end:new Date(Date.now()+150*60_000).toISOString(),
   category:'family', family_tier:'standard', confidence:'Medium', confidence_score:70,
 };
+const forecastTimes = [offStart.toISOString(),new Date(offStart.getTime()+2*60*60_000).toISOString(),offEnd.toISOString(),familyStart.toISOString(),new Date(familyStart.getTime()+3*60*60_000).toISOString(),familyEnd.toISOString()];
+const hourlyStates = ['family','prudent','no_go','family','watch','no_go'];
+const hourlyAssessment = forecastTimes.map((time,index) => ({
+  time, scope:'single_hour_conditions', phase:'transit', condition_state:hourlyStates[index],
+  is_window_decision:false, hard_veto:hourlyStates[index] === 'no_go', operating_light:index > 0 && index < 5,
+  confidence:index === 2 ? 'Medium' : 'High',
+  reasons:hourlyStates[index] === 'no_go' ? [{code:'rafales>=30',severity:'hard_veto',reason_fr:'rafales 32 km/h ≥ 30',reason_en:'gusts 32 km/h ≥ 30'}] : [],
+  margins:[], metrics:{
+    wind:{display_source:'icon_seamless',display_speed_kmh:[11,15,20,9,12,16][index],display_gust_kmh:[18,22,32,15,19,31][index],display_gust_delta_kmh:[7,7,12,6,7,15][index],display_direction_deg:310,display_onshore:false},
+    wave:{display_source:'meteofrance_wave',display_hs_m:[.25,.35,.45,.2,.3,.4][index],display_tp_s:5},
+  },
+}));
 const payloads = {
   'status.json': {generated_at:generated, cadence_minutes:60},
   'windows.json': {generated_at:generated, windows:[{
     dest_slug:'gammarth-port.json', dest_name:'Gammarth', required_hours:4, windows:[offHours, family],
+    hourly_assessment:{path:'hourly/gammarth-port.json',count:hourlyAssessment.length,scope:'single_hour_conditions',phase:'transit',is_window_decision:false},
   },{
     dest_slug:'sidi-bou-said.json', dest_name:'Sidi Bou Saïd', required_hours:3, windows:[lateFamily],
   }]},
@@ -47,7 +60,7 @@ const payloads = {
   'gammarth-port.json': {
     meta:{generated_at:generated, rules:{wind:{family_max_kmh:22}, sea:{family_max_hs_m:.5}}},
     hourly:{
-      time:[offStart.toISOString(),new Date(offStart.getTime()+2*60*60_000).toISOString(),offEnd.toISOString(),familyStart.toISOString(),new Date(familyStart.getTime()+3*60*60_000).toISOString(),familyEnd.toISOString()],
+      time:forecastTimes,
       wind_speed_10m:[11,15,20,9,12,16], hs:[.25,.35,.45,.2,.3,.4], precipitation:[0,0,0,0,0,0],
       temperature_2m:[25,27,29,24,26,28], apparent_temperature:[26,29,31,25,28,30],
       relative_humidity_2m:[65,60,55,70,64,58], cloud_cover:[10,20,35,5,15,25], uv_index:[1,4,7,0,3,6],
@@ -55,6 +68,7 @@ const payloads = {
       wave_height:[.25,.35,.45,.2,.3,.4], wave_period:[5,5,4.8,5.5,5.2,5], visibility:[10000,10000,10000,10000,10000,10000], weather_code:[0,0,1,0,0,1],
     },
   },
+  'hourly/gammarth-port.json': {generated_at:generated,version:1,rules_digest:'visual-fixture',dest_slug:'gammarth-port.json',dest_name:'Gammarth',scope:'single_hour_conditions',phase:'transit',is_window_decision:false,hours:hourlyAssessment},
 };
 
 await fs.mkdir(path.dirname(OUT), {recursive:true});
@@ -71,7 +85,9 @@ await page.addInitScript(({selectedDay}) => {
   localStorage.setItem('fable_selected_day', selectedDay);
 }, {selectedDay:offDay});
 await page.route('**/*.json', async (route) => {
-  const file = new URL(route.request().url()).pathname.split('/').pop();
+  const pathname = new URL(route.request().url()).pathname;
+  const basename = pathname.split('/').pop();
+  const file = pathname.includes('/hourly/') ? `hourly/${basename}` : basename;
   await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(payloads[file] || {})});
 });
 await page.goto(BASE, {waitUntil:'domcontentloaded'});
@@ -109,6 +125,10 @@ const initial = await page.evaluate(() => ({
     const node = document.getElementById(id);
     return !node || getComputedStyle(node).display === 'none';
   }),
+  hourlyChart:Boolean(document.querySelector('.hourly-chart-svg')),
+  hourlyRibbon:Boolean(document.querySelector('.hourly-ribbon')),
+  hourlyStates:document.querySelectorAll('.hourly-state').length,
+  hourlySafety:document.querySelector('.hourly-safety-note')?.textContent?.trim(),
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
 }));
 if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected title: ${initial.title}`);
@@ -130,7 +150,20 @@ if (!initial.confidenceVisible || !initial.confidenceBesideVerdict) throw new Er
 if (initial.qualityHasPercent) throw new Error(`forecast quality must not be shown as a percentage: ${initial.qualityText}`);
 if (!/Qualité des prévisions.*Moyenne/i.test(initial.qualityText || '')) throw new Error(`unexpected forecast quality: ${initial.qualityText}`);
 if (!initial.legacyFamilyHidden) throw new Error('legacy Family verdict or planning is visible in Simple View');
+if (!initial.hourlyChart || !initial.hourlyRibbon || initial.hourlyStates !== hourlyAssessment.length) throw new Error(`engine-owned hourly chart is incomplete: ${JSON.stringify(initial)}`);
+if (!/heure favorable.*sortie complète/i.test(initial.hourlySafety || '')) throw new Error(`hourly safety boundary is missing: ${initial.hourlySafety}`);
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
+
+await page.locator('[data-hourly-mode="table"]').click();
+await page.waitForSelector('.hourly-table');
+const hourlyTableRows = await page.locator('.hourly-table tbody tr').count();
+if (hourlyTableRows !== hourlyAssessment.length) throw new Error(`hourly table should have ${hourlyAssessment.length} rows, got ${hourlyTableRows}`);
+await page.locator('[data-hourly-mode="curves"]').click();
+await page.waitForSelector('.hourly-chart-svg');
+await page.locator('.hourly-chart-svg').focus();
+await page.keyboard.press('End');
+const selectedHour = await page.locator('.hourly-selected time').getAttribute('datetime');
+if (selectedHour !== hourlyAssessment.at(-1).time) throw new Error(`keyboard cursor did not reach last hour: ${selectedHour}`);
 
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();
 await page.waitForSelector('.simple-hero[data-verdict-state="GO_FAMILY"]');

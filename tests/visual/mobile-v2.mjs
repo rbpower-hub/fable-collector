@@ -27,10 +27,16 @@ const offHours = {
 const family = {
   start:familyStart.toISOString(), end:familyEnd.toISOString(), category:'family', family_tier:'standard', confidence:'High', confidence_score:88,
 };
+const lateFamily = {
+  start:new Date(Date.now()-30*60_000).toISOString(), end:new Date(Date.now()+150*60_000).toISOString(),
+  category:'family', family_tier:'standard', confidence:'Medium', confidence_score:70,
+};
 const payloads = {
   'status.json': {generated_at:generated, cadence_minutes:60},
   'windows.json': {generated_at:generated, windows:[{
     dest_slug:'gammarth-port.json', dest_name:'Gammarth', required_hours:4, windows:[offHours, family],
+  },{
+    dest_slug:'sidi-bou-said.json', dest_name:'Sidi Bou Saïd', required_hours:3, windows:[lateFamily],
   }]},
   'rules.normalized.json': {window_hours:{min:4}, wind:{family_max_kmh:22}, sea:{family_max_hs_m:.5}},
   'recommendations.json': {generated_at:generated, recommendations:[]},
@@ -74,6 +80,8 @@ await page.waitForTimeout(300);
 const initial = await page.evaluate(() => ({
   title:document.querySelector('.simple-verdict')?.textContent?.trim(),
   rows:document.querySelectorAll('.simple-window-card').length,
+  inProgressRows:document.querySelectorAll('.simple-window-item.in-progress').length,
+  inProgressText:document.querySelector('.simple-window-item.in-progress')?.textContent?.replace(/\s+/g,' ').trim(),
   tabs:document.querySelectorAll('.simple-day[role="tab"]').length,
   selectedTab:document.querySelector('.simple-day[aria-selected="true"]')?.dataset.simpleDay,
   panelOwner:document.querySelector('#simple-selected-day-content')?.getAttribute('aria-labelledby'),
@@ -104,7 +112,8 @@ const initial = await page.evaluate(() => ({
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
 }));
 if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected title: ${initial.title}`);
-if (initial.rows !== 1) throw new Error(`expected 1 selected-day row, got ${initial.rows}`);
+if (initial.rows !== 2) throw new Error(`expected 2 visible selected-day rows, got ${initial.rows}`);
+if (initial.inProgressRows !== 1 || !/En cours.*Temps restant.*durée familiale complète/is.test(initial.inProgressText || '')) throw new Error(`in-progress family window is not explained: ${initial.inProgressText}`);
 if (initial.tabs !== 3) throw new Error(`expected 3 day tabs, got ${initial.tabs}`);
 if (initial.selectedTab !== String(offOffset)) throw new Error(`unexpected initial selected tab: ${initial.selectedTab}`);
 if (initial.panelOwner !== `simple-day-tab-${offOffset}`) throw new Error(`selected panel belongs to ${initial.panelOwner}`);

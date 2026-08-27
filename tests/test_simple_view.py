@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260827-simple-consistency-v1" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260827-in-progress-v1" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -72,6 +72,20 @@ def test_simple_navigation_expands_inline_and_more_menu_has_real_actions():
     assert 'data-simple-action="activities"' in script
     assert 'data-simple-action="family"' in script
     assert "if (action === 'more')" in script
+
+
+def test_simple_view_keeps_in_progress_windows_visible_without_promoting_them_to_go():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+    verdicts = (ROOT / "public" / "js" / "navigation-verdicts.js").read_text(encoding="utf-8")
+
+    assert "late_rows" in verdicts
+    assert "isInProgressButTooShort" in verdicts
+    assert "En cours" in script
+    assert "Temps restant" in script
+    assert "La durée familiale complète n’est plus réalisable" in script
+    assert "displayRows(result)" in script
+    assert 'class="simple-window-status"' in script
+    assert ".simple-window-badge.in-progress" in script
 
 
 def test_three_day_selector_precedes_and_controls_all_selected_day_widgets():

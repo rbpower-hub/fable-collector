@@ -134,4 +134,21 @@ test('a started window disappears when its destination duration no longer fits',
   });
   assert.equal(result.state, 'NO_GO');
   assert.equal(result.rows.length, 0);
+  assert.equal(result.late_rows.length, 1);
+  assert.equal(result.late_rows[0].windowItem, adaptive);
+});
+
+test('an ended family window is not retained as an in-progress explanation', () => {
+  const current = new Date('2026-08-02T14:15:00Z');
+  const ended = {
+    start:'2026-08-02T12:00:00+01:00', end:'2026-08-02T15:00:00+01:00',
+    category:'family', family_tier:'standard', confidence:'Medium',
+  };
+  const result = navigationVerdictForDay({
+    windows:{windows:[{dest_slug:'sidi-bou-said.json', required_hours:3, windows:[ended]}]},
+    status:{generated_at:'2026-08-02T14:00:00Z', cadence_minutes:60},
+    selectedDay:'2026-08-02', rules, now:current,
+  });
+  assert.equal(result.state, 'NO_GO');
+  assert.equal(result.late_rows.length, 0);
 });

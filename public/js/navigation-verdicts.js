@@ -61,6 +61,19 @@ function isStillActionable(row, selectedDay, now, rules) {
   return end.getTime() >= effectiveDeparture + requiredHours * 3600000;
 }
 
+function isInProgressButTooShort(row, selectedDay, now, rules) {
+  if (selectedDay !== tunisNavigationDateKey(now)) return false;
+  const start = new Date(row?.windowItem?.start || '');
+  const end = new Date(row?.windowItem?.end || '');
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return false;
+  return row.category === 'family'
+    && !isLongTripNavigationWindow(row)
+    && !isBetaOrOffshore(row)
+    && start.getTime() <= now.getTime()
+    && end.getTime() > now.getTime()
+    && !isStillActionable(row, selectedDay, now, rules);
+}
+
 function sortFamilyRows(rows) {
   return [...rows].sort((a, b) => {
     const prudentA = familyTier(a) === 'prudent' ? 1 : 0;
@@ -109,6 +122,7 @@ function emptyVerdict(state, selectedDay, args = {}) {
     off_hours_rows: [],
     watch_rows: [],
     long_trip_rows: [],
+    late_rows: [],
     counts: {strict:0, prudent:0, offHours:0, watch:0, family:0, longTrip:0, total:0},
     message_key: state.toLowerCase(),
     args,
@@ -155,6 +169,9 @@ export function navigationVerdictForDay({
     && row.windowItem?.review_required === true
   ));
   const longTripRows = actionable.filter(isLongTripNavigationWindow);
+  const lateRows = sortFamilyRows(rows.filter((row) => (
+    isInProgressButTooShort(row, day, current, rules)
+  )));
   const counts = navigationWindowBreakdown(actionable);
   const blocker = nearestBlocker(windows, day);
   const shared = {
@@ -164,6 +181,7 @@ export function navigationVerdictForDay({
     off_hours_rows: offHoursRows,
     watch_rows: watchRows,
     long_trip_rows: longTripRows,
+    late_rows: lateRows,
     counts,
     blocker: blocker?.destination || null,
   };

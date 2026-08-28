@@ -27,12 +27,19 @@ _FALLBACK_TAG = '<script src="./js/fallback-sites.js"></script>'
 _DEBT_STYLE = """  <style id="fable-dashboard-debt-styles">
     .pill{display:inline-flex;align-items:center;min-height:30px;padding:4px 9px;border:1px solid var(--br);border-radius:999px;background:var(--pill-bg);color:var(--muted);font-size:.78rem;white-space:nowrap}
   </style>"""
+_RADAR_RESET_BUTTON = '        <button id="resetMapBtn" class="btn" title="Vue initiale">🔄</button>\n'
+_DEFAULT_MAP_VIEW = "  const DEFAULT_MAP_VIEW = { center:[36.95,10.6], zoom:9 };"
+_GLOBAL_MAP_VIEW = "  const DEFAULT_MAP_VIEW = { center:[36.96,11.12], zoom:8 };"
+_RESET_MAP_POINTS = "    const points = currentSpotLatLngs();"
+_GLOBAL_RESET_MAP_POINTS = "    const points = currentSpotLatLngs();"
+_TILE_LAYER = "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);"
+_TILE_LAYER_NO_WRAP = "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',noWrap:true}).addTo(map);"
 _MAP_REVEAL_RESET_ANCHOR = "  window.panToFile = (file)=>{"
 _MAP_REVEAL_RESET = """  const resetMapAfterReveal = () => {
     window.setTimeout(() => {
       if(!map.getContainer().isConnected) return;
       map.invalidateSize({ pan:false });
-      if(!activeMapFile) resetMapView({ animate:false });
+      resetMapView({ animate:false });
     }, 140);
   };
   document.addEventListener('click', event => {
@@ -110,6 +117,7 @@ def modularize_dashboard(index_path: Path) -> bool:
         "const DEFAULT_SPOT_CONFIG = window.FABLE_DEFAULT_SPOT_CONFIG || {",
         1,
     )
+    html = html.replace(_RADAR_RESET_BUTTON, "")
     html = _PRETTIFY_DUPLICATE_RE.sub(
         "      const prettifyDates = prettifyReasonDates;\n      \n      // cleanse",
         html,
@@ -122,6 +130,9 @@ def modularize_dashboard(index_path: Path) -> bool:
     match = _MAIN_SCRIPT_RE.search(html)
     if match:
         app_content = _APP_IMPORTS + match.group(1).strip() + "\n"
+        app_content = app_content.replace(_DEFAULT_MAP_VIEW, _GLOBAL_MAP_VIEW, 1)
+        app_content = app_content.replace(_RESET_MAP_POINTS, _GLOBAL_RESET_MAP_POINTS, 1)
+        app_content = app_content.replace(_TILE_LAYER, _TILE_LAYER_NO_WRAP, 1)
         app_content = app_content.replace(
             _MAP_REVEAL_RESET_ANCHOR,
             _MAP_REVEAL_RESET + _MAP_REVEAL_RESET_ANCHOR,

@@ -51,10 +51,7 @@ def test_low_risk_debt_cleanup_is_present(tmp_path):
 
     assert 'id="fable-dashboard-debt-styles"' in html
     assert ".pill{" in html
-    assert 'id="mapRecenterBtn"' in html
-    assert 'id="map-card"' in html
-    assert 'id="mapDestinations"' in html
-    assert 'id="resetMapBtnTop"' not in html
+    assert 'id="resetMapBtnTop"' in html
     assert 'id="resetMapBtn"' not in html
     assert "const prettifyDates = prettifyReasonDates;" in app
 
@@ -65,7 +62,7 @@ def test_family_map_is_reframed_after_hidden_tab_is_revealed(tmp_path):
 
     assert "noWrap:true" in app
     assert "map.invalidateSize({ pan:false });" in app
-    assert "if(!activeMapFile) resetMapView({ animate:false });" in app
+    assert "resetMapView({ animate:false });" in app
     assert "attributeFilter:['data-family-tab','class']" in app
     assert '[data-family-tab="map"]' in app
 

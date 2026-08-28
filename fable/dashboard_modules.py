@@ -39,12 +39,12 @@ _MAP_REVEAL_RESET = """  const resetMapAfterReveal = () => {
     window.setTimeout(() => {
       if(!map.getContainer().isConnected) return;
       map.invalidateSize({ pan:false });
-      resetMapView({ animate:false });
+      if(!activeMapFile) resetMapView({ animate:false });
     }, 140);
   };
   document.addEventListener('click', event => {
     const trigger = event.target.closest?.(
-      '[data-family-tab="map"],[data-family-action="map"],[data-family-action="map-tab"]'
+      '[data-family-tab="map"],[data-family-action="map"],[data-family-action="map-tab"],[data-simple-action="map"]'
     );
     if(trigger) resetMapAfterReveal();
   });

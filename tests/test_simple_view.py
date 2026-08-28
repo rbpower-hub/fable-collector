@@ -219,7 +219,8 @@ def test_simple_view_is_default_and_deep_links_are_explicit():
     assert "if (!localStorage.getItem(SIMPLE_DEFAULT_KEY))" in script
     assert "getElementById('simple-conditions')" in script
     assert "openSelectedMap()" in script
-    assert "window.panToFile?.(slug)" in script
+    assert "window.FABLEMapUI?.open?.(slug)" in script
+    assert "simple-map-open" in script
     assert "setMode('family', false)" in script
 
 

@@ -3,7 +3,7 @@
   const MODE_KEY = 'fable_board_mode';
   const TAB_KEY = 'fable_family_tab';
   const VALID_TABS = new Set(['today', 'activities', 'map', 'details']);
-  const state = { best: null, windowCount: 0, offshoreCount: 0 };
+  const state = { best: null, windowCount: 0, offshoreCount: 0, rules: {} };
   const TUNIS_TZ = 'Africa/Tunis';
 
   const esc = (value) => String(value ?? '').replace(
@@ -21,6 +21,7 @@
     offshore: 'Long-trip slots', updated: 'Updated', confidence: 'Forecast quality',
     seeWindow: 'See window', seeMap: 'Open map', seeActivities: 'See activities',
     seeReasons: 'See reasons', waiting: 'Waiting for the next safe window.',
+    whyNoGo: 'Why NO-GO', blocking: 'Blocking',
     noReason: 'Current forecasts do not provide a complete validated family window.',
     reduced: 'Reduced comfort: monitor strengthening conditions and plan an early return.',
     todayLabel: 'Today', tomorrowLabel: 'Tomorrow', noWindow: 'No validated window',
@@ -37,6 +38,7 @@
     offshore: 'Créneaux long trajet', updated: 'Mise à jour', confidence: 'Qualité des prévisions',
     seeWindow: 'Voir la fenêtre', seeMap: 'Ouvrir la carte', seeActivities: 'Voir les activités',
     seeReasons: 'Voir les raisons', waiting: 'En attente de la prochaine fenêtre sûre.',
+    whyNoGo: 'Pourquoi NO-GO', blocking: 'Bloquant',
     noReason: 'Les prévisions actuelles ne donnent pas de fenêtre familiale complète et validée.',
     reduced: 'Confort réduit : surveiller le renforcement et prévoir un retour anticipé.',
     todayLabel: 'Aujourd’hui', tomorrowLabel: 'Demain', noWindow: 'Aucune fenêtre validée',
@@ -71,8 +73,9 @@
       .family-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:15px}
       .family-kpi{border:1px solid var(--br);border-radius:11px;padding:9px 11px;background:color-mix(in srgb,var(--pill-bg) 78%,transparent)}
       .family-kpi span{display:block;color:var(--muted);font-size:.76rem;margin-bottom:2px}.family-kpi strong{font-size:.98rem}
-      .family-quality{--quality-color:#60a5fa;display:flex;align-items:center;gap:8px;color:var(--quality-color)}.family-quality[data-quality-level="high"]{--quality-color:var(--ok)}.family-quality[data-quality-level="medium"]{--quality-color:var(--warn)}.family-quality .quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:18px}.family-quality .quality-bars i{display:block;width:5px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.family-quality .quality-bars i:nth-child(1){height:7px}.family-quality .quality-bars i:nth-child(2){height:12px}.family-quality .quality-bars i:nth-child(3){height:17px}.family-quality[data-quality-level="low"] .quality-bars i:nth-child(1),.family-quality[data-quality-level="medium"] .quality-bars i:nth-child(-n+2),.family-quality[data-quality-level="high"] .quality-bars i{background:currentColor}
+      .family-quality{--quality-color:var(--warn);display:flex;align-items:center;gap:8px;color:var(--quality-color)}.family-quality[data-quality-level="high"]{--quality-color:var(--ok)}.family-quality[data-quality-level="medium"]{--quality-color:var(--warn)}.family-quality .quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:18px}.family-quality .quality-bars i{display:block;width:5px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.family-quality .quality-bars i:nth-child(1){height:7px}.family-quality .quality-bars i:nth-child(2){height:12px}.family-quality .quality-bars i:nth-child(3){height:17px}.family-quality[data-quality-level="low"] .quality-bars i:nth-child(1),.family-quality[data-quality-level="medium"] .quality-bars i:nth-child(-n+2),.family-quality[data-quality-level="high"] .quality-bars i{background:currentColor}
       .family-summary-hint{margin-top:11px;color:var(--muted);font-size:.78rem}
+      .family-no-go-panel{margin-top:15px;padding:13px;border:1px solid color-mix(in srgb,var(--bad) 42%,var(--br));border-radius:13px;background:color-mix(in srgb,var(--bad) 6%,var(--pill-bg))}.family-no-go-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}.family-no-go-head strong{font-size:.92rem}.family-no-go-head span{padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad);font-size:.65rem;font-weight:900}
       .family-planning{margin-top:17px;padding-top:15px;border-top:1px solid var(--br)}
       .family-planning-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
       .family-planning-head h3{margin:0;color:var(--fg);font-size:1rem}.family-planning-note{font-size:.78rem;color:var(--muted)}
@@ -90,27 +93,24 @@
       body.family-board-mode #family-board-nav{display:flex}
       body.family-board-mode[data-family-tab="today"] #family-summary{display:block}
       body.family-board-mode .card.wins,body.family-board-mode .card.conditions,body.family-board-mode .card.radar{max-height:none;overflow:visible}
-      body.family-board-mode[data-family-tab="today"] #map,
-      body.family-board-mode[data-family-tab="today"] .map-toolbar,
+      body.family-board-mode[data-family-tab="today"] .map-card,
       body.family-board-mode[data-family-tab="today"] .card.radar,
       body.family-board-mode[data-family-tab="today"] #fable-activities,
       body.family-board-mode[data-family-tab="today"] #port-knowledge-card{display:none!important}
       body.family-board-mode[data-family-tab="today"] .layout-grid.threecol{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:16px}
 
-      body.family-board-mode[data-family-tab="activities"] #map,
-      body.family-board-mode[data-family-tab="activities"] .map-toolbar,
+      body.family-board-mode[data-family-tab="activities"] .map-card,
       body.family-board-mode[data-family-tab="activities"] .layout-grid.threecol,
       body.family-board-mode[data-family-tab="activities"] #port-knowledge-card{display:none!important}
       body.family-board-mode[data-family-tab="activities"] #fable-activities{display:block!important;margin-top:0}
 
       body.family-board-mode[data-family-tab="map"] .layout-grid.threecol,
       body.family-board-mode[data-family-tab="map"] #fable-activities{display:none!important}
+      body.family-board-mode[data-family-tab="map"] .map-card{display:block!important}
       body.family-board-mode[data-family-tab="map"] #map{display:block!important;height:min(62vh,610px);min-height:330px}
-      body.family-board-mode[data-family-tab="map"] .map-toolbar{display:flex!important}
       body.family-board-mode[data-family-tab="map"] #port-knowledge-card{display:block!important}
 
-      body.family-board-mode[data-family-tab="details"] #map,
-      body.family-board-mode[data-family-tab="details"] .map-toolbar,
+      body.family-board-mode[data-family-tab="details"] .map-card,
       body.family-board-mode[data-family-tab="details"] .card.wins,
       body.family-board-mode[data-family-tab="details"] .card.conditions,
       body.family-board-mode[data-family-tab="details"] #fable-activities,
@@ -130,7 +130,7 @@
         .family-summary{padding:14px}.family-summary-main{grid-template-columns:1fr}.family-summary-actions{justify-content:flex-start;max-width:none}
         .family-kpis{grid-template-columns:1fr 1fr}.family-kpi:last-child{grid-column:1/-1}
         body.family-board-mode[data-family-tab="today"] .layout-grid.threecol{grid-template-columns:1fr}
-        body.family-board-mode[data-family-tab="map"] #map{height:48dvh;min-height:300px}
+        body.family-board-mode[data-family-tab="map"] #map{height:48dvh;min-height:330px}
         .activity-grid{grid-template-columns:1fr!important}
         .family-days{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}.family-day{flex:0 0 min(82vw,330px);scroll-snap-align:start}
       }
@@ -289,10 +289,14 @@
       button.setAttribute('aria-selected', active ? 'true' : 'false');
       button.tabIndex = active ? 0 : -1;
     });
-    if (next === 'map') setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+    if (next === 'map') setTimeout(() => { window.dispatchEvent(new Event('resize')); window.FABLEMapUI?.invalidate?.(); }, 100);
   }
 
   function setMode(mode, persist = true) {
+    if (mode === 'simple') {
+      document.body.classList.remove('family-board-mode', 'expert-board-mode', 'simplified-view');
+      return;
+    }
     const next = mode === 'expert' ? 'expert' : 'family';
     document.body.classList.toggle('family-board-mode', next === 'family');
     document.body.classList.toggle('expert-board-mode', next === 'expert');
@@ -328,7 +332,7 @@
     }
   }
 
-  function renderSummary(windows, recommendations, status) {
+  function renderSummary(windows, recommendations, status, rules = {}) {
     const summary = document.getElementById('family-summary');
     if (!summary) return;
     const c = copy();
@@ -389,6 +393,7 @@
     const reason = lang() === 'en'
       ? diagnostics.summary_en || diagnostics.first_blocker?.reason_en
       : diagnostics.summary_fr || diagnostics.first_blocker?.reason_fr;
+    const checkRows = window.FABLEDecisionWidgets?.checksHtml(blocked,rules,lang()) || '';
     summary.innerHTML = `
       <div class="family-summary-main">
         <div>
@@ -407,24 +412,28 @@
         <div class="family-kpi"><span>${esc(c.offshore)}</span><strong data-nav-selected-long-count>${offshoreCount}</strong></div>
         <div class="family-kpi"><span>${esc(c.updated)}</span><strong>${esc(generatedAt ? formatDateTime(generatedAt) : '—')}</strong></div>
       </div>
+      <div class="family-no-go-panel"><div class="family-no-go-head"><strong>${esc(c.whyNoGo)}</strong><span>${esc(c.blocking)}</span></div>${checkRows}</div>
       <div class="family-summary-hint">${esc(c.expertHint)}</div>`;
     renderThreeDayPlanning(summary, windows);
   }
 
   async function refreshSummary() {
     try {
-      const [windowsResponse, recommendationsResponse, statusResponse] = await Promise.all([
+      const [windowsResponse, recommendationsResponse, statusResponse, rulesResponse] = await Promise.all([
         fetch('windows.json', {cache:'no-store'}),
         fetch('recommendations.json', {cache:'no-store'}),
         fetch('status.json', {cache:'no-store'}),
+        fetch('rules.normalized.json', {cache:'no-store'}),
       ]);
+      state.rules = rulesResponse.ok ? await rulesResponse.json() : {};
       renderSummary(
         windowsResponse.ok ? await windowsResponse.json() : {},
         recommendationsResponse.ok ? await recommendationsResponse.json() : {},
-        statusResponse.ok ? await statusResponse.json() : {}
+        statusResponse.ok ? await statusResponse.json() : {},
+        state.rules
       );
     } catch {
-      renderSummary({}, {}, {});
+      renderSummary({}, {}, {}, {});
     }
   }
 
@@ -468,7 +477,7 @@
         if (action === 'map-tab') setTab('map');
         if (action === 'reasons') {
           setTab('today');
-          setTimeout(() => document.querySelector('.card.conditions')?.scrollIntoView({behavior:'smooth'}), 80);
+          setTimeout(() => (document.querySelector('.family-no-go-panel') || document.querySelector('.card.conditions'))?.scrollIntoView({behavior:'smooth'}), 80);
         }
       });
     }

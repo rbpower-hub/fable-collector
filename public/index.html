@@ -64,7 +64,7 @@
     .go{display:inline-block;border-radius:10px;padding:2px 8px;margin-left:8px;font-weight:800}
     .go.family{background:var(--ok); color:#04110a}
     .go.expert{background:#f59e0b; color:#160f04}
-    .conf{--quality-color:#60a5fa;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--br);background:var(--pill-bg);border-radius:9px;padding:5px 8px;margin-left:8px;font-weight:800;font-size:.82rem;color:var(--quality-color);white-space:nowrap}
+    .conf{--quality-color:var(--warn);display:inline-flex;align-items:center;gap:7px;border:1px solid var(--br);background:var(--pill-bg);border-radius:9px;padding:5px 8px;margin-left:8px;font-weight:800;font-size:.82rem;color:var(--quality-color);white-space:nowrap}
     .conf.high{--quality-color:var(--ok)} .conf.medium{--quality-color:var(--warn)}
     .quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:17px;color:var(--quality-color)}.quality-bars i{display:block;width:4px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.quality-bars i:nth-child(1){height:7px}.quality-bars i:nth-child(2){height:11px}.quality-bars i:nth-child(3){height:16px}.conf.low .quality-bars i:nth-child(1),.conf.medium .quality-bars i:nth-child(-n+2),.conf.high .quality-bars i{background:currentColor}
     .stage-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -89,6 +89,9 @@
     .conditions .line.bad{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 6%,var(--pill-bg))}
     .conditions .reason-status{grid-column:1;display:inline-flex;align-items:center;align-self:start;padding:4px 7px;border:1px solid color-mix(in srgb,var(--warn) 58%,var(--br));border-radius:999px;color:var(--warn);font-size:.75rem;font-weight:900;white-space:nowrap}.conditions .line.bad .reason-status{border-color:color-mix(in srgb,var(--bad) 58%,var(--br));color:var(--bad)}
     .conditions .reason-content{grid-column:2;min-width:0}.conditions .reason{font-size:.92rem;font-weight:850;line-height:1.4}.conditions .small{margin-top:5px;color:var(--muted);font-size:.8rem;line-height:1.4}.conditions .reason-count{color:var(--muted);font-size:.78rem;font-weight:750}
+    .decision-checks{grid-column:1/-1;display:grid;gap:9px;margin-top:3px}.decision-check{--check-color:var(--bad)}.decision-check.ok{--check-color:var(--ok)}
+    .decision-check-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:9px;font-size:.76rem;line-height:1.3}.decision-check-head>span{color:var(--muted)}.decision-check-head>strong{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--fg);font-size:.79rem}.decision-check-head>b{padding:3px 6px;border-radius:6px;background:color-mix(in srgb,var(--check-color) 15%,transparent);color:var(--check-color);font-size:.61rem;letter-spacing:.025em}
+    .decision-check-track{height:4px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--muted) 18%,transparent)}.decision-check-track i{display:block;height:100%;border-radius:inherit;background:var(--check-color)}.decision-checks-empty{grid-column:1/-1;margin:3px 0;color:var(--muted);font-size:.78rem}
 
     .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
     table{width:100%; border-collapse:collapse}
@@ -117,8 +120,7 @@
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     #refresh-timer{font-size:.85rem;color:var(--muted);margin-left:16px}
 
-    .marker-pin{width:30px; height:30px; border-radius:50% 50% 50% 0; position:absolute; transform:rotate(-45deg); left:50%; top:50%; margin:-15px 0 0 -15px}
-    .marker-pin::after{content:''; width:14px; height:14px; margin:8px 0 0 8px; background:#fff; position:absolute; border-radius:50%}
+    .map-spot-dot{display:block;width:13px;height:13px;border:2px solid #08131f;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 42%,transparent),0 2px 8px #0009}.map-spot-dot.main{width:17px;height:17px}
     .marker-pulse:after{content:""; border-radius:50%; height:40px; width:40px; position:absolute; margin:-13px 0 0 -13px; animation:pulsate 1.5s ease-out infinite; opacity:0; box-shadow:0 0 1px 2px var(--accent); border:3px solid rgba(255,255,255,0.3)}
     @keyframes pulsate{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.2);opacity:0}}
     .main-port-icon .marker-pulse:after{animation-name:pulsate-main; animation-duration:1.2s; box-shadow:0 0 2px 3px var(--accent); border:3px solid rgba(76,201,240,0.5)}
@@ -223,31 +225,14 @@
     :root[dir="rtl"] body{font-family:"Noto Naskh Arabic","Amiri",system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
     :root[dir="rtl"] h1, :root[dir="rtl"] h3 { letter-spacing:.2px }
     :root{ --map-h: 450px; }
-
-    #map{
-      height: var(--map-h);
-      min-height: 260px;        /* garde-fou */
-      border-radius: 14px;
-      background: var(--card);
-      border: 1px solid var(--br);
-      margin-bottom: 16px;
-      z-index: 0;
-    }
-    .map-toolbar{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin:-4px 0 16px;
-    }
-    .map-toolbar .chip{
-      border:1px solid var(--br);
-      background:var(--pill-bg);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:.92rem;
-      color:var(--muted);
-    }
-    .map-toolbar .chip strong{ color:var(--fg); }
+    .map-card{--map-plane:#060c15;--map-surface:#0d1626;--map-surface-2:#131f33;--map-ink:#eaf1fa;--map-muted:#9db1c8;--map-line:rgba(233,241,250,.12);overflow:hidden;margin-bottom:16px;border:1px solid var(--map-line);border-radius:18px;background:var(--map-surface);color:var(--map-ink);box-shadow:0 12px 32px #0005}
+    .map-card-head{display:flex;align-items:center;gap:12px;padding:13px 14px 10px}.map-card-title{min-width:0;flex:1}.map-card-title strong,.map-card-title small{display:block}.map-card-title strong{font-size:.98rem}.map-card-title small{margin-top:2px;color:var(--map-muted);font-size:.72rem}.map-card-actions{display:flex;gap:7px}.map-icon-button{display:grid;place-items:center;min-width:44px;min-height:44px;padding:0 10px;border:1px solid var(--map-line);border-radius:11px;background:var(--map-surface-2);color:var(--map-ink);font:inherit;font-weight:800;cursor:pointer}.map-icon-button:hover{border-color:#35c1e8;color:#35c1e8}.simple-map-back{display:none;white-space:nowrap}
+    .map-destinations{display:flex;gap:6px;padding:0 14px 11px;overflow-x:auto;scrollbar-width:none}.map-destinations::-webkit-scrollbar{display:none}.map-destination{--spot-color:#6d829b;min-height:42px;flex:0 0 auto;padding:7px 11px;border:1px solid var(--map-line);border-radius:10px;background:var(--map-surface-2);color:var(--map-muted);font:inherit;font-size:.75rem;font-weight:800;white-space:nowrap;cursor:pointer}.map-destination::before{content:'';display:inline-block;width:7px;height:7px;margin-inline-end:7px;border-radius:50%;background:var(--spot-color)}.map-destination.go{--spot-color:#0ca30c}.map-destination.watch{--spot-color:#fab219}.map-destination.blocked{--spot-color:#d03b3b}.map-destination[aria-pressed="true"]{border-color:rgba(53,193,232,.7);background:rgba(53,193,232,.16);color:#58d5f5;box-shadow:inset 0 0 0 1px rgba(53,193,232,.25)}
+    .map-stage{position:relative;background:#08131f}#map{height:var(--map-h);min-height:300px;margin:0;border:0;border-radius:0;background:#08131f;z-index:0}.map-stage .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.72) saturate(.55) contrast(1.05)}.map-stage .leaflet-control-attribution{background:rgba(8,19,31,.78)!important;color:#6d829b!important;font-size:9px}.map-stage .leaflet-control-attribution a{color:#9db1c8!important}.map-stage .leaflet-control-zoom{border:1px solid var(--map-line)!important;border-radius:10px!important;overflow:hidden}.map-stage .leaflet-control-zoom a{width:40px;height:40px;line-height:40px;border-color:var(--map-line)!important;background:var(--map-surface)!important;color:var(--map-ink)!important}
+    .map-toolbar{position:absolute;z-index:500;left:12px;right:12px;bottom:12px;display:flex;pointer-events:none}.map-toolbar .chip{width:100%;padding:9px 11px;border:1px solid var(--map-line);border-radius:12px;background:rgba(8,19,31,.92);color:var(--map-muted);font-size:.76rem;line-height:1.4;box-shadow:0 6px 18px #0006;backdrop-filter:blur(8px)}.map-toolbar .chip strong{color:var(--map-ink)}
+    .map-legend{display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 14px;color:var(--map-muted);font-size:.68rem}.map-legend span::before{content:'';display:inline-block;width:8px;height:8px;margin-inline-end:6px;border-radius:50%;background:#6d829b}.map-legend .home::before,.map-legend .corridor::before{background:#35c1e8}.map-legend .corridor::before{width:17px;height:2px;border-radius:2px;vertical-align:middle}.map-legend .go::before{background:#0ca30c}.map-legend .watch::before{background:#fab219}.map-legend .blocked::before{background:#d03b3b}
+    body.simple-board-mode.simple-map-open #simple-view{display:none!important}body.simple-board-mode.simple-map-open #dashboard-content{display:block!important}body.simple-board-mode.simple-map-open #dashboard-content>.layout-grid,body.simple-board-mode.simple-map-open #fable-activities,body.simple-board-mode.simple-map-open #port-knowledge-card{display:none!important}body.simple-board-mode.simple-map-open #map-card{display:block!important;max-width:760px;margin:0 auto 18px}body.simple-board-mode.simple-map-open .simple-map-back{display:grid!important}
+    @media(max-width:600px){.map-card{margin-inline:-2px;border-radius:14px}.map-card-head{padding:11px 11px 8px}.map-destinations{padding:0 11px 9px}.map-destination{min-height:44px}.map-toolbar{left:8px;right:8px;bottom:8px}.map-toolbar .chip{padding:8px 9px;font-size:.7rem}.map-legend{padding:9px 11px}#map{min-height:330px}}
 
     
     /* Grille 3 colonnes sur desktop */
@@ -341,17 +326,27 @@
     </div>
   </header>
 <div id="dashboard-content">
-  <div id="map" aria-label="Carte des spots"></div>
-  <div class="map-toolbar">
-    <div id="mapSummary" class="chip">⚓ <strong>Carte</strong> · corridor prêt</div>
-  </div>
+  <section id="map-card" class="map-card" aria-labelledby="map-card-heading">
+    <div class="map-card-head">
+      <div class="map-card-title"><strong id="map-card-heading">Carte des corridors</strong><small>Golfe de Tunis · sélectionnez une destination</small></div>
+      <div class="map-card-actions">
+        <button id="simpleMapBackBtn" class="map-icon-button simple-map-back" type="button">← Retour</button>
+        <button id="resetMapBtnTop" class="map-icon-button" type="button" title="Vue globale" aria-label="Recentrer la carte">↺</button>
+      </div>
+    </div>
+    <div id="mapDestinations" class="map-destinations" aria-label="Destinations"></div>
+    <div class="map-stage">
+      <div id="map" aria-label="Carte des spots"></div>
+      <div class="map-toolbar"><div id="mapSummary" class="chip">⚓ <strong>Carte</strong> · corridor prêt</div></div>
+    </div>
+    <div class="map-legend" aria-label="Légende"><span class="home">Port de départ</span><span class="corridor">Corridor</span><span class="go">Fenêtre GO</span><span class="watch">À surveiller</span><span class="blocked">Bloqué</span></div>
+  </section>
 
   <div class="layout-grid threecol">
     <!-- 1) Fenêtres -->
     <div class="card wins">
       <h3>
         <span>🪟 Fenêtres de Navigation</span>
-        <button id="resetMapBtnTop" class="btn" title="Vue initiale">🧭</button>
       </h3>
       <div id="wins">Chargement…</div>
     </div>
@@ -366,7 +361,6 @@
     <div class="card radar">
       <h3>
         <span>📡 Radar des Spots</span>
-        <button id="resetMapBtn" class="btn" title="Vue initiale">🔄</button>
       </h3>
       <div class="table-wrap">
         <table id="files">
@@ -390,6 +384,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
+<script src="./decision-widgets.js?v=20260828-mobile-inspired-v1"></script>
 <script src="./simple-view.js?v=20260827-hourly-chart-v1" defer></script>
 
 <script>
@@ -559,9 +554,11 @@
   let muted = localStorage.getItem('mute') === '1';
   let lastWinsKey = new Set();
   let windowRecordIndex = new Map();
+  let activeMapFile = '';
 
   const $ = sel => document.querySelector(sel);
   const mapSummaryEl = $('#mapSummary');
+  const mapDestinationsEl = $('#mapDestinations');
   const t = (path,...args)=>{const d=I18N[LANG]||I18N.fr; const v=path.split('.').reduce((o,k)=>(o||{})[k],d); return typeof v==='function'?v(...args):(v??path);};
   const fmtLocal = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
   const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
@@ -855,6 +852,22 @@
     const copy = mapCopy();
     setMapSummary(`⚓ <strong>${escapeHtml(home?.name || homeFile)}</strong> · ${escapeHtml(copy.hint)}`);
   }
+  function setActiveMapFile(file=''){
+    activeMapFile = file;
+    mapDestinationsEl?.querySelectorAll('[data-map-file]').forEach(button=>{
+      button.setAttribute('aria-pressed', button.dataset.mapFile === file ? 'true' : 'false');
+    });
+  }
+  function renderMapDestinations(spotStatus={}){
+    if(!mapDestinationsEl) return;
+    mapDestinationsEl.innerHTML = Object.entries(spotConfig)
+      .filter(([file])=>file !== homeFile)
+      .map(([file,site])=>{
+        const raw = spotStatus[file];
+        const tone = raw === 'green' ? 'go' : raw === 'yellow' ? 'watch' : 'blocked';
+        return `<button type="button" class="map-destination ${tone}" data-map-file="${escapeHtml(file)}" aria-pressed="${file===activeMapFile?'true':'false'}">${escapeHtml(site.name)}</button>`;
+      }).join('');
+  }
   function focusWindowForFile(file){
     const line = document.querySelector(`.window-line[data-slug="${file}"]`);
     if(!line) return false;
@@ -869,6 +882,7 @@
   function showRoutePreview(file){
     const plan = routePlanForFile(file);
     if(!plan) return false;
+    setActiveMapFile(file === homeFile ? '' : file);
     corridorLayer.clearLayers();
     if(file === homeFile){
       resetMapSummary();
@@ -994,12 +1008,16 @@
   };
 
   // Map
-  const map = L.map('map').setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+  const map = L.map('map',{zoomControl:false}).setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
+  L.control.zoom({position:'topleft'}).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',noWrap:true,maxZoom:18}).addTo(map);
   const corridorLayer = L.layerGroup().addTo(map);
   const spotsLayer    = L.layerGroup().addTo(map);
   function resetMapView(options={}){
     const animate = options.animate !== false;
+    setActiveMapFile('');
+    corridorLayer.clearLayers();
+    resetMapSummary();
     const points = currentSpotLatLngs();
     if(!points.length){
       map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom, { animate });
@@ -1087,9 +1105,25 @@
 
   // Reset map
   document.getElementById('resetMapBtnTop')?.addEventListener('click', () => resetMapView({ animate:true }));
-  
-  // Reset map (bouton 🔄 dans "Radar des Spots")
-  document.getElementById('resetMapBtn')?.addEventListener('click', () => resetMapView({ animate:true }));
+  document.getElementById('simpleMapBackBtn')?.addEventListener('click', () => {
+    document.body.classList.remove('simple-map-open');
+    document.getElementById('simple-view')?.scrollIntoView({block:'start'});
+  });
+  mapDestinationsEl?.addEventListener('click', event=>{
+    const button = event.target.closest('[data-map-file]');
+    if(!button) return;
+    const file = button.dataset.mapFile;
+    if(!focusWindowForFile(file)) showRoutePreview(file);
+  });
+  window.FABLEMapUI = {
+    open(file){
+      if(file){
+        if(!focusWindowForFile(file)) showRoutePreview(file);
+      }else resetMapView({animate:false});
+      window.setTimeout(()=>map.invalidateSize({pan:false}),80);
+    },
+    invalidate(){ window.setTimeout(()=>map.invalidateSize({pan:false}),60); },
+  };
   // Tooltip
   const tipEl = $('#tooltip');
   const hideTip = ()=>{ tipEl.style.display='none'; };
@@ -1269,6 +1303,7 @@
       const start = cardEl.dataset.start;
       const end   = cardEl.dataset.end;
       if(!slug || !start || !end) return;
+      setActiveMapFile(slug);
       const record = windowRecordIndex.get(`${slug}|${start}|${end}`) || null;
       const composite = record?.seg?.composite || null;
     
@@ -1463,6 +1498,12 @@
       const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot||'');
       const file = m ? m[1] : null;
       const flags = file ? spotFlags.get(file) : null;
+      const diagnosticDestination = file
+        ? (winData?.windows || []).find(destination=>destination.dest_slug === file)
+        : null;
+      const checksHTML = diagnosticDestination?.diagnostics
+        ? (window.FABLEDecisionWidgets?.checksHtml(diagnosticDestination,rulesNormalized,LANG) || '')
+        : '';
       
       // severity + icon (check original raw)
       let sev = 'warn';
@@ -1476,7 +1517,7 @@
       return `<div class="line ${sev}" title="${cleaned}${scope}${offNote}">
                 <span class="reason-status">${escapeHtml(sev === 'bad' ? t('reason_blocking') : t('reason_watch'))}</span>
                 <div class="reason-content"><div class="reason">${escapeHtml(`${main}${scope}${offNote}`)}</div>
-                <div class="small">${r.spot||''}</div></div>
+                <div class="small">${r.spot||''}</div></div>${checksHTML}
               </div>`;
 
       }).join('');
@@ -1594,10 +1635,11 @@
     Object.keys(spotConfig).forEach(file=>{
       if(spotStatus[file]!=='green'){ const entry=status?.files?.find(s=>s.path===file); spotStatus[file] = isFresh(entry,gen) ? 'yellow' : 'red'; }
     });
+    renderMapDestinations(spotStatus);
 
     // après la carte
     spotsLayer.clearLayers();
-    const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+    const createIcon = (color,isMain)=> L.divIcon({className:'custom-div-icon', html:`<span style="background:${color};color:${color}" class="map-spot-dot${isMain?' main':''}"></span>`, iconSize:[22,22], iconAnchor:[11,11]});
     for(const file in spotConfig){
       const s=spotConfig[file], isMain = file===homeFile, st = spotStatus[file];
       const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
@@ -1612,7 +1654,8 @@
       });
     }
 
-    resetMapSummary();
+    if(activeMapFile && spotConfig[activeMapFile]) showRoutePreview(activeMapFile);
+    else resetMapSummary();
     $('#dashboard-content').classList.remove('updating');
     fitToViewport();
     map.invalidateSize();  // important quand la hauteur de la carte change

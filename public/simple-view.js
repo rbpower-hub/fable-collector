@@ -125,7 +125,7 @@
       .simple-destination{margin:13px 0 3px;font-size:1.18rem;font-weight:900}.simple-window{color:var(--muted);font-weight:700}
       .simple-hero-detail{max-width:48ch;margin:10px 0 0;color:var(--muted);font-weight:650;line-height:1.45}
       .simple-confidence{--quality-color:var(--muted);display:grid;align-content:center;justify-items:start;min-height:116px;padding-inline-start:18px;border-inline-start:1px solid var(--br)}
-      .simple-confidence[data-quality-level="high"]{--quality-color:var(--ok)}.simple-confidence[data-quality-level="medium"]{--quality-color:var(--warn)}.simple-confidence[data-quality-level="limited"]{--quality-color:#60a5fa}
+      .simple-confidence[data-quality-level="high"]{--quality-color:var(--ok)}.simple-confidence[data-quality-level="medium"],.simple-confidence[data-quality-level="limited"]{--quality-color:var(--warn)}
       .simple-confidence-label{display:block;max-width:150px;margin-bottom:8px;color:var(--muted);font-size:.82rem;line-height:1.25}
       .quality-value{display:flex;align-items:center;gap:9px;color:var(--quality-color);font-size:.94rem;font-weight:900;line-height:1.2}
       .quality-bars{display:inline-flex;align-items:flex-end;gap:3px;height:18px;color:var(--quality-color)}.quality-bars i{display:block;width:5px;border-radius:2px;background:color-mix(in srgb,currentColor 22%,transparent)}.quality-bars i:nth-child(1){height:7px}.quality-bars i:nth-child(2){height:12px}.quality-bars i:nth-child(3){height:17px}
@@ -137,6 +137,7 @@
       [data-theme="nautical"] .simple-action.primary{color:#fff}
       .simple-reasons{margin-top:12px;padding:14px;border:1px solid color-mix(in srgb,var(--bad) 45%,var(--br));border-radius:14px;background:color-mix(in srgb,var(--bad) 7%,var(--pill-bg))}
       .simple-reasons[hidden]{display:none}.simple-reasons-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}.simple-reasons-title{font-size:1rem;font-weight:900}.simple-reason-status{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid color-mix(in srgb,var(--bad) 52%,var(--br));border-radius:999px;color:var(--bad);font-size:.78rem;font-weight:900}.simple-reason-status::before{content:'×';font-size:1rem;line-height:1}.simple-reason-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start}.simple-reason-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad);font-size:1.2rem;font-weight:950}.simple-reason-row strong{display:block;font-size:.92rem;line-height:1.45}.simple-reason-row small{display:block;margin-top:6px;color:var(--muted);font-size:.81rem;line-height:1.35}
+      .simple-reasons .decision-checks{margin-top:13px;padding-top:12px;border-top:1px solid var(--br)}.simple-reasons .decision-check-head{font-size:.73rem}.simple-reasons .decision-checks-empty{margin:10px 0 0}
       .simple-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 0}
       .simple-metric{min-width:0;padding:12px;border:1px solid var(--br);border-radius:16px;background:var(--card)}
       .simple-metric span{display:block;color:var(--muted);font-size:.72rem}.simple-metric strong{display:block;margin-top:4px;font-size:.95rem;overflow:hidden;text-overflow:ellipsis}
@@ -503,11 +504,16 @@
       NO_GO:{tone:'blocked', title:c.blocked, icon:'⛔', detail:lateDetail || c.conditions},
     }[result?.state] || {tone:'blocked', title:c.loading, icon:'⏳', detail:''};
     const blocked = result?.blocker || result?.spot || null;
+    const blockedForDay = blocked ? {
+      ...blocked,
+      diagnostics:blocked.daily_diagnostics?.[result?.selected_day] || blocked.diagnostics || {},
+    } : null;
     const destination = best ? best.destination.dest_name || best.destination.dest_slug : c.conditions;
     const windowText = best ? `${formatTime(best.windowItem.start)}–${formatTime(best.windowItem.end)}` : c.noWindow;
     const quality = forecastQuality(contextRow);
     const generatedAt = state.windows?.generated_at || state.status?.generated_at;
-    const reason = blockerText(blocked) || presentation.detail || c.conditions;
+    const reason = blockerText(blockedForDay) || presentation.detail || c.conditions;
+    const reasonChecks = window.FABLEDecisionWidgets?.checksHtml(blockedForDay,state.rules,lang()) || '';
     const dataState = state.loading ? `<div class="simple-data-state" role="status">⏳ ${esc(c.loading)}</div>` : state.error ? `<div class="simple-data-state error" role="alert">⚠️ ${esc(c.missing)}</div>` : result?.state === 'STALE' ? `<div class="simple-data-state stale" role="alert">⚠️ ${esc(c.stale)}</div>` : '';
     const marineState = hasMarineDataError(state.windows) ? `<div class="simple-data-state marine" role="alert">🌊 ${esc(c.marineMissing)}</div>` : '';
     root.innerHTML = `<div class="simple-shell">${dataState}${marineState}<div class="simple-day-context ${selectedTone}" data-selected-tone="${selectedTone}">
@@ -518,7 +524,7 @@
         ${best ? `<div class="simple-destination">📍 ${esc(destination)}</div><div class="simple-window">${esc(windowText)}</div>` : ''}
         ${presentation.detail ? `<p class="simple-hero-detail">${esc(presentation.detail)}</p>` : ''}
         <div class="simple-actions">${displayRows(result).length ? `<button class="simple-action primary" data-simple-action="windows" type="button">${esc(c.viewWindows)} →</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>` : `<button class="simple-action primary" aria-expanded="false" aria-controls="simple-reasons" data-simple-action="reasons" type="button">${esc(c.why)}</button><button class="simple-action" data-simple-action="map" type="button">🗺️ ${esc(c.map)}</button>`}</div>
-        <div id="simple-reasons" class="simple-reasons" hidden><div class="simple-reasons-head"><span class="simple-reasons-title">${esc(c.whyNoGo)}</span><span class="simple-reason-status">${esc(c.blocking)}</span></div><div class="simple-reason-row"><span class="simple-reason-mark" aria-hidden="true">×</span><div><strong>${esc(reason)}</strong><small>${esc(c.primaryCause)} · ${esc(blocked?.dest_name || blocked?.dest_slug || '—')}</small></div></div></div></div>
+        <div id="simple-reasons" class="simple-reasons" hidden><div class="simple-reasons-head"><span class="simple-reasons-title">${esc(c.whyNoGo)}</span><span class="simple-reason-status">${esc(c.blocking)}</span></div><div class="simple-reason-row"><span class="simple-reason-mark" aria-hidden="true">×</span><div><strong>${esc(reason)}</strong><small>${esc(c.primaryCause)} · ${esc(blocked?.dest_name || blocked?.dest_slug || '—')}</small></div></div>${reasonChecks}</div></div>
         <aside class="simple-confidence" data-quality-level="${esc(quality.level)}" aria-label="${esc(c.forecastQuality)} : ${esc(quality.label)}"><span class="simple-confidence-label">${esc(c.forecastQuality)}</span><div class="quality-value"><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong>${esc(quality.label)}</strong></div></aside></div>
       </section>
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.forecastQuality)}</span><strong>${esc(quality.label)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
@@ -531,6 +537,7 @@
 
   function setMode(mode, persist = true) {
     const simple = mode === SIMPLE_MODE;
+    document.body.classList.remove('simple-map-open');
     document.body.classList.toggle('simple-board-mode', simple);
     if (simple) {
       document.body.classList.remove('family-board-mode', 'expert-board-mode', 'simplified-view');
@@ -588,17 +595,12 @@
   }
   function openSelectedMap(best = bestForDisplayDay()) {
     const slug = best?.destination?.dest_slug;
-    openFamilyTab('map');
+    document.body.classList.add('simple-map-open');
+    window.FABLEMapUI?.open?.(slug);
     setTimeout(() => {
-      const line = Array.from(document.querySelectorAll('.window-line')).find((item) => (
-        item.dataset.slug === slug
-        && item.dataset.start === best?.windowItem?.start
-        && item.dataset.end === best?.windowItem?.end
-        && (!best?.windowItem?.direction || item.dataset.direction === best.windowItem.direction)
-      ));
-      line?.click();
-      if (slug) setTimeout(() => window.panToFile?.(slug), 120);
-    }, 320);
+      document.getElementById('map-card')?.scrollIntoView({block:'start'});
+      window.FABLEMapUI?.invalidate?.();
+    }, 100);
   }
   async function refresh() {
     state.loading = true; state.error = ''; render();

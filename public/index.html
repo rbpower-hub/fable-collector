@@ -117,8 +117,8 @@
     footer{margin-top:24px;color:var(--muted);font-size:.9rem}
     #refresh-timer{font-size:.85rem;color:var(--muted);margin-left:16px}
 
-    .marker-pin{width:30px; height:30px; border-radius:50% 50% 50% 0; position:absolute; transform:rotate(-45deg); left:50%; top:50%; margin:-15px 0 0 -15px}
-    .marker-pin::after{content:''; width:14px; height:14px; margin:8px 0 0 8px; background:#fff; position:absolute; border-radius:50%}
+    .marker-pin{width:28px;height:28px;border:2px solid #e8f7ff;border-radius:50%;position:absolute;left:50%;top:50%;margin:-14px 0 0 -14px;box-shadow:0 4px 14px #020817aa}
+    .marker-pin::after{content:'';width:8px;height:8px;margin:8px 0 0 8px;background:#06111f;position:absolute;border:2px solid #fff;border-radius:50%}
     .marker-pulse:after{content:""; border-radius:50%; height:40px; width:40px; position:absolute; margin:-13px 0 0 -13px; animation:pulsate 1.5s ease-out infinite; opacity:0; box-shadow:0 0 1px 2px var(--accent); border:3px solid rgba(255,255,255,0.3)}
     @keyframes pulsate{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.2);opacity:0}}
     .main-port-icon .marker-pulse:after{animation-name:pulsate-main; animation-duration:1.2s; box-shadow:0 0 2px 3px var(--accent); border:3px solid rgba(76,201,240,0.5)}
@@ -133,7 +133,7 @@
 
     /* Corridors / ancrage */
     .anchor-badge{
-      background: var(--card);
+      background: color-mix(in srgb,var(--card) 94%,transparent);
       border: 1px solid var(--br);
       color: var(--fg);
       padding: 2px 6px;
@@ -183,7 +183,8 @@
       border: 1px solid var(--br);
       box-shadow: var(--shadow);
       padding: 6px 8px;
-      border-radius: 8px;
+      border-radius: 10px;
+      backdrop-filter:blur(10px);
     }
 
     /* Toggle pill (thème & langue) */
@@ -224,30 +225,45 @@
     :root[dir="rtl"] h1, :root[dir="rtl"] h3 { letter-spacing:.2px }
     :root{ --map-h: 450px; }
 
+    .map-card{position:relative;overflow:hidden;margin-bottom:16px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--br));border-radius:20px;background:linear-gradient(145deg,color-mix(in srgb,var(--accent) 8%,var(--card)),var(--card) 58%);box-shadow:var(--shadow)}
+    .map-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:15px 16px 12px}
+    .map-card-title{display:flex;align-items:center;gap:10px}.map-card-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--accent) 17%,var(--pill-bg));color:var(--accent);font-size:1.15rem}
+    .map-card-title h2{margin:0;color:var(--fg);font-size:1.05rem}.map-card-title p{margin:3px 0 0;color:var(--muted);font-size:.78rem;line-height:1.35}
+    .map-recenter{display:inline-grid;place-items:center;min-width:44px;min-height:44px;border:1px solid var(--br);border-radius:13px;background:color-mix(in srgb,var(--pill-bg) 92%,transparent);color:var(--fg);font-size:1.08rem;cursor:pointer}.map-recenter:hover,.map-recenter:focus-visible{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+    .map-destinations{display:flex;gap:7px;overflow-x:auto;padding:0 16px 12px;scrollbar-width:none}.map-destinations::-webkit-scrollbar{display:none}
+    .map-destination{min-height:40px;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--br);border-radius:999px;background:var(--pill-bg);color:var(--muted);font-size:.78rem;font-weight:850;cursor:pointer}.map-destination::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--destination-color,var(--muted));box-shadow:0 0 0 3px color-mix(in srgb,var(--destination-color,var(--muted)) 14%,transparent)}.map-destination[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,var(--pill-bg));color:var(--fg)}
     #map{
       height: var(--map-h);
       min-height: 260px;        /* garde-fou */
-      border-radius: 14px;
+      border-radius:0;
       background: var(--card);
-      border: 1px solid var(--br);
-      margin-bottom: 16px;
+      border-block:1px solid var(--br);
+      margin:0;
       z-index: 0;
     }
+    [data-theme="dark"] #map .leaflet-tile-pane{filter:invert(1) hue-rotate(183deg) brightness(.72) saturate(.62) contrast(1.05)}
+    [data-theme="dark"] #map .leaflet-control-attribution{background:#06111fcc!important;color:#90a4b8!important}[data-theme="dark"] #map .leaflet-control-attribution a{color:#7dd3fc!important}
+    #map .leaflet-control-zoom{border:1px solid var(--br);border-radius:12px;overflow:hidden;box-shadow:0 8px 20px #02081755}#map .leaflet-control-zoom a{background:color-mix(in srgb,var(--card) 94%,transparent);color:var(--fg);border-color:var(--br);width:40px;height:40px;line-height:40px}
     .map-toolbar{
       display:flex;
       flex-wrap:wrap;
       gap:10px;
-      margin:-4px 0 16px;
+      margin:0;
+      padding:12px 16px 14px;
     }
     .map-toolbar .chip{
       border:1px solid var(--br);
       background:var(--pill-bg);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:.92rem;
+      width:100%;
+      border-radius:13px;
+      padding:9px 11px;
+      font-size:.82rem;
       color:var(--muted);
+      line-height:1.45;
     }
     .map-toolbar .chip strong{ color:var(--fg); }
+    .map-legend{display:flex;flex-wrap:wrap;gap:12px;padding:0 16px 14px;color:var(--muted);font-size:.7rem}.map-legend span{display:inline-flex;align-items:center;gap:5px}.map-legend i{width:16px;height:3px;border-radius:999px;background:var(--accent)}.map-legend i.port{width:8px;height:8px;border-radius:50%;background:var(--accent)}.map-legend i.destination{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+    @media(max-width:600px){.map-card{border-radius:17px}.map-card-head{padding:13px 13px 10px}.map-destinations{padding:0 13px 10px}.map-card-title p{max-width:30ch}.map-toolbar{padding:10px 13px 12px}.map-legend{padding:0 13px 12px}#map{min-height:310px;height:48dvh}}
 
     
     /* Grille 3 colonnes sur desktop */
@@ -341,17 +357,23 @@
     </div>
   </header>
 <div id="dashboard-content">
-  <div id="map" aria-label="Carte des spots"></div>
-  <div class="map-toolbar">
-    <div id="mapSummary" class="chip">⚓ <strong>Carte</strong> · corridor prêt</div>
-  </div>
+  <div id="map-home-anchor" hidden></div>
+  <section id="map-card" class="map-card" aria-labelledby="map-card-heading">
+    <div class="map-card-head">
+      <div class="map-card-title"><span class="map-card-icon" aria-hidden="true">⌖</span><div><h2 id="map-card-heading">Carte des sorties</h2><p id="map-card-subtitle">Choisissez une destination pour visualiser le corridor depuis Gammarth.</p></div></div>
+      <button id="mapRecenterBtn" class="map-recenter" type="button" title="Recentrer sur toutes les destinations" aria-label="Recentrer sur toutes les destinations">🧭</button>
+    </div>
+    <div id="mapDestinations" class="map-destinations" aria-label="Destinations"></div>
+    <div id="map" aria-label="Carte des spots et corridors"></div>
+    <div class="map-toolbar"><div id="mapSummary" class="chip" role="status">⚓ <strong>Carte</strong> · corridor prêt</div></div>
+    <div class="map-legend" aria-label="Légende de la carte"><span><i class="port"></i><b id="map-legend-home">Port d’attache</b></span><span><i class="destination"></i><b id="map-legend-destination">Destination</b></span><span><i></i><b id="map-legend-corridor">Corridor sélectionné</b></span></div>
+  </section>
 
   <div class="layout-grid threecol">
     <!-- 1) Fenêtres -->
     <div class="card wins">
       <h3>
         <span>🪟 Fenêtres de Navigation</span>
-        <button id="resetMapBtnTop" class="btn" title="Vue initiale">🧭</button>
       </h3>
       <div id="wins">Chargement…</div>
     </div>
@@ -366,7 +388,6 @@
     <div class="card radar">
       <h3>
         <span>📡 Radar des Spots</span>
-        <button id="resetMapBtn" class="btn" title="Vue initiale">🔄</button>
       </h3>
       <div class="table-wrap">
         <table id="files">
@@ -435,7 +456,7 @@
       high: { min_wave_sources: 2 }
     }
   };
-  const DEFAULT_MAP_VIEW = { center:[36.95,10.6], zoom:9 };
+  const DEFAULT_MAP_VIEW = { center:[36.96,11.12], zoom:8 };
 
   // --- Corridor helpers (cache + séries + vent au plus proche) ---
   const SPOT_CACHE = new Map();
@@ -559,6 +580,8 @@
   let muted = localStorage.getItem('mute') === '1';
   let lastWinsKey = new Set();
   let windowRecordIndex = new Map();
+  let activeMapFile = null;
+  let activeMapWindowKey = null;
 
   const $ = sel => document.querySelector(sel);
   const mapSummaryEl = $('#mapSummary');
@@ -567,9 +590,11 @@
   const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
   const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const mapCopy = ()=> LANG==='en'
-    ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Beta route', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', leg:'Leg', via:'via', go:'GO', compositeGo:'Composite GO', step1:'Leg 1', step2:'Leg 2', relayArrival:'relay arrival', targetWindow:'target window', waiting:'wait', relay:'relay', outsideHours:'after hours' }
-    : { hint:'clique une fenêtre, un spot ou la ligne radar pour afficher le corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Route beta', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif', legs:'segments', leg:'Étape', via:'via', go:'GO', compositeGo:'GO composite', step1:'Étape 1', step2:'Étape 2', relayArrival:'arrivée relai', targetWindow:'fenêtre cible', waiting:'attente', relay:'relai', outsideHours:'hors horaires' };
+  const mapCopy = ()=> LANG==='ar'
+    ? { title:'خريطة الرحلات', subtitle:'اختر وجهة لعرض المسار البحري انطلاقاً من قمرت.', recenter:'عرض جميع الوجهات', homeLegend:'ميناء الانطلاق', destinationLegend:'الوجهة', corridorLegend:'المسار المحدد', hint:'المس وجهة أو نافذة أو صفاً في الرادار لعرض المسار', corridor:'المسار', transit:'مدة الإبحار', anchor:'الرسو', ret:'العودة', local:'خرجة محلية', speed:'السرعة المفترضة', knots:'عقدة', beta:'مسار تجريبي', preview:'معاينة المسار', goDisabled:'محرك القرار غير مفعل بعد', legs:'مراحل', leg:'المرحلة', via:'عبر', go:'مناسب', compositeGo:'مسار مركب مناسب', step1:'المرحلة 1', step2:'المرحلة 2', relayArrival:'الوصول إلى محطة العبور', targetWindow:'النافذة المستهدفة', waiting:'انتظار', relay:'محطة العبور', outsideHours:'خارج الأوقات' }
+    : LANG==='en'
+    ? { title:'Trip map', subtitle:'Choose a destination to view its corridor from Gammarth.', recenter:'Show all destinations', homeLegend:'Home port', destinationLegend:'Destination', corridorLegend:'Selected corridor', hint:'tap a destination, window or radar row to show its corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Beta route', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', leg:'Leg', via:'via', go:'GO', compositeGo:'Composite GO', step1:'Leg 1', step2:'Leg 2', relayArrival:'relay arrival', targetWindow:'target window', waiting:'wait', relay:'relay', outsideHours:'after hours' }
+    : { title:'Carte des sorties', subtitle:'Choisissez une destination pour visualiser son corridor depuis Gammarth.', recenter:'Afficher toutes les destinations', homeLegend:'Port d’attache', destinationLegend:'Destination', corridorLegend:'Corridor sélectionné', hint:'touchez une destination, une fenêtre ou le radar pour afficher son corridor', corridor:'Corridor', transit:'Transit', anchor:'Mouillage', ret:'Retour', local:'Sortie locale', speed:'Hyp. vitesse', knots:'nds', beta:'Route beta', preview:'Aperçu route', goDisabled:'moteur GO pas encore actif', legs:'segments', leg:'Étape', via:'via', go:'GO', compositeGo:'GO composite', step1:'Étape 1', step2:'Étape 2', relayArrival:'arrivée relai', targetWindow:'fenêtre cible', waiting:'attente', relay:'relai', outsideHours:'hors horaires' };
   const familyStartHour = ()=> Number(rulesNormalized?.family?.hours_local?.start ?? 8);
   const familyEndHour = ()=> Number(rulesNormalized?.family?.hours_local?.end ?? 21);
   const familyMinHours = ()=> Number(rulesNormalized?.family?.window_hours?.min ?? 4);
@@ -850,6 +875,30 @@
   function setMapSummary(html){
     if(mapSummaryEl) mapSummaryEl.innerHTML = html;
   }
+  function setActiveMapFile(file){
+    activeMapFile = spotConfig[file] ? file : null;
+    document.querySelectorAll('.map-destination').forEach(button=>{
+      button.setAttribute('aria-pressed', String(button.dataset.file === activeMapFile));
+    });
+  }
+  function renderMapDestinations(statusByFile = {}){
+    const host = document.getElementById('mapDestinations');
+    if(!host) return;
+    const copy = mapCopy();
+    document.getElementById('map-card-heading').textContent = copy.title;
+    document.getElementById('map-card-subtitle').textContent = copy.subtitle;
+    document.getElementById('map-legend-home').textContent = copy.homeLegend;
+    document.getElementById('map-legend-destination').textContent = copy.destinationLegend;
+    document.getElementById('map-legend-corridor').textContent = copy.corridorLegend;
+    const recenter = document.getElementById('mapRecenterBtn');
+    recenter.title = copy.recenter;
+    recenter.setAttribute('aria-label', copy.recenter);
+    host.innerHTML = Object.entries(spotConfig).map(([file,site])=>{
+      const state = statusByFile[file];
+      const color = file === homeFile ? 'var(--accent)' : state === 'green' ? 'var(--ok)' : state === 'yellow' ? 'var(--warn)' : 'var(--bad)';
+      return `<button class="map-destination" type="button" data-file="${escapeHtml(file)}" aria-pressed="${file === activeMapFile}" style="--destination-color:${color}">${escapeHtml(site.name)}</button>`;
+    }).join('');
+  }
   function resetMapSummary(){
     const home = spotConfig[homeFile];
     const copy = mapCopy();
@@ -866,10 +915,12 @@
   function routeNote(file){
     return spotConfig[file]?.route_note || (isBetaRoute(file) ? `${mapCopy().beta} — ${mapCopy().goDisabled}.` : '');
   }
-  function showRoutePreview(file){
+  function showRoutePreview(file, options={}){
     const plan = routePlanForFile(file);
     if(!plan) return false;
+    if(!options.preserveWindow) activeMapWindowKey = null;
     corridorLayer.clearLayers();
+    setActiveMapFile(file);
     if(file === homeFile){
       resetMapSummary();
       const home = spotConfig[homeFile];
@@ -994,12 +1045,21 @@
   };
 
   // Map
-  const map = L.map('map').setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
+  const map = L.map('map',{zoomControl:false}).setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',noWrap:true,maxZoom:18}).addTo(map);
   const corridorLayer = L.layerGroup().addTo(map);
   const spotsLayer    = L.layerGroup().addTo(map);
   function resetMapView(options={}){
     const animate = options.animate !== false;
+    if(options.clearSelection){
+      activeMapFile = null;
+      activeMapWindowKey = null;
+      corridorLayer.clearLayers();
+      document.querySelectorAll('.window-line.select').forEach(node=>node.classList.remove('select'));
+      setActiveMapFile(null);
+      resetMapSummary();
+    }
     const points = currentSpotLatLngs();
     if(!points.length){
       map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom, { animate });
@@ -1013,9 +1073,28 @@
   }
   window.panToFile = (file)=>{
     const s=spotConfig[file];
-    if(s) map.flyTo([s.lat,s.lon], Math.max(map.getZoom(), 12), { animate:true });
+    if(s){ setActiveMapFile(file); map.flyTo([s.lat,s.lon], Math.max(map.getZoom(), 12), { animate:true }); }
   };
   resetMapView({ animate:false });
+  const restoreMapHome = ()=>{
+    const card = document.getElementById('map-card');
+    const anchor = document.getElementById('map-home-anchor');
+    if(card && anchor && card.previousElementSibling !== anchor) anchor.insertAdjacentElement('afterend', card);
+    requestAnimationFrame(()=>map.invalidateSize({pan:false}));
+  };
+  const mountMap = target=>{
+    const card = document.getElementById('map-card');
+    if(card && target && card.parentElement !== target) target.appendChild(card);
+    requestAnimationFrame(()=>map.invalidateSize({pan:false}));
+  };
+  window.FABLEMap = {
+    map,
+    mount:mountMap,
+    restoreHome:restoreMapHome,
+    invalidate:()=>map.invalidateSize({pan:false}),
+    selectFile:showRoutePreview,
+    reset:()=>resetMapView({animate:true,clearSelection:true}),
+  };
 
   // ===== KIOSK (manual via button only) =====
   
@@ -1085,11 +1164,11 @@
     updateDashboard();
   });
 
-  // Reset map
-  document.getElementById('resetMapBtnTop')?.addEventListener('click', () => resetMapView({ animate:true }));
-  
-  // Reset map (bouton 🔄 dans "Radar des Spots")
-  document.getElementById('resetMapBtn')?.addEventListener('click', () => resetMapView({ animate:true }));
+  document.getElementById('mapRecenterBtn')?.addEventListener('click', () => resetMapView({ animate:true, clearSelection:true }));
+  document.getElementById('mapDestinations')?.addEventListener('click', event=>{
+    const file = event.target.closest('.map-destination')?.dataset.file;
+    if(file) showRoutePreview(file);
+  });
   // Tooltip
   const tipEl = $('#tooltip');
   const hideTip = ()=>{ tipEl.style.display='none'; };
@@ -1269,6 +1348,8 @@
       const start = cardEl.dataset.start;
       const end   = cardEl.dataset.end;
       if(!slug || !start || !end) return;
+      setActiveMapFile(slug);
+      activeMapWindowKey = `${slug}|${start}|${end}`;
       const record = windowRecordIndex.get(`${slug}|${start}|${end}`) || null;
       const composite = record?.seg?.composite || null;
     
@@ -1597,7 +1678,7 @@
 
     // après la carte
     spotsLayer.clearLayers();
-    const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,42], iconAnchor:[15,42]});
+    const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon ${isMain?'main-port-icon':''}`, html:`<div style="background-color:${color};" class="marker-pin"></div><div class="marker-pulse"></div>`, iconSize:[30,34], iconAnchor:[15,17]});
     for(const file in spotConfig){
       const s=spotConfig[file], isMain = file===homeFile, st = spotStatus[file];
       const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));
@@ -1612,7 +1693,15 @@
       });
     }
 
-    resetMapSummary();
+    renderMapDestinations(spotStatus);
+    if(activeMapFile && spotConfig[activeMapFile]) {
+      showRoutePreview(activeMapFile, {preserveWindow:true});
+      if(activeMapWindowKey){
+        const [file,start,end] = activeMapWindowKey.split('|');
+        document.querySelector(`.window-line[data-slug="${CSS.escape(file)}"][data-start="${CSS.escape(start)}"][data-end="${CSS.escape(end)}"]`)?.classList.add('select');
+      }
+    }
+    else resetMapSummary();
     $('#dashboard-content').classList.remove('updating');
     fitToViewport();
     map.invalidateSize();  // important quand la hauteur de la carte change

@@ -189,6 +189,24 @@ const inlineWindow = await page.evaluate(() => ({
 }));
 if (!inlineWindow.simpleMode || inlineWindow.expanded !== 'true') throw new Error(`window click left Simple View: ${JSON.stringify(inlineWindow)}`);
 if (!/Durée disponible.*Durée minimale.*Qualité des prévisions/is.test(inlineWindow.details || '')) throw new Error(`inline window details are incomplete: ${inlineWindow.details}`);
+await page.locator('[data-simple-action="map-window"]').click();
+await page.waitForSelector('#simple-map-slot > #map-card', {state:'visible'});
+const integratedMap = await page.evaluate(() => {
+  const card = document.getElementById('map-card');
+  const recenter = document.getElementById('mapRecenterBtn')?.getBoundingClientRect();
+  const map = document.getElementById('map')?.getBoundingClientRect();
+  return {
+    simpleMode:document.body.classList.contains('simple-board-mode'),
+    parent:card?.parentElement?.id,
+    recenterWidth:recenter?.width || 0,
+    recenterHeight:recenter?.height || 0,
+    mapHeight:map?.height || 0,
+    overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  };
+});
+if (!integratedMap.simpleMode || integratedMap.parent !== 'simple-map-slot') throw new Error(`map left Simple View: ${JSON.stringify(integratedMap)}`);
+if (integratedMap.recenterWidth < 44 || integratedMap.recenterHeight < 44) throw new Error(`map recenter target is too small: ${JSON.stringify(integratedMap)}`);
+if (integratedMap.mapHeight < 300 || integratedMap.overflow > 2) throw new Error(`integrated map layout is invalid at 390px: ${JSON.stringify(integratedMap)}`);
 await page.locator('[data-simple-action="more"]').click();
 await page.waitForSelector('#simple-more-menu:not([hidden])');
 const moreActions = await page.locator('#simple-more-menu .simple-more-action').count();

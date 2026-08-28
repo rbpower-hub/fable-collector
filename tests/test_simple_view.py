@@ -219,8 +219,10 @@ def test_simple_view_is_default_and_deep_links_are_explicit():
     assert "if (!localStorage.getItem(SIMPLE_DEFAULT_KEY))" in script
     assert "getElementById('simple-conditions')" in script
     assert "openSelectedMap()" in script
-    assert "window.panToFile?.(slug)" in script
-    assert "setMode('family', false)" in script
+    assert "window.FABLEMap?.mount?.(document.getElementById('simple-map-slot'))" in script
+    assert "window.FABLEMap?.selectFile?.(slug)" in script
+    assert "openFamilyTab('map')" not in script
+    assert "if (action === 'family') setMode('family')" in script
 
 
 def test_simple_view_three_day_action_and_safe_activities_are_rendered():

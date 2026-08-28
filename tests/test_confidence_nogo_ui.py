@@ -45,6 +45,14 @@ def test_no_go_reasons_have_text_statuses_and_keep_engine_reason():
     assert "const familyRaw = String(r.family||'').trim()" in expert
 
 
+def test_expert_reason_keeps_slashes_inside_units():
+    expert = read_public("index.html")
+
+    assert "split(/;|·|\\||\\/|—|--|, /)" not in expert
+    assert "|\\s+\\/\\s+/" in expert
+    assert "preserves units such as km/h" in expert
+
+
 def test_arabic_quality_translation_preserves_bar_markup():
     locale = read_public("arabic-locale.js")
 

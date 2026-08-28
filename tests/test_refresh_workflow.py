@@ -31,8 +31,9 @@ def test_external_healthcheck_budget_covers_confirmation_retries():
         (ROOT / ".github" / "workflows" / "healthcheck.yml").read_text(encoding="utf-8")
     )
 
-    # Four 60-second waits, network checks and runner setup must fit in the job.
-    assert workflow["jobs"]["health"]["timeout-minutes"] >= 12
+    # Initial confirmation, recovery dispatch/wait, confirmation retries,
+    # network checks and runner setup must all fit in the job.
+    assert workflow["jobs"]["health"]["timeout-minutes"] >= 20
 
 
 def test_refresh_polling_and_fail_safe_freshness_remain_bounded():
@@ -53,19 +54,35 @@ def test_healthcheck_confirms_failures_and_routes_semantic_results():
     job = workflow["jobs"]["health"]
     steps = {step["name"]: step for step in job["steps"] if "name" in step}
     check = steps["Check live Pages deployment with confirmation retries"]
+    recover = steps["Trigger collection recovery"]
+    confirm = steps["Confirm recovery deployment"]
     open_incident = steps["Open or update issue on persistent failure"]
     close_incident = steps["Close recovered healthcheck incident"]
     fail_job = steps["Fail job if persistently unhealthy"]
 
-    assert job["env"]["HEALTHCHECK_ATTEMPTS"] == "5"
+    assert workflow["on"]["schedule"][0]["cron"] == "53 * * * *"
+    assert workflow["permissions"]["actions"] == "write"
+    assert job["env"]["HEALTHCHECK_ATTEMPTS"] == "3"
     assert job["env"]["HEALTHCHECK_DELAY_SECONDS"] == "60"
+    assert job["env"]["HEALTHCHECK_RECOVERY_WAIT_SECONDS"] == "180"
+    assert job["env"]["HEALTHCHECK_RECOVERY_ATTEMPTS"] == "5"
     assert check["id"] == "check"
     assert 'result="healthy"' in check["run"]
     assert 'result="persistent_failure"' in check["run"]
     assert 'echo "result=${result}"' in check["run"]
     assert check["run"].rstrip().endswith("exit 0")
 
+    assert recover["id"] == "recover"
+    assert "createWorkflowDispatch" in recover["with"]["script"]
+    assert "workflow_id: 'collect.yml'" in recover["with"]["script"]
+    assert "steps.check.outputs.result == 'persistent_failure'" in recover["if"]
+    assert confirm["id"] == "confirm"
+    assert "HEALTHCHECK_RECOVERY_WAIT_SECONDS" in confirm["run"]
+    assert "steps.recover.outputs.dispatched == 'true'" in confirm["if"]
+
     assert "steps.check.outputs.result == 'persistent_failure'" in open_incident["if"]
-    assert "steps.check.outputs.result == 'healthy'" in close_incident["if"]
+    assert "steps.confirm.outputs.result != 'healthy'" in open_incident["if"]
+    assert "steps.confirm.outputs.result == 'healthy'" in close_incident["if"]
     assert "steps.check.outputs.result == 'persistent_failure'" in fail_job["if"]
+    assert "steps.confirm.outputs.result != 'healthy'" in fail_job["if"]
     assert "exit 1" in fail_job["run"]

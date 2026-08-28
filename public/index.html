@@ -1455,7 +1455,9 @@
                              .replace(/\s*\(([^)]+\.json)\)\s*$/,'')
                              .trim();
       const cleaned = prettifyReasonDates(cleanedBase);
-      const main = cleaned.split(/;|·|\||\/|—|--|, /)[0].trim() || cleaned;
+      // A slash is a separator only when surrounded by spaces. Keeping the
+      // bare slash preserves units such as km/h in the displayed reason.
+      const main = cleaned.split(/;|·|\||—|--|, |\s+\/\s+/)[0].trim() || cleaned;
       
       // file (to read flags)
       const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot||'');

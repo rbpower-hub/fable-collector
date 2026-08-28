@@ -12,6 +12,7 @@ const state = {
   selectedKey: null,
   recommendations: [],
   windows: null,
+  rules: {},
   syncScheduled: false,
   originalReasonsHtml: null,
 };
@@ -86,6 +87,7 @@ function copy() {
     genericNoGo: 'No Family GO window is validated for this destination on the selected day.',
     offHoursOnly: 'Only an out-of-hours window is available on the selected day.',
     dataUnavailable: 'Selected-day warnings are temporarily unavailable.',
+    blocking: 'Blocking',
   };
   if (lang === 'ar') return {
     selectDay: 'اختر هذا اليوم',
@@ -106,6 +108,7 @@ function copy() {
     genericNoGo: 'لا توجد نافذة Family GO صالحة لهذه الوجهة في اليوم المختار.',
     offHoursOnly: 'توجد فقط نافذة خارج الساعات العائلية في اليوم المختار.',
     dataUnavailable: 'تحذيرات اليوم المختار غير متاحة مؤقتاً.',
+    blocking: 'مانع',
   };
   return {
     selectDay: 'Sélectionner cette journée',
@@ -126,6 +129,7 @@ function copy() {
     genericNoGo: 'Aucune fenêtre Family GO validée pour cette destination pendant la journée sélectionnée.',
     offHoursOnly: 'Seule une fenêtre hors horaires familiaux est disponible pendant la journée sélectionnée.',
     dataUnavailable: 'Les avertissements de la journée sélectionnée sont temporairement indisponibles.',
+    blocking: 'Bloquant',
   };
 }
 
@@ -358,7 +362,7 @@ function renderLongTripLine(line, row) {
   line.dataset.longTripRenderKey = renderKey;
   const confidenceKey = String(item.confidence || destination.confidence || '').toLowerCase();
   const confidenceClass = ['high', 'medium', 'low'].includes(confidenceKey) ? confidenceKey : 'low';
-  line.innerHTML = `<div class="title">${esc(destination.dest_name || destination.dest_slug || target)} <span class="go family">${esc(direction)}</span> <span class="conf ${confidenceClass} expert-only">${esc(item.confidence || destination.confidence || '—')}</span>${beta ? ` <span class="family-badge prudent long-trip-beta">${esc(text.beta)}</span>` : ''}</div>
+  line.innerHTML = `<div class="title">${esc(destination.dest_name || destination.dest_slug || target)} <span class="go family">${esc(direction)}</span> <span class="conf ${confidenceClass} expert-only" data-quality-level="${esc(confidenceClass)}"><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="quality-label">${esc(item.confidence || destination.confidence || '—')}</span></span>${beta ? ` <span class="family-badge prudent long-trip-beta">${esc(text.beta)}</span>` : ''}</div>
     <div class="small long-trip-route"><b>${esc(origin)} → ${esc(target)}</b></div>
     <div class="small">${esc(formatDateTime(item.start))} → ${esc(formatDateTime(item.end))}</div>
     <div class="small">${esc(durationLabel(item.start, item.end))} · ${esc(text.confidence || 'Confiance')} ${esc(item.confidence || destination.confidence || '—')}</div>
@@ -412,7 +416,9 @@ function warningHtml(destination, key) {
   if (Number.isFinite(Number(blocker?.metrics?.gust_kmh))) metricParts.push(`raf. ${Math.round(Number(blocker.metrics.gust_kmh))} km/h`);
   if (Number.isFinite(Number(blocker?.metrics?.hs_m))) metricParts.push(`Hs ${Number(blocker.metrics.hs_m).toFixed(1)} m`);
   const detail = [destination?.dest_name || destination?.dest_slug || '—', metricParts.join(' · ')].filter(Boolean).join(' · ');
-  return `<div class="line bad" data-day-warning-destination="${esc(destination?.dest_slug || '')}"><div class="reason">🚫 ${esc(summary)}</div><div class="small">${esc(detail)}</div></div>`;
+  const diagnosticDestination = {...destination, diagnostics};
+  const checks = window.FABLEDecisionWidgets?.checksHtml(diagnosticDestination,state.rules,lang) || '';
+  return `<div class="line bad" data-day-warning-destination="${esc(destination?.dest_slug || '')}"><span class="reason-status">${esc(text.blocking)}</span><div class="reason-content"><div class="reason">${esc(summary)}</div><div class="small">${esc(detail)}</div></div>${checks}</div>`;
 }
 
 function syncWarnings() {
@@ -546,17 +552,20 @@ function setSelectedDay(key, {persist = true, announce = true} = {}) {
 
 async function refreshData() {
   try {
-    const [recommendationsResponse, windowsResponse] = await Promise.all([
+    const [recommendationsResponse, windowsResponse, rulesResponse] = await Promise.all([
       fetch('recommendations.json', {cache: 'no-store'}),
       fetch('windows.json', {cache: 'no-store'}),
+      fetch('rules.normalized.json', {cache: 'no-store'}),
     ]);
     const recommendationPayload = recommendationsResponse.ok ? await recommendationsResponse.json() : {};
     state.recommendations = Array.isArray(recommendationPayload?.recommendations)
       ? recommendationPayload.recommendations : [];
     state.windows = windowsResponse.ok ? await windowsResponse.json() : null;
+    state.rules = rulesResponse.ok ? await rulesResponse.json() : {};
   } catch {
     state.recommendations = [];
     state.windows = null;
+    state.rules = {};
   }
   syncAll();
 }

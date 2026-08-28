@@ -213,6 +213,10 @@ async function execute(browser, scenario) {
     if (!values.familyPlanningVisible) failures.push('family three-day planning is missing');
     if (scenario.device === 'mobile' && !values.mobileSettings) failures.push('mobile settings button missing');
     if (scenario.state === 'marine-error' && !values.marineMessage) failures.push('marine data error not visible');
+    if (scenario.state === 'fresh-empty') {
+      const checks = await page.locator('.card.conditions .decision-check:visible').count();
+      if (checks < 3) failures.push(`Family structured NO-GO checks missing (${checks})`);
+    }
     if (scenario.device === 'desktop' && scenario.state === 'fresh-windows' && scenario.locale === 'fr') {
       await page.locator('.family-days .family-day').nth(1).click();
       await page.waitForTimeout(200);
@@ -228,6 +232,25 @@ async function execute(browser, scenario) {
       if (!/Aller/i.test(navigation.text) || !/Retour/i.test(navigation.text)) failures.push(`outbound/return directions missing (${JSON.stringify(navigation)})`);
       if (!/aller simple — retour à planifier séparément/.test(navigation.text)) failures.push('one-way planning warning missing');
       if (!/Pantelleria/.test(navigation.text) || !/Bêta/.test(navigation.text)) failures.push(`Pantelleria beta card missing (${JSON.stringify(navigation)})`);
+      await page.locator('[data-family-tab="map"]').click();
+      await page.waitForSelector('body.family-board-mode[data-family-tab="map"] #map-card', {state:'visible'});
+      await page.locator('[data-map-file="sidi-bou-said.json"]').click();
+      await page.waitForTimeout(250);
+      const familyMap = await page.evaluate(() => ({
+        active:document.querySelector('[data-map-file="sidi-bou-said.json"]')?.getAttribute('aria-pressed'),
+        destinations:document.querySelectorAll('.map-destination').length,
+        summary:document.getElementById('mapSummary')?.textContent?.replace(/\s+/g,' ').trim(),
+        visible:getComputedStyle(document.getElementById('map-card')).display !== 'none',
+      }));
+      if (!familyMap.visible || familyMap.destinations < 4 || familyMap.active !== 'true' || !/Sidi Bou Saïd/.test(familyMap.summary || '')) failures.push(`Family map integration incomplete (${JSON.stringify(familyMap)})`);
+      await page.locator('#viewToggleBtn').click();
+      await page.waitForSelector('body.expert-board-mode #map-card', {state:'visible'});
+      const expertMap = await page.evaluate(() => ({
+        visible:getComputedStyle(document.getElementById('map-card')).display !== 'none',
+        confidenceBars:document.querySelectorAll('#wins .quality-bars').length,
+        overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+      }));
+      if (!expertMap.visible || expertMap.confidenceBars < 1 || expertMap.overflow > 2) failures.push(`Expert map or confidence integration incomplete (${JSON.stringify(expertMap)})`);
     }
     if (errors.length) failures.push(...errors);
     await page.screenshot({path: path.join(SHOTS, `${key}.png`), fullPage: false});

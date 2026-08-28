@@ -54,13 +54,17 @@ const payloads = {
   'status.json': {generated_at:generated, cadence_minutes:60},
   'windows.json': {generated_at:generated, windows:[{
     dest_slug:'gammarth-port.json', dest_name:'Gammarth', required_hours:4, windows:[offHours, family],
+    daily_diagnostics:{[day(noGoOffset)]:{status:'blocked',summary_fr:'Rafales et durée insuffisante',near_miss:{validated_hours:0},first_blocker:{time:`${day(noGoOffset)}T12:00:00+01:00`,reason_fr:'Rafales trop fortes',metrics:{wind_kmh:27,gust_kmh:34,hs_m:.6,visibility_km:8}}}},
     hourly_assessment:{path:'hourly/gammarth-port.json',count:hourlyAssessment.length,scope:'single_hour_conditions',phase:'transit',is_window_decision:false},
   },{
     dest_slug:'sidi-bou-said.json', dest_name:'Sidi Bou Saïd', required_hours:3, windows:[lateFamily],
   }]},
   'rules.normalized.json': {window_hours:{min:4}, wind:{family_max_kmh:22}, sea:{family_max_hs_m:.5}},
   'recommendations.json': {generated_at:generated, recommendations:[]},
-  'sites.normalized.json': {home:'gammarth-port', sites:[{name:'Gammarth', slug:'gammarth-port', path:'gammarth-port.json', lat:36.92, lon:10.31, map_lat:36.92, map_lon:10.31, route_kind:'standard', route_points:[]}]},
+  'sites.normalized.json': {home:'gammarth-port', sites:[
+    {name:'Gammarth', slug:'gammarth-port', path:'gammarth-port.json', lat:36.92, lon:10.31, map_lat:36.92, map_lon:10.31, route_kind:'standard', route_points:[]},
+    {name:'Sidi Bou Saïd', slug:'sidi-bou-said', path:'sidi-bou-said.json', lat:36.865, lon:10.351, map_lat:36.865, map_lon:10.351, route_kind:'standard', route_points:[]},
+  ]},
   'catalog.json': {files:[{path:'gammarth-port.json'}]},
   'index.json': {generated_at:generated, files:['gammarth-port.json']},
   'port-knowledge.json': {ports:[]},
@@ -98,7 +102,13 @@ await page.route('**/*.json', async (route) => {
   await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(payloads[file] || {})});
 });
 await page.goto(BASE, {waitUntil:'domcontentloaded'});
-await page.waitForSelector('.simple-hero[data-verdict-state="OFF_HOURS"]', {state:'visible'});
+await page.waitForSelector('.simple-hero[data-verdict-state="OFF_HOURS"]', {state:'visible'}).catch(async (error) => {
+  const state = await page.evaluate(() => ({
+    body:document.body.className,
+    text:document.body.innerText.slice(0,1000),
+  }));
+  throw new Error(`${error.message}; page errors=${errors.join(' | ')}; state=${JSON.stringify(state)}`);
+});
 await page.waitForTimeout(300);
 const initial = await page.evaluate(() => ({
   title:document.querySelector('.simple-verdict')?.textContent?.trim(),
@@ -200,6 +210,33 @@ await page.waitForSelector('.simple-hero[data-verdict-state="NO_GO"]');
 const noGoQuality = await page.locator('.simple-confidence').textContent();
 if (/\d+\s*%/.test(noGoQuality || '')) throw new Error(`NO-GO quality must not be a percentage: ${noGoQuality}`);
 if (!/Qualité des prévisions.*Non évaluée/is.test(noGoQuality || '')) throw new Error(`unexpected NO-GO forecast quality: ${noGoQuality}`);
+await page.locator('[data-simple-action="reasons"]').click();
+await page.waitForSelector('#simple-reasons:not([hidden])');
+const reasonChecks = await page.locator('#simple-reasons .decision-check').count();
+if (reasonChecks < 3) throw new Error(`structured NO-GO checks are missing: ${reasonChecks}`);
+await page.locator('.simple-bottom-nav [data-simple-action="map"]').click();
+await page.waitForSelector('body.simple-map-open #map-card', {state:'visible'});
+await page.waitForTimeout(180);
+const mapView = await page.evaluate(() => {
+  const map = document.getElementById('map');
+  const back = document.getElementById('simpleMapBackBtn');
+  return {
+    simple:document.body.classList.contains('simple-board-mode'),
+    family:document.body.classList.contains('family-board-mode'),
+    destinations:document.querySelectorAll('.map-destination').length,
+    mapHeight:map?.getBoundingClientRect().height || 0,
+    backWidth:back?.getBoundingClientRect().width || 0,
+    backHeight:back?.getBoundingClientRect().height || 0,
+    overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+  };
+});
+if (!mapView.simple || mapView.family) throw new Error(`map left Simple View: ${JSON.stringify(mapView)}`);
+if (mapView.destinations < 1 || mapView.mapHeight < 300) throw new Error(`map is incomplete: ${JSON.stringify(mapView)}`);
+if (mapView.backWidth < 44 || mapView.backHeight < 44) throw new Error(`map back target is too small: ${JSON.stringify(mapView)}`);
+if (mapView.overflow > 2) throw new Error(`map horizontal overflow: ${mapView.overflow}px`);
+await page.screenshot({path:OUT.replace(/\.png$/, '-map.png'), fullPage:false});
+await page.locator('#simpleMapBackBtn').click();
+await page.waitForSelector('#simple-view', {state:'visible'});
 if (errors.length) throw new Error(errors.join('; '));
 await page.screenshot({path:OUT, fullPage:true});
 await browser.close();

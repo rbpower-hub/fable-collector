@@ -1,7 +1,9 @@
 # Healthcheck EXTERNE : vérifie le déploiement Pages en production.
 #
-# v4 :
-# - confirme les erreurs transitoires sur 5 tentatives ;
+# v5 :
+# - confirme les erreurs transitoires avant toute action ;
+# - relance Collect & Deploy une fois si la production reste périmée ;
+# - confirme le résultat du redéploiement avant d'ouvrir un incident ;
 # - conserve le journal complet de toutes les tentatives ;
 # - évite les exécutions concurrentes ;
 # - met à jour une seule issue au lieu d'ajouter un commentaire à chaque échec ;
@@ -14,13 +16,14 @@
 
 name: Healthcheck (fable-collector)
 
-on:
+"on":
   schedule:
-    - cron: "41 */6 * * *" # toutes les 6 h, minute décalée
+    - cron: "53 * * * *" # garde-fou horaire, décalé du collecteur principal
   workflow_dispatch: {}
 
 permissions:
   contents: read
+  actions: write
   issues: write
 
 concurrency:
@@ -31,13 +34,15 @@ jobs:
   health:
     runs-on: ubuntu-latest
 
-    # 5 tentatives espacées de 60 secondes représentent environ 4 minutes
-    # d'attente, auxquelles s'ajoutent checkout, Python et les appels réseau.
-    timeout-minutes: 12
+    # Le budget couvre la confirmation initiale, le redéploiement de secours
+    # et sa confirmation, en plus du setup du runner et des appels réseau.
+    timeout-minutes: 20
 
     env:
-      HEALTHCHECK_ATTEMPTS: "5"
+      HEALTHCHECK_ATTEMPTS: "3"
       HEALTHCHECK_DELAY_SECONDS: "60"
+      HEALTHCHECK_RECOVERY_WAIT_SECONDS: "180"
+      HEALTHCHECK_RECOVERY_ATTEMPTS: "5"
       HEALTHCHECK_BASE_URL: "https://rbpower-hub.github.io/fable-collector"
 
     steps:
@@ -131,8 +136,103 @@ jobs:
           # La décision de mettre le job en échec intervient dans le dernier step.
           exit 0
 
-      - name: Open or update issue on persistent failure
+      - name: Trigger collection recovery
+        id: recover
         if: always() && steps.check.outputs.result == 'persistent_failure'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'collect.yml',
+              ref: 'main'
+            });
+
+            core.setOutput('dispatched', 'true');
+            core.notice('Collect & Deploy dispatched to recover stale production data.');
+
+      - name: Confirm recovery deployment
+        id: confirm
+        if: always() && steps.check.outputs.result == 'persistent_failure' && steps.recover.outputs.dispatched == 'true'
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          attempts="${HEALTHCHECK_RECOVERY_ATTEMPTS}"
+          delay="${HEALTHCHECK_DELAY_SECONDS}"
+          code=1
+          attempts_used=0
+
+          echo "Waiting ${HEALTHCHECK_RECOVERY_WAIT_SECONDS} seconds for recovery deployment..."
+          sleep "${HEALTHCHECK_RECOVERY_WAIT_SECONDS}"
+
+          for attempt in $(seq 1 "$attempts"); do
+            attempts_used="$attempt"
+            attempt_log="/tmp/healthcheck-recovery-attempt-${attempt}.log"
+            timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+            echo "::group::Recovery confirmation ${attempt}/${attempts}"
+            echo "Recovery confirmation ${attempt}/${attempts}"
+            echo "UTC timestamp: ${timestamp}"
+            echo "Target: ${HEALTHCHECK_BASE_URL}"
+
+            set +e
+            python -m fable.healthcheck "${HEALTHCHECK_BASE_URL}" \
+              > "${attempt_log}" 2>&1
+            code=$?
+            set -e
+
+            cat "${attempt_log}"
+            echo "Attempt exit code: ${code}"
+
+            {
+              echo "============================================================"
+              echo "Recovery confirmation ${attempt}/${attempts}"
+              echo "UTC timestamp: ${timestamp}"
+              echo "Exit code: ${code}"
+              echo "============================================================"
+              cat "${attempt_log}"
+              echo
+            } >> /tmp/healthcheck.log
+
+            echo "::endgroup::"
+
+            if [ "${code}" -eq 0 ]; then
+              echo "Production recovered on confirmation ${attempt}."
+              break
+            fi
+
+            if [ "${attempt}" -lt "${attempts}" ]; then
+              sleep "${delay}"
+            fi
+          done
+
+          if [ "${code}" -eq 0 ]; then
+            result="healthy"
+          else
+            result="persistent_failure"
+          fi
+
+          {
+            echo "exit_code=${code}"
+            echo "result=${result}"
+            echo "attempts_used=${attempts_used}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo
+            echo "## FABLE automatic recovery"
+            echo
+            echo "- Collect & Deploy dispatched: \`yes\`"
+            echo "- Result after deployment: \`${result}\`"
+            echo "- Confirmation attempts: \`${attempts_used}/${attempts}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          exit 0
+
+      - name: Open or update issue on persistent failure
+        if: always() && steps.check.outputs.result == 'persistent_failure' && steps.confirm.outputs.result != 'healthy'
         uses: actions/github-script@v8
         with:
           script: |
@@ -164,8 +264,9 @@ jobs:
             const body =
               `Le healthcheck de production a échoué de manière persistante.\n\n` +
               `- Date UTC : ${new Date().toISOString()}\n` +
-              `- Tentatives : ${{ steps.check.outputs.attempts_used }}/${{ env.HEALTHCHECK_ATTEMPTS }}\n` +
-              `- Code final : ${{ steps.check.outputs.exit_code }}\n` +
+              `- Tentatives initiales : ${{ steps.check.outputs.attempts_used }}/${{ env.HEALTHCHECK_ATTEMPTS }}\n` +
+              `- Tentatives après relance : ${{ steps.confirm.outputs.attempts_used || 'non exécutées' }}\n` +
+              `- Code final : ${{ steps.confirm.outputs.exit_code || steps.check.outputs.exit_code }}\n` +
               `- Workflow run : ${runUrl}\n\n` +
               `### Journal complet\n\n` +
               `\`\`\`text\n${fullLog}\n\`\`\`\n\n` +
@@ -211,7 +312,7 @@ jobs:
             }
 
       - name: Close recovered healthcheck incident
-        if: always() && steps.check.outputs.result == 'healthy'
+        if: always() && (steps.check.outputs.result == 'healthy' || steps.confirm.outputs.result == 'healthy')
         uses: actions/github-script@v8
         with:
           script: |
@@ -239,8 +340,8 @@ jobs:
                 repo: context.repo.repo,
                 issue_number: issue.number,
                 body:
-                  `✅ Production rétablie et confirmée par cinq contrôles ` +
-                  `au maximum le ${new Date().toISOString()}. ` +
+                  `✅ Production rétablie et confirmée automatiquement ` +
+                  `le ${new Date().toISOString()}. ` +
                   `Incident clôturé automatiquement.`
               });
 
@@ -254,7 +355,7 @@ jobs:
             }
 
       - name: Fail job if persistently unhealthy
-        if: always() && steps.check.outputs.result == 'persistent_failure'
+        if: always() && steps.check.outputs.result == 'persistent_failure' && steps.confirm.outputs.result != 'healthy'
         shell: bash
         run: |
           echo "Production remained unhealthy after all confirmation attempts."

@@ -141,7 +141,6 @@
       .simple-metric{min-width:0;padding:12px;border:1px solid var(--br);border-radius:16px;background:var(--card)}
       .simple-metric span{display:block;color:var(--muted);font-size:.72rem}.simple-metric strong{display:block;margin-top:4px;font-size:.95rem;overflow:hidden;text-overflow:ellipsis}
       .simple-panel{margin-top:12px;padding:17px;border:1px solid var(--br);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}
-      #simple-map-section{margin-top:12px;scroll-margin-top:12px}#simple-map-section .map-card{margin:0}body.simple-board-mode #simple-map-section #map{height:min(55dvh,480px);min-height:320px}
       .simple-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.simple-panel h2{margin:0;font-size:1rem}.simple-panel-note{color:var(--muted);font-size:.76rem}
       .simple-day-context{--selection-color:var(--bad);position:relative;margin-top:4px}.simple-day-context.good{--selection-color:var(--ok)}.simple-day-context.prudent,.simple-day-context.stale{--selection-color:var(--warn)}.simple-day-context.watch{--selection-color:#f59e0b}.simple-day-context.off-hours{--selection-color:#22d3ee}.simple-day-context.travel{--selection-color:#60a5fa}.simple-day-context.loading,.simple-day-context.unavailable{--selection-color:var(--muted)}
       .simple-day-selector{position:relative;z-index:2;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.simple-day-selector .simple-panel-head{margin:0 2px 10px}
@@ -487,7 +486,6 @@
   function render() {
     const root = document.getElementById('simple-view');
     if (!root) return;
-    window.FABLEMap?.restoreHome?.();
     const c = copy();
     const result = verdictForDay();
     const selectedTone = toneForState(result?.state);
@@ -525,18 +523,14 @@
       </section>
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.forecastQuality)}</span><strong>${esc(quality.label)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
       ${renderHourlyExplorer(result)}
-      ${renderNavigation(result)}<section id="simple-map-section" aria-label="${esc(c.map)}"><div id="simple-map-slot"></div></section>${renderConditions(contextRow, Boolean(state.hourlyAssessment?.hours?.length))}${renderActivities(best)}
+      ${renderNavigation(result)}${renderConditions(contextRow, Boolean(state.hourlyAssessment?.hours?.length))}${renderActivities(best)}
       </div>
       </div>
     </div><div id="simple-more-menu" class="simple-more-menu" hidden><button class="simple-more-action" data-simple-action="conditions" type="button">〽️ ${esc(c.conditionsMenu)}</button><button class="simple-more-action" data-simple-action="activities" type="button">🌊 ${esc(c.activitiesMenu)}</button><button class="simple-more-action" data-simple-action="family" type="button">👨‍👩‍👧 ${esc(c.familyMenu)}</button></div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="more" type="button" aria-expanded="false" aria-controls="simple-more-menu"><span>•••</span>${esc(c.more)}</button></nav>`;
-    if (document.body.classList.contains('simple-board-mode')) {
-      window.FABLEMap?.mount?.(document.getElementById('simple-map-slot'));
-    }
   }
 
   function setMode(mode, persist = true) {
     const simple = mode === SIMPLE_MODE;
-    if (!simple) window.FABLEMap?.restoreHome?.();
     document.body.classList.toggle('simple-board-mode', simple);
     if (simple) {
       document.body.classList.remove('family-board-mode', 'expert-board-mode', 'simplified-view');
@@ -585,10 +579,17 @@
     await Promise.all([loadForecast(destination?.dest_slug), loadHourlyAssessment(destination)]);
     state.hourlyLoading = false;
   }
+  function openFamilyTab(tab) {
+    const selectedKey = dayKey(state.activeDay);
+    localStorage.setItem('fable_selected_day', selectedKey);
+    window.FABLEDaySelection?.setSelectedDay?.(selectedKey, {persist:true, announce:false});
+    setMode('family', false);
+    setTimeout(() => document.querySelector(`[data-family-tab="${tab}"]`)?.click(), 120);
+  }
   function openSelectedMap(best = bestForDisplayDay()) {
     const slug = best?.destination?.dest_slug;
+    openFamilyTab('map');
     setTimeout(() => {
-      window.FABLEMap?.mount?.(document.getElementById('simple-map-slot'));
       const line = Array.from(document.querySelectorAll('.window-line')).find((item) => (
         item.dataset.slug === slug
         && item.dataset.start === best?.windowItem?.start
@@ -596,9 +597,8 @@
         && (!best?.windowItem?.direction || item.dataset.direction === best.windowItem.direction)
       ));
       line?.click();
-      if (!line && slug) window.FABLEMap?.selectFile?.(slug);
-      document.getElementById('simple-map-section')?.scrollIntoView({behavior:'smooth',block:'start'});
-    }, 80);
+      if (slug) setTimeout(() => window.panToFile?.(slug), 120);
+    }, 320);
   }
   async function refresh() {
     state.loading = true; state.error = ''; render();

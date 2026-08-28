@@ -90,25 +90,27 @@
       body.family-board-mode #family-board-nav{display:flex}
       body.family-board-mode[data-family-tab="today"] #family-summary{display:block}
       body.family-board-mode .card.wins,body.family-board-mode .card.conditions,body.family-board-mode .card.radar{max-height:none;overflow:visible}
-      body.family-board-mode[data-family-tab="today"] .map-card,
+      body.family-board-mode[data-family-tab="today"] #map,
+      body.family-board-mode[data-family-tab="today"] .map-toolbar,
       body.family-board-mode[data-family-tab="today"] .card.radar,
       body.family-board-mode[data-family-tab="today"] #fable-activities,
       body.family-board-mode[data-family-tab="today"] #port-knowledge-card{display:none!important}
       body.family-board-mode[data-family-tab="today"] .layout-grid.threecol{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:16px}
 
-      body.family-board-mode[data-family-tab="activities"] .map-card,
+      body.family-board-mode[data-family-tab="activities"] #map,
+      body.family-board-mode[data-family-tab="activities"] .map-toolbar,
       body.family-board-mode[data-family-tab="activities"] .layout-grid.threecol,
       body.family-board-mode[data-family-tab="activities"] #port-knowledge-card{display:none!important}
       body.family-board-mode[data-family-tab="activities"] #fable-activities{display:block!important;margin-top:0}
 
       body.family-board-mode[data-family-tab="map"] .layout-grid.threecol,
-      body.family-board-mode[data-family-tab="map"] #fable-activities,
-      body.family-board-mode[data-family-tab="map"] #family-planning-host{display:none!important}
-      body.family-board-mode[data-family-tab="map"] .map-card{display:block!important}
-      body.family-board-mode[data-family-tab="map"] #map{height:min(62vh,610px);min-height:330px}
+      body.family-board-mode[data-family-tab="map"] #fable-activities{display:none!important}
+      body.family-board-mode[data-family-tab="map"] #map{display:block!important;height:min(62vh,610px);min-height:330px}
+      body.family-board-mode[data-family-tab="map"] .map-toolbar{display:flex!important}
       body.family-board-mode[data-family-tab="map"] #port-knowledge-card{display:block!important}
 
-      body.family-board-mode[data-family-tab="details"] .map-card,
+      body.family-board-mode[data-family-tab="details"] #map,
+      body.family-board-mode[data-family-tab="details"] .map-toolbar,
       body.family-board-mode[data-family-tab="details"] .card.wins,
       body.family-board-mode[data-family-tab="details"] .card.conditions,
       body.family-board-mode[data-family-tab="details"] #fable-activities,
@@ -287,12 +289,11 @@
       button.setAttribute('aria-selected', active ? 'true' : 'false');
       button.tabIndex = active ? 0 : -1;
     });
-    if (next === 'map') setTimeout(() => window.FABLEMap?.invalidate?.(), 100);
+    if (next === 'map') setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
   }
 
   function setMode(mode, persist = true) {
     const next = mode === 'expert' ? 'expert' : 'family';
-    window.FABLEMap?.restoreHome?.();
     document.body.classList.toggle('family-board-mode', next === 'family');
     document.body.classList.toggle('expert-board-mode', next === 'expert');
     document.body.classList.remove('simplified-view');
@@ -304,7 +305,7 @@
       button.setAttribute('aria-pressed', next === 'expert' ? 'true' : 'false');
     }
     if (next === 'family') setTab(localStorage.getItem(TAB_KEY) || 'today', false);
-    else setTimeout(() => window.FABLEMap?.invalidate?.(), 100);
+    else setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
   }
 
   function findWindowElement(best) {

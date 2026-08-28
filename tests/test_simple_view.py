@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260827-in-progress-v1" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260827-hourly-chart-v1" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -138,6 +138,29 @@ def test_simple_view_phase_two_has_timeline_trends_and_data_states():
     assert "navigationVerdictForDay" in script
     assert "result?.state === 'STALE'" in script
     assert "Prévisions indisponibles" in script
+
+
+def test_simple_view_uses_engine_owned_lazy_hourly_chart_contract():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+    chart = (ROOT / "public" / "js" / "hourly-chart.js").read_text(encoding="utf-8")
+
+    assert "import('./js/hourly-chart.js')" in script
+    assert "reference.path" in script
+    assert "payload?.is_window_decision === false" in script
+    assert "payload.hours.length === Number(reference.count)" in script
+    assert "renderHourlyExplorer" in script
+    assert 'data-hourly-destination' in chart
+    assert 'data-hourly-mode="curves"' in chart
+    assert 'data-hourly-mode="table"' in chart
+    assert 'data-hourly-range="72h"' in chart
+    assert "display_speed_kmh" in chart
+    assert "display_gust_kmh" in chart
+    assert "display_hs_m" in chart
+    assert "hourly-ribbon" in chart
+    assert "hourly-prudent" in chart
+    assert "hourly-watch" in chart
+    assert "hourly-no_go" in chart
+    assert "Une heure favorable ne valide pas une sortie complète." in chart
 
 
 def test_simple_view_weather_context_and_mobile_hierarchy():

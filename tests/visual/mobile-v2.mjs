@@ -95,10 +95,12 @@ await page.addInitScript(({selectedDay}) => {
   localStorage.setItem('fable_simple_default_v1', '1');
   localStorage.setItem('fable_selected_day', selectedDay);
 }, {selectedDay:offDay});
+let hourlyRequests = 0;
 await page.route('**/*.json', async (route) => {
   const pathname = new URL(route.request().url()).pathname;
   const basename = pathname.split('/').pop();
   const file = pathname.includes('/hourly/') ? `hourly/${basename}` : basename;
+  if (pathname.includes('/hourly/')) hourlyRequests += 1;
   await route.fulfill({status:200, contentType:'application/json', body:JSON.stringify(payloads[file] || {})});
 });
 await page.goto(BASE, {waitUntil:'domcontentloaded'});
@@ -143,9 +145,8 @@ const initial = await page.evaluate(() => ({
     return !node || getComputedStyle(node).display === 'none';
   }),
   hourlyChart:Boolean(document.querySelector('.hourly-chart-svg')),
-  hourlyRibbon:Boolean(document.querySelector('.hourly-ribbon')),
-  hourlyStates:document.querySelectorAll('.hourly-state').length,
-  hourlySafety:document.querySelector('.hourly-safety-note')?.textContent?.trim(),
+  compactTimeline:Boolean(document.querySelector('#simple-timeline .simple-timeline')),
+  compactCharts:document.querySelectorAll('#simple-conditions .simple-chart').length,
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
 }));
 if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected title: ${initial.title}`);
@@ -167,20 +168,10 @@ if (!initial.confidenceVisible || !initial.confidenceBelowVerdict) throw new Err
 if (initial.qualityHasPercent) throw new Error(`forecast quality must not be shown as a percentage: ${initial.qualityText}`);
 if (!/Qualité des prévisions.*Moyenne/i.test(initial.qualityText || '')) throw new Error(`unexpected forecast quality: ${initial.qualityText}`);
 if (!initial.legacyFamilyHidden) throw new Error('legacy Family verdict or planning is visible in Simple View');
-if (!initial.hourlyChart || !initial.hourlyRibbon || initial.hourlyStates !== hourlyAssessment.length) throw new Error(`engine-owned hourly chart is incomplete: ${JSON.stringify(initial)}`);
-if (!/heure favorable.*sortie complète/i.test(initial.hourlySafety || '')) throw new Error(`hourly safety boundary is missing: ${initial.hourlySafety}`);
+if (initial.hourlyChart) throw new Error('the 72-hour explorer is still visible in Simple View');
+if (!initial.compactTimeline || initial.compactCharts < 2) throw new Error(`compact timeline or trends are missing: ${JSON.stringify(initial)}`);
+if (hourlyRequests !== 0) throw new Error(`Simple View still fetched ${hourlyRequests} hourly explorer payload(s)`);
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
-
-await page.locator('[data-hourly-mode="table"]').click();
-await page.waitForSelector('.hourly-table');
-const hourlyTableRows = await page.locator('.hourly-table tbody tr').count();
-if (hourlyTableRows !== hourlyAssessment.length) throw new Error(`hourly table should have ${hourlyAssessment.length} rows, got ${hourlyTableRows}`);
-await page.locator('[data-hourly-mode="curves"]').click();
-await page.waitForSelector('.hourly-chart-svg');
-await page.locator('.hourly-chart-svg').focus();
-await page.keyboard.press('End');
-const selectedHour = await page.locator('.hourly-selected time').getAttribute('datetime');
-if (selectedHour !== hourlyAssessment.at(-1).time) throw new Error(`keyboard cursor did not reach last hour: ${selectedHour}`);
 
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();
 await page.waitForSelector('.simple-hero[data-verdict-state="GO_FAMILY"]');

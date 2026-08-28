@@ -14,14 +14,6 @@
     loading: true,
     error: '',
     verdictModule: null,
-    hourlyModule: null,
-    hourlyAssessment: {},
-    hourlyLoading: false,
-    hourlyError: '',
-    chartMode: 'curves',
-    chartRange: '72h',
-    chartCursorTime: '',
-    chartSlug: '',
   };
 
   const esc = (value) => String(value ?? '').replace(
@@ -354,7 +346,7 @@
     };
     return icons[kind] || '';
   }
-  function renderConditions(best, hourlyChartActive = false) {
+  function renderConditions(best) {
     const c = copy(); const data = seriesForWindow(best, dayKey(state.activeDay));
     const maxWind = data.wind.length ? Math.max(...data.wind) : null;
     const maxWave = data.wave.length ? Math.max(...data.wave) : null;
@@ -385,24 +377,8 @@
       weatherItems.push(item('rain', c.rain, rainTotal, visibility));
     }
     const weather = weatherItems.length ? `<div class="simple-weather-grid" aria-label="${esc(c.weather)}">${weatherItems.join('')}</div>` : '';
-    const legacyCharts = hourlyChartActive ? '' : `<div class="simple-condition"><span class="simple-condition-label">${esc(c.wind)}</span><strong class="simple-condition-value">${maxWind === null ? '—' : `${maxWind.toFixed(0)} km/h`}<small class="simple-condition-range">${esc(range(data.wind,0,'km/h'))}</small></strong>${chart(data.wind,{unit:'km/h',threshold:windLimit,start,end})}</div><div class="simple-condition wave"><span class="simple-condition-label">${esc(c.wave)}</span><strong class="simple-condition-value">${maxWave === null ? '—' : `${maxWave.toFixed(2)} m`}<small class="simple-condition-range">${esc(range(data.wave,2,'m'))}</small></strong>${chart(data.wave,{unit:'m',threshold:waveLimit,start,end})}</div>`;
-    return `<section id="simple-conditions" class="simple-panel"><div class="simple-panel-head"><h2>〽️ ${esc(hourlyChartActive ? c.weather : c.trends)}</h2></div><div class="simple-condition-grid">${legacyCharts}${weather}<div class="simple-condition return"><span class="simple-condition-label">${esc(c.returnBy)}</span><strong class="simple-condition-value">${best ? formatTime(best.windowItem.end) : '—'}</strong></div></div></section>`;
-  }
-
-  function renderHourlyExplorer(result) {
-    if (!state.hourlyModule) return renderTimeline(result?.rows || [], result?.counts || {});
-    return state.hourlyModule.renderHourlyExplorer({
-      payload:state.hourlyAssessment,
-      destinations:(state.windows?.windows || []).filter((entry) => entry.hourly_assessment?.path),
-      selectedSlug:state.chartSlug,
-      rules:state.rules,
-      mode:state.chartMode,
-      range:state.chartRange,
-      cursorTime:state.chartCursorTime,
-      language:lang(),
-      loading:state.hourlyLoading,
-      error:state.hourlyError,
-    });
+    const trendCharts = `<div class="simple-condition"><span class="simple-condition-label">${esc(c.wind)}</span><strong class="simple-condition-value">${maxWind === null ? '—' : `${maxWind.toFixed(0)} km/h`}<small class="simple-condition-range">${esc(range(data.wind,0,'km/h'))}</small></strong>${chart(data.wind,{unit:'km/h',threshold:windLimit,start,end})}</div><div class="simple-condition wave"><span class="simple-condition-label">${esc(c.wave)}</span><strong class="simple-condition-value">${maxWave === null ? '—' : `${maxWave.toFixed(2)} m`}<small class="simple-condition-range">${esc(range(data.wave,2,'m'))}</small></strong>${chart(data.wave,{unit:'m',threshold:waveLimit,start,end})}</div>`;
+    return `<section id="simple-conditions" class="simple-panel"><div class="simple-panel-head"><h2>〽️ ${esc(c.trends)}</h2></div><div class="simple-condition-grid">${trendCharts}${weather}<div class="simple-condition return"><span class="simple-condition-label">${esc(c.returnBy)}</span><strong class="simple-condition-value">${best ? formatTime(best.windowItem.end) : '—'}</strong></div></div></section>`;
   }
   function renderActivities(best) {
     const c = copy();
@@ -528,8 +504,8 @@
         <aside class="simple-confidence" data-quality-level="${esc(quality.level)}" aria-label="${esc(c.forecastQuality)} : ${esc(quality.label)}"><span class="simple-confidence-label">${esc(c.forecastQuality)}</span><div class="quality-value"><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong>${esc(quality.label)}</strong></div></aside></div>
       </section>
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.forecastQuality)}</span><strong>${esc(quality.label)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
-      ${renderHourlyExplorer(result)}
-      ${renderNavigation(result)}${renderConditions(contextRow, Boolean(state.hourlyAssessment?.hours?.length))}${renderActivities(best)}
+      ${renderTimeline(result?.rows || [], result?.counts || {})}
+      ${renderNavigation(result)}${renderConditions(contextRow)}${renderActivities(best)}
       </div>
       </div>
     </div><div id="simple-more-menu" class="simple-more-menu" hidden><button class="simple-more-action" data-simple-action="conditions" type="button">〽️ ${esc(c.conditionsMenu)}</button><button class="simple-more-action" data-simple-action="activities" type="button">🌊 ${esc(c.activitiesMenu)}</button><button class="simple-more-action" data-simple-action="family" type="button">👨‍👩‍👧 ${esc(c.familyMenu)}</button></div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="more" type="button" aria-expanded="false" aria-controls="simple-more-menu"><span>•••</span>${esc(c.more)}</button></nav>`;
@@ -551,40 +527,14 @@
       if (!persist) localStorage.setItem(MODE_KEY, SIMPLE_MODE);
     }
   }
-  function suggestedDestination(best) {
-    const entries = state.windows?.windows || [];
-    const suggested = best?.destination?.dest_slug || state.windows?.home_slug || entries[0]?.dest_slug || '';
-    if (!state.chartSlug || !entries.some((entry) => entry.dest_slug === state.chartSlug)) state.chartSlug = suggested;
-    return entries.find((entry) => entry.dest_slug === state.chartSlug) || null;
-  }
-  async function loadForecast(slug) {
+  async function loadForecast(best) {
+    const slug = best?.destination?.dest_slug;
     if (!slug) { state.forecast = {}; return; }
     try {
       const response = await fetch(slug,{cache:'no-store'});
       state.forecast = response.ok ? await response.json() : {};
       if (!response.ok) state.error = 'forecast-unavailable';
     } catch { state.forecast = {}; state.error = 'forecast-network'; }
-  }
-  async function loadHourlyAssessment(destination) {
-    const reference = destination?.hourly_assessment;
-    if (!reference?.path) { state.hourlyAssessment = {}; state.hourlyError = 'hourly-unavailable'; return; }
-    try {
-      const response = await fetch(reference.path,{cache:'no-store'});
-      const payload = response.ok ? await response.json() : null;
-      const valid = payload?.is_window_decision === false && Array.isArray(payload?.hours)
-        && payload.hours.length === Number(reference.count);
-      state.hourlyAssessment = valid ? payload : {};
-      state.hourlyError = valid ? '' : 'hourly-invalid';
-      if (valid && !payload.hours.some((record) => record.time === state.chartCursorTime)) {
-        state.chartCursorTime = payload.hours[0]?.time || '';
-      }
-    } catch { state.hourlyAssessment = {}; state.hourlyError = 'hourly-network'; }
-  }
-  async function loadDestinationData(best) {
-    const destination = suggestedDestination(best);
-    state.hourlyLoading = true; state.hourlyError = '';
-    await Promise.all([loadForecast(destination?.dest_slug), loadHourlyAssessment(destination)]);
-    state.hourlyLoading = false;
   }
   function openFamilyTab(tab) {
     const selectedKey = dayKey(state.activeDay);
@@ -605,13 +555,7 @@
   async function refresh() {
     state.loading = true; state.error = ''; render();
     try {
-      const [verdictModule, hourlyModule] = await Promise.all([
-        state.verdictModule || import('./js/verdict.js'),
-        state.hourlyModule || import('./js/hourly-chart.js'),
-      ]);
-      state.verdictModule = verdictModule;
-      state.hourlyModule = hourlyModule;
-      state.hourlyModule.installHourlyChartStyles();
+      state.verdictModule ||= await import('./js/verdict.js');
       const [windowsResponse, statusResponse, recommendationsResponse, rulesResponse] = await Promise.all([
         fetch('windows.json',{cache:'no-store'}),
         fetch('status.json',{cache:'no-store'}),
@@ -623,8 +567,8 @@
       state.recommendations = recommendationsResponse?.ok ? await recommendationsResponse.json() : {};
       state.rules = rulesResponse?.ok ? await rulesResponse.json() : {};
       if (!windowsResponse.ok || !statusResponse.ok) state.error = 'published-data-unavailable';
-      await loadDestinationData(bestForDisplayDay());
-    } catch { state.windows = null; state.status = null; state.forecast = {}; state.hourlyAssessment = {}; state.recommendations = {}; state.rules = {}; state.error = 'network'; }
+      await loadForecast(bestForDisplayDay());
+    } catch { state.windows = null; state.status = null; state.forecast = {}; state.recommendations = {}; state.rules = {}; state.error = 'network'; }
     state.loading = false;
     render();
   }
@@ -644,19 +588,8 @@
     if (!document.getElementById('simple-view')) {
       const view = document.createElement('main'); view.id = 'simple-view';
       dashboard.insertAdjacentElement('beforebegin', view);
-      let hourlyDragging = false;
-      const updateHourlyCursor = (event) => {
-        const svg = event.target.closest?.('.hourly-chart-svg');
-        if (!svg || !state.hourlyModule || !state.hourlyAssessment?.hours?.length) return;
-        const value = state.hourlyModule.cursorTimeFromPointer(svg,event.clientX,state.hourlyAssessment,state.chartRange);
-        if (value && value !== state.chartCursorTime) { state.chartCursorTime = value; render(); }
-      };
       view.addEventListener('click', (event) => {
         const action = event.target.closest('[data-simple-action]')?.dataset.simpleAction;
-        const hourlyMode = event.target.closest('[data-hourly-mode]')?.dataset.hourlyMode;
-        if (hourlyMode) { state.chartMode = hourlyMode; render(); return; }
-        const hourlyRange = event.target.closest('[data-hourly-range]')?.dataset.hourlyRange;
-        if (hourlyRange) { state.chartRange = hourlyRange; state.chartCursorTime = ''; render(); return; }
         if (action === 'reasons') {
           const panel = document.getElementById('simple-reasons'); const button = event.target.closest('button');
           panel.hidden = !panel.hidden; button.setAttribute('aria-expanded', String(!panel.hidden)); button.textContent = panel.hidden ? copy().why : copy().hide;
@@ -713,29 +646,12 @@
           localStorage.setItem('fable_selected_day', selectedKey);
           window.FABLEDaySelection?.setSelectedDay?.(selectedKey, {persist:true, announce:true});
           state.loading = true; render();
-          loadDestinationData(bestForDisplayDay()).finally(() => {
+          loadForecast(bestForDisplayDay()).finally(() => {
             state.loading = false; render();
             document.querySelector(`[data-simple-day="${day}"]`)?.focus();
           });
         }
       });
-      view.addEventListener('change', (event) => {
-        const selector = event.target.closest('[data-hourly-destination]');
-        if (!selector) return;
-        state.chartSlug = selector.value;
-        state.chartCursorTime = '';
-        state.hourlyLoading = true;
-        render();
-        loadDestinationData(null).finally(render);
-      });
-      view.addEventListener('pointerdown', (event) => {
-        if (!event.target.closest('.hourly-chart-svg')) return;
-        hourlyDragging = true;
-        updateHourlyCursor(event);
-      });
-      view.addEventListener('pointermove', (event) => { if (hourlyDragging) updateHourlyCursor(event); });
-      view.addEventListener('pointerup', () => { hourlyDragging = false; });
-      view.addEventListener('pointercancel', () => { hourlyDragging = false; });
       view.addEventListener('keydown', (event) => {
         const menu = document.getElementById('simple-more-menu');
         if (event.key === 'Escape' && menu && !menu.hidden) {
@@ -744,18 +660,6 @@
           more?.setAttribute('aria-expanded', 'false');
           more?.classList.remove('active');
           more?.focus();
-          return;
-        }
-        const hourlyChart = event.target.closest('.hourly-chart-svg');
-        if (hourlyChart && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
-          event.preventDefault();
-          const records = state.hourlyModule?.recordsForRange(state.hourlyAssessment,state.chartRange) || [];
-          if (!records.length) return;
-          const current = Math.max(0,records.findIndex((record) => record.time === state.chartCursorTime));
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? records.length-1
-            : Math.max(0,Math.min(records.length-1,current+(event.key==='ArrowRight'?1:-1)));
-          state.chartCursorTime = records[next].time; render();
-          document.querySelector('.hourly-chart-svg')?.focus();
           return;
         }
         const tab = event.target.closest('[data-simple-day][role="tab"]');
@@ -787,7 +691,7 @@
       state.activeDay = offset;
       state.loading = true;
       render();
-      loadDestinationData(bestForDisplayDay()).finally(() => { state.loading = false; render(); });
+      loadForecast(bestForDisplayDay()).finally(() => { state.loading = false; render(); });
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build, {once:true}); else build();

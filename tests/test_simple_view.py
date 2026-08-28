@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260827-hourly-chart-v1" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260828-compact-timeline-v1" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -140,15 +140,17 @@ def test_simple_view_phase_two_has_timeline_trends_and_data_states():
     assert "Prévisions indisponibles" in script
 
 
-def test_simple_view_uses_engine_owned_lazy_hourly_chart_contract():
+def test_simple_view_keeps_hourly_explorer_out_of_the_core_presentation():
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
     chart = (ROOT / "public" / "js" / "hourly-chart.js").read_text(encoding="utf-8")
 
-    assert "import('./js/hourly-chart.js')" in script
-    assert "reference.path" in script
-    assert "payload?.is_window_decision === false" in script
-    assert "payload.hours.length === Number(reference.count)" in script
-    assert "renderHourlyExplorer" in script
+    assert "import('./js/hourly-chart.js')" not in script
+    assert "renderHourlyExplorer" not in script
+    assert "hourlyAssessment" not in script
+    assert "renderTimeline(result?.rows || [], result?.counts || {})" in script
+    assert "renderConditions(contextRow)" in script
+    # Le composant expérimental reste disponible hors de la Vue Simple et les
+    # contrats moteur hourly/*.json continuent d'être testés séparément.
     assert 'data-hourly-destination' in chart
     assert 'data-hourly-mode="curves"' in chart
     assert 'data-hourly-mode="table"' in chart

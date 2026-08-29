@@ -238,10 +238,12 @@ await page.waitForSelector('.simple-window-details:not([hidden])');
 const inlineWindow = await page.evaluate(() => ({
   simpleMode:document.body.classList.contains('simple-board-mode'),
   expanded:document.querySelector('.simple-window-card')?.getAttribute('aria-expanded'),
+  item:document.querySelector('.simple-window-item')?.textContent?.replace(/\s+/g,' ').trim(),
   details:document.querySelector('.simple-window-details')?.textContent?.replace(/\s+/g,' ').trim(),
 }));
 if (!inlineWindow.simpleMode || inlineWindow.expanded !== 'true') throw new Error(`window click left Simple View: ${JSON.stringify(inlineWindow)}`);
-if (!/Durée disponible.*Durée minimale.*Qualité des prévisions/is.test(inlineWindow.details || '')) throw new Error(`inline window details are incomplete: ${inlineWindow.details}`);
+if (!/Qualité des prévisions.*\d+\s*h/is.test(inlineWindow.item || '')) throw new Error(`compact window summary is incomplete: ${JSON.stringify(inlineWindow)}`);
+if (!/Sortie locale depuis le port.*Voir le trajet sur la carte/is.test(inlineWindow.details || '')) throw new Error(`inline window details are incomplete: ${JSON.stringify(inlineWindow)}`);
 await page.locator('[data-simple-action="more"]').click();
 await page.waitForSelector('#simple-more-menu:not([hidden])');
 const moreActions = await page.locator('#simple-more-menu .simple-more-action').count();

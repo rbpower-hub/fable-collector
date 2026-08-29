@@ -265,7 +265,7 @@ def test_share_caveats_are_written_as_percentages():
         {"max_wind_kmh": 10.0, "max_gust_kmh": 20.0, "max_hs_m": 0.20, "onshore_share": 1.0},
         {}, {}, {},
     )
-    assert item["caveats_fr"] == ["vent de mer sur 100 % de la fenêtre (confort visé : 60 %)"]
+    assert item["caveats_fr"] == ["vent de mer sur 100 % du créneau (confort visé : 60 %)"]
 
 
 def test_a_night_window_does_not_get_a_swim_recommendation():
@@ -308,3 +308,41 @@ def test_fishing_keeps_its_dawn_window():
     item = _score("light_jigging", jigging, {"max_wind_kmh": 6.0, "max_gust_kmh": 12.0, "max_hs_m": 0.15},
                   {}, {"daylight": _daylight(daily, *night)}, {})
     assert item["blocked"] is False
+
+
+def test_the_slot_search_finds_the_longest_run_not_the_first():
+    """Deux plages valides : c'est la plus longue qui est proposée."""
+    from fable.recommendations import _longest_run
+
+    assert _longest_run([True, True, False, True, True, True, False]) == (3, 6)
+    assert _longest_run([True] * 5) == (0, 5)
+    assert _longest_run([False, False]) == (0, 0)
+
+
+def test_an_hour_is_judged_on_its_own_values_not_the_window_maximum():
+    from fable.recommendations import _hour_passes
+
+    spot = {"hourly": {
+        "wind_gusts_10m": [10.0, 34.9],
+        "wave_period": [4.0, 4.0],
+    }}
+    safety = {"max_gust_kmh": 28}
+    assert _hour_passes(spot, 0, safety) is True
+    assert _hour_passes(spot, 1, safety) is False
+
+
+def test_the_daylight_hours_of_a_night_window_can_carry_an_activity():
+    """01:00→07:00 contient une vraie heure de jour à partir du lever.
+
+    C'est le cas qui a motivé le découpage : rejeter l'activité entière faisait
+    perdre un créneau réellement praticable.
+    """
+    from fable.recommendations import _hour_is_lit
+
+    daily = {"sunrise": "2026-08-31T05:49:00+01:00", "sunset": "2026-08-31T18:47:00+01:00"}
+    spot = {"hourly": {"time": [
+        "2026-08-31T03:00", "2026-08-31T05:00", "2026-08-31T06:00", "2026-08-31T07:00",
+    ]}}
+    reference = dt.datetime(2026, 8, 31, 1, tzinfo=TZ)
+    lit = [_hour_is_lit(spot, index, daily, reference) for index in range(4)]
+    assert lit == [False, False, True, True]

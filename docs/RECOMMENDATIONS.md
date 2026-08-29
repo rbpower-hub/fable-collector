@@ -205,6 +205,47 @@ où seule une activité secondaire passe reste traitée comme une fenêtre sans
 activité principale : elle publie `blocked_primary` avec les activités écartées
 et la limite qui les bloque.
 
+### Créneau réduit par activité
+
+Les seuils d'une activité portaient sur le **maximum de la fenêtre**. Une seule
+heure hors limite écartait donc l'activité pour toute la fenêtre. C'est ce qui
+vidait la journée du 31 août : une fenêtre 08:00→13:00 dont la dernière heure
+montait à 35 km/h de rafales ne proposait rien, alors que 08:00→12:00 était
+parfait.
+
+Le moteur cherche désormais, pour chaque activité, la **plus longue plage
+contiguë** de la fenêtre où ses seuils tiennent, et la lumière du jour si elle
+la requiert. Trois issues :
+
+- la plage couvre toute la fenêtre : comportement inchangé ;
+- la plage est plus courte mais atteint `min_duration_h` (défaut
+  `ranking.min_activity_hours`, 2 h) : l'activité est proposée sur **son**
+  créneau ;
+- la plage est trop courte : l'activité est écartée, avec sa raison, comme
+  avant.
+
+Le créneau est **strictement inclus** dans la fenêtre Family GO validée. Le
+moteur ne crée jamais de temps navigable : il découpe seulement celui qui a déjà
+été validé. La sécurité reste inchangée.
+
+Deux conséquences importantes :
+
+- le score et les justifications sont calculés **sur le créneau**, pas sur la
+  fenêtre. Afficher « vent 8 km/h » en s'appuyant sur des heures qui ne font pas
+  partie du créneau proposé serait un mensonge ;
+- les créneaux préférentiels et la part de jour sont recalculés sur le créneau,
+  donc les bonus de période suivent.
+
+Chaque activité publie son bloc `slot` :
+
+```json
+{"partial": true, "start": "...T08:00:00+01:00", "end": "...T12:00:00+01:00",
+ "hours": 4, "window_hours": 5}
+```
+
+Le board et la Vue Simple affichent ces bornes sur la ligne de l'activité quand
+`partial` vaut vrai, sinon l'horaire de la fenêtre suffit.
+
 ### Lumière du jour
 
 `family` et `off_hours` sortent des **mêmes seuils météo** : `window_detect`

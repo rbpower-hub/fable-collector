@@ -71,7 +71,7 @@
       .prudent-warning{margin-top:8px;color:var(--warn);font-size:.84rem;line-height:1.4}
       .activity-advice{margin-top:8px;display:flex;flex-direction:column;gap:4px;padding-left:9px;border-left:2px solid var(--br)}
       .activity-advice li{list-style:none;font-size:.84rem;color:var(--muted);line-height:1.4}
-      .activity-caveat{color:var(--warn);font-size:.82rem;line-height:1.4;margin-top:3px}
+      .activity-caveat{color:var(--warn);font-size:.82rem;line-height:1.4;margin-top:3px}.activity-slot{margin-top:4px;font-size:.82rem;font-weight:700;color:var(--ok)}
       .activity-blocked{margin-top:10px;display:flex;flex-direction:column;gap:6px}
       .activity-blocked li{list-style:none;font-size:.86rem;color:var(--muted);line-height:1.45;border-left:0;padding:6px 0 0;border-top:1px solid var(--br)}
       .activity-blocked li:first-child{border-top:0;padding-top:0}.activity-blocked b{color:var(--fg)}
@@ -231,7 +231,18 @@
         const badge = secondary
           ? `<span class="secondary-badge">${lang === 'en' ? 'to combine' : 'en complément'}</span>`
           : '';
-        return `<div class="activity-choice${secondary ? ' secondary' : ''}"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b>${badge}<div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div>${caveatRows}</div>`;
+        /* Creneau reduit : l'activite ne tient pas sur toute la fenetre validee.
+           Afficher ses propres bornes, sinon l'horaire du titre serait faux
+           pour cette ligne. */
+        const slot = item.slot || {};
+        const slotRow = slot.partial
+          ? `<div class="activity-slot">⏱ ${esc(timeOnly(slot.start))} → ${esc(timeOnly(slot.end))} · ${
+              lang === 'en'
+                ? `${slot.hours} h of the ${slot.window_hours} h window`
+                : `${slot.hours} h sur les ${slot.window_hours} h de la fenêtre`
+            }</div>`
+          : '';
+        return `<div class="activity-choice${secondary ? ' secondary' : ''}"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b>${badge}${slotRow}<div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div>${caveatRows}</div>`;
       }).join('');
       const prudentBadge = prudent
         ? `<span class="prudent-badge">${lang === 'en' ? 'PRUDENT GO' : 'GO PRUDENT'}</span>`

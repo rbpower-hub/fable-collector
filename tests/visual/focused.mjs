@@ -92,6 +92,8 @@ function payloadsFor(state) {
       why_fr: 'fenêtre validée · vent 13 km/h pour une limite de 18 km/h',
       why_en: 'validated window · wind 13 km/h against an 18 km/h limit',
       caveats_fr: [], caveats_en: [],
+      // Creneau reduit : la fenetre est nocturne, seule sa fin est eclairee.
+      slot: {partial: true, start: iso(180), end: iso(360), hours: 3, window_hours: 5},
     },
   ];
   const offHoursBlocked = [
@@ -271,6 +273,11 @@ async function execute(browser, scenario) {
       }
       if (/Aucune activité compatible/.test(section.text)) {
         failures.push('off-hours window still reported as having no activity');
+      }
+      // L'activite ne tient pas sur toute la fenetre : ses propres bornes
+      // doivent apparaitre sur sa ligne, sinon l'horaire affiche serait faux.
+      if (!/⏱/.test(section.text)) {
+        failures.push(`reduced slot not shown: ${section.text.slice(0, 160)}`);
       }
     }
     if (scenario.state === 'fresh-empty') {

@@ -121,7 +121,11 @@ def _opposite_sectors(sectors: Any) -> list[list[float]]:
 
 def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict[str, Any]:
     hourly = spot.get("hourly") or {}
-    indices = _indices(hourly.get("time") or [], start, end)
+    return _metrics_for(spot, _indices(hourly.get("time") or [], start, end))
+
+
+def _metrics_for(spot: dict[str, Any], indices: list[int]) -> dict[str, Any]:
+    hourly = spot.get("hourly") or {}
     wind = _values(hourly, "wind_speed_10m", indices)
     gusts = _values(hourly, "wind_gusts_10m", indices)
     hs = _values(hourly, "hs", indices) or _values(hourly, "wave_height", indices)
@@ -158,6 +162,128 @@ def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict
         "sea_surface_temperature_c": round(sum(sst) / len(sst), 1) if sst else None,
         "onshore_share": onshore_share,
         "offshore_share": offshore_share,
+    }
+
+
+def _hour_passes(spot: dict[str, Any], index: int, safety: dict[str, Any]) -> bool:
+    """Une heure respecte-t-elle les seuils propres a l'activite ?
+
+    Meme lecture que le score, mais heure par heure au lieu du maximum de la
+    fenetre. C'est ce qui permet de proposer un creneau reduit plutot que de
+    refuser toute la fenetre pour une seule heure hors limite.
+    """
+    hourly = spot.get("hourly") or {}
+    checks = (
+        ("wind_speed_10m", "max_wind_kmh", "max"),
+        ("wind_gusts_10m", "max_gust_kmh", "max"),
+        ("hs", "max_hs_m", "max"),
+        ("tp", "min_tp_s", "min"),
+        ("visibility", "min_visibility_km", "min"),
+    )
+    for key, limit_key, direction in checks:
+        limit = _number(safety.get(limit_key))
+        if limit is None:
+            continue
+        series = hourly.get(key)
+        if not isinstance(series, list) and key == "hs":
+            series = hourly.get("wave_height")
+        if not isinstance(series, list) and key == "tp":
+            series = hourly.get("wave_period")
+        if not isinstance(series, list) or index >= len(series):
+            continue
+        value = _number(series[index])
+        if value is None:
+            continue
+        if key == "visibility" and value > 50:
+            value = value / 1000
+        if direction == "max" and value > limit:
+            return False
+        if direction == "min" and value < limit:
+            return False
+    return True
+
+
+def _hour_is_lit(spot: dict[str, Any], index: int, daily: dict[str, Any],
+                 reference: dt.datetime) -> bool:
+    hourly = spot.get("hourly") or {}
+    times = hourly.get("time") or []
+    if index >= len(times):
+        return True
+    moment = _aware(times[index], reference)
+    sunrise = _aware(daily.get("sunrise"), reference)
+    sunset = _aware(daily.get("sunset"), reference)
+    if moment is None or sunrise is None or sunset is None:
+        return True
+    return sunrise <= moment < sunset
+
+
+def _longest_run(flags: list[bool]) -> tuple[int, int]:
+    """Plus longue plage contigue de `True`, en indices [debut, fin)."""
+    best = (0, 0)
+    start = None
+    for position, value in enumerate(flags + [False]):
+        if value and start is None:
+            start = position
+        elif not value and start is not None:
+            if position - start > best[1] - best[0]:
+                best = (start, position)
+            start = None
+    return best
+
+
+def _activity_slot(spot: dict[str, Any], indices: list[int], activity: dict[str, Any],
+                   daily: dict[str, Any], reference: dt.datetime,
+                   min_hours: float) -> dict[str, Any]:
+    """Creneau le plus long, dans la fenetre validee, ou l'activite tient.
+
+    Le creneau reste strictement inclus dans la fenetre Family GO : on ne cree
+    jamais de temps navigable, on decoupe seulement celui que le moteur a deja
+    valide. Une heure de rafale en fin de fenetre ne condamne donc plus la
+    journee entiere.
+    """
+    safety = activity.get("safety") or {}
+    needs_light = bool(activity.get("requires_daylight"))
+    flags = [
+        _hour_passes(spot, index, safety)
+        and (not needs_light or _hour_is_lit(spot, index, daily, reference))
+        for index in indices
+    ]
+    low, high = _longest_run(flags)
+    hours = high - low
+    return {
+        "indices": indices[low:high],
+        "hours": hours,
+        "full": hours == len(indices) and hours > 0,
+        "enough": hours >= min_hours and hours > 0,
+        "window_hours": len(indices),
+    }
+
+
+def _slot_bounds(spot: dict[str, Any], indices: list[int],
+                 reference: dt.datetime) -> tuple[dt.datetime, dt.datetime]:
+    times = (spot.get("hourly") or {}).get("time") or []
+    first = _aware(times[indices[0]], reference)
+    last = _aware(times[indices[-1]], reference)
+    return first, last + dt.timedelta(hours=1)
+
+
+def _slot_record(spot: dict[str, Any], slot: dict[str, Any],
+                 start: dt.datetime, end: dt.datetime) -> dict[str, Any]:
+    """Bornes publiees de l'activite : la fenetre entiere, ou le creneau reduit."""
+    if not slot["indices"] or slot["full"] or not slot["enough"]:
+        return {
+            "partial": False,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "hours": slot["window_hours"],
+        }
+    low, high = _slot_bounds(spot, slot["indices"], start)
+    return {
+        "partial": True,
+        "start": low.isoformat(),
+        "end": high.isoformat(),
+        "hours": slot["hours"],
+        "window_hours": slot["window_hours"],
     }
 
 
@@ -649,11 +775,11 @@ def _score(
         if as_share:
             # « vent de mer sur 100 % de la fenetre » se lit ; « 1,00 » non.
             caveats_fr.append(
-                f"{fr_label} sur {_fmt(value * 100, 0, ' %')} de la fenêtre "
+                f"{fr_label} sur {_fmt(value * 100, 0, ' %')} du créneau "
                 f"(confort visé : {_fmt(limit * 100, 0, ' %')})"
             )
             caveats_en.append(
-                f"{en_label} over {_fmt(value * 100, 0, '%')} of the window "
+                f"{en_label} over {_fmt(value * 100, 0, '%')} of the slot "
                 f"(comfort target: {_fmt(limit * 100, 0, '%')})"
             )
             continue
@@ -803,14 +929,36 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                 "moon_visible": _moon_visible(daily, start, end),
             }
             window_advice = advisories(metrics, context, advisory_limits)
+            window_indices = _indices((spot.get("hourly") or {}).get("time") or [], start, end)
+            default_min = _number(ranking.get("min_activity_hours")) or 2.0
             ranked = []
             rejected = []
             for activity_id, activity in activities.items():
                 if not isinstance(activity, dict):
                     continue
-                item = _score(str(activity_id), activity, metrics, fishing, context, ranking)
+                # Creneau reduit : la fenetre validee est decoupee sur les seuils
+                # de l'activite. On note et on affiche ce creneau, pas la fenetre
+                # entiere, sinon la justification mentirait sur ce qui a ete
+                # mesure.
+                min_hours = _number(activity.get("min_duration_h"))
+                slot = _activity_slot(
+                    spot, window_indices, activity, daily, start,
+                    default_min if min_hours is None else min_hours,
+                )
+                slot_metrics = metrics
+                slot_context = context
+                if slot["enough"] and not slot["full"]:
+                    slot_metrics = _metrics_for(spot, slot["indices"])
+                    slot_start, slot_end = _slot_bounds(spot, slot["indices"], start)
+                    slot_context = {
+                        **context,
+                        "periods": _window_periods(slot_start, slot_end, daily),
+                        "daylight": _daylight(daily, slot_start, slot_end),
+                    }
+                item = _score(str(activity_id), activity, slot_metrics, fishing, slot_context, ranking)
                 if not item:
                     continue
+                item["slot"] = _slot_record(spot, slot, start, end)
                 (rejected if item.get("blocked") else ranked).append(item)
             # Tri sur le score non ecrete : deux activites a 100 a l'affichage
             # peuvent avoir 107 et 102 en interne, l'ordre doit le refleter.

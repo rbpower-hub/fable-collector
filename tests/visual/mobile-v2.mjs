@@ -198,13 +198,29 @@ if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Temps de trajet.*
 await page.locator('.simple-window-item').nth(1).locator('[data-simple-action="map-window"]').click();
 await page.waitForSelector('body.simple-map-open #map-card', {state:'visible'});
 await page.waitForFunction(() => /Sidi Bou Saïd/i.test(document.getElementById('mapSummary')?.textContent || ''));
+await page.waitForSelector('#map .boat-icon', {state:'attached'});
 const routeMap = await page.evaluate(() => ({
   summary:document.getElementById('mapSummary')?.textContent?.replace(/\s+/g,' ').trim(),
   corridorPaths:document.querySelectorAll('#map .leaflet-overlay-pane path').length,
   selectedWindows:document.querySelectorAll('.window-line.select').length,
+  animatedBoat:document.querySelectorAll('#map .boat-icon').length,
+  pulsingPorts:document.querySelectorAll('#map .marker-pulse').length,
+  portMarkersInFrame:Array.from(document.querySelectorAll('#map .marker-pulse')).every((node) => {
+    const port=node.getBoundingClientRect();
+    const frame=document.getElementById('map').getBoundingClientRect();
+    return port.left >= frame.left && port.right <= frame.right && port.top >= frame.top && port.bottom <= frame.bottom;
+  }),
+  zoomTargets:Array.from(document.querySelectorAll('#map .leaflet-control-zoom a')).map((node) => {
+    const rect=node.getBoundingClientRect();
+    return {width:rect.width,height:rect.height};
+  }),
+  recenterTarget:(() => { const rect=document.getElementById('resetMapBtnTop')?.getBoundingClientRect(); return rect ? {width:rect.width,height:rect.height} : null; })(),
   overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
 }));
 if (!/corridor.*Gammarth.*Sidi Bou Saïd/is.test(routeMap.summary || '') || routeMap.corridorPaths < 1 || routeMap.selectedWindows !== 1) throw new Error(`route map did not select and zoom the exact corridor: ${JSON.stringify(routeMap)}`);
+if (!routeMap.animatedBoat || routeMap.pulsingPorts < 2 || !routeMap.portMarkersInFrame) throw new Error(`first-open corridor visuals are incomplete: ${JSON.stringify(routeMap)}`);
+if (routeMap.zoomTargets.length !== 2 || routeMap.zoomTargets.some(({width,height}) => width < 44 || height < 44)) throw new Error(`map zoom controls are too small: ${JSON.stringify(routeMap.zoomTargets)}`);
+if (!routeMap.recenterTarget || routeMap.recenterTarget.width < 44 || routeMap.recenterTarget.height < 44) throw new Error(`map recenter target is too small: ${JSON.stringify(routeMap.recenterTarget)}`);
 if (routeMap.overflow > 2) throw new Error(`route map horizontal overflow: ${routeMap.overflow}px`);
 await page.locator('#simpleMapBackBtn').click();
 await page.waitForSelector('#simple-view', {state:'visible'});

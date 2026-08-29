@@ -121,7 +121,8 @@
     #refresh-timer{font-size:.85rem;color:var(--muted);margin-left:16px}
 
     .map-spot-dot{display:block;width:13px;height:13px;border:2px solid #08131f;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 42%,transparent),0 2px 8px #0009}.map-spot-dot.main{width:17px;height:17px}
-    .marker-pulse:after{content:""; border-radius:50%; height:40px; width:40px; position:absolute; margin:-13px 0 0 -13px; animation:pulsate 1.5s ease-out infinite; opacity:0; box-shadow:0 0 1px 2px var(--accent); border:3px solid rgba(255,255,255,0.3)}
+    .marker-pulse{position:relative;display:grid;width:22px;height:22px;place-items:center;color:var(--accent)}
+    .marker-pulse:after{content:"";border-radius:50%;height:40px;width:40px;position:absolute;left:50%;top:50%;margin:-20px 0 0 -20px;animation:pulsate 1.5s ease-out infinite;opacity:0;box-shadow:0 0 1px 2px currentColor;border:3px solid color-mix(in srgb,currentColor 42%,transparent);pointer-events:none}
     @keyframes pulsate{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.2);opacity:0}}
     .main-port-icon .marker-pulse:after{animation-name:pulsate-main; animation-duration:1.2s; box-shadow:0 0 2px 3px var(--accent); border:3px solid rgba(76,201,240,0.5)}
     @keyframes pulsate-main{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.5);opacity:0}}
@@ -228,7 +229,7 @@
     .map-card{--map-plane:#060c15;--map-surface:#0d1626;--map-surface-2:#131f33;--map-ink:#eaf1fa;--map-muted:#9db1c8;--map-line:rgba(233,241,250,.12);overflow:hidden;margin-bottom:16px;border:1px solid var(--map-line);border-radius:18px;background:var(--map-surface);color:var(--map-ink);box-shadow:0 12px 32px #0005}
     .map-card-head{display:flex;align-items:center;gap:12px;padding:13px 14px 10px}.map-card-title{min-width:0;flex:1}.map-card-title strong,.map-card-title small{display:block}.map-card-title strong{font-size:.98rem}.map-card-title small{margin-top:2px;color:var(--map-muted);font-size:.72rem}.map-card-actions{display:flex;gap:7px}.map-icon-button{display:grid;place-items:center;min-width:44px;min-height:44px;padding:0 10px;border:1px solid var(--map-line);border-radius:11px;background:var(--map-surface-2);color:var(--map-ink);font:inherit;font-weight:800;cursor:pointer}.map-icon-button:hover{border-color:#35c1e8;color:#35c1e8}.simple-map-back{display:none;white-space:nowrap}
     .map-destinations{display:flex;gap:6px;padding:0 14px 11px;overflow-x:auto;scrollbar-width:none}.map-destinations::-webkit-scrollbar{display:none}.map-destination{--spot-color:#6d829b;min-height:42px;flex:0 0 auto;padding:7px 11px;border:1px solid var(--map-line);border-radius:10px;background:var(--map-surface-2);color:var(--map-muted);font:inherit;font-size:.75rem;font-weight:800;white-space:nowrap;cursor:pointer}.map-destination::before{content:'';display:inline-block;width:7px;height:7px;margin-inline-end:7px;border-radius:50%;background:var(--spot-color)}.map-destination.go{--spot-color:#0ca30c}.map-destination.watch{--spot-color:#fab219}.map-destination.blocked{--spot-color:#d03b3b}.map-destination[aria-pressed="true"]{border-color:rgba(53,193,232,.7);background:rgba(53,193,232,.16);color:#58d5f5;box-shadow:inset 0 0 0 1px rgba(53,193,232,.25)}
-    .map-stage{position:relative;background:#08131f}#map{height:var(--map-h);min-height:300px;margin:0;border:0;border-radius:0;background:#08131f;z-index:0}.map-stage .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.72) saturate(.55) contrast(1.05)}.map-stage .leaflet-control-attribution{background:rgba(8,19,31,.78)!important;color:#6d829b!important;font-size:9px}.map-stage .leaflet-control-attribution a{color:#9db1c8!important}.map-stage .leaflet-control-zoom{border:1px solid var(--map-line)!important;border-radius:10px!important;overflow:hidden}.map-stage .leaflet-control-zoom a{width:40px;height:40px;line-height:40px;border-color:var(--map-line)!important;background:var(--map-surface)!important;color:var(--map-ink)!important}
+    .map-stage{position:relative;background:#08131f}#map{height:var(--map-h);min-height:300px;margin:0;border:0;border-radius:0;background:#08131f;z-index:0}.map-stage .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.72) saturate(.55) contrast(1.05)}.map-stage .leaflet-control-attribution{background:rgba(8,19,31,.78)!important;color:#6d829b!important;font-size:9px}.map-stage .leaflet-control-attribution a{color:#9db1c8!important}.map-stage .leaflet-control-zoom{border:1px solid var(--map-line)!important;border-radius:10px!important;overflow:hidden}.map-stage .leaflet-control-zoom a{width:44px;height:44px;line-height:44px;border-color:var(--map-line)!important;background:var(--map-surface)!important;color:var(--map-ink)!important}
     .map-toolbar{position:absolute;z-index:500;left:12px;right:12px;bottom:12px;display:flex;pointer-events:none}.map-toolbar .chip{width:100%;padding:9px 11px;border:1px solid var(--map-line);border-radius:12px;background:rgba(8,19,31,.92);color:var(--map-muted);font-size:.76rem;line-height:1.4;box-shadow:0 6px 18px #0006;backdrop-filter:blur(8px)}.map-toolbar .chip strong{color:var(--map-ink)}
     .map-legend{display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 14px;color:var(--map-muted);font-size:.68rem}.map-legend span::before{content:'';display:inline-block;width:8px;height:8px;margin-inline-end:6px;border-radius:50%;background:#6d829b}.map-legend .home::before,.map-legend .corridor::before{background:#35c1e8}.map-legend .corridor::before{width:17px;height:2px;border-radius:2px;vertical-align:middle}.map-legend .go::before{background:#0ca30c}.map-legend .watch::before{background:#fab219}.map-legend .blocked::before{background:#d03b3b}
     body.simple-board-mode.simple-map-open #simple-view{display:none!important}body.simple-board-mode.simple-map-open #dashboard-content{display:block!important}body.simple-board-mode.simple-map-open #dashboard-content>.layout-grid,body.simple-board-mode.simple-map-open #fable-activities,body.simple-board-mode.simple-map-open #port-knowledge-card{display:none!important}body.simple-board-mode.simple-map-open #map-card{display:block!important;max-width:760px;margin:0 auto 18px}body.simple-board-mode.simple-map-open .simple-map-back{display:grid!important}
@@ -385,7 +386,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
 <script src="./decision-widgets.js?v=20260828-mobile-inspired-v1"></script>
-<script src="./simple-view.js?v=20260828-navigation-cards-v1" defer></script>
+<script src="./simple-view.js?v=20260829-map-first-open-v1" defer></script>
 
 <script>
 (async function main() {
@@ -555,6 +556,7 @@
   let lastWinsKey = new Set();
   let windowRecordIndex = new Map();
   let activeMapFile = '';
+  let corridorRenderToken = 0;
 
   const $ = sel => document.querySelector(sel);
   const mapSummaryEl = $('#mapSummary');
@@ -870,11 +872,13 @@
   }
   function focusWindow(file, {start='', end='', direction='', scroll=true}={}){
     const candidates = Array.from(document.querySelectorAll('.window-line')).filter(line=>line.dataset.slug === file);
-    const line = candidates.find(candidate=>(
+    const exactRequested = Boolean(start || end || direction);
+    const exact = candidates.find(candidate=>(
       (!start || candidate.dataset.start === start) &&
       (!end || candidate.dataset.end === end) &&
       (!direction || candidate.dataset.direction === direction)
-    )) || candidates[0];
+    ));
+    const line = exact || (!exactRequested ? candidates[0] : null);
     if(!line) return false;
     line.click();
     if(scroll) line.scrollIntoView({ block:'nearest', behavior:'smooth' });
@@ -890,6 +894,7 @@
   function showRoutePreview(file){
     const plan = routePlanForFile(file);
     if(!plan) return false;
+    corridorRenderToken += 1;
     setActiveMapFile(file === homeFile ? '' : file);
     corridorLayer.clearLayers();
     if(file === homeFile){
@@ -1038,8 +1043,18 @@
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',noWrap:true,maxZoom:18}).addTo(map);
   const corridorLayer = L.layerGroup().addTo(map);
   const spotsLayer    = L.layerGroup().addTo(map);
+  let scheduledMapAction = 0;
+  function afterMapLayout(action){
+    const actionId = ++scheduledMapAction;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(actionId !== scheduledMapAction) return;
+      map.invalidateSize({pan:false});
+      action();
+    }));
+  }
   function resetMapView(options={}){
     const animate = options.animate !== false;
+    corridorRenderToken += 1;
     setActiveMapFile('');
     corridorLayer.clearLayers();
     resetMapSummary();
@@ -1142,16 +1157,18 @@
   });
   window.FABLEMapUI = {
     open(file){
-      if(file){
-        if(!focusWindowForFile(file)) showRoutePreview(file);
-      }else resetMapView({animate:false});
-      window.setTimeout(()=>map.invalidateSize({pan:false}),80);
+      afterMapLayout(()=>{
+        if(file){
+          if(!focusWindowForFile(file)) showRoutePreview(file);
+        }else resetMapView({animate:false});
+      });
     },
     openWindow({file, start='', end='', direction=''}={}){
-      if(file){
-        if(!focusWindow(file, {start, end, direction, scroll:false})) showRoutePreview(file);
-      }else resetMapView({animate:false});
-      window.setTimeout(()=>map.invalidateSize({pan:false}),80);
+      afterMapLayout(()=>{
+        if(file){
+          if(!focusWindow(file, {start, end, direction, scroll:false})) showRoutePreview(file);
+        }else resetMapView({animate:false});
+      });
     },
     describe(file){ return describeRoute(file); },
     invalidate(){ window.setTimeout(()=>map.invalidateSize({pan:false}),60); },
@@ -1318,6 +1335,7 @@
        - tooltip : distance km/NM + vent aller/retour
        - petite animation le long de la ligne
        ────────────────────────────────────────────────────────── */
+    corridorRenderToken += 1;
     corridorLayer.clearLayers();
     
     // Binder une seule fois le handler sur #wins
@@ -1338,6 +1356,7 @@
       const start = cardEl.dataset.start;
       const end   = cardEl.dataset.end;
       if(!slug || !start || !end) return;
+      const renderToken = ++corridorRenderToken;
       setActiveMapFile(slug);
       const record = windowRecordIndex.get(`${slug}|${start}|${end}`) || null;
       const composite = record?.seg?.composite || null;
@@ -1395,6 +1414,7 @@
       const wGo  = await windAt(slug, start);      // wind at destination (start)
       const returnFile = composite?.route_origin || originFile;
       const wRet = requiresReturn ? await windAt(returnFile, end) : null;  // wind at port (end)
+      if(renderToken !== corridorRenderToken) return;
       
       const arrowFor = c => ({N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'})[c] || '•';
       const windTxt = (o)=>{
@@ -1442,9 +1462,12 @@
       
       // ⛵ animate according to the active corridor rule
       await animateBoat(lineAB, { direction: 1, duration: 1300 });   // Aller
+      if(renderToken !== corridorRenderToken) return;
       if (requiresReturn) {
         await new Promise(r=>setTimeout(r, 250));                     // tiny pause
+        if(renderToken !== corridorRenderToken) return;
         await animateBoat(lineAB, { direction: -1, duration: 1300 });  // Retour
+        if(renderToken !== corridorRenderToken) return;
       }
       
       // Show the simple transit badge AFTER animation
@@ -1674,7 +1697,7 @@
 
     // après la carte
     spotsLayer.clearLayers();
-    const createIcon = (color,isMain)=> L.divIcon({className:'custom-div-icon', html:`<span style="background:${color};color:${color}" class="map-spot-dot${isMain?' main':''}"></span>`, iconSize:[22,22], iconAnchor:[11,11]});
+    const createIcon = (color,isMain)=> L.divIcon({className:`custom-div-icon${isMain?' main-port-icon':''}`, html:`<span style="color:${color}" class="marker-pulse"><span style="background:${color}" class="map-spot-dot${isMain?' main':''}"></span></span>`, iconSize:[22,22], iconAnchor:[11,11]});
     for(const file in spotConfig){
       const s=spotConfig[file], isMain = file===homeFile, st = spotStatus[file];
       const color = isMain ? 'var(--accent)' : (st==='green'?'var(--ok)':(st==='yellow'?'var(--warn)':'var(--bad)'));

@@ -18,6 +18,12 @@ def test_map_uses_mobile_visual_language_without_portaling_leaflet_dom():
     assert 'class="map-legend"' in html
     assert "leaflet-tile-pane" in html
     assert "map-destination" in html
+    assert "function afterMapLayout(action)" in html
+    assert "requestAnimationFrame(()=>requestAnimationFrame" in html
+    assert 'class="marker-pulse"' in html
+    assert "corridorRenderToken" in html
+    assert "const exactRequested = Boolean(start || end || direction)" in html
+    assert "width:44px;height:44px;line-height:44px" in html
     assert "simple-map-open" in simple
     assert "window.FABLEMapUI?.open?.(slug)" in simple
     assert "openFamilyTab('map')" not in simple

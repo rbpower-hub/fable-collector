@@ -99,7 +99,12 @@ Des bonus limités peuvent être ajoutés :
 - correspondance avec une période préférentielle du profil saisonnier ;
 - signal lunaire ou marégraphique secondaire lorsque `lunar_sensitive: true`.
 
-Le score final est plafonné à 100. Ni la lune ni la marée ne peuvent compenser un dépassement de seuil ou un NO-GO.
+Le classement se fait sur le score **non plafonné** (`rank_score`), l'affichage
+sur le score plafonné (`score`). Sans cette distinction, deux activités dont les
+bonus dépassent 100 sortaient toutes les deux à 100,0 et leur ordre devenait
+arbitraire.
+
+Le score affiché est plafonné à 100. Ni la lune ni la marée ne peuvent compenser un dépassement de seuil ou un NO-GO.
 
 ### Créneaux d’une fenêtre
 
@@ -122,6 +127,49 @@ côte tunisienne). Le sens du courant, montant ou descendant, est publié avec.
 La phase de lune n’intervient qu’en repli, quand aucune donnée de marée n’est
 disponible. Elle est alors pondérée par `moon_above_horizon`, calculé depuis
 `moonrise` et `moonset` : une pleine lune sous l’horizon n’éclaire rien.
+
+## Fenêtre validée sans activité
+
+Une fenêtre peut être Family GO et ne recevoir aucune activité : le moteur de
+fenêtres autorise des rafales jusqu'à 30 km/h, alors qu'une escale côtière
+s'arrête à 28 et une baignade familiale à 22. Une seule heure en fin de créneau
+suffit à écarter toutes les activités, puisque les seuils portent sur le
+maximum de la fenêtre.
+
+Ces fenêtres sont publiées dans `no_activity`, avec les deux activités les plus
+proches d'être acceptées et, pour chacune, la limite qui bloque et sa valeur :
+
+```json
+{
+  "dest_name": "Gammarth (port)",
+  "start": "2026-08-31T08:00:00+01:00",
+  "closest": [
+    {"label_fr": "Escale côtière abritée", "reason_fr": "rafales 35 km/h pour une limite de 28 km/h"}
+  ]
+}
+```
+
+Quand plusieurs limites sont dépassées, celle retenue est le dépassement
+**relatif le plus large** : c'est la contrainte qui décide réellement, les
+autres tomberaient d'elles-mêmes si on la levait.
+
+Le board affiche ce détail sous la carte de repli, à la place du seul message
+« aucune activité spécialisée ne passe ses propres limites de confort ».
+
+## Compter les options
+
+Trois vues posaient la même question et donnaient trois réponses : 49, 4 et 2
+pour le même lundi. Une seule définition fait foi désormais :
+
+- **une option** est une fenêtre de catégorie `family` ;
+- les créneaux `off_hours` et `watch` sont comptés à part et gardent leur propre
+  mention ;
+- les longs trajets sont comptés **par route**, pas par heure de départ : un
+  aller Kelibia→Pantelleria proposé à quinze heures différentes reste une route.
+
+`navigationWindowCounts` et `navigationWindowBreakdown` partagent la même
+règle, et `tests/js/navigation-windows.test.mjs` épingle l'égalité entre les
+deux sur une journée mixte.
 
 ## Conseils de confort
 

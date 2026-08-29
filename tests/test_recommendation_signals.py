@@ -154,3 +154,37 @@ def test_spread_by_day_keeps_every_day_represented():
 def test_spread_by_day_is_a_no_op_below_the_cap():
     items = [{"start": "2026-08-27T08:00"}, {"start": "2026-08-28T08:00"}]
     assert _spread_by_day(items, 5) == items
+
+
+def test_score_reports_the_widest_overshoot_as_the_blocking_reason():
+    """Une activité refusée doit dire quelle limite bloque, et de combien."""
+    from fable.recommendations import _score
+
+    activity = {
+        "label_fr": "Baignade familiale",
+        "label_en": "Family swim",
+        "safety": {"max_wind_kmh": 14, "max_gust_kmh": 22, "max_hs_m": 0.25},
+    }
+    metrics = {"max_wind_kmh": 15.0, "max_gust_kmh": 34.9, "max_hs_m": 0.18}
+    item = _score("family_swim", activity, metrics, {}, {}, {})
+    assert item["blocked"] is True
+    # 34,9/22 = 1,59 dépasse plus largement que 15/14 = 1,07.
+    assert item["blockers"][0]["metric"] == "max_gust_kmh"
+    assert "rafales 35 km/h pour une limite de 22 km/h" in item["reason_fr"]
+    assert len(item["blockers"]) == 2
+
+
+def test_score_keeps_an_unclipped_rank_score():
+    """Deux activités à 100 à l'écran doivent rester départageables."""
+    from fable.recommendations import _score
+
+    activity = {
+        "label_fr": "Escale", "label_en": "Stop", "lunar_sensitive": True,
+        "safety": {"max_wind_kmh": 18, "max_gust_kmh": 28, "max_hs_m": 0.35},
+    }
+    metrics = {"max_wind_kmh": 6.0, "max_gust_kmh": 14.0, "max_hs_m": 0.18}
+    context = {"tide": {"available": True, "range_m": 0.40, "trend": "montante"}}
+    item = _score("sheltered_stop", activity, metrics, {}, context, {"lunar_max_bonus": 5})
+    assert item["blocked"] is False
+    assert item["score"] == 100.0
+    assert item["rank_score"] > 100.0

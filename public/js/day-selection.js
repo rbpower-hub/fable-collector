@@ -74,6 +74,7 @@ function copy() {
     activitiesFor: 'Activities for',
     windowsFor: 'Navigation windows for',
     warningsFor: 'NO-GO warnings for',
+    activitiesAllDays: 'All days in the 72 h horizon',
     noActivities: 'No activity is associated with this day in a validated Family GO window.',
     noSpecialized: 'No specialised activity passed its own comfort limits. A family outing on the water remains possible inside this validated Family GO window.',
     familyOuting: 'Family outing on the water',
@@ -95,6 +96,7 @@ function copy() {
     activitiesFor: 'أنشطة يوم',
     windowsFor: 'نوافذ الملاحة ليوم',
     warningsFor: 'تحذيرات عدم الخروج ليوم',
+    activitiesAllDays: 'كل الأيام ضمن أفق 72 ساعة',
     noActivities: 'لا توجد أنشطة مرتبطة بهذا اليوم ضمن نافذة Family GO صالحة.',
     noSpecialized: 'لم يتجاوز أي نشاط متخصص حدود الراحة الخاصة به. تبقى خرجة عائلية على الماء ممكنة داخل نافذة Family GO الصالحة.',
     familyOuting: 'خرجة عائلية على الماء',
@@ -116,6 +118,7 @@ function copy() {
     activitiesFor: 'Activités du',
     windowsFor: 'Fenêtres de navigation du',
     warningsFor: 'Avertissements NO-GO du',
+    activitiesAllDays: 'Toutes les journées de l’horizon 72 h',
     noActivities: 'Aucune activité associée à cette journée dans une fenêtre Family GO validée.',
     noSpecialized: 'Aucune activité spécialisée ne passe ses propres limites de confort. Une sortie familiale sur l’eau reste possible dans cette fenêtre Family GO validée.',
     familyOuting: 'Sortie familiale sur l’eau',
@@ -179,7 +182,7 @@ function installStyles() {
     .activity-selected-day,.day-filter-context{margin-inline-start:auto;color:var(--muted);font-size:.78rem;font-weight:800;text-align:end}
     .day-filter-context{display:block;margin:0 0 10px;text-align:start}
     .activity-day-empty,.navigation-day-empty{padding:14px;border:1px dashed var(--br);border-radius:11px;color:var(--muted);background:var(--pill-bg)}
-    .activity-window.activity-fallback{border-style:dashed}.activity-window.activity-fallback .activity-choice{border-top:0;margin-top:0}
+    .activity-window.activity-fallback{border-style:dashed}.activity-blocked-list{margin:7px 0 0;padding-left:9px;border-left:2px solid var(--br);list-style:none;display:flex;flex-direction:column;gap:4px;font-size:.83rem;color:var(--muted);line-height:1.4}.activity-window.activity-fallback .activity-choice{border-top:0;margin-top:0}
     .day-warning-list{display:grid;gap:8px}.day-warning-list .line{margin:0}
     @media(max-width:620px){.activity-selected-day{width:100%;margin:6px 0 0;text-align:start}.activity-card h3{flex-wrap:wrap}}
   `;
@@ -454,8 +457,28 @@ function ensureActivityLabel(card, key) {
     label.className = 'activity-selected-day';
     heading.appendChild(label);
   }
-  const value = `${copy().activitiesFor} ${formatDayLabel(key)}`;
+  // key null = vue Expert : toutes les journees sont affichees, annoncer une
+  // date precise au-dessus mentait sur le contenu.
+  const value = key ? `${copy().activitiesFor} ${formatDayLabel(key)}` : copy().activitiesAllDays;
   if (label.textContent !== value) label.textContent = value;
+}
+
+/* Le moteur publie, pour une fenetre Family GO sans activite, les activites
+   les plus proches d'etre acceptees et la limite qui les bloque. Sans cette
+   information la carte ne disait que « aucune activite specialisee », ce qui
+   n'aide personne a decider. */
+function blockedActivityDetail(slug, start) {
+  const entry = (state.noActivity || []).find(
+    (item) => item.dest_slug === slug && item.start === start
+  );
+  const closest = entry?.closest;
+  if (!Array.isArray(closest) || !closest.length) return '';
+  const lang = language();
+  return `<ul class="activity-blocked-list">${closest.map((item) => {
+    const label = esc(lang === 'en' ? item.label_en : item.label_fr);
+    const reason = esc(lang === 'en' ? item.reason_en : item.reason_fr);
+    return `<li>${esc(item.icon || '•')} <b>${label}</b> : ${reason}</li>`;
+  }).join('')}</ul>`;
 }
 
 function fallbackActivityHtml(row) {
@@ -463,14 +486,15 @@ function fallbackActivityHtml(row) {
   const destination = row.destination?.dest_name || row.destination?.dest_slug || '—';
   const item = row.windowItem || {};
   const prudent = String(item.family_tier || row.destination?.family_tier || '').toLowerCase() === 'prudent';
-  return `<article class="activity-window activity-fallback ${prudent ? 'prudent' : ''}" data-family-day-key="${esc(tunisDateKey(item.start))}" data-slug="${esc(row.destination?.dest_slug || '')}" data-start="${esc(item.start || '')}" data-end="${esc(item.end || '')}"><h4>${esc(destination)} · ${esc(formatTime(item.start))} → ${esc(formatTime(item.end))}</h4><div class="activity-choice"><b>⛵ ${esc(text.familyOuting)}</b><div class="activity-meta">${esc(text.noSpecialized)}</div></div></article>`;
+  const detail = blockedActivityDetail(row.destination?.dest_slug || '', item.start || '');
+  return `<article class="activity-window activity-fallback ${prudent ? 'prudent' : ''}" data-family-day-key="${esc(tunisDateKey(item.start))}" data-slug="${esc(row.destination?.dest_slug || '')}" data-start="${esc(item.start || '')}" data-end="${esc(item.end || '')}"><h4>${esc(destination)} · ${esc(formatTime(item.start))} → ${esc(formatTime(item.end))}</h4><div class="activity-choice"><b>⛵ ${esc(text.familyOuting)}</b><div class="activity-meta">${esc(text.noSpecialized)}</div>${detail}</div></article>`;
 }
 
 function syncActivityCards() {
   const card = document.getElementById('fable-activities');
   if (!card) return;
   const key = selectedKey();
-  ensureActivityLabel(card, key);
+  ensureActivityLabel(card, familyMode() ? key : null);
   if (!familyMode()) {
     card.querySelectorAll('.activity-window').forEach((article) => { article.hidden = false; });
     card.querySelector('.activity-day-empty')?.remove();
@@ -560,10 +584,13 @@ async function refreshData() {
     const recommendationPayload = recommendationsResponse.ok ? await recommendationsResponse.json() : {};
     state.recommendations = Array.isArray(recommendationPayload?.recommendations)
       ? recommendationPayload.recommendations : [];
+    state.noActivity = Array.isArray(recommendationPayload?.no_activity)
+      ? recommendationPayload.no_activity : [];
     state.windows = windowsResponse.ok ? await windowsResponse.json() : null;
     state.rules = rulesResponse.ok ? await rulesResponse.json() : {};
   } catch {
     state.recommendations = [];
+    state.noActivity = [];
     state.windows = null;
     state.rules = {};
   }

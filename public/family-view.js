@@ -227,7 +227,7 @@
       }).join('');
       const tripChoices = tripOptions.slice(0, choices ? 1 : 2).map((row) => `<div class="family-day-option"><b>🧭 ${esc(routeText(row))}</b><small>${esc(formatTime(row.windowItem.start))}–${esc(formatTime(row.windowItem.end))} · ${esc(row.windowItem.direction === 'return' ? c.return : c.outbound)}</small></div>`).join('');
       const empty = !choices && !tripChoices ? `<div class="family-day-empty">${esc(c.noWindow)}</div>` : '';
-      return `<article class="family-day ${tone}"><div class="family-day-head"><div><div class="family-day-title">${esc(dateLabel(key, index))}</div><div class="family-day-date">${esc(shortDate(key))}</div></div><span class="family-day-state">${esc(stateLabel)}</span></div>${choices}${tripChoices}${empty}<div class="family-day-count"><span data-nav-family-count="${esc(key)}">${coastalOptions.length}</span> ${esc(c.familyOptions)} · <span data-nav-long-count="${esc(key)}">${tripOptions.length}</span> ${esc(c.travelOptions)}</div></article>`;
+      return `<article class="family-day ${tone}"><div class="family-day-head"><div><div class="family-day-title">${esc(dateLabel(key, index))}</div><div class="family-day-date">${esc(shortDate(key))}</div></div><span class="family-day-state">${esc(stateLabel)}</span></div>${choices}${tripChoices}${empty}<div class="family-day-count"><span data-nav-family-count="${esc(key)}">${coastalOptions.length}</span> ${esc(c.familyOptions)} · <span data-nav-long-count="${esc(key)}">${window.FABLENavigationWindows?.longTripRouteKeys?.(tripOptions)?.size ?? tripOptions.length}</span> ${esc(c.travelOptions)}</div></article>`;
     }).join('');
 
     const groupedTrips = new Map();

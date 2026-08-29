@@ -403,6 +403,16 @@
     }).join('') : `<div class="simple-empty">${esc(c.noActivities)}</div>`;
     return `<section id="simple-activities" class="simple-panel"><div class="simple-panel-head"><h2>🌊 ${esc(c.activities)}</h2><span class="simple-panel-note">${esc(c.activityNote)}</span></div><div class="simple-activities">${content}</div></section>`;
   }
+  /* L'entete annoncait le nombre brut de lignes (49) au-dessus d'une liste de
+     cinq. On annonce ce que l'utilisateur peut reellement choisir. */
+  function navigationNote(rows) {
+    const counts = window.FABLENavigationWindows?.navigationWindowCounts?.(rows);
+    if (!counts) return String(rows.length);
+    return counts.longTrip
+      ? `${counts.family} ${c.options.toLowerCase()} · ${counts.longTrip} ${c.longTripSlot.toLowerCase()}`
+      : `${counts.family} ${c.options.toLowerCase()}`;
+  }
+
   function renderNavigation(result) {
     const c = copy();
     const actionableRows = result?.rows || [];
@@ -446,7 +456,7 @@
       const warning = late ? `<p class="simple-window-warning">⚠️ ${esc(c.fullDurationUnavailable)} : ${esc(c.required)} ${esc(requiredLabel)}.</p>` : '';
       return `<article class="simple-window-item${late ? ' in-progress' : ''}"><button class="simple-window-card" data-simple-action="window-details" data-simple-window-index="${index}" type="button" aria-expanded="false" aria-controls="simple-window-details-${index}"><span class="simple-window-heading"><strong class="simple-window-name">${esc(name)}</strong><span class="simple-window-badge ${tone}">${esc(label)}</span></span><span class="simple-window-quality" data-quality-level="${esc(quality.level)}"><span>${esc(c.forecastQuality)}</span><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong>${esc(quality.label)}</strong></span><small class="simple-window-time">${esc(formatWindowStart(item.start))} → ${esc(formatTime(item.end))} · ${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}${contextDetails ? ` · ${esc(contextDetails)}` : ''}</small>${modelAgreement}${status}<span class="simple-window-arrow" aria-hidden="true">›</span></button><div id="simple-window-details-${index}" class="simple-window-details" hidden>${routeDetails}${late ? `<div class="simple-window-detail"><span>${esc(c.remaining)}</span><strong>${esc(remainingLabel)}</strong></div>` : ''}${warning}<button class="simple-window-map" data-simple-action="map-window" data-simple-window-index="${index}" type="button">🗺️ ${esc(c.showOnMap)}</button></div></article>`;
     }).join('') : `<div class="simple-empty">${esc(c.noWindow)}</div>`;
-    return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${rows.length}</span></div><div class="simple-navigation">${content}</div></section>`;
+    return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${esc(navigationNote(rows))}</span></div><div class="simple-navigation">${content}</div></section>`;
   }
   async function hydrateWindowRoute(index, row) {
     const host = document.querySelector(`[data-simple-route-winds="${index}"]`);
@@ -495,7 +505,14 @@
       }[result?.state] || (result?.state === 'NO_GO' ? c.noGo : c.loading);
       const counts = result?.counts || {};
       const lateCount = result?.late_rows?.length || 0;
-      const countText = lateCount && !counts.total ? `${lateCount} ${c.inProgress.toLowerCase()}` : `${counts.total || 0} ${c.options}`;
+      // On compte les fenetres famille, comme la Vue Famille. `counts.total`
+      // additionnait hors horaires, watch et chaque heure de depart des longs
+      // trajets : il affichait 49 pour une journee a 4 sorties.
+      const familyText = `${counts.family || 0} ${c.options}`;
+      const tripText = counts.longTrip ? ` · ${counts.longTrip} ${c.longTripSlot.toLowerCase()}` : '';
+      const countText = lateCount && !counts.family
+        ? `${lateCount} ${c.inProgress.toLowerCase()}`
+        : `${familyText}${tripText}`;
       const windowText = best ? `${formatTime(best.windowItem.start)}–${formatTime(best.windowItem.end)} · ${countText}` : countText;
       const selected = index === state.activeDay;
       return `<button id="simple-day-tab-${index}" class="simple-day ${tone}" data-simple-day="${index}" type="button" role="tab" aria-selected="${selected}" aria-controls="simple-selected-day-content" tabindex="${selected ? 0 : -1}"${selected ? ' aria-current="date"' : ''}><span class="simple-day-heading"><span class="simple-day-title">${esc(dayLabel(key,index))}</span><time class="simple-day-calendar" datetime="${esc(key)}">${esc(shortDate(key))}</time></span><strong class="simple-day-state">${esc(label)}</strong><span class="simple-day-date">${esc(windowText)}</span><span class="simple-day-track" aria-hidden="true"><span class="simple-day-segment" style="width:${width}%;margin-left:${best ? offset : 0}%"></span></span></button>`;

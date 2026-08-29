@@ -94,9 +94,9 @@ export function navigationWindowBreakdown(rows) {
     longTrip: 0,
     total: rows.length,
   };
+  result.longTrip = longTripRouteKeys(rows).size;
   rows.forEach((row) => {
     if (isLongTripNavigationWindow(row)) {
-      result.longTrip += 1;
       return;
     }
     const category = normalizedCategory(row.destination, row.windowItem);
@@ -118,9 +118,26 @@ export function navigationWindowBreakdown(rows) {
   return result;
 }
 
+/* Un aller Kelibia->Pantelleria propose une quinzaine d'heures de depart : les
+   compter une par une donnait « 18 creneaux long trajet » pour une seule route.
+   L'utilisateur choisit une route, pas une heure de depart. */
+export function longTripRouteKeys(rows) {
+  return new Set(
+    rows.filter(isLongTripNavigationWindow).map((row) => {
+      const destination = row?.destination?.dest_slug || row?.destination?.dest_name || '';
+      const direction = row?.windowItem?.direction || 'outbound';
+      return `${destination}|${direction}`;
+    })
+  );
+}
+
 export function navigationWindowCounts(displayedWindows) {
-  const longTrip = displayedWindows.filter(isLongTripNavigationWindow).length;
-  return {family: displayedWindows.length - longTrip, longTrip, total:displayedWindows.length};
+  const longTripRows = displayedWindows.filter(isLongTripNavigationWindow);
+  return {
+    family: displayedWindows.length - longTripRows.length,
+    longTrip: longTripRouteKeys(displayedWindows).size,
+    total: displayedWindows.length,
+  };
 }
 
 if (typeof window !== 'undefined') {
@@ -128,6 +145,7 @@ if (typeof window !== 'undefined') {
     getDisplayedNavigationWindows,
     getNavigationWindowsForDay,
     isLongTripNavigationWindow,
+    longTripRouteKeys,
     navigationWindowBreakdown,
     navigationWindowCounts,
     tunisNavigationDateKey,

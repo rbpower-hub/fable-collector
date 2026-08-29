@@ -63,6 +63,14 @@
         status:value < limit ? copy.ok : copy.exceeded,
       });
     };
+    const pushMaxInclusive = (key, label, value, limit, unit, digits = 0) => {
+      if (value === null || limit === null) return;
+      result.push({
+        key, label, value, limit, unit, digits, kind:'max_inclusive', passed:value <= limit,
+        ratio:Math.min(1, Math.max(0.04, value / Math.max(limit, 0.001))),
+        status:value <= limit ? copy.ok : copy.exceeded,
+      });
+    };
     const pushMin = (key, label, value, limit, unit, digits = 0) => {
       if (value === null || limit === null) return;
       result.push({
@@ -81,7 +89,7 @@
     const gust = metric(metrics, 'gust_kmh', 'max_gust_kmh', 'max_gust');
     const wind = metric(metrics, 'wind_kmh', 'max_wind_kmh', 'max_speed');
     pushMax('gust', copy.gust, gust, limits.gust, 'km/h', 1);
-    if (metrics.any_onshore === true) pushMax('onshore', copy.onshore, wind, limits.onshore, 'km/h', 1);
+    if (metrics.any_onshore === true) pushMaxInclusive('onshore', copy.onshore, wind, limits.onshore, 'km/h', 1);
     pushMax('wind', copy.wind, wind, limits.wind, 'km/h', 1);
     pushMax('wave', copy.wave, metric(metrics, 'hs_m', 'max_hs_m', 'hs'), limits.wave, 'm', 2);
     let visibility = metric(metrics, 'visibility_km', 'min_visibility_km', 'visibility', 'min_vis');
@@ -104,7 +112,7 @@
     const rows = checks(destination, rules, lang);
     if (!rows.length) return `<p class="decision-checks-empty">${esc(copy.unavailable)}</p>`;
     return `<div class="decision-checks">${rows.map((row) => {
-      const relation = row.kind === 'max' ? '<' : '≥';
+      const relation = row.kind === 'max' ? '<' : row.kind === 'max_inclusive' ? '≤' : '≥';
       return `<div class="decision-check ${row.passed ? 'ok' : 'blocked'}" data-check="${esc(row.key)}">
         <div class="decision-check-head"><span>${esc(row.label)} · ${esc(relation)} ${esc(formatValue(row.limit,row.digits,row.unit))}</span><strong>${esc(formatValue(row.value,row.digits,row.unit))}</strong><b>${esc(row.status)}</b></div>
         <div class="decision-check-track" aria-hidden="true"><i style="width:${(row.ratio * 100).toFixed(0)}%"></i></div>

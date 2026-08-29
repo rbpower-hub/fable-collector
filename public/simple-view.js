@@ -564,6 +564,9 @@
     const slug = best?.destination?.dest_slug;
     document.body.classList.add('simple-map-open');
     const item = best?.windowItem || {};
+    // FABLEMapUI waits for two animation frames before measuring Leaflet.
+    // The map is hidden until simple-map-open is applied, so measuring it
+    // synchronously produces incorrect bounds on the first visit.
     if (window.FABLEMapUI?.openWindow && slug) {
       window.FABLEMapUI.openWindow({file:slug, start:item.start, end:item.end, direction:item.direction || ''});
     } else {
@@ -571,7 +574,6 @@
     }
     setTimeout(() => {
       document.getElementById('map-card')?.scrollIntoView({block:'start'});
-      window.FABLEMapUI?.invalidate?.();
     }, 100);
   }
   async function refresh() {

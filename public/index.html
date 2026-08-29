@@ -385,7 +385,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
 <script src="./decision-widgets.js?v=20260828-mobile-inspired-v1"></script>
-<script src="./simple-view.js?v=20260828-compact-timeline-v1" defer></script>
+<script src="./simple-view.js?v=20260828-navigation-cards-v1" defer></script>
 
 <script>
 (async function main() {
@@ -868,12 +868,20 @@
         return `<button type="button" class="map-destination ${tone}" data-map-file="${escapeHtml(file)}" aria-pressed="${file===activeMapFile?'true':'false'}">${escapeHtml(site.name)}</button>`;
       }).join('');
   }
-  function focusWindowForFile(file){
-    const line = document.querySelector(`.window-line[data-slug="${file}"]`);
+  function focusWindow(file, {start='', end='', direction='', scroll=true}={}){
+    const candidates = Array.from(document.querySelectorAll('.window-line')).filter(line=>line.dataset.slug === file);
+    const line = candidates.find(candidate=>(
+      (!start || candidate.dataset.start === start) &&
+      (!end || candidate.dataset.end === end) &&
+      (!direction || candidate.dataset.direction === direction)
+    )) || candidates[0];
     if(!line) return false;
     line.click();
-    line.scrollIntoView({ block:'nearest', behavior:'smooth' });
+    if(scroll) line.scrollIntoView({ block:'nearest', behavior:'smooth' });
     return true;
+  }
+  function focusWindowForFile(file){
+    return focusWindow(file);
   }
   const isBetaRoute = file => Boolean(spotConfig[file]?.beta || spotConfig[file]?.windows_enabled === false || spotConfig[file]?.route_kind === 'offshore_beta');
   function routeNote(file){
@@ -930,6 +938,23 @@
     }).addTo(corridorLayer);
     map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
     return true;
+  }
+  function describeRoute(file){
+    const plan = routePlanForFile(file);
+    if(!plan) return null;
+    if(file === homeFile){
+      return { local:true, label:plan.label, distance_km:0, distance_nm:0 };
+    }
+    return {
+      local:false,
+      label:plan.label,
+      distance_km:plan.distance_km,
+      distance_nm:plan.distance_km / KM_PER_NM,
+      transit_label:formatDurationSpan(plan.transit),
+      speed_label:formatSpeedSpan(plan.transit.speed_kts),
+      anchor_label:corridorLegLabel('anchor'),
+      requires_return:corridorRequiresReturn(),
+    };
   }
   function applySitesNormalized(data){
     if(!data || !Array.isArray(data.sites) || !data.sites.length) return;
@@ -1122,8 +1147,16 @@
       }else resetMapView({animate:false});
       window.setTimeout(()=>map.invalidateSize({pan:false}),80);
     },
+    openWindow({file, start='', end='', direction=''}={}){
+      if(file){
+        if(!focusWindow(file, {start, end, direction, scroll:false})) showRoutePreview(file);
+      }else resetMapView({animate:false});
+      window.setTimeout(()=>map.invalidateSize({pan:false}),80);
+    },
+    describe(file){ return describeRoute(file); },
     invalidate(){ window.setTimeout(()=>map.invalidateSize({pan:false}),60); },
   };
+  window.dispatchEvent(new CustomEvent('fable:map-ui-ready'));
   // Tooltip
   const tipEl = $('#tooltip');
   const hideTip = ()=>{ tipEl.style.display='none'; };
@@ -1297,7 +1330,9 @@
       // selection + keep in view
       document.querySelectorAll('.window-line.select').forEach(n=>n.classList.remove('select'));
       cardEl.classList.add('select');
-      cardEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
+      if(!document.body.classList.contains('simple-map-open')){
+        cardEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
+      }
     
       const slug  = cardEl.dataset.slug;
       const start = cardEl.dataset.start;

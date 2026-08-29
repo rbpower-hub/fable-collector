@@ -346,3 +346,54 @@ def test_the_daylight_hours_of_a_night_window_can_carry_an_activity():
     reference = dt.datetime(2026, 8, 31, 1, tzinfo=TZ)
     lit = [_hour_is_lit(spot, index, daily, reference) for index in range(4)]
     assert lit == [False, False, True, True]
+
+
+def _window(day: str, hour: str, category: str, slug: str, score: float = 90.0) -> dict:
+    return {
+        "dest_slug": f"{slug}.json", "dest_name": slug,
+        "start": f"{day}T{hour}:00:00+01:00", "category": category,
+        "activities": [{"rank_score": score, "score": score}],
+    }
+
+
+def test_the_cap_keeps_family_windows_over_night_ones():
+    """Le défaut trouvé en production : le plafond était appliqué dans l'ordre
+    chronologique de la journée. Une fenêtre hors horaires à 05:00 passait
+    devant une fenêtre famille à 11:00, et le plafond effaçait ensuite toutes
+    les fenêtres familiales du lundi."""
+    items = [
+        _window("2026-08-31", "05", "off_hours", "el-haouaria"),
+        _window("2026-08-31", "05", "off_hours", "ghar-el-melh"),
+        _window("2026-08-31", "05", "off_hours", "ras-fartass"),
+        _window("2026-08-31", "11", "family", "gammarth-port"),
+        _window("2026-08-31", "11", "family", "sidi-bou-said"),
+    ]
+    kept = _spread_by_day(items, 2)
+    assert [item["category"] for item in kept] == ["family", "family"]
+
+
+def test_the_cap_serves_distinct_destinations_first():
+    """Servir deux fenêtres du même port avant les autres réduisait le choix."""
+    items = [
+        _window("2026-08-31", "09", "family", "gammarth-port", 95),
+        _window("2026-08-31", "12", "family", "gammarth-port", 94),
+        _window("2026-08-31", "10", "family", "sidi-bou-said", 80),
+    ]
+    kept = _spread_by_day(items, 2)
+    assert {item["dest_slug"] for item in kept} == {"gammarth-port.json", "sidi-bou-said.json"}
+
+
+def test_every_day_of_the_horizon_keeps_a_place():
+    items = (
+        [_window("2026-08-30", "23", "off_hours", f"port{index}") for index in range(5)]
+        + [_window("2026-08-31", "11", "family", f"port{index}") for index in range(2)]
+        + [_window("2026-09-01", "09", "family", f"port{index}") for index in range(2)]
+    )
+    kept = _spread_by_day(items, 6)
+    days = {item["start"][:10] for item in kept}
+    assert days == {"2026-08-30", "2026-08-31", "2026-09-01"}
+
+
+def test_the_per_day_cap_is_applied():
+    items = [_window("2026-08-31", "11", "family", f"port{index}") for index in range(6)]
+    assert len(_spread_by_day(items, 12, per_day=2)) == 2

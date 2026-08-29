@@ -16,6 +16,16 @@ ranking:
   max_total: 5
   preferred_period_bonus: 7
   lunar_max_bonus: 5
+  tide_range_full_bonus_m: 0.25
+
+advisories:
+  # Seuils des conseils de confort. Ils ne bloquent jamais une activite :
+  # la securite reste entierement du ressort du moteur de fenetres.
+  uv_index_high: 7            # OMS : 6-7 eleve, 8-10 tres eleve
+  apparent_temperature_c_high: 38
+  onshore_share_high: 0.5
+  offshore_share_low: 0.2
+  precipitation_mm: 0.5
 
 policy:
   safety_gate: family_go_required

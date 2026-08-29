@@ -22,6 +22,7 @@ class KnowledgePack:
     schema: dict[str, Any]
     policy: dict[str, Any]
     ranking: dict[str, Any]
+    advisories: dict[str, Any]
     fish: dict[str, dict[str, Any]]
     techniques: dict[str, dict[str, Any]]
     ports: dict[str, dict[str, Any]]
@@ -270,6 +271,7 @@ def load_knowledge_pack(root: Path, *, strict: bool = True) -> KnowledgePack | N
         schema=dict(manifest.get("schema") or {}),
         policy=dict(manifest.get("policy") or {}),
         ranking=dict(manifest.get("ranking") or {}),
+        advisories=dict(manifest.get("advisories") or {}),
         fish=loaded["fish"],
         techniques=loaded["techniques"],
         ports=loaded["ports"],

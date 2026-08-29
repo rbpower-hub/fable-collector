@@ -24,12 +24,14 @@ from .openmeteo import (
     EXTRA_HOURLY,
     FORECAST_KEYS,
     MARINE_KEYS,
+    OCEAN_KEYS,
     Getter,
     api_reason,
     default_getter,
     expand_models,
     fetch_forecast,
     fetch_marine,
+    fetch_ocean,
     first_series,
     has_wind_arrays,
     marine_series_has_usable_height,
@@ -76,6 +78,7 @@ class Settings:
     http_retries: int = field(default_factory=lambda: int(os.getenv("FABLE_HTTP_RETRIES", "1")))
     parallel_timeout_s: int = field(default_factory=lambda: int(os.getenv("FABLE_PARALLEL_TIMEOUT_S", "10")))
     parallel_retries: int = field(default_factory=lambda: int(os.getenv("FABLE_PARALLEL_RETRIES", "0")))
+    include_ocean: bool = field(default_factory=lambda: os.getenv("FABLE_INCLUDE_OCEAN", "1") == "1")
     site_budget_s: int = field(default_factory=lambda: int(os.getenv("FABLE_SITE_BUDGET_S", "90")))
     hard_budget_s: int = field(default_factory=lambda: int(os.getenv("FABLE_HARD_BUDGET_S", "240")))
     debug_dump: bool = field(default_factory=lambda: os.getenv("FABLE_DEBUG_DUMP", "0") == "1")
@@ -144,6 +147,33 @@ def align_model_to_axis(model_slice: dict[str, Any], axis: list[str]) -> dict[st
         if k in (model_slice or {}):
             aligned[k] = pick(k)
     return aligned
+
+
+
+def attach_on_axis(flat: dict[str, list], source: dict[str, Any], keys: list[str]) -> list[str]:
+    """Aligne des series facultatives sur l'axe horaire deja construit.
+
+    Les valeurs absentes deviennent None : ces variables ne participent a aucune
+    regle de securite, une lacune ne doit jamais bloquer la publication.
+    """
+    axis = flat.get("time") or []
+    times = source.get("time") or []
+    if not axis or not times:
+        return []
+    index = {value: position for position, value in enumerate(times)}
+    attached = []
+    for key in keys:
+        series = source.get(key)
+        if not isinstance(series, list):
+            continue
+        aligned = [
+            series[position] if (position := index.get(stamp)) is not None and position < len(series) else None
+            for stamp in axis
+        ]
+        if any(value is not None for value in aligned):
+            flat[key] = aligned
+            attached.append(key)
+    return attached
 
 
 def flatten_hourly_aligned(fx_slice: dict[str, Any], marine_slice: dict[str, Any]) -> dict[str, list]:
@@ -249,6 +279,13 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
                                  use_astral=settings.astral_fallback)
     sea = fetch_marine(lat, lon, tz_name, start_date, end_date, site_deadline, getter=get,
                        model_order=settings.marine_model_order)
+    ocean: dict[str, Any] = {"hourly": {}}
+    if settings.include_ocean:
+        try:
+            ocean = fetch_ocean(lat, lon, tz_name, start_date, end_date, site_deadline, getter=get)
+        except Exception as e:  # noqa: BLE001
+            log.info("ocean fetch skipped: %s", e)
+            ocean = {"hourly": {}, "_error": str(e)}
 
     wx_times = (wx.get("hourly") or {}).get("time") or []
     sea_times = (sea.get("hourly") or {}).get("time") or []
@@ -262,6 +299,10 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
     fx_slice = slice_by_indices(wx, published_forecast_keys, keep_wx)
     marine_slice = slice_by_indices(sea, MARINE_KEYS, keep_sea)
     hourly_flat = flatten_hourly_aligned(fx_slice, marine_slice)
+    ocean_times = (ocean.get("hourly") or {}).get("time") or []
+    keep_ocean = indices_in_window(ocean_times, start_local, end_local, tz)
+    ocean_slice = slice_by_indices(ocean, OCEAN_KEYS, keep_ocean) if keep_ocean else {}
+    ocean_keys_attached = attach_on_axis(hourly_flat, ocean_slice, OCEAN_KEYS)
 
     primary_used = wx.get("_model_used", "unknown")
     axis = hourly_flat.get("time") or []
@@ -369,6 +410,8 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
             "debug": {
                 "hourly_keys_present_forecast": sorted((wx.get("hourly") or {}).keys()),
                 "hourly_keys_present_marine": sorted((sea.get("hourly") or {}).keys()),
+                "ocean_keys_attached": ocean_keys_attached,
+                "ocean_error": ocean.get("_error"),
                 "ecmwf_non_null_counts": non_null_count(fx_slice, published_forecast_keys),
                 "marine_non_null_counts": non_null_count(marine_slice, MARINE_KEYS),
                 "forecast_primary_model": primary_used,
@@ -389,6 +432,7 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
         # (see meta.sources.ecmwf_open_meteo.model_used for the actual model).
         "ecmwf": fx_slice,
         "marine": marine_slice,
+        "ocean": ocean_slice,
         "daily": wx.get("daily", {}) or {},
         "daily_units": d_units,
         "hourly": hourly_flat,

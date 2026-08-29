@@ -113,3 +113,79 @@ def test_activity_threshold_can_remove_option(tmp_path: Path) -> None:
     )
 
     assert build_recommendations(tmp_path, public)["recommendations"] == []
+
+
+def _minimal_profiles(tmp_path: Path) -> None:
+    (tmp_path / "activity_profiles.yaml").write_text(
+        "ranking: {max_per_window: 2, max_total: 5}\nactivities: {}\n", encoding="utf-8"
+    )
+    (tmp_path / "fishing_profiles.yaml").write_text("profiles: {}", encoding="utf-8")
+
+
+def _no_go_for(tmp_path: Path, blocker: dict, dest_name: str = "El Haouaria") -> dict:
+    public = tmp_path / "public"
+    public.mkdir()
+    _minimal_profiles(tmp_path)
+    _write(
+        public / "windows.json",
+        {
+            "generated_at": "2026-08-27T06:00:00+00:00",
+            "windows": [
+                {
+                    "dest_slug": "dest.json",
+                    "dest_name": dest_name,
+                    "required_hours": 6,
+                    "windows": [],
+                    "diagnostics": {"first_blocker": blocker},
+                }
+            ],
+        },
+    )
+    return build_recommendations(tmp_path, public)["no_go"][0]
+
+
+def test_no_go_reason_omits_a_location_equal_to_the_destination(tmp_path: Path) -> None:
+    """« à El Haouaria » pour El Haouaria n'apporte rien : on ne le répète pas."""
+    entry = _no_go_for(
+        tmp_path,
+        {
+            "location_name": "El Haouaria",
+            "phase": "transit",
+            "reason_fr": "rafales trop fortes (34 km/h)",
+            "reason_en": "gusts too strong (34 km/h)",
+        },
+    )
+    assert "à El Haouaria" not in entry["reason_fr"]
+    assert "rafales trop fortes (34 km/h)" in entry["reason_fr"]
+    assert "(traversée)" in entry["reason_fr"]
+
+
+def test_no_go_reason_keeps_a_location_on_the_route(tmp_path: Path) -> None:
+    """Le blocage peut tomber sur une étape : là, le lieu est l'information utile."""
+    entry = _no_go_for(
+        tmp_path,
+        {
+            "location_name": "Kelibia",
+            "phase": "transit",
+            "reason_fr": "vent trop fort (26 km/h)",
+            "reason_en": "wind too strong (26 km/h)",
+        },
+        dest_name="Pantelleria",
+    )
+    assert "à Kelibia" in entry["reason_fr"]
+    assert "at Kelibia" in entry["reason_en"]
+
+
+def test_no_go_english_carries_the_same_detail_as_french(tmp_path: Path) -> None:
+    entry = _no_go_for(
+        tmp_path,
+        {
+            "location_name": "Ras Fartass",
+            "phase": "anchor",
+            "reason_fr": "période de vague trop courte (2.9 s)",
+            "reason_en": "wave period too short (2.9 s)",
+        },
+        dest_name="Ras Fartass",
+    )
+    assert "(au mouillage)" in entry["reason_fr"]
+    assert "(at anchor)" in entry["reason_en"]

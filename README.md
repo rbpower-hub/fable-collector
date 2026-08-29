@@ -99,6 +99,7 @@ Documentation détaillée :
 - [Knowledge Pack](docs/KNOWLEDGE-PACK.md)
 - [Fish Intelligence v1](docs/FISH-INTELLIGENCE.md)
 - [Recommandations d’activités et de pêche](docs/RECOMMENDATIONS.md)
+- [Température d’eau et niveau de la mer](docs/OCEAN-VARIABLES.md)
 - [Déploiement](docs/DEPLOY.md)
 - [Runbook d’exploitation](docs/RUNBOOK.md)
 - [Changelog](docs/CHANGELOG.md)

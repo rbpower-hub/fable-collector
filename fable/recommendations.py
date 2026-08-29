@@ -39,6 +39,10 @@ def _date(value: Any) -> dt.datetime | None:
         return None
 
 
+PHASE_FR = {"transit": "traversée", "anchor": "au mouillage", "return": "retour"}
+PHASE_EN = {"transit": "passage", "anchor": "at anchor", "return": "return leg"}
+
+
 def _season(month: int) -> str:
     if month in (3, 4, 5):
         return "spring"
@@ -81,6 +85,23 @@ def _values(hourly: dict[str, Any], key: str, indices: list[int]) -> list[float]
     return result
 
 
+def _angle_in_sectors(angle: Any, sectors: Any) -> bool:
+    value = _number(angle)
+    if value is None or not isinstance(sectors, list):
+        return False
+    value %= 360
+    for sector in sectors:
+        if not isinstance(sector, (list, tuple)) or len(sector) < 2:
+            continue
+        low, high = _number(sector[0]), _number(sector[1])
+        if low is None or high is None:
+            continue
+        low, high = low % 360, high % 360
+        if (low <= value <= high) if low <= high else (value >= low or value <= high):
+            return True
+    return False
+
+
 def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict[str, Any]:
     hourly = spot.get("hourly") or {}
     indices = _indices(hourly.get("time") or [], start, end)
@@ -90,6 +111,19 @@ def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict
     tp = _values(hourly, "tp", indices) or _values(hourly, "wave_period", indices)
     visibility = _values(hourly, "visibility", indices)
     visibility = [value / 1000 if value > 50 else value for value in visibility]
+    uv = _values(hourly, "uv_index", indices)
+    apparent = _values(hourly, "apparent_temperature", indices)
+    air = _values(hourly, "temperature_2m", indices)
+    rain = _values(hourly, "precipitation", indices)
+    sst = _values(hourly, "sea_surface_temperature", indices)
+
+    # Part des heures ou le vent vient d'un secteur onshore du site : decisif
+    # pour la clarte de l'eau et l'abri, jamais pour la securite.
+    sectors = ((spot.get("meta") or {}).get("onshore_sectors")) or []
+    directions = _values(hourly, "wind_direction_10m", indices)
+    onshore_hours = sum(1 for value in directions if _angle_in_sectors(value, sectors))
+    onshore_share = round(onshore_hours / len(directions), 2) if directions else None
+
     return {
         "sample_hours": len(indices),
         "max_wind_kmh": round(max(wind), 1) if wind else None,
@@ -97,6 +131,12 @@ def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict
         "max_hs_m": round(max(hs), 2) if hs else None,
         "min_tp_s": round(min(tp), 1) if tp else None,
         "min_visibility_km": round(min(visibility), 1) if visibility else None,
+        "max_uv_index": round(max(uv), 1) if uv else None,
+        "max_apparent_temperature_c": round(max(apparent), 1) if apparent else None,
+        "max_air_temperature_c": round(max(air), 1) if air else None,
+        "total_precipitation_mm": round(sum(rain), 1) if rain else None,
+        "sea_surface_temperature_c": round(sum(sst) / len(sst), 1) if sst else None,
+        "onshore_share": onshore_share,
     }
 
 
@@ -145,16 +185,80 @@ def _moon(phase: Any) -> dict[str, Any]:
     }
 
 
-def _period(start: dt.datetime, daily: dict[str, Any]) -> str:
-    for key, name in (("sunrise", "sunrise"), ("sunset", "sunset")):
-        target = _date(daily.get(key))
-        if target is None:
-            continue
-        if target.tzinfo is None and start.tzinfo is not None:
-            target = target.replace(tzinfo=start.tzinfo)
-        if abs((start - target).total_seconds()) <= 7200:
-            return name
-    return "day"
+def _aware(value: Any, reference: dt.datetime) -> dt.datetime | None:
+    moment = _date(value)
+    if moment is None:
+        return None
+    if moment.tzinfo is None and reference.tzinfo is not None:
+        return moment.replace(tzinfo=reference.tzinfo)
+    return moment
+
+
+def _overlaps(start: dt.datetime, end: dt.datetime, low: dt.datetime, high: dt.datetime) -> bool:
+    return start < high and low < end
+
+
+def _window_periods(start: dt.datetime, end: dt.datetime, daily: dict[str, Any],
+                    band_minutes: int = 90) -> list[str]:
+    """Creneaux que la fenetre RECOUVRE, et non celui de son instant de depart.
+
+    L'ancienne version classait sur le depart a deux heures pres : une fenetre
+    15:00-19:00 couvrant un coucher a 18:54 sortait en `day` et perdait son
+    bonus, tandis qu'une fenetre demarrant a 20:00, en pleine nuit, sortait en
+    `sunset`.
+    """
+    band = dt.timedelta(minutes=band_minutes)
+    sunrise = _aware(daily.get("sunrise"), start)
+    sunset = _aware(daily.get("sunset"), start)
+    periods: list[str] = []
+    if sunrise and _overlaps(start, end, sunrise - band, sunrise + band):
+        periods.append("sunrise")
+    if sunset and _overlaps(start, end, sunset - band, sunset + band):
+        periods.append("sunset")
+    if sunrise and sunset and _overlaps(start, end, sunrise + band, sunset - band):
+        periods.append("day")
+    if sunrise and sunset and (start < sunrise - band or end > sunset + band):
+        periods.append("night")
+    if not periods:
+        periods.append("day")
+    return periods
+
+
+def _tide(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict[str, Any]:
+    """Marnage reel sur la fenetre, quand le niveau de la mer est publie.
+
+    En Mediterranee tunisienne le marnage est faible : la phase lunaire est un
+    proxy mediocre. Quand `sea_level_height_msl` est disponible on mesure le
+    marnage au lieu de le deviner.
+    """
+    hourly = spot.get("hourly") or {}
+    indices = _indices(hourly.get("time") or [], start, end)
+    levels = _values(hourly, "sea_level_height_msl", indices)
+    if len(levels) < 2:
+        return {"available": False, "range_m": None, "trend": None}
+    span = max(levels) - min(levels)
+    delta = levels[-1] - levels[0]
+    trend = "montante" if delta > 0.02 else "descendante" if delta < -0.02 else "etale"
+    return {"available": True, "range_m": round(span, 3), "trend": trend}
+
+
+def _moon_visible(daily: dict[str, Any], start: dt.datetime, end: dt.datetime) -> bool | None:
+    """La lune est-elle au-dessus de l'horizon pendant la fenetre ?
+
+    C'est la lumiere lunaire, pas la phase seule, qui compte pour les sorties
+    nocturnes. moonrise / moonset etaient collectes sans jamais servir.
+    """
+    rise = _aware(daily.get("moonrise"), start)
+    down = _aware(daily.get("moonset"), start)
+    if rise is None and down is None:
+        return None
+    if rise is not None and down is not None:
+        if rise <= down:
+            return _overlaps(start, end, rise, down)
+        return _overlaps(start, end, rise, end) or _overlaps(start, end, start, down)
+    if rise is not None:
+        return end > rise
+    return start < down
 
 
 def _label(record_id: str, records: dict[str, dict[str, Any]], language: str = "fr") -> str:
@@ -238,13 +342,117 @@ def _knowledge_fishing(pack: KnowledgePack, slug: str, season: str) -> dict[str,
     }
 
 
+def _fmt(value: Any, digits: int = 0, unit: str = "") -> str:
+    number = _number(value)
+    if number is None:
+        return "—"
+    text = f"{number:.{digits}f}".replace(".", ",")
+    return f"{text}{unit}"
+
+
+def advisories(metrics: dict[str, Any], context: dict[str, Any],
+               limits: dict[str, Any] | None = None) -> list[dict[str, str]]:
+    """Conseils de confort tires de donnees deja collectees.
+
+    Ce sont des avertissements, jamais des blocages : la securite reste
+    entierement du ressort du moteur de fenetres.
+    """
+    tuning = limits or {}
+    uv_high = _number(tuning.get("uv_index_high")) or 7.0
+    heat_high = _number(tuning.get("apparent_temperature_c_high")) or 38.0
+    onshore_high = _number(tuning.get("onshore_share_high")) or 0.5
+    offshore_low = _number(tuning.get("offshore_share_low")) or 0.2
+    rain_min = _number(tuning.get("precipitation_mm")) or 0.5
+
+    notes: list[dict[str, str]] = []
+    uv = _number(metrics.get("max_uv_index"))
+    if uv is not None and uv >= uv_high:
+        notes.append({
+            "id": "uv_high",
+            "fr": f"Indice UV {_fmt(uv, 1)} sur la fenêtre : ombre, crème et tee-shirt pour les enfants.",
+            "en": f"UV index {_fmt(uv, 1)} during the window: shade, sunscreen and a rash top for children.",
+        })
+    apparent = _number(metrics.get("max_apparent_temperature_c"))
+    if apparent is not None and apparent >= heat_high:
+        notes.append({
+            "id": "heat",
+            "fr": f"Ressenti jusqu’à {_fmt(apparent, 0, ' °C')} : eau à bord et pause à l’ombre.",
+            "en": f"Feels like up to {_fmt(apparent, 0, ' °C')}: carry water and plan shade breaks.",
+        })
+    share = _number(metrics.get("onshore_share"))
+    if share is not None and share >= onshore_high:
+        notes.append({
+            "id": "onshore",
+            "fr": "Vent de mer sur la majorité de la fenêtre : eau plus trouble et clapot près du bord.",
+            "en": "Onshore wind for most of the window: murkier water and chop close to shore.",
+        })
+    elif share is not None and share <= offshore_low:
+        notes.append({
+            "id": "offshore",
+            "fr": "Vent de terre : plan d’eau lissé le long de la côte, meilleure visibilité sous l’eau.",
+            "en": "Offshore wind: flatter water along the shore and better underwater visibility.",
+        })
+    rain = _number(metrics.get("total_precipitation_mm"))
+    if rain is not None and rain >= rain_min:
+        notes.append({
+            "id": "rain",
+            "fr": f"Pluie attendue : {_fmt(rain, 1, ' mm')} cumulés sur la fenêtre.",
+            "en": f"Rain expected: {_fmt(rain, 1, ' mm')} over the window.",
+        })
+    sst = _number(metrics.get("sea_surface_temperature_c"))
+    if sst is not None:
+        notes.append({
+            "id": "sst",
+            "fr": f"Eau à {_fmt(sst, 1, ' °C')}.",
+            "en": f"Water at {_fmt(sst, 1, ' °C')}.",
+        })
+    tide = context.get("tide") or {}
+    if tide.get("available") and _number(tide.get("range_m")) is not None:
+        notes.append({
+            "id": "tide",
+            "fr": f"Marnage {_fmt(tide['range_m'], 2, ' m')} sur la fenêtre, marée {tide.get('trend')}.",
+            "en": f"Tidal range {_fmt(tide['range_m'], 2, ' m')} over the window.",
+        })
+    return notes
+
+
+def _lunar_or_tidal_bonus(context: dict[str, Any], ranking: dict[str, Any]) -> tuple[float, str, str]:
+    """Bonus secondaire, jamais decisif pour la securite.
+
+    Prefere le marnage mesure quand il est publie ; retombe sinon sur la phase
+    lunaire, qui reste un proxy grossier sous ce climat de faible maree.
+    """
+    cap = float(ranking.get("lunar_max_bonus", 5))
+    # Marnage donnant le bonus plein. Sous ce climat le marnage reste faible :
+    # 0,25 m est deja une vive-eau marquee dans le golfe de Tunis.
+    full = _number(ranking.get("tide_range_full_bonus_m")) or 0.25
+    tide = context.get("tide") or {}
+    span = _number(tide.get("range_m"))
+    if tide.get("available") and span is not None:
+        bonus = min(cap, cap * span / full) if full > 0 else 0.0
+        return (
+            round(bonus, 1),
+            f"marnage mesuré {_fmt(span, 2, ' m')} ({tide.get('trend')})",
+            f"measured tidal range {_fmt(span, 2, ' m')}",
+        )
+    moon = context.get("moon") or {}
+    illumination = _number(moon.get("illumination_pct"))
+    if illumination is None:
+        return 0.0, "", ""
+    bonus = min(cap, abs(illumination - 50) / 10)
+    label = moon.get("label_fr") or "phase lunaire"
+    detail_fr = f"{label.lower()}, illumination {_fmt(illumination, 0, ' %')}"
+    if context.get("moon_visible") is False:
+        detail_fr += ", lune sous l’horizon pendant la fenêtre"
+    return round(bonus, 1), detail_fr, f"{moon.get('label_en') or 'moon phase'}, {_fmt(illumination, 0, '%')} lit"
+
+
 def _score(
     activity_id: str,
     activity: dict[str, Any],
     metrics: dict[str, Any],
     fishing: dict[str, Any],
-    period: str,
-    moon: dict[str, Any],
+    context: dict[str, Any],
     ranking: dict[str, Any],
 ) -> dict[str, Any] | None:
     if activity.get("requires_fishing_profile") and not fishing.get("species"):
@@ -255,13 +463,14 @@ def _score(
         return None
     safety = activity.get("safety") or {}
     limits = (
-        ("max_wind_kmh", "max_wind_kmh"),
-        ("max_gust_kmh", "max_gust_kmh"),
-        ("max_hs_m", "max_hs_m"),
+        ("max_wind_kmh", "max_wind_kmh", 0, " km/h", "vent"),
+        ("max_gust_kmh", "max_gust_kmh", 0, " km/h", "rafales"),
+        ("max_hs_m", "max_hs_m", 2, " m", "houle"),
     )
     score = 100.0
     blockers = []
-    for metric_key, limit_key in limits:
+    margins = []
+    for metric_key, limit_key, digits, unit, label in limits:
         value, limit = _number(metrics.get(metric_key)), _number(safety.get(limit_key))
         if value is None or limit is None:
             continue
@@ -269,6 +478,7 @@ def _score(
             blockers.append(f"{metric_key}>{limit}")
         else:
             score -= max(0, value / limit - 0.55) * 25
+            margins.append(f"{label} {_fmt(value, digits, unit)} pour une limite de {_fmt(limit, digits, unit)}")
     tp, tp_min = _number(metrics.get("min_tp_s")), _number(safety.get("min_tp_s"))
     visibility = _number(metrics.get("min_visibility_km"))
     visibility_min = _number(safety.get("min_visibility_km"))
@@ -278,37 +488,94 @@ def _score(
         blockers.append(f"visibility<{visibility_min}")
     if blockers:
         return None
-    reasons_fr = ["fenêtre Family GO validée", "conditions compatibles avec les seuils de l’activité"]
-    reasons_en = ["validated Family GO window", "conditions match the activity thresholds"]
-    if period in fishing.get("preferred_periods", []):
+
+    reasons_fr = ["fenêtre Family GO validée"]
+    reasons_en = ["validated Family GO window"]
+    if margins:
+        reasons_fr.append(" · ".join(margins))
+        reasons_en.append("conditions within the activity thresholds")
+
+    periods = context.get("periods") or []
+    preferred = [str(value) for value in fishing.get("preferred_periods") or []]
+    matched = [value for value in periods if value in preferred]
+    if matched:
         score += float(ranking.get("preferred_period_bonus", 7))
-        reasons_fr.append("horaire favorable au profil saisonnier")
-        reasons_en.append("favourable seasonal timing")
+        names = {"sunrise": "lever du soleil", "sunset": "coucher du soleil", "day": "plein jour", "night": "nuit"}
+        reasons_fr.append(f"la fenêtre couvre {names.get(matched[0], matched[0])}, favorable au profil de saison")
+        reasons_en.append(f"window covers {matched[0]}, favourable for the seasonal profile")
+
     lunar_bonus = 0.0
-    if activity.get("lunar_sensitive") and moon.get("illumination_pct") is not None:
-        illumination = float(moon["illumination_pct"])
-        lunar_bonus = min(float(ranking.get("lunar_max_bonus", 5)), abs(illumination - 50) / 10)
-        score += lunar_bonus
-        reasons_fr.append("signal lunaire secondaire")
-        reasons_en.append("secondary lunar signal")
+    if activity.get("lunar_sensitive"):
+        lunar_bonus, detail_fr, detail_en = _lunar_or_tidal_bonus(context, ranking)
+        if detail_fr:
+            score += lunar_bonus
+            reasons_fr.append(detail_fr)
+            reasons_en.append(detail_en)
+
+    # Confort : penalise sans jamais bloquer, et seulement si l'activite le declare.
+    comfort = activity.get("comfort") or {}
+    caveats_fr, caveats_en = [], []
+    for metric_key, limit_key, digits, unit, fr_label, en_label in (
+        ("max_uv_index", "max_uv_index", 1, "", "indice UV", "UV index"),
+        ("max_apparent_temperature_c", "max_apparent_temperature_c", 0, " °C", "ressenti", "feels-like"),
+        ("onshore_share", "max_onshore_share", 2, "", "part de vent de mer", "onshore share"),
+    ):
+        value, limit = _number(metrics.get(metric_key)), _number(comfort.get(limit_key))
+        if value is None or limit is None or value <= limit:
+            continue
+        score -= float(comfort.get("penalty", 8))
+        caveats_fr.append(f"{fr_label} {_fmt(value, digits, unit)} au-dessus du confort visé ({_fmt(limit, digits, unit)})")
+        caveats_en.append(f"{en_label} {_fmt(value, digits, unit)} above the comfort target")
+
     return {
         "activity_id": activity_id,
         "icon": activity.get("icon", "🌊"),
         "label_fr": activity.get("label_fr", activity_id),
         "label_en": activity.get("label_en", activity_id),
-        "score": round(min(score, 100), 1),
+        "score": round(max(0.0, min(score, 100)), 1),
         "why_fr": " · ".join(reasons_fr),
         "why_en": " · ".join(reasons_en),
+        "caveats_fr": caveats_fr,
+        "caveats_en": caveats_en,
         "lunar_bonus": round(lunar_bonus, 1),
+        "periods": periods,
     }
 
 
 def _sources(root: Path) -> tuple[KnowledgePack | None, dict[str, Any], dict[str, Any]]:
     pack = load_knowledge_pack(root, strict=True)
     if pack is not None:
-        activity = {"status": pack.status, "ranking": pack.ranking, "activities": pack.activities}
+        activity = {
+            "status": pack.status,
+            "ranking": pack.ranking,
+            "advisories": pack.advisories,
+            "activities": pack.activities,
+        }
         return pack, activity, _yaml(root / "fishing_profiles.yaml")
     return None, _yaml(root / "activity_profiles.yaml"), _yaml(root / "fishing_profiles.yaml")
+
+
+
+def _spread_by_day(items: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Repartit le plafond entre les jours au lieu de tronquer par date.
+
+    Un simple `[:limit]` apres tri chronologique effacait en silence les jours
+    suivants des qu'un jour portait assez de fenetres.
+    """
+    if limit <= 0 or len(items) <= limit:
+        return items
+    by_day: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        by_day.setdefault(str(item.get("start") or "")[:10], []).append(item)
+    selected: list[dict[str, Any]] = []
+    rank = 0
+    while len(selected) < limit and any(rank < len(day) for day in by_day.values()):
+        for day in by_day.values():
+            if rank < len(day) and len(selected) < limit:
+                selected.append(day[rank])
+        rank += 1
+    selected.sort(key=lambda item: str(item.get("start") or ""))
+    return selected
 
 
 def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
@@ -317,6 +584,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
     profiles = fishing_cfg.get("profiles") or {}
     activities = activity_cfg.get("activities") or {}
     ranking = activity_cfg.get("ranking") or {}
+    advisory_limits = activity_cfg.get("advisories") or {}
     output = []
     no_go = []
     for destination in windows.get("windows") or []:
@@ -324,12 +592,49 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
         slug = filename.removesuffix(".json")
         destination_windows = destination.get("windows") or []
         if not destination_windows:
+            # Le moteur connait deja le premier bloqueur : le repeter ici evite
+            # d'afficher sept fois "aucune fenetre validee" sans dire pourquoi.
+            diagnostics = destination.get("diagnostics") or {}
+            blocker = diagnostics.get("first_blocker") or {}
+            detail_fr = str(blocker.get("reason_fr") or "").strip()
+            detail_en = str(blocker.get("reason_en") or "").strip()
+            where = str(blocker.get("location_name") or "").strip()
+            phase = str(blocker.get("phase") or "").strip()
+            # Le lieu n'est cite que s'il differe de la destination : sur un
+            # trajet direct, « a El Haouaria » pour El Haouaria n'apprend rien.
+            if where and where == str(destination.get("dest_name") or "").strip():
+                where = ""
+            suffix_fr = ""
+            suffix_en = ""
+            if detail_fr:
+                suffix_fr = f" Premier blocage : {detail_fr}"
+                if where:
+                    suffix_fr += f", à {where}"
+                if phase:
+                    suffix_fr += f" ({PHASE_FR.get(phase, phase)})"
+                suffix_fr += "."
+            if detail_en:
+                suffix_en = f" First blocker: {detail_en}"
+                if where:
+                    suffix_en += f", at {where}"
+                if phase:
+                    suffix_en += f" ({PHASE_EN.get(phase, phase)})"
+                suffix_en += "."
             no_go.append(
                 {
                     "dest_slug": filename,
                     "dest_name": destination.get("dest_name"),
-                    "reason_fr": "Aucune fenêtre Family GO validée.",
-                    "reason_en": "No validated Family GO window.",
+                    "required_hours": destination.get("required_hours"),
+                    "reason_fr": "Aucune fenêtre Family GO validée." + suffix_fr,
+                    "reason_en": "No validated Family GO window." + suffix_en,
+                    "blocker": {
+                        "location_name": blocker.get("location_name"),
+                        "phase": blocker.get("phase"),
+                        "time": blocker.get("time"),
+                        "reasons": blocker.get("reasons") or [],
+                        "reason_fr": blocker.get("reason_fr"),
+                        "reason_en": blocker.get("reason_en"),
+                    } if blocker else None,
                 }
             )
             continue
@@ -347,19 +652,18 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                 fishing = _knowledge_fishing(pack, slug, season)
             else:
                 fishing = _legacy_fishing(profile, season)
+            context = {
+                "periods": _window_periods(start, end, daily),
+                "tide": _tide(spot, start, end),
+                "moon": moon,
+                "moon_visible": _moon_visible(daily, start, end),
+            }
+            window_advice = advisories(metrics, context, advisory_limits)
             ranked = []
             for activity_id, activity in activities.items():
                 if not isinstance(activity, dict):
                     continue
-                item = _score(
-                    str(activity_id),
-                    activity,
-                    metrics,
-                    fishing,
-                    _period(start, daily),
-                    moon,
-                    ranking,
-                )
+                item = _score(str(activity_id), activity, metrics, fishing, context, ranking)
                 if item:
                     ranked.append(item)
             ranked.sort(key=lambda item: (-item["score"], item["activity_id"]))
@@ -383,8 +687,12 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                             "sunset": daily.get("sunset"),
                             "moonrise": daily.get("moonrise"),
                             "moonset": daily.get("moonset"),
+                            "moon_above_horizon": context["moon_visible"],
                             **moon,
                         },
+                        "tide": context["tide"],
+                        "periods": context["periods"],
+                        "advisories": window_advice,
                         "fishing": fishing,
                         "activities": ranked,
                         "method_note_fr": (
@@ -403,6 +711,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
             -(item.get("activities") or [{}])[0].get("score", 0),
         )
     )
+    output = _spread_by_day(output, int(ranking.get("max_total", 5)))
     result = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "version": 3 if pack and pack.version >= 2 else (2 if pack else 1),
@@ -410,7 +719,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
         "safety_policy": "recommendations_only_inside_validated_family_go_windows",
         "profile_status": activity_cfg.get("status", "initial_tunable"),
         "knowledge_pack": pack.public_catalog() if pack else None,
-        "recommendations": output[: int(ranking.get("max_total", 5))],
+        "recommendations": output,
         "no_go": no_go,
     }
     public.mkdir(parents=True, exist_ok=True)

@@ -65,4 +65,11 @@ test('published engine metric names and onshore sector are rendered', () => {
   }, 'fr');
   assert.deepEqual(Array.from(rows, (row) => row.key), ['duration','gust','onshore','wind','wave','visibility']);
   assert.equal(rows.find((row) => row.key === 'onshore').value, 23);
+  const exactOnshore = widgets.checks({diagnostics:{first_blocker:{metrics:{max_speed:22,any_onshore:true}}}}, {
+    family:{thresholds:{wind:{family_max_kmh:25,onshore_downgrade_kmh:22}}},
+  }, 'fr').find((row) => row.key === 'onshore');
+  assert.equal(exactOnshore.passed, true);
+  assert.match(widgets.checksHtml({diagnostics:{first_blocker:{metrics:{max_speed:22,any_onshore:true}}}}, {
+    family:{thresholds:{wind:{family_max_kmh:25,onshore_downgrade_kmh:22}}},
+  }, 'fr'), /Secteur onshore · ≤ 22,0 km\/h/);
 });

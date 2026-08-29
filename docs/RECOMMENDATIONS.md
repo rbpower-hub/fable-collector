@@ -17,6 +17,12 @@ Elle ne remplace pas le moteur de sécurité et ne crée jamais de fenêtre. Son
 
 Si une destination ne possède aucune fenêtre Family GO, elle apparaît dans `no_go` et aucune activité n’est proposée.
 
+L’entrée `no_go` reprend le premier bloqueur déjà connu du moteur
+(`diagnostics.first_blocker`) : la cause, la phase du trajet, et le lieu
+seulement lorsqu’il diffère de la destination. Sur un trajet direct, « à
+El Haouaria » pour El Haouaria n’apprend rien ; sur une route par étapes,
+« à Kelibia » pour Pantelleria est l’information utile.
+
 ## Sources de connaissance
 
 ### Source principale : `knowledge/`
@@ -55,9 +61,18 @@ Pour chaque fenêtre, le moteur extrait du JSON du spot :
 - Hs maximale ;
 - Tp minimale ;
 - visibilité minimale ;
-- nombre d’heures échantillonnées.
+- nombre d’heures échantillonnées ;
+- indice UV maximal ;
+- température ressentie et température de l’air maximales ;
+- cumul de précipitations ;
+- température de surface de la mer, si disponible ;
+- `onshore_share` : part des heures où le vent souffle depuis un secteur onshore du spot.
 
 Ces métriques représentent les conditions les plus défavorables de la fenêtre pour l’activité.
+
+Les cinq premières décident. Les suivantes ne servent qu’au classement et aux
+conseils de confort : aucune d’elles ne peut refuser une activité ni en autoriser
+une que les seuils ont écartée.
 
 ## Sélection des activités
 
@@ -75,12 +90,50 @@ Une fenêtre Family GO peut donc rester navigable alors qu’une activité parti
 
 Le score part de 100 et diminue à mesure que les conditions se rapprochent des limites de l’activité.
 
+Chaque pénalité est publiée en clair, avec la valeur mesurée face à la limite de
+l’activité : « vent 10 km/h pour une limite de 18 km/h ». Un score nu n’était pas
+vérifiable par l’utilisateur.
+
 Des bonus limités peuvent être ajoutés :
 
 - correspondance avec une période préférentielle du profil saisonnier ;
-- signal lunaire secondaire lorsque `lunar_sensitive: true`.
+- signal lunaire ou marégraphique secondaire lorsque `lunar_sensitive: true`.
 
-Le score final est plafonné à 100. La lune ne peut jamais compenser un dépassement de seuil ou un NO-GO.
+Le score final est plafonné à 100. Ni la lune ni la marée ne peuvent compenser un dépassement de seuil ou un NO-GO.
+
+### Créneaux d’une fenêtre
+
+Une fenêtre est rattachée aux moments qu’elle **recouvre**, pas à celui de son
+instant de départ. Une bande de 90 minutes autour du lever et du coucher définit
+`sunrise` et `sunset` ; le reste est `day` ou `night`. Une fenêtre peut donc
+porter plusieurs créneaux à la fois.
+
+Le classement précédent lisait l’heure de départ à deux heures près : une sortie
+15:00→19:00 couvrant un coucher à 18:54 sortait en `day` et perdait son bonus,
+tandis qu’une fenêtre démarrant à 20:00, en pleine nuit, sortait en `sunset`.
+
+### Marée réelle avant phase de lune
+
+Si `sea_level_height_msl` est présent sur la fenêtre, le bonus est calculé sur le
+**marnage mesuré** : l’écart entre le niveau le plus haut et le plus bas de la
+fenêtre, rapporté à `ranking.tide_range_full_bonus_m` (0,25 m par défaut sur la
+côte tunisienne). Le sens du courant, montant ou descendant, est publié avec.
+
+La phase de lune n’intervient qu’en repli, quand aucune donnée de marée n’est
+disponible. Elle est alors pondérée par `moon_above_horizon`, calculé depuis
+`moonrise` et `moonset` : une pleine lune sous l’horizon n’éclaire rien.
+
+## Conseils de confort
+
+`advisories()` produit des remarques bilingues à partir des métriques
+secondaires : UV élevé, ressenti excessif, vent de mer, vent de terre favorable,
+pluie, eau fraîche, marnage marqué. Les seuils sont lus dans
+`knowledge/manifest.yaml` sous la clé `advisories`.
+
+Ces conseils **n’ont aucun effet sur la sécurité**. Ils ne retirent pas une
+activité, ne créent pas de fenêtre et ne modifient pas un verdict. Une activité
+peut en plus déclarer un bloc `comfort` : il produit des réserves affichées sous
+l’activité et une pénalité de score, jamais un refus.
 
 ## Soleil et lune
 
@@ -147,6 +200,15 @@ Le pipeline de production utilise le mode strict : une incohérence bloque la g�
 `public/activity-board.js` charge `recommendations.json` et ajoute au dashboard une carte **« Que faire sur l’eau ? »**.
 
 Le composant est informatif. La source de vérité reste le JSON généré par le backend. Une erreur d’affichage ne modifie jamais la décision de sécurité.
+
+Il rend aussi la liste « Pourquoi les autres spots sont exclus », les conseils de
+confort de la fenêtre et les réserves propres à chaque activité.
+
+Les identifiants de vocabulaire libre du Knowledge Pack (`micro_jig_5_12_g`)
+n’ont pas de libellé dédié : le board les rend lisibles à l’affichage. Le jour où
+le pack publiera un libellé par appât et par leurre, il remplacera cette
+transformation. Les nombres décimaux suivent la langue affichée : `0,18–0,25 mm`
+en français.
 
 ## Ajustement progressif
 

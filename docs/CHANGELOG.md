@@ -1,6 +1,15 @@
 # Changelog
 
 ## Non publié
+- **Créneaux corrigés** : une fenêtre est classée sur les moments qu’elle *recouvre* et non sur son instant de départ ; une sortie 15:00→19:00 couvrant un coucher à 18:54 n’est plus étiquetée « journée ».
+- **Marée mesurée** : lorsque `sea_level_height_msl` est disponible, le bonus lunaire est remplacé par le marnage réellement observé sur la fenêtre ; la phase de lune ne sert plus que de repli.
+- **Lune au-dessus de l’horizon** : `moonrise`/`moonset` déterminent si la lune est visible pendant la fenêtre, au lieu de supposer qu’une pleine lune éclaire toute la nuit.
+- **Conseils de confort** : UV, ressenti, vent de mer / vent de terre et pluie produisent des conseils bilingues. Ils ne bloquent jamais une activité ; la sécurité reste entièrement du ressort du moteur de fenêtres.
+- **Justifications chiffrées** : chaque activité affiche la valeur mesurée face à sa limite (« vent 10 km/h pour une limite de 18 km/h ») au lieu d’un score nu.
+- **Raisons de NO-GO affichées** : le premier bloqueur connu du moteur est publié et rendu dans le board, au lieu de sept lignes identiques « aucune fenêtre validée ». Le lieu n’est cité que s’il diffère de la destination.
+- **Répartition sur les jours** : le plafond de recommandations est appliqué en tourniquet par jour ; une journée riche n’efface plus les deux suivantes.
+- **Température d’eau et niveau de la mer** : appel Open-Meteo distinct et strictement facultatif, isolé de la chaîne de repli des modèles de vagues pour ne jamais compromettre la sécurité.
+- **Vocabulaire lisible** : les identifiants du Knowledge Pack (`micro_jig_5_12_g`) et les nombres décimaux sont formatés selon la langue affichée.
 - **Vue Simple expérimentale** : nouveau mode mobile volontaire centré sur la décision, la meilleure destination, la fenêtre de sortie et un aperçu de trois jours, sans modifier la décision de sécurité Python.
 - **Visualisation opérationnelle** : frise horaire GO / prudent / NO-GO et graphiques vent/houle avec limites Family, plages min–max, tendances et heure limite de retour.
 - **Accessibilité** : français, anglais et arabe RTL, navigation clavier, focus visibles, contraste forcé, réduction des animations et adaptations de 320 px au bureau.

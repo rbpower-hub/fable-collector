@@ -36,8 +36,22 @@
       {timeZone:TUNIS_TZ, weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}
     );
   };
+  /* Les identifiants du pack de connaissances sont du vocabulaire libre
+     (micro_jig_5_12_g). Tant qu'ils n'ont pas de libelle dedie, on les rend
+     lisibles ici plutot que de les afficher bruts. */
+  const humanize = (value) => String(value ?? '')
+    .replace(/_(\d+)_(\d+)_([a-z]+)$/i, ' $1\u2013$2 $3')
+    .replace(/_(\d+)_([a-z]+)$/i, ' $1 $2')
+    .replace(/_/g, ' ')
+    .trim();
+  const humanList = (values, limit) => (Array.isArray(values) ? values : [])
+    .slice(0, limit).map((item) => esc(humanize(item))).join(', ');
+  const num = (value) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return String(value ?? '');
+    return value.toLocaleString(language() === 'en' ? 'en-GB' : 'fr-FR', {maximumFractionDigits:2});
+  };
   const pair = (value, suffix = '') => (
-    Array.isArray(value) && value.length === 2 ? `${value[0]}–${value[1]}${suffix}` : ''
+    Array.isArray(value) && value.length === 2 ? `${num(value[0])}–${num(value[1])}${suffix}` : ''
   );
 
   function installStyles() {
@@ -55,8 +69,33 @@
       .intel-badge,.prudent-badge{display:inline-block;margin-left:5px;padding:1px 6px;border:1px solid var(--br);border-radius:999px;font-size:.72rem}
       .intel-badge{color:var(--muted)}.prudent-badge{color:var(--warn);border-color:var(--warn)}
       .prudent-warning{margin-top:8px;color:var(--warn);font-size:.84rem;line-height:1.4}
+      .activity-advice{margin-top:8px;display:flex;flex-direction:column;gap:4px;padding-left:9px;border-left:2px solid var(--br)}
+      .activity-advice li{list-style:none;font-size:.84rem;color:var(--muted);line-height:1.4}
+      .activity-caveat{color:var(--warn);font-size:.82rem;line-height:1.4;margin-top:3px}
+      .activity-blocked{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+      .activity-blocked li{list-style:none;font-size:.86rem;color:var(--muted);line-height:1.45;border-left:0;padding:6px 0 0;border-top:1px solid var(--br)}
+      .activity-blocked li:first-child{border-top:0;padding-top:0}.activity-blocked b{color:var(--fg)}
     `;
     document.head.appendChild(style);
+  }
+
+  function adviceList(rec, lang) {
+    const notes = Array.isArray(rec.advisories) ? rec.advisories : [];
+    if (!notes.length) return '';
+    return `<ul class="activity-advice">${notes.map(
+      (note) => `<li>${esc(lang === 'en' ? note.en : note.fr)}</li>`
+    ).join('')}</ul>`;
+  }
+
+  function blockedList(data, lang) {
+    const blocked = Array.isArray(data?.no_go) ? data.no_go : [];
+    if (!blocked.length) return '';
+    const heading = lang === 'en' ? 'Why the other spots are out' : 'Pourquoi les autres spots sont exclus';
+    return `<div class="activity-note"><b>${heading}</b></div><ul class="activity-blocked">${blocked.map((item) => {
+      const name = esc(item.dest_name || item.dest_slug || '');
+      const reason = esc(lang === 'en' ? item.reason_en : item.reason_fr);
+      return `<li><b>${name}</b> — ${reason}</li>`;
+    }).join('')}</ul>`;
   }
 
   function fishing(rec, lang) {
@@ -64,7 +103,7 @@
     if (!Array.isArray(profile.species) || !profile.species.length) return '';
     const species = profile.species.slice(0, 4).map(esc).join(', ');
     const techniques = (profile.techniques || []).slice(0, 3).map(esc).join(', ');
-    const baits = (profile.baits || []).slice(0, 4).map(esc).join(', ');
+    const baits = humanList(profile.baits, 4);
     const depth = pair(profile.depths_m, ' m') || '—';
     return `<div class="activity-meta"><b>${lang === 'en' ? 'Fishing profile' : 'Profil pêche'}:</b> ${species}<br><b>Techniques:</b> ${techniques || '—'}<br><b>${lang === 'en' ? 'Baits / lures' : 'Appâts / leurres'}:</b> ${baits || '—'} · <b>${lang === 'en' ? 'Depth' : 'Profondeur'}:</b> ${esc(depth)}</div>`;
   }
@@ -80,9 +119,9 @@
       : pair(tackle.hook_sizes?.range);
     const leader = pair(tackle.leader_mm, ' mm');
     const sinker = pair(tackle.sinker_g, ' g');
-    const natural = (targeting.natural_baits || []).slice(0, 3).map(esc).join(', ');
-    const lures = (targeting.artificial_lures || []).slice(0, 3).map(esc).join(', ');
-    const rigs = (technique?.gear?.rigs || []).slice(0, 3).map(esc).join(', ');
+    const natural = humanList(targeting.natural_baits, 3);
+    const lures = humanList(targeting.artificial_lures, 3);
+    const rigs = humanList(technique?.gear?.rigs, 3);
     if (!fish || (!hookRange && !leader && !natural && !lures && !rigs)) return '';
     const fishName = esc(lang === 'en' ? fish.label_en : fish.label_fr);
     const rows = [];
@@ -138,7 +177,10 @@
       return String(rec.category || sourceWindow.category || 'family').toLowerCase() === 'family';
     });
     if (!recommendations.length) {
-      card.innerHTML = `<h3><span>${title}</span></h3><div class="small">${lang === 'en' ? 'No compatible activity in a validated Family GO window.' : 'Aucune activité compatible dans une fenêtre Family GO validée.'}</div>`;
+      const empty = lang === 'en'
+        ? 'No compatible activity in a validated Family GO window.'
+        : 'Aucune activité compatible dans une fenêtre Family GO validée.';
+      card.innerHTML = `<h3><span>${title}</span></h3><div class="small">${empty}</div>${blockedList(data, lang)}`;
       window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations:[]}}));
       return;
     }
@@ -148,7 +190,11 @@
       ) || {};
       const category = String(rec.category || sourceWindow.category || 'family').toLowerCase();
       const prudent = sourceWindow.family_tier === 'prudent';
-      const choices = (rec.activities || []).map((item) => `<div class="activity-choice"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b><div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div></div>`).join('');
+      const choices = (rec.activities || []).map((item) => {
+        const caveats = (lang === 'en' ? item.caveats_en : item.caveats_fr) || [];
+        const caveatRows = caveats.map((text) => `<div class="activity-caveat">⚠ ${esc(text)}</div>`).join('');
+        return `<div class="activity-choice"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b><div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div>${caveatRows}</div>`;
+      }).join('');
       const prudentBadge = prudent
         ? `<span class="prudent-badge">${lang === 'en' ? 'PRUDENT GO' : 'GO PRUDENT'}</span>`
         : '';
@@ -158,8 +204,8 @@
             : (sourceWindow.caution_fr || 'Confort réduit. Surveiller le renforcement et prévoir un retour anticipé.'))}</div>`
         : '';
       const dateKey = tunisDateKey(rec.start);
-      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
-    }).join('')}</div>`;
+      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${adviceList(rec, lang)}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
+    }).join('')}</div>${blockedList(data, lang)}`;
     window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations}}));
   }
 
@@ -186,5 +232,9 @@
   window.FABLEActivityBoard = Object.assign(window.FABLEActivityBoard || {}, {
     refresh,
     tunisDateKey,
+    // Exposes pour les tests : ce sont les deux points ou un identifiant brut
+    // ou un separateur decimal errone atteindrait l'ecran.
+    humanize,
+    pair,
   });
 })();

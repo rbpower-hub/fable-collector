@@ -34,6 +34,9 @@ FORECAST_KEYS = [
 ]
 SAFE_HOURLY = ["wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "weather_code", "visibility"]
 MARINE_KEYS = ["wave_height", "wave_period", "swell_wave_height", "swell_wave_period"]
+# Variables oceaniques facultatives, recuperees par un appel separe pour ne
+# jamais compromettre la chaine de repli des modeles de vagues.
+OCEAN_KEYS = ["sea_surface_temperature", "sea_level_height_msl"]
 DAILY_KEYS = ["sunrise", "sunset"]
 EXTRA_HOURLY = [
     "temperature_2m", "apparent_temperature", "relative_humidity_2m",
@@ -50,6 +53,8 @@ KEY_SYNONYMS = {
     "wave_period": ["wave_period", "waveperiod"],
     "swell_wave_height": ["swell_wave_height"],
     "swell_wave_period": ["swell_wave_period"],
+    "sea_surface_temperature": ["sea_surface_temperature"],
+    "sea_level_height_msl": ["sea_level_height_msl"],
     "surface_pressure": ["surface_pressure"],
     "precipitation": ["precipitation"],
     "temperature_2m": ["temperature_2m"],
@@ -158,6 +163,24 @@ def marine_url(lat: float, lon: float, tz_name: str, start: dt.date, end: dt.dat
     }
     if model and model != "default":
         params["models"] = model
+    return MARINE_ENDPOINT + "?" + urlencode(params)
+
+
+def ocean_url(lat: float, lon: float, tz_name: str, start: dt.date, end: dt.date) -> str:
+    """Temperature de surface et niveau de la mer (maree incluse).
+
+    Pas de parametre `models` : ces variables viennent du modele par defaut
+    (SMOC / SST MeteoFrance) et non des modeles de vagues.
+    """
+    params = {
+        "latitude": f"{lat:.5f}",
+        "longitude": f"{lon:.5f}",
+        "hourly": ",".join(OCEAN_KEYS),
+        "timezone": tz_name,
+        "timeformat": "iso8601",
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+    }
     return MARINE_ENDPOINT + "?" + urlencode(params)
 
 
@@ -402,6 +425,35 @@ def supplement_missing_forecast_extras(
     log.info("optional forecast extras backfilled from default model: %s", ",".join(filled))
     return payload
 
+
+
+def fetch_ocean(lat: float, lon: float, tz_name: str, start: dt.date, end: dt.date,
+                site_deadline: float, getter: Getter | None = None) -> dict[str, Any]:
+    """Recuperation best-effort de la temperature d'eau et du niveau de la mer.
+
+    Strictement facultatif : ne leve jamais, ne bloque jamais la publication et
+    n'entre dans aucune regle de securite. En cas d'echec on renvoie
+    {"hourly": {}, "_error": raison} et le site publie sans ces variables.
+    """
+    if time.monotonic() > site_deadline:
+        return {"hourly": {}, "_error": "site budget exceeded"}
+    get = getter or default_getter()
+    try:
+        payload = get(ocean_url(lat, lon, tz_name, start, end))
+    except Exception as e:  # noqa: BLE001
+        log.info("ocean variables unavailable: %s", e)
+        return {"hourly": {}, "_error": str(e)}
+    if not isinstance(payload, dict) or payload_has_error(payload):
+        reason = api_reason(payload)
+        log.info("ocean variables unavailable: %s", reason)
+        return {"hourly": {}, "_error": reason}
+    payload = normalize_hourly_keys(payload)
+    hourly = payload.get("hourly") or {}
+    present = [key for key in OCEAN_KEYS if any(value is not None for value in hourly.get(key) or [])]
+    if not present:
+        return {"hourly": {}, "_error": "empty_ocean_series"}
+    payload["_keys_present"] = present
+    return payload
 
 def _marine_has_waves(p: dict[str, Any]) -> bool:
     h = p.get("hourly") or {}

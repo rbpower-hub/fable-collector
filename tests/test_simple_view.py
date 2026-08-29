@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260828-compact-timeline-v1" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260828-navigation-cards-v1" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -74,6 +74,26 @@ def test_simple_navigation_expands_inline_and_more_menu_has_real_actions():
     assert 'data-simple-action="activities"' in script
     assert 'data-simple-action="family"' in script
     assert "if (action === 'more')" in script
+
+
+def test_simple_navigation_cards_explain_quality_and_open_the_exact_route():
+    html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert 'class="simple-window-quality"' in script
+    assert 'class="simple-window-models"' in script
+    assert 'class="simple-window-route"' in script
+    assert "window.FABLEMapUI?.describe?.(destination.dest_slug)" in script
+    assert "window.FABLEMapUI.openWindow({file:slug, start:item.start, end:item.end" in script
+    assert "function focusWindow(file, {start='', end='', direction='', scroll=true}={})" in html
+    assert "openWindow({file, start='', end='', direction=''}={})" in html
+    assert "describe(file){ return describeRoute(file); }" in html
+
+
+def test_simple_forecast_keeps_loading_when_a_day_has_no_validated_window():
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "state.windows?.home_slug || destinations[0]?.dest_slug" in script
 
 
 def test_simple_view_keeps_in_progress_windows_visible_without_promoting_them_to_go():

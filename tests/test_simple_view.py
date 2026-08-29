@@ -306,3 +306,42 @@ def test_simple_view_uses_unified_selected_day_verdicts_without_cross_day_fallba
     assert "watch_windows" in verdicts or "watch_windows" in (
         ROOT / "public" / "js" / "navigation-windows.js"
     ).read_text(encoding="utf-8")
+
+
+def test_simple_view_counts_options_with_the_category_breakdown():
+    """L'en-tête annonçait 7 options là où la carte du jour annonçait 2.
+
+    `navigationWindowCounts` fait `family = total - longTrip` : il suppose une
+    liste déjà filtrée sur la catégorie famille. La liste passée ici contient
+    aussi les créneaux hors horaires et watch.
+    """
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "navigationWindowBreakdown?.(rows)" in script
+    assert "navigationWindowCounts?.(rows)" not in script
+
+
+def test_simple_view_orders_navigation_rows_by_usefulness():
+    """La liste est coupée à cinq lignes.
+
+    En ordre chronologique, une journée portant cinq créneaux hors horaires à
+    05:00 puis deux fenêtres FAMILY GO à 11:00 n'affichait aucune fenêtre
+    familiale : elles étaient poussées hors de la coupe.
+    """
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "function rowRank(" in script
+    assert "ROW_RANK = {family: 0, prudent: 1, off_hours: 2, watch: 3}" in script
+    # L'ordre d'utilité s'applique avant l'ordre horaire.
+    assert "rowRank(a) - rowRank(b)" in script
+    assert "rows.slice(0, 5)" in script
+
+
+def test_simple_view_names_the_port_of_each_activity():
+    """La section ne disait pas à quel port l'activité se rapportait."""
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    # Le lien activité -> recommandation est conservé jusqu'au rendu.
+    assert "(item) => ({item, record})" in script
+    assert "const port = record.dest_name || record.dest_slug" in script
+    assert "📍 ${esc(port)}" in script

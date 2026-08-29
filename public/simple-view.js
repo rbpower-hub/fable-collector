@@ -220,8 +220,35 @@
   function bestForDay(offset = state.activeDay) {
     return verdictForDay(offset)?.row || null;
   }
+  const ROW_RANK = {family: 0, prudent: 1, off_hours: 2, watch: 3};
+
+  function rowRank(row) {
+    const item = row?.windowItem || {};
+    const destination = row?.destination || {};
+    const tripMode = String(item.trip_mode || destination.trip_mode || '');
+    const routeKind = String(item.route_kind || destination.route_kind || '');
+    if (tripMode === 'one_way_multi_day'
+      || ['long_trip_one_way', 'offshore_one_way_beta'].includes(routeKind)) return 4;
+    const category = String(row?.category || item.category || 'family').toLowerCase();
+    if (category === 'family'
+      && String(item.family_tier || destination.family_tier || '').toLowerCase() === 'prudent') {
+      return ROW_RANK.prudent;
+    }
+    return ROW_RANK[category] ?? 3;
+  }
+
+  /* La liste est coupee a cinq lignes. En ordre purement chronologique, une
+     journee portant cinq creneaux hors horaires a 05:00 puis deux fenetres
+     FAMILY GO a 11:00 n'affichait aucune des deux fenetres familiales : elles
+     etaient poussees hors de la coupe par des creneaux qu'on ne peut pas
+     utiliser en famille. On ordonne donc par utilite, puis par heure. */
   function displayRows(result) {
-    return [...(result?.rows || []), ...(result?.late_rows || [])];
+    const rows = [...(result?.rows || [])];
+    rows.sort((a, b) => (
+      rowRank(a) - rowRank(b)
+      || String(a.windowItem?.start || '').localeCompare(String(b.windowItem?.start || ''))
+    ));
+    return [...rows, ...(result?.late_rows || [])];
   }
   function bestForDisplayDay(offset = state.activeDay) {
     const result = verdictForDay(offset);
@@ -410,19 +437,27 @@
       record.dest_slug === best.destination.dest_slug &&
       record.start === best.windowItem.start && record.end === best.windowItem.end
     ));
-    const activities = records.flatMap((record) => record.activities || []).sort((a, b) => (
-      (a.tier === 'secondary' ? 1 : 0) - (b.tier === 'secondary' ? 1 : 0)
-      || Number(b.rank_score ?? b.score ?? 0) - Number(a.rank_score ?? a.score ?? 0)
+    /* On garde le lien activite -> recommandation : sans le nom du port ni
+       l'horaire, la section ne disait pas a quoi elle se rapportait. */
+    const activities = records.flatMap((record) => (record.activities || []).map(
+      (item) => ({item, record})
+    )).sort((a, b) => (
+      (a.item.tier === 'secondary' ? 1 : 0) - (b.item.tier === 'secondary' ? 1 : 0)
+      || Number(b.item.rank_score ?? b.item.score ?? 0) - Number(a.item.rank_score ?? a.item.score ?? 0)
     )).slice(0, 3);
-    const content = activities.length ? activities.map((item) => {
+    const content = activities.length ? activities.map(({item, record}) => {
       const label = lang() === 'en' ? item.label_en : item.label_fr;
       const why = lang() === 'en' ? item.why_en : item.why_fr;
+      const port = record.dest_name || record.dest_slug || '';
       // Une activite peut ne tenir que sur une partie de la fenetre : c'est son
       // creneau qui compte, pas celui affiche en tete de section.
       const slot = item.slot || {};
-      const slotText = slot.partial
-        ? `<em class="simple-activity-slot">⏱ ${esc(formatTime(slot.start))} → ${esc(formatTime(slot.end))}</em>`
-        : '';
+      // Creneau propre a l'activite s'il est reduit, sinon celui de la fenetre.
+      const from = slot.partial ? slot.start : record.start;
+      const to = slot.partial ? slot.end : record.end;
+      const when = from && to ? `${formatTime(from)} → ${formatTime(to)}` : '';
+      const slotText = `<em class="simple-activity-slot">📍 ${esc(port)}${
+        when ? ` · ${esc(when)}` : ''}${slot.partial ? ' ⏱' : ''}</em>`;
       return `<article class="simple-activity"><span class="simple-activity-icon" aria-hidden="true">${esc(item.icon || '🌊')}</span><div><strong>${esc(label || c.activities)}</strong>${slotText}<small>${esc(why || c.activityNote)}</small></div><span class="simple-activity-score">${Math.round(Number(item.score || 0))}/100</span></article>`;
     }).join('') : `<div class="simple-empty">${esc(c.noActivities)}${blockedNote(records, c)}</div>`;
     return `<section id="simple-activities" class="simple-panel"><div class="simple-panel-head"><h2>🌊 ${esc(c.activities)}</h2><span class="simple-panel-note">${esc(c.activityNote)}</span></div><div class="simple-activities">${content}</div></section>`;
@@ -431,11 +466,18 @@
      cinq. On annonce ce que l'utilisateur peut reellement choisir. */
   function navigationNote(rows) {
     const c = copy();
-    const counts = window.FABLENavigationWindows?.navigationWindowCounts?.(rows);
+    /* `navigationWindowCounts` calcule `family = total - longTrip` : il est fait
+       pour une liste deja filtree sur la categorie famille. Ici les lignes
+       contiennent aussi hors horaires et watch, qui etaient donc comptes comme
+       des options famille. L'entete annoncait 7 la ou la carte du jour
+       annoncait 2. `navigationWindowBreakdown` separe les categories. */
+    const counts = window.FABLENavigationWindows?.navigationWindowBreakdown?.(rows);
     if (!counts) return String(rows.length);
-    return counts.longTrip
-      ? `${counts.family} ${c.options.toLowerCase()} · ${counts.longTrip} ${c.longTripSlot.toLowerCase()}`
-      : `${counts.family} ${c.options.toLowerCase()}`;
+    const parts = [`${counts.family} ${c.options.toLowerCase()}`];
+    if (counts.offHours) parts.push(`${counts.offHours} ${c.offHoursSlot.toLowerCase()}`);
+    if (counts.watch) parts.push(`${counts.watch} ${c.watch.toLowerCase()}`);
+    if (counts.longTrip) parts.push(`${counts.longTrip} ${c.longTripSlot.toLowerCase()}`);
+    return parts.join(' · ');
   }
 
   function renderNavigation(result) {

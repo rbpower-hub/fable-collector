@@ -148,3 +148,34 @@ test('les trois vues comptent la meme chose pour une journee mixte', () => {
   // La fenetre hors horaires reste comptee a part, jamais dans les options.
   assert.equal(simpleView.offHours, 1);
 });
+
+test('le decompte d une liste mixte ne confond pas hors horaires et famille', () => {
+  /* Defaut vu en production : l'entete « Fenetres de navigation » annoncait
+     7 options la ou la carte du jour annoncait 2, sur la meme journee.
+     `navigationWindowCounts` calcule `family = total - longTrip` : il suppose
+     une liste deja filtree sur la categorie famille. Passe une liste mixte, il
+     compte les creneaux hors horaires comme des options familiales. */
+  const off = (slug) => ({dest_slug: `${slug}.json`, dest_name: slug, windows: [
+    {start: '2026-08-31T05:00:00+01:00', end: '2026-08-31T11:00:00+01:00', category: 'off_hours'},
+  ]});
+  const both = (slug) => ({dest_slug: `${slug}.json`, dest_name: slug, windows: [
+    {start: '2026-08-31T05:00:00+01:00', end: '2026-08-31T11:00:00+01:00', category: 'off_hours'},
+    {start: '2026-08-31T11:00:00+01:00', end: '2026-08-31T14:00:00+01:00', category: 'family'},
+  ]});
+  const windows = {windows: [
+    off('el-haouaria'), off('ghar-el-melh'), off('ras-fartass'),
+    both('gammarth-port'), both('sidi-bou-said'),
+  ]};
+  const rows = getNavigationWindowsForDay('2026-08-31', windows,
+    {categories: ['family', 'off_hours', 'watch']});
+  assert.equal(rows.length, 7);
+
+  const breakdown = navigationWindowBreakdown(rows);
+  assert.equal(breakdown.family, 2);
+  assert.equal(breakdown.offHours, 5);
+  assert.equal(breakdown.total, 7);
+
+  // La forme piegeuse, conservee pour documenter pourquoi on ne l'utilise plus
+  // sur une liste mixte.
+  assert.equal(navigationWindowCounts(rows).family, 7);
+});

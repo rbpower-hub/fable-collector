@@ -38,6 +38,8 @@ jobs:
             case: desktop__marine-error__ar__nautical
           - id: desktop-fresh-fr-dark
             case: desktop__fresh-windows__fr__dark
+          - id: mobile-offhours-fr-nautical
+            case: mobile__off-hours-activities__fr__nautical
     steps:
       - uses: actions/checkout@v6
 

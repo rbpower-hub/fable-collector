@@ -191,13 +191,13 @@ def test_no_go_english_carries_the_same_detail_as_french(tmp_path: Path) -> None
     assert "(at anchor)" in entry["reason_en"]
 
 
-def test_family_go_window_without_activity_publishes_the_blocking_limit(tmp_path: Path) -> None:
-    """Une fenêtre validée mais sans activité doit dire quelle limite bloque."""
+def _gust_case(tmp_path: Path, gusts: list[float]) -> dict:
+    """Fenêtre 08:00→13:00 dont la fin monte en rafales."""
     public = tmp_path / "public"
     public.mkdir()
     (tmp_path / "activity_profiles.yaml").write_text(
         """
-ranking: {max_per_window: 2, max_total: 5}
+ranking: {max_per_window: 2, max_total: 5, min_activity_hours: 2}
 activities:
   sheltered_stop:
     icon: "⚓"
@@ -235,23 +235,51 @@ activities:
             "hourly": {
                 "time": [f"2026-08-31T{hour:02d}:00" for hour in range(8, 13)],
                 "wind_speed_10m": [4.2, 3.3, 3.6, 5.4, 7.9],
-                "wind_gusts_10m": [9.7, 10.4, 10.8, 13.7, 34.9],
+                "wind_gusts_10m": gusts,
                 "wave_height": [0.16] * 5,
                 "wave_period": [4.0] * 5,
             },
         },
     )
-    result = build_recommendations(tmp_path, public)
+    return build_recommendations(tmp_path, public)
+
+
+def test_a_single_windy_hour_yields_a_reduced_slot_not_an_empty_day(tmp_path: Path) -> None:
+    """Le cas réel du lundi 31 août : une seule heure au-dessus de la limite.
+
+    Les seuils portaient sur le maximum de la fenêtre, donc cette heure écartait
+    l'activité pour les cinq heures. On propose désormais le créneau réduit, qui
+    reste strictement inclus dans la fenêtre Family GO validée.
+    """
+    result = _gust_case(tmp_path, [9.7, 10.4, 10.8, 13.7, 34.9])
+    assert result["no_activity"] == []
+    activity = result["recommendations"][0]["activities"][0]
+    slot = activity["slot"]
+    assert slot["partial"] is True
+    assert slot["start"] == "2026-08-31T08:00:00+01:00"
+    # 12:00 est l'heure a 34,9 km/h : le creneau s'arrete avant.
+    assert slot["end"] == "2026-08-31T12:00:00+01:00"
+    assert slot["hours"] == 4
+    assert slot["window_hours"] == 5
+    # La justification cite les rafales du creneau, pas celles de la fenetre.
+    assert "14 km/h" in activity["why_fr"]
+    assert "35 km/h" not in activity["why_fr"]
+
+
+def test_a_slot_too_short_still_blocks_and_explains(tmp_path: Path) -> None:
+    """Sous le minimum, on ne bricole pas un créneau : on dit pourquoi."""
+    result = _gust_case(tmp_path, [9.7, 34.9, 34.9, 34.9, 34.9])
     assert result["recommendations"] == []
-    assert len(result["no_activity"]) == 1
     entry = result["no_activity"][0]
-    assert entry["dest_name"] == "Gammarth"
-    assert entry["start"] == "2026-08-31T08:00:00+01:00"
-    closest = entry["closest"][0]
-    assert closest["activity_id"] == "sheltered_stop"
-    # Une seule heure à 34,9 km/h en fin de fenêtre suffit à tout refuser :
-    # la carte doit le dire au lieu d'afficher « aucune activité ».
-    assert closest["reason_fr"] == "rafales 35 km/h pour une limite de 28 km/h"
+    assert entry["closest"][0]["activity_id"] == "sheltered_stop"
+    assert "rafales" in entry["closest"][0]["reason_fr"]
+
+
+def test_a_calm_window_keeps_its_full_span(tmp_path: Path) -> None:
+    result = _gust_case(tmp_path, [9.7, 10.4, 10.8, 13.7, 14.0])
+    slot = result["recommendations"][0]["activities"][0]["slot"]
+    assert slot["partial"] is False
+    assert slot["hours"] == 5
 
 
 def test_nature_content_is_only_published_when_the_pack_sources_it(tmp_path: Path) -> None:

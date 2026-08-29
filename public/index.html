@@ -770,6 +770,33 @@
       label: portNames.join(' → '),
     };
   }
+  function routePlanForWindow(file, item={}){
+    const base = routePlanForFile(file);
+    const oneWay = item?.same_day_round_trip_required === false || item?.trip_mode === 'one_way_multi_day';
+    const originFile = item?.origin_slug || '';
+    const destinationFile = item?.destination_slug || '';
+    if(!base || !oneWay || !originFile || !destinationFile) return base;
+    const segment = base.segments.find(candidate=>(
+      (candidate.originFile === originFile && candidate.destFile === destinationFile) ||
+      (candidate.originFile === destinationFile && candidate.destFile === originFile)
+    ));
+    if(!segment) return base;
+    const forward = segment.originFile === originFile;
+    const points = (forward ? segment.points : [...segment.points].reverse()).map(point=>({...point}));
+    const distanceKm = pathDistanceKm(points);
+    const owner = spotConfig[file] || spotConfig[destinationFile] || spotConfig[originFile];
+    return {
+      ...base,
+      points,
+      segments:[{...segment,originFile,destFile:destinationFile,points}],
+      distance_km:distanceKm,
+      transit:routeTransitHoursForDistance(distanceKm, owner?.transit_speed_kts),
+      port_names:[spotConfig[originFile]?.name,spotConfig[destinationFile]?.name].filter(Boolean),
+      stopover_names:[],waypoint_names:points.slice(1,-1).map(point=>point.name).filter(Boolean),
+      label:`${spotConfig[originFile]?.name || originFile} → ${spotConfig[destinationFile]?.name || destinationFile}`,
+      one_way:true,origin_file:originFile,destination_file:destinationFile,
+    };
+  }
   function routeMetaSummary(plan){
     const copy = mapCopy();
     const bits = [];
@@ -1013,9 +1040,23 @@
       requires_return:corridorRequiresReturn(),
     };
   }
-  async function describeWindow({file, start='', end='', returnFile=''}={}){
-    const route = describeRoute(file);
+  function describeWindowRoute({file, originFile='', destinationFile='', oneWay=false}={}){
+    const plan = oneWay ? routePlanForWindow(file,{trip_mode:'one_way_multi_day',same_day_round_trip_required:false,origin_slug:originFile,destination_slug:destinationFile}) : null;
+    if(!plan || !oneWay) return describeRoute(file);
+    return {
+      local:false,label:plan.label,distance_km:plan.distance_km,distance_nm:plan.distance_km / KM_PER_NM,
+      transit_label:formatDurationSpan(plan.transit),speed_label:formatSpeedSpan(plan.transit.speed_kts),
+      anchor_label:'',requires_return:false,one_way:true,origin_file:originFile,destination_file:destinationFile,
+    };
+  }
+  async function describeWindow({file, start='', end='', returnFile='', originFile='', destinationFile='', oneWay=false}={}){
+    const route = describeWindowRoute({file,originFile,destinationFile,oneWay});
     if(!route || route.local) return route;
+    if(oneWay){
+      const departure = start && originFile ? await windAt(originFile,start) : null;
+      const arrival = end && destinationFile ? await windAt(destinationFile,end) : null;
+      return {...route,departure_wind:windDescription(departure),arrival_wind:windDescription(arrival)};
+    }
     const outbound = start ? await windAt(file, start) : null;
     const inboundFile = returnFile && spotConfig[returnFile] ? returnFile : homeFile;
     const inbound = route.requires_return && end ? await windAt(inboundFile, end) : null;
@@ -1237,6 +1278,7 @@
       });
     },
     describe(file){ return describeRoute(file); },
+    describeWindowRoute(options){ return describeWindowRoute(options); },
     describeWindow(options){ return describeWindow(options); },
     invalidate(){ window.setTimeout(()=>map.invalidateSize({pan:false}),60); },
   };
@@ -1432,7 +1474,7 @@
       const originFile = homeFile;
       const origin = spotConfig[originFile];
       const dest   = spotConfig[slug];
-      const routePlan = routePlanForFile(slug);
+      const routePlan = routePlanForWindow(slug, record?.seg || {});
       if(!origin || !dest || !routePlan) return;
       const compositeView = compositeStepVisual(slug, record?.seg, routePlan);
       const transitProfile = routePlan.transit;
@@ -1440,10 +1482,11 @@
       const transitBackLabel = transitOutLabel;
       const transitSpeedLabel = formatSpeedSpan(transitProfile.speed_kts);
       const anchorLabel = corridorLegLabel('anchor');
-      const requiresReturn = corridorRequiresReturn();
+      const oneWay = record?.seg?.same_day_round_trip_required === false || record?.seg?.trip_mode === 'one_way_multi_day';
+      const requiresReturn = !oneWay && corridorRequiresReturn();
     
       corridorLayer.clearLayers();
-      const sectorBounds = renderOnshoreSector(origin);
+      const sectorBounds = renderOnshoreSector(spotConfig[routePlan.origin_file || originFile] || origin);
     
       // Clicking home: no corridor, just a local note
       if (slug === originFile) {
@@ -1480,9 +1523,10 @@
       const dkm = routePlan.distance_km;
       const dnm = dkm / KM_PER_NM;
       
-      const wGo  = await windAt(slug, start);      // wind at destination (start)
-      const returnFile = composite?.route_origin || originFile;
-      const wRet = requiresReturn ? await windAt(returnFile, end) : null;  // wind at port (end)
+      const legOriginFile = oneWay ? record?.seg?.origin_slug : slug;
+      const legDestinationFile = oneWay ? record?.seg?.destination_slug : (composite?.route_origin || originFile);
+      const wGo  = await windAt(legOriginFile || slug, start);
+      const wRet = (requiresReturn || oneWay) ? await windAt(legDestinationFile || originFile, end) : null;
       if(renderToken !== corridorRenderToken) return;
       
       // Rich summary inside the selected card (remove any previous)
@@ -1501,8 +1545,10 @@
               ? `<div class="row">🧩 <span class="k">Composite</span> <span class="v">Transfert ${escapeHtml(fmtFriendly(composite.transfer_start))} · arrivée relai ${escapeHtml(fmtFriendly(composite.transfer_arrival_latest))} · attente ${escapeHtml(String(composite.staging_hours))} h</span></div>`
               : ''}
           <div class="row">⚓ <span class="k">${escapeHtml(anchorLabel)}</span> <span class="v">fenetre cible sur zone</span></div>
-          <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windDescription(wGo)}</span></div>
-          ${requiresReturn
+          <div class="row">🟢 <span class="k">${oneWay ? 'Départ' : 'Aller'}</span> <span class="v">${windDescription(wGo)}</span></div>
+          ${oneWay
+            ? `<div class="row">🔵 <span class="k">Arrivée</span> <span class="v">${windDescription(wRet)}</span></div>`
+            : requiresReturn
             ? `<div class="row">🔵 <span class="k">Retour (${escapeHtml(transitBackLabel)})</span> <span class="v">${windDescription(wRet)}</span></div>`
             : `<div class="row">ℹ️ <span class="k">Retour</span> <span class="v">non requis par la règle active</span></div>`}
         </div>
@@ -1572,7 +1618,10 @@
       const reasonFile = reason => /\(([^)]+\.json)\)\s*$/.exec(reason?.spot || '')?.[1] || null;
       const primaryReason = reasonsRows.find(reason=>{
         const file = reasonFile(reason);
-        return file && (winData?.windows || []).some(destination=>destination.dest_slug === file && destination?.diagnostics);
+        const destination = file ? (winData?.windows || []).find(item=>item.dest_slug === file) : null;
+        const diagnostic = destination?.diagnostics || {};
+        const reasonText = String(reason?.family || '').trim();
+        return Boolean(file && diagnostic.status === 'blocked' && diagnostic.first_blocker && !/^[✓✅]/.test(reasonText));
       });
       const primaryFile = reasonFile(primaryReason);
       const primaryDiagnostic = primaryFile

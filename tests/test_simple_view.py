@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260829-map-first-open-v1" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260829-selected-port-v1" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -88,6 +88,9 @@ def test_simple_navigation_cards_explain_quality_and_open_the_exact_route():
     assert "function focusWindow(file, {start='', end='', direction='', scroll=true}={})" in html
     assert "openWindow({file, start='', end='', direction=''}={})" in html
     assert "describe(file){ return describeRoute(file); }" in html
+    assert "describeWindow(options){ return describeWindow(options); }" in html
+    assert 'class="simple-window-route-meta"' in script
+    assert 'data-simple-route-winds="${index}"' in script
 
 
 def test_simple_forecast_keeps_loading_when_a_day_has_no_validated_window():

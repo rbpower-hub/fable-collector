@@ -21,6 +21,11 @@ def test_map_uses_mobile_visual_language_without_portaling_leaflet_dom():
     assert "function afterMapLayout(action)" in html
     assert "requestAnimationFrame(()=>requestAnimationFrame" in html
     assert 'class="marker-pulse"' in html
+    assert "function onshoreWedges(site)" in html
+    assert "renderOnshoreSector(origin)" in html
+    assert 'class="onshore">Secteur onshore' in html
+    assert "@keyframes pulsate-shelter" in html
+    assert "Bateau abrité · Gammarth" in html
     assert "corridorRenderToken" in html
     assert "const exactRequested = Boolean(start || end || direction)" in html
     assert "width:44px;height:44px;line-height:44px" in html
@@ -46,3 +51,5 @@ def test_all_three_views_use_bar_quality_and_structured_no_go_checks():
     assert "confidenceBarsHtml" in widgets
     assert "diagnostics.first_blocker" in widgets
     assert "confidence_score" not in widgets
+    assert 'class="decision-check-panel"' in html
+    assert "primaryChecksHTML" in html

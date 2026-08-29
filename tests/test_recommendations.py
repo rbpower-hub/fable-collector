@@ -189,3 +189,66 @@ def test_no_go_english_carries_the_same_detail_as_french(tmp_path: Path) -> None
     )
     assert "(au mouillage)" in entry["reason_fr"]
     assert "(at anchor)" in entry["reason_en"]
+
+
+def test_family_go_window_without_activity_publishes_the_blocking_limit(tmp_path: Path) -> None:
+    """Une fenêtre validée mais sans activité doit dire quelle limite bloque."""
+    public = tmp_path / "public"
+    public.mkdir()
+    (tmp_path / "activity_profiles.yaml").write_text(
+        """
+ranking: {max_per_window: 2, max_total: 5}
+activities:
+  sheltered_stop:
+    icon: "⚓"
+    label_fr: Escale côtière abritée
+    label_en: Sheltered coastal stop
+    safety: {max_wind_kmh: 18, max_gust_kmh: 28, max_hs_m: 0.35}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "fishing_profiles.yaml").write_text("profiles: {}", encoding="utf-8")
+    _write(
+        public / "windows.json",
+        {
+            "generated_at": "2026-08-31T06:00:00+00:00",
+            "windows": [
+                {
+                    "dest_slug": "gammarth-port.json",
+                    "dest_name": "Gammarth",
+                    "windows": [
+                        {
+                            "start": "2026-08-31T08:00:00+01:00",
+                            "end": "2026-08-31T13:00:00+01:00",
+                            "hours": 5,
+                            "category": "family",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    _write(
+        public / "gammarth-port.json",
+        {
+            "meta": {"name": "Gammarth", "tz": "Africa/Tunis"},
+            "hourly": {
+                "time": [f"2026-08-31T{hour:02d}:00" for hour in range(8, 13)],
+                "wind_speed_10m": [4.2, 3.3, 3.6, 5.4, 7.9],
+                "wind_gusts_10m": [9.7, 10.4, 10.8, 13.7, 34.9],
+                "wave_height": [0.16] * 5,
+                "wave_period": [4.0] * 5,
+            },
+        },
+    )
+    result = build_recommendations(tmp_path, public)
+    assert result["recommendations"] == []
+    assert len(result["no_activity"]) == 1
+    entry = result["no_activity"][0]
+    assert entry["dest_name"] == "Gammarth"
+    assert entry["start"] == "2026-08-31T08:00:00+01:00"
+    closest = entry["closest"][0]
+    assert closest["activity_id"] == "sheltered_stop"
+    # Une seule heure à 34,9 km/h en fin de fenêtre suffit à tout refuser :
+    # la carte doit le dire au lieu d'afficher « aucune activité ».
+    assert closest["reason_fr"] == "rafales 35 km/h pour une limite de 28 km/h"

@@ -1,6 +1,10 @@
 # Changelog
 
 ## Non publié
+- **Compteur d'options unifié** : les Vues Simple, Famille et Expert annonçaient 49, 4 et 2 options pour la même journée. Une option est désormais une fenêtre famille, les créneaux hors horaires et watch sont comptés à part, et les longs trajets sont comptés par route et non par heure de départ.
+- **Fenêtre validée sans activité** : le moteur publie `no_activity` avec les activités les plus proches d'être acceptées et la limite qui les bloque. La carte dit « rafales 35 km/h pour une limite de 28 km/h » au lieu de « aucune activité spécialisée ».
+- **Classement départageable** : le tri se fait sur le score non plafonné ; deux activités dont les bonus dépassaient 100 sortaient à égalité parfaite et leur ordre était arbitraire.
+- **Libellé de journée en Vue Expert** : le board annonçait « Activités du lundi » au-dessus de cartes de toutes les journées, puisque le filtre par jour ne s'applique qu'en mode famille.
 - **Créneaux corrigés** : une fenêtre est classée sur les moments qu’elle *recouvre* et non sur son instant de départ ; une sortie 15:00→19:00 couvrant un coucher à 18:54 n’est plus étiquetée « journée ».
 - **Marée mesurée** : lorsque `sea_level_height_msl` est disponible, le bonus lunaire est remplacé par le marnage réellement observé sur la fenêtre ; la phase de lune ne sert plus que de repli.
 - **Lune au-dessus de l’horizon** : `moonrise`/`moonset` déterminent si la lune est visible pendant la fenêtre, au lieu de supposer qu’une pleine lune éclaire toute la nuit.

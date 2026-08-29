@@ -107,3 +107,44 @@ test('unified navigation rows distinguish family, prudent, off-hours and long-tr
     {dest_slug:'sidi-bou-said.json', windows:[standard, offHours]},
   ]}).length, 1);
 });
+
+test('les trois vues comptent la meme chose pour une journee mixte', () => {
+  // Lundi reel : 4 fenetres famille, une hors horaires, et un aller-retour
+  // long trajet propose a plusieurs heures de depart.
+  const longTrip = (start, direction) => ({
+    start, end:'2026-08-31T04:00:00+01:00', hours:3,
+    trip_mode:'one_way_multi_day', direction,
+  });
+  const windows = {windows:[
+    {dest_slug:'gammarth-port.json', dest_name:'Gammarth', windows:[
+      {start:'2026-08-31T08:00:00+01:00', end:'2026-08-31T13:00:00+01:00', category:'family'},
+    ]},
+    {dest_slug:'ghar-el-melh.json', dest_name:'Ghar el Melh', windows:[
+      {start:'2026-08-31T08:00:00+01:00', end:'2026-08-31T13:00:00+01:00', category:'family'},
+    ]},
+    {dest_slug:'el-haouaria.json', dest_name:'El Haouaria', windows:[
+      {start:'2026-08-31T02:00:00+01:00', end:'2026-08-31T08:00:00+01:00', category:'off_hours'},
+    ]},
+    {dest_slug:'pantelleria.json', dest_name:'Pantelleria', windows:[
+      longTrip('2026-08-31T01:00:00+01:00', 'outbound'),
+      longTrip('2026-08-31T02:00:00+01:00', 'outbound'),
+      longTrip('2026-08-31T03:00:00+01:00', 'outbound'),
+      longTrip('2026-08-31T01:30:00+01:00', 'return'),
+    ]},
+  ]};
+  const day = '2026-08-31';
+  const displayed = getDisplayedNavigationWindows(day, windows);
+  const all = getNavigationWindowsForDay(day, windows, {categories:['family', 'off_hours', 'watch']});
+
+  const familyView = navigationWindowCounts(displayed);
+  const simpleView = navigationWindowBreakdown(all);
+
+  // Deux fenetres famille, quelle que soit la vue qui pose la question.
+  assert.equal(familyView.family, 2);
+  assert.equal(simpleView.family, 2);
+  // Un aller et un retour, pas quatre creneaux.
+  assert.equal(familyView.longTrip, 2);
+  assert.equal(simpleView.longTrip, 2);
+  // La fenetre hors horaires reste comptee a part, jamais dans les options.
+  assert.equal(simpleView.offHours, 1);
+});

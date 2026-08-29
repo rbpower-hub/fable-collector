@@ -463,19 +463,28 @@ def _score(
         return None
     safety = activity.get("safety") or {}
     limits = (
-        ("max_wind_kmh", "max_wind_kmh", 0, " km/h", "vent"),
-        ("max_gust_kmh", "max_gust_kmh", 0, " km/h", "rafales"),
-        ("max_hs_m", "max_hs_m", 2, " m", "houle"),
+        ("max_wind_kmh", "max_wind_kmh", 0, " km/h", "vent", "wind"),
+        ("max_gust_kmh", "max_gust_kmh", 0, " km/h", "rafales", "gusts"),
+        ("max_hs_m", "max_hs_m", 2, " m", "houle", "wave height"),
     )
     score = 100.0
-    blockers = []
+    # Un depassement n'est plus jete : la carte doit pouvoir dire quelle limite
+    # bloque et de combien, comme le fait deja le premier bloqueur d'un NO-GO.
+    blockers: list[dict[str, Any]] = []
     margins = []
-    for metric_key, limit_key, digits, unit, label in limits:
+    for metric_key, limit_key, digits, unit, label, label_en in limits:
         value, limit = _number(metrics.get(metric_key)), _number(safety.get(limit_key))
         if value is None or limit is None:
             continue
         if value > limit:
-            blockers.append(f"{metric_key}>{limit}")
+            blockers.append({
+                "metric": metric_key,
+                "value": value,
+                "limit": limit,
+                "fr": f"{label} {_fmt(value, digits, unit)} pour une limite de {_fmt(limit, digits, unit)}",
+                "en": f"{label_en} {_fmt(value, digits, unit)} against a {_fmt(limit, digits, unit)} limit",
+                "over": value / limit if limit else float("inf"),
+            })
         else:
             score -= max(0, value / limit - 0.55) * 25
             margins.append(f"{label} {_fmt(value, digits, unit)} pour une limite de {_fmt(limit, digits, unit)}")
@@ -483,11 +492,33 @@ def _score(
     visibility = _number(metrics.get("min_visibility_km"))
     visibility_min = _number(safety.get("min_visibility_km"))
     if tp is not None and tp_min is not None and tp < tp_min:
-        blockers.append(f"min_tp_s<{tp_min}")
+        blockers.append({
+            "metric": "min_tp_s", "value": tp, "limit": tp_min,
+            "fr": f"période de vague {_fmt(tp, 1, ' s')} pour un minimum de {_fmt(tp_min, 1, ' s')}",
+            "en": f"wave period {_fmt(tp, 1, ' s')} against a {_fmt(tp_min, 1, ' s')} minimum",
+            "over": (tp_min / tp) if tp else float("inf"),
+        })
     if visibility is not None and visibility_min is not None and visibility < visibility_min:
-        blockers.append(f"visibility<{visibility_min}")
+        blockers.append({
+            "metric": "min_visibility_km", "value": visibility, "limit": visibility_min,
+            "fr": f"visibilité {_fmt(visibility, 0, ' km')} pour un minimum de {_fmt(visibility_min, 0, ' km')}",
+            "en": f"visibility {_fmt(visibility, 0, ' km')} against a {_fmt(visibility_min, 0, ' km')} minimum",
+            "over": (visibility_min / visibility) if visibility else float("inf"),
+        })
     if blockers:
-        return None
+        # Le depassement le plus large en premier : c'est la contrainte qui
+        # decide vraiment, les autres suivraient si on la levait.
+        blockers.sort(key=lambda item: -item["over"])
+        return {
+            "blocked": True,
+            "activity_id": activity_id,
+            "icon": activity.get("icon", "🌊"),
+            "label_fr": activity.get("label_fr", activity_id),
+            "label_en": activity.get("label_en", activity_id),
+            "reason_fr": blockers[0]["fr"],
+            "reason_en": blockers[0]["en"],
+            "blockers": blockers,
+        }
 
     reasons_fr = ["fenêtre Family GO validée"]
     reasons_en = ["validated Family GO window"]
@@ -532,7 +563,11 @@ def _score(
         "icon": activity.get("icon", "🌊"),
         "label_fr": activity.get("label_fr", activity_id),
         "label_en": activity.get("label_en", activity_id),
+        "blocked": False,
+        # `score` est borne pour l'affichage, `rank_score` ne l'est pas : deux
+        # activites dont les bonus depassent 100 doivent rester departageables.
         "score": round(max(0.0, min(score, 100)), 1),
+        "rank_score": round(score, 3),
         "why_fr": " · ".join(reasons_fr),
         "why_en": " · ".join(reasons_en),
         "caveats_fr": caveats_fr,
@@ -587,6 +622,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
     advisory_limits = activity_cfg.get("advisories") or {}
     output = []
     no_go = []
+    no_activity: list[dict[str, Any]] = []
     for destination in windows.get("windows") or []:
         filename = str(destination.get("dest_slug") or "")
         slug = filename.removesuffix(".json")
@@ -660,14 +696,46 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
             }
             window_advice = advisories(metrics, context, advisory_limits)
             ranked = []
+            rejected = []
             for activity_id, activity in activities.items():
                 if not isinstance(activity, dict):
                     continue
                 item = _score(str(activity_id), activity, metrics, fishing, context, ranking)
-                if item:
-                    ranked.append(item)
-            ranked.sort(key=lambda item: (-item["score"], item["activity_id"]))
+                if not item:
+                    continue
+                (rejected if item.get("blocked") else ranked).append(item)
+            # Tri sur le score non ecrete : deux activites a 100 a l'affichage
+            # peuvent avoir 107 et 102 en interne, l'ordre doit le refleter.
+            ranked.sort(key=lambda item: (-item["rank_score"], item["activity_id"]))
             ranked = ranked[: int(ranking.get("max_per_window", 3))]
+            if not ranked and rejected:
+                # Fenetre Family GO ou aucune activite ne tient : on publie la
+                # contrainte la plus proche d'etre satisfaite, c'est celle qui
+                # explique le mieux pourquoi la journee est vide.
+                rejected.sort(key=lambda item: item["blockers"][0]["over"])
+                no_activity.append(
+                    {
+                        "dest_slug": filename,
+                        "dest_name": destination.get("dest_name")
+                        or spot.get("meta", {}).get("name")
+                        or slug,
+                        "start": window.get("start"),
+                        "end": window.get("end"),
+                        "category": window.get("category"),
+                        "closest": [
+                            {
+                                "activity_id": item["activity_id"],
+                                "icon": item["icon"],
+                                "label_fr": item["label_fr"],
+                                "label_en": item["label_en"],
+                                "reason_fr": item["reason_fr"],
+                                "reason_en": item["reason_en"],
+                            }
+                            for item in rejected[:2]
+                        ],
+                        "advisories": window_advice,
+                    }
+                )
             if ranked:
                 output.append(
                     {
@@ -708,7 +776,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
     output.sort(
         key=lambda item: (
             str(item.get("start") or ""),
-            -(item.get("activities") or [{}])[0].get("score", 0),
+            -(item.get("activities") or [{}])[0].get("rank_score", 0),
         )
     )
     output = _spread_by_day(output, int(ranking.get("max_total", 5)))
@@ -721,6 +789,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
         "knowledge_pack": pack.public_catalog() if pack else None,
         "recommendations": output,
         "no_go": no_go,
+        "no_activity": no_activity,
     }
     public.mkdir(parents=True, exist_ok=True)
     (public / "recommendations.json").write_text(

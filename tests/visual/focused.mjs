@@ -19,6 +19,9 @@ const scenarios = [
   {device: 'tablet', state: 'fresh-empty', locale: 'fr', theme: 'dark'},
   {device: 'desktop', state: 'marine-error', locale: 'ar', theme: 'nautical'},
   {device: 'desktop', state: 'fresh-windows', locale: 'fr', theme: 'dark'},
+  // Aucun scenario ne peuplait `recommendations`, donc la section
+  // « Activites conseillees » n'etait jamais rendue par la suite visuelle.
+  {device: 'mobile', state: 'off-hours-activities', locale: 'fr', theme: 'nautical'},
 ];
 
 const tunisDateKey = (value) => {
@@ -33,6 +36,10 @@ const tunisDateKey = (value) => {
 };
 
 const expectedState = (state) => {
+  // Le hero Famille annonce bien NO_GO : une journee sans fenetre famille
+  // n'est pas une sortie familiale. Ce que ce scenario verifie, c'est que les
+  // activites de la fenetre hors horaires restent visibles malgre ce verdict.
+  if (state === 'off-hours-activities') return 'NO_GO';
   if (state === 'missing-windows') return 'NO_DATA';
   if (state === 'stale') return 'STALE';
   if (state === 'fresh-empty') return 'NO_GO';
@@ -73,12 +80,34 @@ function payloadsFor(state) {
   };
   const empty = state === 'fresh-empty';
   const marine = state === 'marine-error';
+  const offHours = state === 'off-hours-activities';
+  /* Fenetre hors horaires : memes seuils meteo qu'une fenetre famille, seule
+     la lumiere differe. L'escale passe, la baignade est ecartee faute de jour,
+     et la vue doit afficher les deux informations. */
+  const offHoursWindow = {...windowItem, category: 'off_hours'};
+  const offHoursActivities = [
+    {
+      activity_id: 'sheltered-stop', icon: '⚓', tier: 'primary', score: 88, rank_score: 88,
+      label_fr: 'Escale côtière abritée', label_en: 'Sheltered coastal stop',
+      why_fr: 'fenêtre validée · vent 13 km/h pour une limite de 18 km/h',
+      why_en: 'validated window · wind 13 km/h against an 18 km/h limit',
+      caveats_fr: [], caveats_en: [],
+    },
+  ];
+  const offHoursBlocked = [
+    {
+      activity_id: 'family-swim', icon: '🏊',
+      label_fr: 'Baignade familiale en zone abritée', label_en: 'Family swim',
+      reason_fr: 'fenêtre de nuit (20 % de jour seulement, jour de 05:49 à 18:47)',
+      reason_en: 'night-time window (only 20% in daylight)',
+    },
+  ];
   return {
     'status.json': {generated_at: generated, cadence_minutes: 60, files: sites.sites.map((site) => ({path: site.path, modified: generated, fresh: state !== 'stale'}))},
     'windows.json': {
       version: 5, generated_at: generated,
       windows: [
-        {dest_slug: 'sidi-bou-said.json', dest_name: 'Sidi Bou Saïd', required_hours: 4, windows: empty ? [] : [windowItem], diagnostics: empty ? blocker('Rafales trop fortes', 'Gusts too strong', 'gust') : null},
+        {dest_slug: 'sidi-bou-said.json', dest_name: 'Sidi Bou Saïd', required_hours: 4, windows: empty ? [] : [offHours ? offHoursWindow : windowItem], diagnostics: empty ? blocker('Rafales trop fortes', 'Gusts too strong', 'gust') : null},
         {dest_slug: 'ghar-el-melh.json', dest_name: 'Ghar El Melh', required_hours: 4, windows: [], diagnostics: marine ? blocker('Données de vagues manquantes — fenêtres non confirmées', 'Wave data unavailable — windows are not confirmed', 'marine_error') : blocker('Mer trop agitée', 'Sea too rough', 'sea')},
         {dest_slug: 'kelibia.json', dest_name: 'Kélibia', trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', windows: [
           {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'outbound', origin_slug: 'gammarth-port.json', destination_slug: 'kelibia.json', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
@@ -93,7 +122,16 @@ function payloadsFor(state) {
     },
     'rules.normalized.json': {window_hours: {min: 4, max: 6}, family: {window_hours: {min: 4, max: 6}, hours_local: {start: 8, end: 21}, corridor: {validate_departure_and_return: true}}, confidence: {high: {min_wave_sources: 2}}},
     'sites.normalized.json': sites,
-    'recommendations.json': {version: 3, generated_at: generated, recommendations: [], navigation_only: []},
+    'recommendations.json': {
+      version: 3, generated_at: generated, navigation_only: [], no_activity: [],
+      recommendations: offHours ? [{
+        dest_slug: 'sidi-bou-said.json', dest_name: 'Sidi Bou Saïd',
+        start: offHoursWindow.start, end: offHoursWindow.end, category: 'off_hours',
+        daylight: {available: true, share: 0.2, sunrise: '05:49', sunset: '18:47'},
+        activities: offHoursActivities, blocked_primary: offHoursBlocked,
+        advisories: [], fishing: {}, nature: {},
+      }] : [],
+    },
     'port-knowledge.json': {version: 1, ports: []},
     'catalog.json': {files: sites.sites.map((site) => site.path)},
     'index.json': {generated_at: generated, files: sites.sites.map((site) => site.path)},
@@ -213,6 +251,28 @@ async function execute(browser, scenario) {
     if (!values.familyPlanningVisible) failures.push('family three-day planning is missing');
     if (scenario.device === 'mobile' && !values.mobileSettings) failures.push('mobile settings button missing');
     if (scenario.state === 'marine-error' && !values.marineMessage) failures.push('marine data error not visible');
+    if (scenario.state === 'off-hours-activities') {
+      /* Le defaut corrige : la Vue Simple filtrait sur la categorie `family`
+         et laissait la section vide sur une journee entierement hors horaires,
+         alors que le moteur avait bien calcule des activites pour ces
+         fenetres. On verifie donc que l'activite ET la raison du blocage
+         nocturne sont visibles. */
+      await page.evaluate(() => {
+        document.querySelector('[data-simple-action="activities"]')?.click();
+      });
+      await page.waitForTimeout(300);
+      const section = await page.evaluate(() => {
+        const node = document.getElementById('simple-activities');
+        return {present: Boolean(node), text: node?.innerText || ''};
+      });
+      if (!section.present) failures.push('simple activities section missing');
+      if (!/Escale côtière abritée/.test(section.text)) {
+        failures.push(`off-hours activity not rendered: ${section.text.slice(0, 120)}`);
+      }
+      if (/Aucune activité compatible/.test(section.text)) {
+        failures.push('off-hours window still reported as having no activity');
+      }
+    }
     if (scenario.state === 'fresh-empty') {
       const checks = await page.locator('.card.conditions .decision-check:visible').count();
       if (checks < 3) failures.push(`Family structured NO-GO checks missing (${checks})`);

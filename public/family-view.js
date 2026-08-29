@@ -25,7 +25,7 @@
     noReason: 'Current forecasts do not provide a complete validated family window.',
     reduced: 'Reduced comfort: monitor strengthening conditions and plan an early return.',
     todayLabel: 'Today', tomorrowLabel: 'Tomorrow', noWindow: 'No validated window',
-    familyOptions: 'family options', travelOptions: 'long-trip slots',
+    familyOptions: 'family options', travelOptions: 'long-trip slots', offHoursSlots: 'out-of-hours slots',
     travelPlanner: 'Long-trip planner', outbound: 'Outbound', return: 'Return',
     returnMissing: 'No validated return in the 72-hour horizon',
     planningHorizon: 'Three-day family planning · Tunisia time',
@@ -42,7 +42,7 @@
     noReason: 'Les prévisions actuelles ne donnent pas de fenêtre familiale complète et validée.',
     reduced: 'Confort réduit : surveiller le renforcement et prévoir un retour anticipé.',
     todayLabel: 'Aujourd’hui', tomorrowLabel: 'Demain', noWindow: 'Aucune fenêtre validée',
-    familyOptions: 'options famille', travelOptions: 'créneaux long trajet',
+    familyOptions: 'options famille', travelOptions: 'créneaux long trajet', offHoursSlots: 'créneaux hors horaires',
     travelPlanner: 'Planificateur de trajets longs', outbound: 'Aller', return: 'Retour',
     returnMissing: 'Aucun retour validé dans l’horizon de 72 heures',
     planningHorizon: 'Planification familiale sur trois jours · heure de Tunisie',
@@ -195,6 +195,19 @@
     return window.FABLENavigationWindows?.getDisplayedNavigationWindows(key, data) || [];
   }
 
+  /* Cette vue ne lisait que les fenetres de categorie `family`. Un long trajet
+     place hors des heures familiales lui etait donc invisible : la journee
+     affichait « 0 creneaux long trajet » pendant que la Vue Simple en annoncait
+     quatre pour la meme date. Les compteurs lisent maintenant le meme jeu de
+     categories que la Vue Simple ; la liste des choix, elle, reste familiale. */
+  function dayBreakdown(key, data) {
+    const rows = window.FABLENavigationWindows?.getNavigationWindowsForDay?.(
+      key, data, {categories: ['family', 'off_hours', 'watch']},
+    ) || [];
+    return window.FABLENavigationWindows?.navigationWindowBreakdown?.(rows)
+      || {family: 0, offHours: 0, watch: 0, longTrip: 0, total: 0};
+  }
+
   function isLongTrip(row) {
     return window.FABLENavigationWindows?.isLongTripNavigationWindow(row) || false;
   }
@@ -215,19 +228,20 @@
     })));
     const cards = keys.map((key, index) => {
       const displayed = displayedNavigationWindows(key, windows);
+      const breakdown = dayBreakdown(key, windows);
       const coastalOptions = displayed.filter((row) => !isLongTrip(row));
       const tripOptions = displayed.filter(isLongTrip);
       const strict = coastalOptions.filter((row) => (row.windowItem.family_tier || row.destination.family_tier) !== 'prudent');
       const prudent = coastalOptions.filter((row) => (row.windowItem.family_tier || row.destination.family_tier) === 'prudent');
       const tone = strict.length ? 'good' : prudent.length ? 'prudent' : '';
-      const stateLabel = strict.length ? c.strict : prudent.length ? c.prudent : tripOptions.length ? 'TRAVEL' : 'NO-GO';
+      const stateLabel = strict.length ? c.strict : prudent.length ? c.prudent : breakdown.longTrip ? 'TRAVEL' : 'NO-GO';
       const choices = [...strict, ...prudent].slice(0, 2).map((row) => {
         const tier = (row.windowItem.family_tier || row.destination.family_tier) === 'prudent' ? c.prudent : c.strict;
         return `<div class="family-day-option"><b>${esc(row.destination.dest_name || row.destination.dest_slug)}</b><small>${esc(formatTime(row.windowItem.start))}–${esc(formatTime(row.windowItem.end))} · ${esc(tier)} · ${esc(row.windowItem.confidence || '—')}</small></div>`;
       }).join('');
       const tripChoices = tripOptions.slice(0, choices ? 1 : 2).map((row) => `<div class="family-day-option"><b>🧭 ${esc(routeText(row))}</b><small>${esc(formatTime(row.windowItem.start))}–${esc(formatTime(row.windowItem.end))} · ${esc(row.windowItem.direction === 'return' ? c.return : c.outbound)}</small></div>`).join('');
       const empty = !choices && !tripChoices ? `<div class="family-day-empty">${esc(c.noWindow)}</div>` : '';
-      return `<article class="family-day ${tone}"><div class="family-day-head"><div><div class="family-day-title">${esc(dateLabel(key, index))}</div><div class="family-day-date">${esc(shortDate(key))}</div></div><span class="family-day-state">${esc(stateLabel)}</span></div>${choices}${tripChoices}${empty}<div class="family-day-count"><span data-nav-family-count="${esc(key)}">${coastalOptions.length}</span> ${esc(c.familyOptions)} · <span data-nav-long-count="${esc(key)}">${window.FABLENavigationWindows?.longTripRouteKeys?.(tripOptions)?.size ?? tripOptions.length}</span> ${esc(c.travelOptions)}</div></article>`;
+      return `<article class="family-day ${tone}"><div class="family-day-head"><div><div class="family-day-title">${esc(dateLabel(key, index))}</div><div class="family-day-date">${esc(shortDate(key))}</div></div><span class="family-day-state">${esc(stateLabel)}</span></div>${choices}${tripChoices}${empty}<div class="family-day-count"><span data-nav-family-count="${esc(key)}">${breakdown.family}</span> ${esc(c.familyOptions)} · <span data-nav-long-count="${esc(key)}">${breakdown.longTrip}</span> ${esc(c.travelOptions)}${breakdown.offHours ? ` · <span data-nav-offhours-count="${esc(key)}">${breakdown.offHours}</span> ${esc(c.offHoursSlots)}` : ''}</div></article>`;
     }).join('');
 
     const groupedTrips = new Map();

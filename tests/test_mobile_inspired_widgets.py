@@ -53,3 +53,23 @@ def test_all_three_views_use_bar_quality_and_structured_no_go_checks():
     assert "confidence_score" not in widgets
     assert 'class="decision-check-panel"' in html
     assert "primaryChecksHTML" in html
+
+
+def test_family_day_counters_read_the_same_categories_as_the_simple_view():
+    """La Vue Famille ne lisait que la catégorie `family`.
+
+    Un long trajet placé hors des heures familiales lui était donc invisible :
+    la journée affichait « 0 créneaux long trajet » pendant que la Vue Simple
+    en annonçait quatre pour la même date.
+    """
+    family = read_public("family-view.js")
+
+    assert "function dayBreakdown(" in family
+    assert "categories: ['family', 'off_hours', 'watch']" in family
+    # Les compteurs et l'état du jour viennent du même décompte.
+    assert "${breakdown.family}" in family
+    assert "${breakdown.longTrip}" in family
+    assert "breakdown.longTrip ? 'TRAVEL' : 'NO-GO'" in family
+    # Les créneaux hors horaires cessent d'être passés sous silence.
+    assert "breakdown.offHours" in family
+    assert "offHoursSlots:" in family

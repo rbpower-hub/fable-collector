@@ -345,3 +345,23 @@ def test_simple_view_names_the_port_of_each_activity():
     assert "(item) => ({item, record})" in script
     assert "const port = record.dest_name || record.dest_slug" in script
     assert "📍 ${esc(port)}" in script
+
+
+def test_simple_view_activities_follow_the_expanded_window():
+    """La section était calculée sur la meilleure fenêtre du jour.
+
+    Déplier Ras Fartass laissait donc les activités sur Gammarth : la carte
+    semblait figée alors qu'elle répondait à une autre question.
+    """
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "selectedWindow: null" in script
+    assert "function activityRow()" in script
+    # Le rendu principal passe par le même sélecteur que le rafraîchissement.
+    assert "renderActivities(activityRow())" in script
+    assert "function refreshActivities()" in script
+    # Déplier une fenêtre mémorise la destination et ses bornes.
+    assert "state.selectedWindow = {" in script
+    assert "slug: row.destination?.dest_slug" in script
+    # Changer de jour oublie la fenêtre dépliée de la journée précédente.
+    assert script.count("state.selectedWindow = null;") >= 3

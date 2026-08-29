@@ -44,8 +44,8 @@ const expectedState = (state) => {
   if (state === 'stale') return 'STALE';
   if (state === 'fresh-empty') return 'NO_GO';
   if (state === 'fresh-windows' || state === 'marine-error') {
-    const today = tunisDateKey(new Date());
-    const windowStart = tunisDateKey(new Date(Date.now() + 60 * 60_000));
+    const today = tunisDateKey(NOW);
+    const windowStart = tunisDateKey(new Date(NOW.getTime() + 60 * 60_000));
     return windowStart === today ? 'GO_TODAY' : 'GO_SOON';
   }
   return 'NO_GO';
@@ -62,7 +62,14 @@ const sites = {
   ],
 };
 const sitePaths = new Set(sites.sites.map((site) => site.path));
-const iso = (minutes) => new Date(Date.now() + minutes * 60_000).toISOString();
+/* Instant de reference fige.
+   Les scenarios construisaient leur fenetre a « maintenant + 60 minutes ».
+   Passe 23:00 heure de Tunis, cette fenetre tombait le lendemain : la journee
+   selectionnee se retrouvait vide et la suite echouait, en local comme en CI,
+   uniquement a cause de l'heure a laquelle elle tournait. Le fixture et
+   l'horloge de la page partagent desormais le meme instant, un lundi matin. */
+const NOW = new Date('2026-08-31T08:00:00+01:00');
+const iso = (minutes) => new Date(NOW.getTime() + minutes * 60_000).toISOString();
 
 function blocker(fr, en, reason) {
   return {
@@ -211,6 +218,10 @@ async function execute(browser, scenario) {
   const failures = [];
   let values = null;
   try {
+    // L'horloge de la page suit le meme instant que le fixture, sinon la
+    // journee « aujourd'hui » du tableau de bord et celle des fenetres
+    // divergent des que la suite tourne en fin de soiree.
+    await page.clock.setFixedTime(NOW);
     await page.goto(BASE, {waitUntil: 'commit', timeout: 10000});
     await page.waitForSelector('#family-verdict-hero[data-state]', {state: 'visible'});
     await page.waitForTimeout(700);

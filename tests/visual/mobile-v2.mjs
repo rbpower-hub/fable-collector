@@ -194,7 +194,7 @@ const routeCard = await page.evaluate(() => ({
   expertWindows:document.querySelectorAll('.window-line').length,
 }));
 routeCard.errors = errors;
-if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Temps de trajet.*Hyp. vitesse.*Fenêtre cible sur zone/is.test(routeCard.text || '')) throw new Error(`route card is incomplete: ${JSON.stringify(routeCard)}`);
+if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Hyp. vitesse.*Fenêtre cible sur zone.*Durée disponible.*Durée minimale.*Aller.*Retour/is.test(routeCard.text || '')) throw new Error(`route card is incomplete: ${JSON.stringify(routeCard)}`);
 await page.locator('.simple-window-item').nth(1).locator('[data-simple-action="map-window"]').click();
 await page.waitForSelector('body.simple-map-open #map-card', {state:'visible'});
 await page.waitForFunction(() => /Sidi Bou Saïd/i.test(document.getElementById('mapSummary')?.textContent || ''));

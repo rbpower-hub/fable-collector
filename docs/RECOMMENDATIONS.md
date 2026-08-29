@@ -205,6 +205,32 @@ où seule une activité secondaire passe reste traitée comme une fenêtre sans
 activité principale : elle publie `blocked_primary` avec les activités écartées
 et la limite qui les bloque.
 
+### Répartition du plafond
+
+`ranking.max_total` limite le nombre de recommandations publiées, et
+`max_per_day` le nombre par journée. La façon de dépenser ce budget compte
+autant que sa taille.
+
+Le tri à l'intérieur d'une journée était chronologique. Une fenêtre hors
+horaires à 05:00 passait donc devant une fenêtre famille à 11:00 du seul fait
+de l'heure, et le plafond effaçait ensuite les fenêtres familiales. Sur le feed
+du 29 août, sur quatorze fenêtres côtières, le plafond de 5 ne gardait que
+cinq créneaux nocturnes et une fenêtre du surlendemain : **les deux seules
+fenêtres famille du lundi étaient jetées**.
+
+Trois règles corrigent cela :
+
+- **par jour** : chaque journée de l'horizon garde une place, un jour chargé
+  n'efface plus les suivants ;
+- **par mérite** : dans une journée, les fenêtres `family` passent avant
+  `off_hours`, puis `watch`, et à catégorie égale le meilleur score l'emporte ;
+- **par destination** : une première passe sert une fenêtre par port, la
+  meilleure, avant qu'un port n'en reçoive une seconde. Sinon deux fenêtres du
+  même port consommaient le budget de la journée.
+
+Les valeurs par défaut passent à `max_total: 12` et `max_per_day: 4`. Cinq
+était trop court pour sept destinations sur trois jours.
+
 ### Créneau réduit par activité
 
 Les seuils d'une activité portaient sur le **maximum de la fenêtre**. Une seule

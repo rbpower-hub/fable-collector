@@ -823,24 +823,70 @@ def _sources(root: Path) -> tuple[KnowledgePack | None, dict[str, Any], dict[str
 
 
 
-def _spread_by_day(items: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
-    """Repartit le plafond entre les jours au lieu de tronquer par date.
+# Une fenetre famille se lit en plein jour ; une fenetre hors horaires est un
+# creneau meteo en dehors des heures familiales. A plafond egal, la premiere
+# vaut mieux que la seconde.
+_CATEGORY_RANK = {"family": 0, "off_hours": 1, "watch": 2}
 
-    Un simple `[:limit]` apres tri chronologique effacait en silence les jours
-    suivants des qu'un jour portait assez de fenetres.
+
+def _best_score(item: dict[str, Any]) -> float:
+    activities = item.get("activities") or []
+    return max((float(entry.get("rank_score") or entry.get("score") or 0) for entry in activities), default=0.0)
+
+
+def _day_priority(item: dict[str, Any]) -> tuple[int, float, str]:
+    """Ordre de merite d'une fenetre a l'interieur de sa journee.
+
+    L'ancien tri etait chronologique : une fenetre hors horaires a 05:00
+    passait devant une fenetre famille a 11:00 du seul fait de l'heure, et le
+    plafond effacait ensuite les fenetres familiales de la journee.
     """
-    if limit <= 0 or len(items) <= limit:
+    category = str(item.get("category") or "family").lower()
+    return (_CATEGORY_RANK.get(category, 3), -_best_score(item), str(item.get("start") or ""))
+
+
+def _spread_by_day(items: list[dict[str, Any]], limit: int,
+                   per_day: int = 0) -> list[dict[str, Any]]:
+    """Repartit le plafond entre les jours, les destinations et les categories.
+
+    Trois pieges evites : tronquer par date effacait les jours suivants ;
+    tronquer chronologiquement dans la journee effacait les fenetres familiales
+    au profit des creneaux nocturnes ; et servir plusieurs fenetres du meme port
+    avant de servir les autres ports reduisait le choix a deux spots.
+    """
+    if limit <= 0 or (len(items) <= limit and per_day <= 0):
         return items
     by_day: dict[str, list[dict[str, Any]]] = {}
     for item in items:
         by_day.setdefault(str(item.get("start") or "")[:10], []).append(item)
+    for day in by_day.values():
+        day.sort(key=_day_priority)
+
     selected: list[dict[str, Any]] = []
-    rank = 0
-    while len(selected) < limit and any(rank < len(day) for day in by_day.values()):
-        for day in by_day.values():
-            if rank < len(day) and len(selected) < limit:
-                selected.append(day[rank])
-        rank += 1
+    taken: dict[str, int] = {day: 0 for day in by_day}
+    seen: dict[str, set[str]] = {day: set() for day in by_day}
+    # Premiere passe : une fenetre par port et par jour, la meilleure. Seconde
+    # passe : on complete avec les fenetres restantes.
+    for unique_destinations in (True, False):
+        progress = True
+        while progress and len(selected) < limit:
+            progress = False
+            for day, entries in by_day.items():
+                if len(selected) >= limit:
+                    break
+                if per_day > 0 and taken[day] >= per_day:
+                    continue
+                for entry in entries:
+                    if entry in selected:
+                        continue
+                    slug = str(entry.get("dest_slug") or "")
+                    if unique_destinations and slug in seen[day]:
+                        continue
+                    selected.append(entry)
+                    seen[day].add(slug)
+                    taken[day] += 1
+                    progress = True
+                    break
     selected.sort(key=lambda item: str(item.get("start") or ""))
     return selected
 
@@ -1047,7 +1093,11 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
             -(item.get("activities") or [{}])[0].get("rank_score", 0),
         )
     )
-    output = _spread_by_day(output, int(ranking.get("max_total", 5)))
+    output = _spread_by_day(
+        output,
+        int(ranking.get("max_total", 12)),
+        int(ranking.get("max_per_day", 0)),
+    )
     result = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "version": 3 if pack and pack.version >= 2 else (2 if pack else 1),

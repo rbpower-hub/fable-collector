@@ -13,7 +13,8 @@ schema:
 
 ranking:
   max_per_window: 3
-  max_total: 5
+  max_total: 12          # 7 destinations sur 3 jours : 5 etait trop court
+  max_per_day: 4
   preferred_period_bonus: 7
   lunar_max_bonus: 5
   tide_range_full_bonus_m: 0.25

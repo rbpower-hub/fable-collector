@@ -1,6 +1,7 @@
 # Changelog
 
 ## Non publié
+- **Suite visuelle déterministe** : les scénarios construisaient leur fenêtre à « maintenant + 60 minutes ». Passé 23:00 heure de Tunis, cette fenêtre tombait le lendemain, la journée sélectionnée se retrouvait vide et les sept jobs échouaient, uniquement à cause de l'heure à laquelle la CI tournait. Le fixture et l'horloge de la page sont désormais figés sur le même instant.
 - **Vue Simple, compteur cohérent** : l'en-tête « Fenêtres de navigation » annonçait 7 options là où la carte du jour en annonçait 2, sur la même journée. `navigationWindowCounts` calcule `family = total − longTrip` et suppose une liste déjà filtrée sur la catégorie famille ; la liste passée contenait aussi les créneaux hors horaires. L'en-tête utilise désormais `navigationWindowBreakdown` et détaille famille, hors horaires, watch et long trajet.
 - **Vue Simple, les FAMILY GO ne disparaissent plus** : la liste est coupée à cinq lignes, en ordre chronologique. Une journée portant cinq créneaux hors horaires à 05:00 puis deux fenêtres FAMILY GO à 11:00 n'affichait aucune fenêtre familiale. Les lignes sont ordonnées par utilité — famille, prudent, hors horaires, watch, long trajet — puis par heure.
 - **Vue Simple, le port est nommé** : chaque activité conseillée indique la destination et son créneau. La section ne disait pas à quoi elle se rapportait.

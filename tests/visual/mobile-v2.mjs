@@ -27,9 +27,11 @@ const familyOffset = [day(0), day(1), day(2)].indexOf(familyDay);
 const noGoOffset = [0, 1, 2].find((offset) => offset !== offOffset && offset !== familyOffset);
 const offHours = {
   start:offStart.toISOString(), end:offEnd.toISOString(), category:'off_hours', confidence:'Medium', confidence_score:64,
+  confidence_details:{min_wind_models_per_hour:2,min_wave_sources_per_hour:2},
 };
 const family = {
   start:familyStart.toISOString(), end:familyEnd.toISOString(), category:'family', family_tier:'standard', confidence:'High', confidence_score:88,
+  confidence_details:{min_wind_models_per_hour:2,min_wave_sources_per_hour:2},
 };
 const lateFamily = {
   start:new Date(Math.max(
@@ -37,6 +39,7 @@ const lateFamily = {
     Date.now()-30*60_000,
   )).toISOString(), end:new Date(Date.now()+150*60_000).toISOString(),
   category:'family', family_tier:'standard', confidence:'Medium', confidence_score:70,
+  confidence_details:{min_wind_models_per_hour:2,min_wave_sources_per_hour:2},
 };
 const forecastTimes = [offStart.toISOString(),new Date(offStart.getTime()+2*60*60_000).toISOString(),offEnd.toISOString(),familyStart.toISOString(),new Date(familyStart.getTime()+3*60*60_000).toISOString(),familyEnd.toISOString()];
 const hourlyStates = ['family','prudent','no_go','family','watch','no_go'];
@@ -96,6 +99,12 @@ await page.addInitScript(({selectedDay}) => {
   localStorage.setItem('fable_selected_day', selectedDay);
 }, {selectedDay:offDay});
 let hourlyRequests = 0;
+await page.route('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', route => route.fulfill({
+  status:200, contentType:'application/javascript', path:path.resolve('node_modules/leaflet/dist/leaflet.js'),
+}));
+await page.route('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', route => route.fulfill({
+  status:200, contentType:'text/css', path:path.resolve('node_modules/leaflet/dist/leaflet.css'),
+}));
 await page.route('**/*.json', async (route) => {
   const pathname = new URL(route.request().url()).pathname;
   const basename = pathname.split('/').pop();
@@ -172,6 +181,33 @@ if (initial.hourlyChart) throw new Error('the 72-hour explorer is still visible 
 if (!initial.compactTimeline || initial.compactCharts < 2) throw new Error(`compact timeline or trends are missing: ${JSON.stringify(initial)}`);
 if (hourlyRequests !== 0) throw new Error(`Simple View still fetched ${hourlyRequests} hourly explorer payload(s)`);
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
+
+await page.waitForSelector('.map-destination', {state:'attached'});
+await page.waitForSelector('.simple-window-route', {state:'attached'});
+await page.locator('.simple-window-card').nth(1).click();
+await page.waitForSelector('.simple-window-details:not([hidden])');
+const routeCard = await page.evaluate(() => ({
+  text:document.querySelectorAll('.simple-window-item')[1]?.textContent,
+  description:window.FABLEMapUI?.describe?.('sidi-bou-said.json') || null,
+  homeDescription:window.FABLEMapUI?.describe?.('gammarth-port.json') || null,
+  mapDestinations:Array.from(document.querySelectorAll('.map-destination')).map(node => node.dataset.mapFile),
+  expertWindows:document.querySelectorAll('.window-line').length,
+}));
+routeCard.errors = errors;
+if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Temps de trajet.*Hyp. vitesse.*Fenêtre cible sur zone/is.test(routeCard.text || '')) throw new Error(`route card is incomplete: ${JSON.stringify(routeCard)}`);
+await page.locator('.simple-window-item').nth(1).locator('[data-simple-action="map-window"]').click();
+await page.waitForSelector('body.simple-map-open #map-card', {state:'visible'});
+await page.waitForFunction(() => /Sidi Bou Saïd/i.test(document.getElementById('mapSummary')?.textContent || ''));
+const routeMap = await page.evaluate(() => ({
+  summary:document.getElementById('mapSummary')?.textContent?.replace(/\s+/g,' ').trim(),
+  corridorPaths:document.querySelectorAll('#map .leaflet-overlay-pane path').length,
+  selectedWindows:document.querySelectorAll('.window-line.select').length,
+  overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+}));
+if (!/corridor.*Gammarth.*Sidi Bou Saïd/is.test(routeMap.summary || '') || routeMap.corridorPaths < 1 || routeMap.selectedWindows !== 1) throw new Error(`route map did not select and zoom the exact corridor: ${JSON.stringify(routeMap)}`);
+if (routeMap.overflow > 2) throw new Error(`route map horizontal overflow: ${routeMap.overflow}px`);
+await page.locator('#simpleMapBackBtn').click();
+await page.waitForSelector('#simple-view', {state:'visible'});
 
 await page.locator(`[data-simple-day="${familyOffset}"]`).click();
 await page.waitForSelector('.simple-hero[data-verdict-state="GO_FAMILY"]');

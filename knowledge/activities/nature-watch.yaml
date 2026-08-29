@@ -1,0 +1,18 @@
+id: nature-watch
+icon: "🔭"
+label_fr: "Observation nature depuis le bord ou au mouillage"
+label_en: "Nature watching from the shore or at anchor"
+status: initial_tunable
+# Tolerante sur la mer : on observe depuis le bord ou au mouillage, sans se
+# mettre a l'eau. La visibilite atmospherique est en revanche l'ingredient
+# principal, plus exigeante que pour toute autre activite du pack.
+safety:
+  max_wind_kmh: 20
+  max_gust_kmh: 28
+  max_hs_m: 0.45
+  min_tp_s: 3.0
+  min_visibility_km: 12
+comfort:
+  max_uv_index: 8
+  penalty: 6
+tier: secondary

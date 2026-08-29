@@ -65,7 +65,7 @@
       .activity-window h4{margin:0 0 6px;color:var(--fg);font-size:1rem}.activity-choice{border-top:1px solid var(--br);padding-top:8px;margin-top:8px}
       .activity-choice:first-of-type{border-top:0}.activity-score{float:right;border:1px solid var(--br);border-radius:999px;padding:1px 7px;color:var(--ok);font-weight:800;font-size:.8rem}
       .activity-meta{font-size:.88rem;color:var(--muted);margin-top:4px;line-height:1.45}.activity-note{margin-top:10px;font-size:.82rem;color:var(--muted)}
-      .fish-intel{margin-top:8px;padding:8px;border:1px dashed var(--br);border-radius:9px}.fish-intel b{color:var(--fg)}
+      .fish-intel,.nature-intel{margin-top:8px;padding:8px;border:1px dashed var(--br);border-radius:9px}.activity-choice.secondary .activity-score{color:var(--muted)}.secondary-badge{display:inline-block;margin-left:5px;padding:1px 6px;border:1px solid var(--br);border-radius:999px;font-size:.72rem;color:var(--muted)}.fish-intel b{color:var(--fg)}
       .intel-badge,.prudent-badge{display:inline-block;margin-left:5px;padding:1px 6px;border:1px solid var(--br);border-radius:999px;font-size:.72rem}
       .intel-badge{color:var(--muted)}.prudent-badge{color:var(--warn);border-color:var(--warn)}
       .prudent-warning{margin-top:8px;color:var(--warn);font-size:.84rem;line-height:1.4}
@@ -131,6 +131,38 @@
     return `<div class="activity-meta fish-intel"><b>🎯 ${fishName}</b><span class="intel-badge">${lang === 'en' ? 'indicative' : 'indicatif'}</span><br>${rows.join('<br>')}</div>`;
   }
 
+  /* Une fenetre ou seule une activite secondaire passe reste une fenetre sans
+     activite principale : on dit laquelle a manque, et de combien. */
+  function blockedPrimary(rec, lang) {
+    const blocked = rec.blocked_primary;
+    if (!Array.isArray(blocked) || !blocked.length) return '';
+    const title = lang === 'en'
+      ? 'No main activity passes its own limits'
+      : 'Aucune activité principale ne passe ses propres limites';
+    return `<div class="activity-blocked"><b>${esc(title)}</b><ul class="activity-advice">${blocked.map((item) => {
+      const label = esc(lang === 'en' ? item.label_en : item.label_fr);
+      const reason = esc(lang === 'en' ? item.reason_en : item.reason_fr);
+      return `<li>${esc(item.icon || '•')} ${label} : ${reason}</li>`;
+    }).join('')}</ul></div>`;
+  }
+
+  function natureBlock(rec, lang) {
+    const nature = rec.nature || {};
+    const headline = lang === 'en' ? nature.headline_en : nature.headline_fr;
+    const detail = lang === 'en' ? nature.detail_en : nature.detail_fr;
+    if (!headline && !detail) return '';
+    const notes = lang === 'en' ? nature.notes_en : nature.notes_fr;
+    const look = Array.isArray(nature.look_for_fr) && lang !== 'en' && nature.look_for_fr.length
+      ? `<div class="activity-meta">À repérer: ${nature.look_for_fr.map(esc).join(' · ')}</div>`
+      : '';
+    /* La source est affichee : le contenu nature du pack est sourcé, et
+       l'utilisateur doit pouvoir verifier plutot que nous croire sur parole. */
+    const source = (nature.sources || []).length
+      ? `<div class="activity-note">Source: ${esc(String(nature.sources[0]).split(', http')[0])}</div>`
+      : '';
+    return `<div class="activity-meta nature-intel"><b>🔭 ${esc(headline || '')}</b>${detail ? `<div class="activity-meta">${esc(detail)}</div>` : ''}${look}${notes ? `<div class="activity-caveat">${esc(notes)}</div>` : ''}${source}</div>`;
+  }
+
   function astronomy(rec, lang) {
     const astro = rec.astronomy || {};
     const moon = lang === 'en' ? astro.label_en : astro.label_fr;
@@ -193,7 +225,13 @@
       const choices = (rec.activities || []).map((item) => {
         const caveats = (lang === 'en' ? item.caveats_en : item.caveats_fr) || [];
         const caveatRows = caveats.map((text) => `<div class="activity-caveat">⚠ ${esc(text)}</div>`).join('');
-        return `<div class="activity-choice"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b><div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div>${caveatRows}</div>`;
+        // Une activite secondaire complete une sortie, elle ne la motive pas :
+        // elle est marquee pour ne pas se lire comme le choix principal.
+        const secondary = item.tier === 'secondary';
+        const badge = secondary
+          ? `<span class="secondary-badge">${lang === 'en' ? 'to combine' : 'en complément'}</span>`
+          : '';
+        return `<div class="activity-choice${secondary ? ' secondary' : ''}"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b>${badge}<div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div>${caveatRows}</div>`;
       }).join('');
       const prudentBadge = prudent
         ? `<span class="prudent-badge">${lang === 'en' ? 'PRUDENT GO' : 'GO PRUDENT'}</span>`
@@ -204,7 +242,7 @@
             : (sourceWindow.caution_fr || 'Confort réduit. Surveiller le renforcement et prévoir un retour anticipé.'))}</div>`
         : '';
       const dateKey = tunisDateKey(rec.start);
-      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${adviceList(rec, lang)}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
+      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${blockedPrimary(rec, lang)}${adviceList(rec, lang)}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${natureBlock(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
     }).join('')}</div>${blockedList(data, lang)}`;
     window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations}}));
   }

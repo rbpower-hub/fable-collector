@@ -52,3 +52,17 @@ fishing:
       baits: [ver, sardine]
       depths_m: [8, 20]
       preferred_periods: [day]
+nature:
+  status: sourced_public_reference
+  sources:
+    - "Ramsar Sites Information Service — Lagune de Ghar el Melh et Delta de la Mejerda (site n°1706), https://rsis.ramsar.org/ris/1706"
+    - "MedWet Managers Network — Ghar el Melh lagoon, https://medwetmanagers.net/marine-and-coastal-wetlands/ghar-el-melh-lagoon/"
+  seasons:
+    winter:
+      headline_fr: "Lagune Ramsar en période d'hivernage"
+      headline_en: "Ramsar lagoon in the wintering season"
+      detail_fr: "La lagune de Ghar el Melh et le delta de la Mejerda forment un site Ramsar de 10 168 ha, inscrit le 7 novembre 2007. La lagune accueille de nombreux oiseaux d'eau, site d'hivernage pour certaines espèces et de nidification pour d'autres ; les poissons migrateurs s'y nourrissent notamment en hiver avant de rejoindre la mer."
+      detail_en: "The Ghar el Melh lagoon and Mejerda delta form a 10,168 ha Ramsar site, designated 7 November 2007. The lagoon hosts numerous waterbirds, wintering for some species and breeding for others; migratory fish feed there particularly in winter before reaching the sea."
+      look_for_fr: ["oiseaux d'eau hivernants"]
+  notes_fr: "Site protégé : observer depuis le bord ou au mouillage, sans débarquer dans la lagune ni approcher les zones de nidification."
+  notes_en: "Protected site: watch from the shore or at anchor, without landing in the lagoon or approaching nesting areas."

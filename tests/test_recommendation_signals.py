@@ -133,9 +133,41 @@ def test_advisory_thresholds_are_configurable():
     assert not any(note["id"] == "uv_high" for note in advisories(metrics, {}, {"uv_index_high": 9}))
 
 
-def test_offshore_wind_is_reported_as_an_advantage():
-    notes = advisories({"onshore_share": 0.0}, {}, {})
-    assert any(note["id"] == "offshore" for note in notes)
+def test_offshore_wind_note_mentions_the_drift_as_well_as_the_flat_water():
+    """Le vent de terre lisse l'eau et pousse vers le large. Taire la dérive
+    serait trompeur : c'est la situation où la mer paraît la plus engageante."""
+    notes = advisories({"offshore_share": 0.8}, {}, {})
+    note = next(note for note in notes if note["id"] == "offshore")
+    assert "large" in note["fr"]
+    assert "paddles" in note["fr"] or "embarcations" in note["fr"]
+
+
+def test_offshore_share_is_not_the_complement_of_onshore():
+    """Un vent parallèle à la côte n'est ni onshore ni offshore."""
+    from fable.recommendations import _opposite_sectors
+
+    assert _opposite_sectors([[30, 150]]) == [[210, 330]]
+    assert _opposite_sectors([[330, 70]]) == [[150, 250]]
+    # Vent transversal : aucune des deux catégories ne le revendique.
+    assert _angle_in_sectors(190, [[30, 150]]) is False
+    assert _angle_in_sectors(190, _opposite_sectors([[30, 150]])) is False
+
+
+def test_a_paddle_style_activity_can_flag_offshore_wind_as_a_caveat():
+    """La dérive vers le large est une réserve d'activité, pas un blocage :
+    la sécurité reste au moteur de fenêtres."""
+    from fable.recommendations import _score
+
+    activity = {
+        "label_fr": "Paddle", "label_en": "Paddle",
+        "safety": {"max_wind_kmh": 16, "max_gust_kmh": 24, "max_hs_m": 0.30},
+        "comfort": {"max_offshore_share": 0.4, "penalty": 10},
+    }
+    metrics = {"max_wind_kmh": 10.0, "max_gust_kmh": 18.0, "max_hs_m": 0.20, "offshore_share": 0.9}
+    item = _score("paddle", activity, metrics, {}, {}, {})
+    assert item["blocked"] is False
+    assert any("vent de terre" in caveat for caveat in item["caveats_fr"])
+    assert item["score"] < 100
 
 
 def test_spread_by_day_keeps_every_day_represented():
@@ -188,3 +220,49 @@ def test_score_keeps_an_unclipped_rank_score():
     assert item["blocked"] is False
     assert item["score"] == 100.0
     assert item["rank_score"] > 100.0
+
+
+def test_a_tolerant_activity_does_not_outrank_a_specialised_one():
+    """Un seuil large fait mécaniquement un score élevé : le ratio valeur/limite
+    reste petit. Sans rang, l'observation nature passerait devant la pêche un
+    jour parfait, ce qui est le contraire de ce qu'attend l'utilisateur."""
+    from fable.recommendations import _score
+
+    conditions = {"max_wind_kmh": 8.0, "max_gust_kmh": 16.0, "max_hs_m": 0.15}
+    tolerant = _score(
+        "nature_watch",
+        {"label_fr": "Observation", "label_en": "Watch", "tier": "secondary",
+         "safety": {"max_wind_kmh": 20, "max_gust_kmh": 28, "max_hs_m": 0.45}},
+        conditions, {}, {}, {},
+    )
+    specialised = _score(
+        "light_jigging",
+        {"label_fr": "Micro-jig", "label_en": "Jigging",
+         "safety": {"max_wind_kmh": 16, "max_gust_kmh": 26, "max_hs_m": 0.40}},
+        conditions, {}, {}, {},
+    )
+    # L'activité tolérante marque bien plus haut...
+    assert tolerant["rank_score"] > specialised["rank_score"]
+    # ... mais son rang la place derrière.
+    assert tolerant["tier"] == "secondary"
+    assert specialised["tier"] == "primary"
+    ordered = sorted(
+        [tolerant, specialised],
+        key=lambda item: (0 if item["tier"] == "primary" else 1, -item["rank_score"]),
+    )
+    assert ordered[0]["activity_id"] == "light_jigging"
+
+
+def test_share_caveats_are_written_as_percentages():
+    """« 1,00 contre 0,60 » n'est pas lisible ; « 100 % de la fenêtre » l'est."""
+    from fable.recommendations import _score
+
+    item = _score(
+        "soft_lure",
+        {"label_fr": "Leurre souple", "label_en": "Soft lure",
+         "safety": {"max_wind_kmh": 17, "max_gust_kmh": 27, "max_hs_m": 0.40},
+         "comfort": {"max_onshore_share": 0.6}},
+        {"max_wind_kmh": 10.0, "max_gust_kmh": 20.0, "max_hs_m": 0.20, "onshore_share": 1.0},
+        {}, {}, {},
+    )
+    assert item["caveats_fr"] == ["vent de mer sur 100 % de la fenêtre (confort visé : 60 %)"]

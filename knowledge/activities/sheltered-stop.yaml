@@ -9,3 +9,7 @@ safety:
   max_hs_m: 0.35
   min_tp_s: 3.2
   min_visibility_km: 5
+comfort:
+  max_uv_index: 8
+  max_apparent_temperature_c: 38
+  penalty: 6

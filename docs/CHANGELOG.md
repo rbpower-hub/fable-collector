@@ -1,6 +1,11 @@
 # Changelog
 
 ## Non publié
+- **Quatre nouvelles activités** : masque et tuba, paddle ou kayak, observation nature, et pêche au leurre souple. Cette dernière comble un trou du pack : la technique `soft-lure` existait sans activité correspondante, donc un port dont la saison ne listait que le leurre souple ne recevait aucune activité de pêche.
+- **Réserves de confort sur toutes les activités** : les neuf déclarent un bloc `comfort`. Ce sont des pénalités de classement et des réserves affichées, jamais des blocages.
+- **Vent de terre distingué du vent de mer** : `offshore_share` est calculé sur le secteur opposé et non comme le complément de `onshore_share`, un vent parallèle à la côte n'étant ni l'un ni l'autre. Le vent de mer pénalise la baignade et la pêche, le vent de terre pénalise le paddle et le kayak, et le conseil de fenêtre nomme désormais la dérive vers le large au lieu de ne vanter que l'eau lissée.
+- **Rang principal et secondaire** : une activité tolérante obtenait mécaniquement un meilleur score qu'une activité exigeante, le score pénalisant le rapport valeur/limite. L'observation nature passait devant la pêche un jour parfait. Les activités secondaires sont maintenant classées après toutes les principales, et une fenêtre servie uniquement par une secondaire publie quand même la raison du blocage des principales.
+- **Contenu nature sourcé** : El Haouaria au printemps et Ghar el Melh en hiver, chacun avec sa référence publique affichée dans le board. Aucun port sans source n'a de contenu.
 - **Compteur d'options unifié** : les Vues Simple, Famille et Expert annonçaient 49, 4 et 2 options pour la même journée. Une option est désormais une fenêtre famille, les créneaux hors horaires et watch sont comptés à part, et les longs trajets sont comptés par route et non par heure de départ.
 - **Fenêtre validée sans activité** : le moteur publie `no_activity` avec les activités les plus proches d'être acceptées et la limite qui les bloque. La carte dit « rafales 35 km/h pour une limite de 28 km/h » au lieu de « aucune activité spécialisée ».
 - **Classement départageable** : le tri se fait sur le score non plafonné ; deux activités dont les bonus dépassaient 100 sortaient à égalité parfaite et leur ordre était arbitraire.

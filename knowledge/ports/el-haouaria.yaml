@@ -36,3 +36,16 @@ fishing:
       baits: [sardine, calamar]
       depths_m: [10, 28]
       preferred_periods: [day]
+nature:
+  # Contenu sourcé. Rien n'est ajouté ici sans référence publique vérifiable :
+  # une observation inventée ferait perdre confiance dans tout le reste.
+  status: sourced_public_reference
+  sources:
+    - "Association Les Amis des Oiseaux (BirdLife Tunisie) — Jbel El Haouaria, https://www.aao-birdlife.tn/jbel-el-haouaria/"
+  seasons:
+    spring:
+      headline_fr: "Migration de printemps au Jbel El Haouaria"
+      headline_en: "Spring migration over Jbel El Haouaria"
+      detail_fr: "Le Jbel El Haouaria est décrit par l'Association Les Amis des Oiseaux comme le principal point de concentration d'oiseaux de Tunisie pendant la migration de printemps. Les plus abondants y sont la bondrée apivore, les martinets, les hirondelles et le guêpier d'Europe ; circaète Jean-le-Blanc, faucon crécerelle, milan noir et cigogne blanche y sont également signalés."
+      detail_en: "Jbel El Haouaria is described by the Association Les Amis des Oiseaux as Tunisia's main bird concentration point during spring migration. The most abundant are European honey buzzard, swifts, swallows and European bee-eater; short-toed snake eagle, common kestrel, black kite and white stork are also reported."
+      look_for_fr: ["bondrée apivore", "guêpier d'Europe", "martinets et hirondelles", "cigogne blanche"]

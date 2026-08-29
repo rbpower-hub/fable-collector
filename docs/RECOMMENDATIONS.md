@@ -205,6 +205,26 @@ où seule une activité secondaire passe reste traitée comme une fenêtre sans
 activité principale : elle publie `blocked_primary` avec les activités écartées
 et la limite qui les bloque.
 
+### Lumière du jour
+
+`family` et `off_hours` sortent des **mêmes seuils météo** : `window_detect`
+écrit `category = "family" if evaluation["daylight"] else "off_hours"`. La seule
+différence est la lumière.
+
+Une fenêtre hors horaires peut donc être parfaite au sens météo et courir en
+pleine nuit. Le moteur proposait ainsi une baignade familiale et du paddle sur
+une fenêtre 01:00→07:00, à 100/100.
+
+Une activité déclare `requires_daylight: true` et, optionnellement,
+`min_daylight_share` (0,5 par défaut). Le moteur calcule la part de la fenêtre
+comprise entre le lever et le coucher, et écarte l'activité en dessous, avec la
+raison publiée : « fenêtre de nuit (20 % de jour seulement, jour de 05:49 à
+18:47) ».
+
+La contrainte est portée par l'activité, pas par la vue. Baignade, masque et
+tuba, paddle et observation nature la déclarent. Les quatre activités de pêche
+ne la déclarent pas : une sortie au lever du jour est légitime.
+
 ### Vent de terre et vent de mer
 
 `onshore_share` et `offshore_share` sont calculés séparément, à partir des

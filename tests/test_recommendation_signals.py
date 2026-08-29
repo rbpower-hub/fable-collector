@@ -266,3 +266,45 @@ def test_share_caveats_are_written_as_percentages():
         {}, {}, {},
     )
     assert item["caveats_fr"] == ["vent de mer sur 100 % de la fenêtre (confort visé : 60 %)"]
+
+
+def test_a_night_window_does_not_get_a_swim_recommendation():
+    """Une fenêtre hors horaires peut être parfaite au sens météo et courir en
+    pleine nuit. Le moteur proposait une baignade familiale à une heure du
+    matin, à 100/100."""
+    from fable.recommendations import _daylight, _score
+
+    daily = {"sunrise": "2026-08-31T05:49:00+01:00", "sunset": "2026-08-31T18:47:00+01:00"}
+    calm = {"max_wind_kmh": 6.0, "max_gust_kmh": 12.0, "max_hs_m": 0.15}
+    swim = {
+        "label_fr": "Baignade familiale", "label_en": "Family swim",
+        "requires_daylight": True,
+        "safety": {"max_wind_kmh": 14, "max_gust_kmh": 22, "max_hs_m": 0.25},
+    }
+
+    night = (dt.datetime(2026, 8, 31, 1, tzinfo=TZ), dt.datetime(2026, 8, 31, 7, tzinfo=TZ))
+    assert _daylight(daily, *night)["share"] == pytest.approx(0.2)
+    blocked = _score("family_swim", swim, calm, {}, {"daylight": _daylight(daily, *night)}, {})
+    assert blocked["blocked"] is True
+    assert "fenêtre de nuit" in blocked["reason_fr"]
+    assert "05:49" in blocked["reason_fr"]
+
+    day = (dt.datetime(2026, 8, 31, 9, tzinfo=TZ), dt.datetime(2026, 8, 31, 13, tzinfo=TZ))
+    allowed = _score("family_swim", swim, calm, {}, {"daylight": _daylight(daily, *day)}, {})
+    assert allowed["blocked"] is False
+
+
+def test_fishing_keeps_its_dawn_window():
+    """La pêche au lever du jour reste légitime : seule une activité qui déclare
+    `requires_daylight` est écartée."""
+    from fable.recommendations import _daylight, _score
+
+    daily = {"sunrise": "2026-08-31T05:49:00+01:00", "sunset": "2026-08-31T18:47:00+01:00"}
+    night = (dt.datetime(2026, 8, 31, 1, tzinfo=TZ), dt.datetime(2026, 8, 31, 7, tzinfo=TZ))
+    jigging = {
+        "label_fr": "Micro-jig", "label_en": "Jigging",
+        "safety": {"max_wind_kmh": 16, "max_gust_kmh": 26, "max_hs_m": 0.40},
+    }
+    item = _score("light_jigging", jigging, {"max_wind_kmh": 6.0, "max_gust_kmh": 12.0, "max_hs_m": 0.15},
+                  {}, {"daylight": _daylight(daily, *night)}, {})
+    assert item["blocked"] is False

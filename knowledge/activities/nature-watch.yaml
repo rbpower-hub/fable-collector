@@ -16,3 +16,6 @@ comfort:
   max_uv_index: 8
   penalty: 6
 tier: secondary
+# Ces activites supposent d y voir clair et d etre vu : elles ne sont pas
+# proposees sur une fenetre majoritairement nocturne.
+requires_daylight: true

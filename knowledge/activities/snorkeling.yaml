@@ -18,3 +18,6 @@ comfort:
   max_onshore_share: 0.4
   max_uv_index: 8
   penalty: 12
+# Ces activites supposent d y voir clair et d etre vu : elles ne sont pas
+# proposees sur une fenetre majoritairement nocturne.
+requires_daylight: true

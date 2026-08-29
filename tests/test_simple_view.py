@@ -256,9 +256,39 @@ def test_simple_view_three_day_action_and_safe_activities_are_rendered():
     assert 'id="simple-three-days"' in script
     assert "getElementById('simple-three-days')" in script
     assert "renderActivities(best)" in script
-    assert "String(record.category || 'family').toLowerCase() === 'family'" in script
+    # La section filtrait sur la categorie `family`. Or `family` et `off_hours`
+    # sortent des memes seuils meteo : window_detect ne les distingue que par la
+    # lumiere du jour. Le filtre par categorie etait donc un proxy, et il cachait
+    # les activites d'une journee dont les seules fenetres sont hors horaires.
+    # Le vrai garde-fou est cote moteur, par activite : voir `requires_daylight`.
+    assert "String(record.category || 'family').toLowerCase() === 'family'" not in script
+    # Ce qui reste indispensable : l'activite appartient bien a la fenetre
+    # validee affichee, meme destination, memes bornes.
+    assert "record.dest_slug === best.destination.dest_slug" in script
     assert "record.start === best.windowItem.start" in script
+    assert "record.end === best.windowItem.end" in script
     assert "Aucune activité compatible dans une fenêtre Famille validée." in script
+
+
+def test_daylight_gate_lives_in_the_engine_not_in_the_view():
+    """La vue n'est pas le bon endroit pour une regle de securite.
+
+    `family` et `off_hours` partagent les memes seuils meteo ; seule la lumiere
+    les separe. C'est donc a l'activite de declarer si elle a besoin du jour.
+    """
+    source = (ROOT / "fable" / "recommendations.py").read_text(encoding="utf-8")
+    assert "requires_daylight" in source
+    assert "min_daylight_share" in source
+
+    activities = ROOT / "knowledge" / "activities"
+    needing_light = {"family-swim", "snorkeling", "paddle-kayak", "nature-watch"}
+    for name in needing_light:
+        text = (activities / f"{name}.yaml").read_text(encoding="utf-8")
+        assert "requires_daylight: true" in text, name
+    # La peche au lever du jour reste legitime : elle ne declare pas la contrainte.
+    for name in ("bottom-fishing", "light-jigging", "coastal-trolling", "soft-lure-fishing"):
+        text = (activities / f"{name}.yaml").read_text(encoding="utf-8")
+        assert "requires_daylight" not in text, name
 
 
 def test_simple_view_uses_unified_selected_day_verdicts_without_cross_day_fallback():

@@ -81,13 +81,13 @@ function payloadsFor(state) {
         {dest_slug: 'sidi-bou-said.json', dest_name: 'Sidi Bou Saïd', required_hours: 4, windows: empty ? [] : [windowItem], diagnostics: empty ? blocker('Rafales trop fortes', 'Gusts too strong', 'gust') : null},
         {dest_slug: 'ghar-el-melh.json', dest_name: 'Ghar El Melh', required_hours: 4, windows: [], diagnostics: marine ? blocker('Données de vagues manquantes — fenêtres non confirmées', 'Wave data unavailable — windows are not confirmed', 'marine_error') : blocker('Mer trop agitée', 'Sea too rough', 'sea')},
         {dest_slug: 'kelibia.json', dest_name: 'Kélibia', trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', windows: [
-          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'outbound', origin_slug: 'gammarth-port', destination_slug: 'kelibia', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
-          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'return', origin_slug: 'kelibia', destination_slug: 'gammarth-port', origin_name: 'Kélibia', destination_name: 'Port de Gammarth'},
+          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'outbound', origin_slug: 'gammarth-port.json', destination_slug: 'kelibia.json', origin_name: 'Port de Gammarth', destination_name: 'Kélibia'},
+          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'long_trip_one_way', direction: 'return', origin_slug: 'kelibia.json', destination_slug: 'gammarth-port.json', origin_name: 'Kélibia', destination_name: 'Port de Gammarth'},
         ]},
         {dest_slug: 'pantelleria.json', dest_name: 'Pantelleria', beta: true, trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', windows: [
           // Keep the beta crossing on the same selected day as the Kélibia
           // routes, including when CI runs close to local midnight.
-          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', direction: 'outbound', origin_slug: 'kelibia', destination_slug: 'pantelleria', origin_name: 'Kélibia', destination_name: 'Pantelleria', beta: true},
+          {...windowItem, start: iso(1440), end: iso(1860), trip_mode: 'one_way_multi_day', route_kind: 'offshore_one_way_beta', direction: 'outbound', origin_slug: 'kelibia.json', destination_slug: 'pantelleria.json', origin_name: 'Kélibia', destination_name: 'Pantelleria', beta: true},
         ]},
       ],
     },

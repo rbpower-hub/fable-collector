@@ -52,3 +52,17 @@ test('maximum thresholds keep the engine strict boundary', () => {
   ]);
   assert.match(widgets.checksHtml(exactThreshold,rules,'fr'),/Rafales max · &lt; 30,0 km\/h/);
 });
+
+test('published engine metric names and onshore sector are rendered', () => {
+  const destination = {
+    required_hours:4,
+    diagnostics:{near_miss:{validated_hours:2},first_blocker:{metrics:{
+      max_speed:23,max_gust:31,any_onshore:true,hs:.55,min_vis:4500,
+    }}},
+  };
+  const rows = widgets.checks(destination, {
+    family:{window_hours:{min:4},thresholds:{wind:{family_max_kmh:22,onshore_downgrade_kmh:22},gusts:{no_go_min_kmh:30},waves:{hs_family_max_m:.5},visibility_km_min:5}},
+  }, 'fr');
+  assert.deepEqual(Array.from(rows, (row) => row.key), ['duration','gust','onshore','wind','wave','visibility']);
+  assert.equal(rows.find((row) => row.key === 'onshore').value, 23);
+});

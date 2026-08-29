@@ -83,12 +83,13 @@ def test_simple_navigation_cards_explain_quality_and_open_the_exact_route():
     assert 'class="simple-window-quality"' in script
     assert 'class="simple-window-models"' in script
     assert 'class="simple-window-route"' in script
-    assert "window.FABLEMapUI?.describe?.(destination.dest_slug)" in script
+    assert "window.FABLEMapUI?.describeWindowRoute?.({" in script
     assert "window.FABLEMapUI.openWindow({file:slug, start:item.start, end:item.end" in script
     assert "function focusWindow(file, {start='', end='', direction='', scroll=true}={})" in html
     assert "openWindow({file, start='', end='', direction=''}={})" in html
     assert "describe(file){ return describeRoute(file); }" in html
     assert "describeWindow(options){ return describeWindow(options); }" in html
+    assert "describeWindowRoute(options){ return describeWindowRoute(options); }" in html
     assert 'class="simple-window-route-meta"' in script
     assert 'data-simple-route-winds="${index}"' in script
 
@@ -208,7 +209,7 @@ def test_simple_view_weather_context_and_mobile_hierarchy():
     assert "@media(max-width:640px){.simple-hero-grid{grid-template-columns:1fr" in script
     assert ".simple-confidence{display:none}" not in script
     assert '[data-theme="nautical"] .simple-action.primary{color:#fff}' in script
-    assert "outbound:'Aller', return:'Retour', beta:'Bêta'" in script
+    assert "outbound:'Aller', return:'Retour', departure:'Départ', arrival:'Arrivée', beta:'Bêta'" in script
     assert "value !== null && value !== undefined" in script
 
 

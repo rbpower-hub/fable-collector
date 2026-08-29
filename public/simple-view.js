@@ -42,7 +42,7 @@
     travelOnly:'فترة سفر بحري طويلة متاحة', travelOnlyDetail:'هذه نافذة ملاحة لمسافة طويلة وليست موافقة على خرجة عائلية محلية.',
     staleTitle:'بيانات قديمة — لا تخرج اعتماداً عليها', noDataTitle:'بيانات الملاحة غير متاحة',
     windows:'نوافذ الملاحة', viewWindows:'عرض النوافذ', horizon:'أفق 72 ساعة', offHoursSlot:'خارج الأوقات', longTripSlot:'رحلة طويلة',
-    qualityHigh:'مرتفعة', qualityMedium:'متوسطة', qualityLimited:'محدودة', qualityUnassessed:'غير مقيّمة', outbound:'ذهاب', return:'عودة', beta:'تجريبي', review:'تحقق مطلوب',
+    qualityHigh:'مرتفعة', qualityMedium:'متوسطة', qualityLimited:'محدودة', qualityUnassessed:'غير مقيّمة', outbound:'ذهاب', return:'عودة', departure:'المغادرة', arrival:'الوصول', beta:'تجريبي', review:'تحقق مطلوب',
     duration:'المدة المتاحة', required:'المدة الدنيا', remaining:'الوقت المتبقي', inProgress:'قيد التنفيذ', fullDurationUnavailable:'لم يعد من الممكن إكمال مدة الخروج العائلية كاملة', showOnMap:'عرض المسار على الخريطة', modelsAgree:'نماذج الطقس متوافقة', transit:'مدة العبور', assumedSpeed:'السرعة المفترضة', timeOnZone:'الوقت المستهدف في المنطقة', localDeparture:'خروج محلي من الميناء', conditionsMenu:'الظروف الجوية', activitiesMenu:'الأنشطة المقترحة', familyMenu:'الانتقال إلى وضع العائلة',
   } : lang() === 'en' ? {
     enter:'Simple View', exit:'Family View', decision:'Decision', possible:'OUTING POSSIBLE',
@@ -62,7 +62,7 @@
     travelOnly:'Long-distance navigation slot available', travelOnlyDetail:'This is a long-distance navigation window, not a local family-outing approval.',
     staleTitle:'Stale data — do not depart on this basis', noDataTitle:'Navigation data unavailable',
     windows:'Navigation windows', viewWindows:'View windows', horizon:'72-hour horizon', offHoursSlot:'Out of hours', longTripSlot:'Long trip',
-    qualityHigh:'High', qualityMedium:'Medium', qualityLimited:'Limited', qualityUnassessed:'Not assessed', outbound:'Outbound', return:'Return', beta:'Beta', review:'Review required',
+    qualityHigh:'High', qualityMedium:'Medium', qualityLimited:'Limited', qualityUnassessed:'Not assessed', outbound:'Outbound', return:'Return', departure:'Departure', arrival:'Arrival', beta:'Beta', review:'Review required',
     duration:'Available duration', required:'Minimum duration', remaining:'Time remaining', inProgress:'In progress', fullDurationUnavailable:'The complete family-outing duration can no longer be completed', showOnMap:'Show route on map', modelsAgree:'weather models agree', transit:'Transit time', assumedSpeed:'Assumed speed', timeOnZone:'Target time on zone', localDeparture:'Local departure from port', conditionsMenu:'Weather conditions', activitiesMenu:'Suggested activities', familyMenu:'Switch to Family View',
   } : {
     enter:'Vue Simple', exit:'Vue Famille', decision:'Décision', possible:'SORTIE POSSIBLE',
@@ -82,7 +82,7 @@
     travelOnly:'Créneau de navigation longue distance', travelOnlyDetail:'Ce créneau concerne une navigation longue distance, pas une validation de sortie familiale locale.',
     staleTitle:'Données périmées — ne pas partir sur cette base', noDataTitle:'Données de navigation indisponibles',
     windows:'Fenêtres de navigation', viewWindows:'Voir les fenêtres', horizon:'Horizon 72 h', offHoursSlot:'Hors horaires', longTripSlot:'Long trajet',
-    qualityHigh:'Élevée', qualityMedium:'Moyenne', qualityLimited:'Limitée', qualityUnassessed:'Non évaluée', outbound:'Aller', return:'Retour', beta:'Bêta', review:'Vérification requise',
+    qualityHigh:'Élevée', qualityMedium:'Moyenne', qualityLimited:'Limitée', qualityUnassessed:'Non évaluée', outbound:'Aller', return:'Retour', departure:'Départ', arrival:'Arrivée', beta:'Bêta', review:'Vérification requise',
     duration:'Durée disponible', required:'Durée minimale', remaining:'Temps restant', inProgress:'En cours', fullDurationUnavailable:'La durée familiale complète n’est plus réalisable', showOnMap:'Voir le trajet sur la carte', modelsAgree:'modèles météo d’accord', transit:'Temps de trajet', assumedSpeed:'Hyp. vitesse', timeOnZone:'Fenêtre cible sur zone', localDeparture:'Sortie locale depuis le port', conditionsMenu:'Conditions météo', activitiesMenu:'Activités conseillées', familyMenu:'Passer en Vue Famille',
   };
 
@@ -434,11 +434,13 @@
       const confidenceDetails = item.confidence_details || destination.confidence_details || {};
       const modelCount = Number(confidenceDetails.min_wind_models_per_hour || 0);
       const modelAgreement = Number.isFinite(modelCount) && modelCount > 0 ? `<small class="simple-window-models">✓ ${Math.round(modelCount)} ${esc(c.modelsAgree)}</small>` : '';
-      const route = window.FABLEMapUI?.describe?.(destination.dest_slug) || null;
+      const route = window.FABLEMapUI?.describeWindowRoute?.({
+        file:destination.dest_slug,originFile:item.origin_slug || '',destinationFile:item.destination_slug || '',oneWay:longTrip,
+      }) || window.FABLEMapUI?.describe?.(destination.dest_slug) || null;
       const routeDetails = route?.local
         ? `<div class="simple-window-route"><div class="simple-window-route-row"><span aria-hidden="true">⚓</span><strong>${esc(c.localDeparture)} · ${esc(route.label)}</strong></div></div>`
         : route
-          ? `<div class="simple-window-route"><div class="simple-window-route-row"><span aria-hidden="true">⛵</span><strong>${esc(route.transit_label)} · ${esc(route.label)}<small>${esc(`${route.distance_km.toFixed(1)} km · ${route.distance_nm.toFixed(1)} NM`)}</small></strong></div><div class="simple-window-route-row"><span aria-hidden="true">🧭</span><strong>${esc(c.assumedSpeed)} · ${esc(route.speed_label)}</strong></div><div class="simple-window-route-row"><span aria-hidden="true">⚓</span><strong>${esc(route.anchor_label)} · ${esc(c.timeOnZone)}</strong></div><div class="simple-window-route-meta"><span>${esc(c.duration)} ${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}</span><span>${esc(c.required)} ${esc(requiredLabel)}</span></div><div class="simple-window-route-winds" data-simple-route-winds="${index}" aria-live="polite"><div class="simple-window-route-row"><span aria-hidden="true">●</span><strong>${esc(c.outbound)}<small data-simple-wind="outbound">…</small></strong></div>${route.requires_return ? `<div class="simple-window-route-row"><span aria-hidden="true">●</span><strong>${esc(c.return)}<small data-simple-wind="return">…</small></strong></div>` : ''}</div></div>`
+          ? `<div class="simple-window-route"><div class="simple-window-route-row"><span aria-hidden="true">⛵</span><strong>${esc(route.transit_label)} · ${esc(route.label)}<small>${esc(`${route.distance_km.toFixed(1)} km · ${route.distance_nm.toFixed(1)} NM`)}</small></strong></div><div class="simple-window-route-row"><span aria-hidden="true">🧭</span><strong>${esc(c.assumedSpeed)} · ${esc(route.speed_label)}</strong></div>${route.one_way ? '' : `<div class="simple-window-route-row"><span aria-hidden="true">⚓</span><strong>${esc(route.anchor_label)} · ${esc(c.timeOnZone)}</strong></div>`}<div class="simple-window-route-meta"><span>${esc(c.duration)} ${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}</span><span>${esc(c.required)} ${esc(requiredLabel)}</span></div><div class="simple-window-route-winds" data-simple-route-winds="${index}" aria-live="polite"><div class="simple-window-route-row"><span aria-hidden="true">●</span><strong>${esc(route.one_way ? c.departure : c.outbound)}<small data-simple-wind="${route.one_way ? 'departure' : 'outbound'}">…</small></strong></div>${route.one_way ? `<div class="simple-window-route-row"><span aria-hidden="true">●</span><strong>${esc(c.arrival)}<small data-simple-wind="arrival">…</small></strong></div>` : route.requires_return ? `<div class="simple-window-route-row"><span aria-hidden="true">●</span><strong>${esc(c.return)}<small data-simple-wind="return">…</small></strong></div>` : ''}</div></div>`
           : '';
       const status = late ? `<small class="simple-window-status">${esc(c.remaining)} : ${esc(remainingLabel)} · ${esc(c.fullDurationUnavailable)} (${esc(requiredLabel)})</small>` : '';
       const warning = late ? `<p class="simple-window-warning">⚠️ ${esc(c.fullDurationUnavailable)} : ${esc(c.required)} ${esc(requiredLabel)}.</p>` : '';
@@ -453,12 +455,19 @@
     if (!host || !item || !file || host.dataset.loaded === '1') return;
     host.dataset.loaded = '1';
     try {
-      const summary = await window.FABLEMapUI?.describeWindow?.({file, start:item.start, end:item.end});
+      const oneWay = item.same_day_round_trip_required === false || item.trip_mode === 'one_way_multi_day';
+      const summary = await window.FABLEMapUI?.describeWindow?.({
+        file,start:item.start,end:item.end,originFile:item.origin_slug || '',destinationFile:item.destination_slug || '',oneWay,
+      });
       if (!host.isConnected || !summary) return;
       const outbound = host.querySelector('[data-simple-wind="outbound"]');
       const inbound = host.querySelector('[data-simple-wind="return"]');
+      const departure = host.querySelector('[data-simple-wind="departure"]');
+      const arrival = host.querySelector('[data-simple-wind="arrival"]');
       if (outbound) outbound.textContent = summary.outbound_wind || '—';
       if (inbound) inbound.textContent = summary.return_wind || '—';
+      if (departure) departure.textContent = summary.departure_wind || '—';
+      if (arrival) arrival.textContent = summary.arrival_wind || '—';
     } catch {
       host.querySelectorAll('[data-simple-wind]').forEach((node) => { node.textContent = '—'; });
     }

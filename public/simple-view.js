@@ -11,6 +11,7 @@
     forecast: {},
     recommendations: {},
     activeDay: 0,
+    selectedWindow: null,
     loading: true,
     error: '',
     verdictModule: null,
@@ -425,6 +426,28 @@
     )).join('')}</ul>`;
   }
 
+  /* La section etait toujours calculee sur la meilleure fenetre du jour. Deplier
+     Ras Fartass laissait donc les activites sur Gammarth : la carte semblait
+     figee alors qu'elle repondait simplement a une autre question. */
+  function activityRow() {
+    const selected = state.selectedWindow;
+    if (selected) {
+      const match = displayRows(verdictForDay()).find((row) => (
+        (row.destination?.dest_slug || '') === selected.slug
+        && (row.windowItem?.start || '') === selected.start
+        && (row.windowItem?.end || '') === selected.end
+      ));
+      if (match) return match;
+    }
+    return bestForDisplayDay();
+  }
+
+  function refreshActivities() {
+    const section = document.getElementById('simple-activities');
+    if (!section) return;
+    section.outerHTML = renderActivities(activityRow());
+  }
+
   function renderActivities(best) {
     const c = copy();
     /* La section exigeait une fenetre de categorie `family` des deux cotes.
@@ -631,7 +654,7 @@
       </section>
       <section class="simple-metrics" aria-label="${esc(c.details)}"><div class="simple-metric"><span>◎ ${esc(c.forecastQuality)}</span><strong>${esc(quality.label)}</strong></div><div class="simple-metric"><span>▦ ${esc(c.options)}</span><strong>${result?.state === 'WATCH' ? result?.counts?.watch || 0 : result?.counts?.family || 0}</strong></div><div class="simple-metric"><span>● ${esc(c.updated)}</span><strong>${esc(freshness(generatedAt))}</strong></div></section>
       ${renderTimeline(result?.rows || [], result?.counts || {})}
-      ${renderNavigation(result)}${renderConditions(contextRow)}${renderActivities(best)}
+      ${renderNavigation(result)}${renderConditions(contextRow)}${renderActivities(activityRow())}
       </div>
       </div>
     </div><div id="simple-more-menu" class="simple-more-menu" hidden><button class="simple-more-action" data-simple-action="conditions" type="button">〽️ ${esc(c.conditionsMenu)}</button><button class="simple-more-action" data-simple-action="activities" type="button">🌊 ${esc(c.activitiesMenu)}</button><button class="simple-more-action" data-simple-action="family" type="button">👨‍👩‍👧 ${esc(c.familyMenu)}</button></div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="more" type="button" aria-expanded="false" aria-controls="simple-more-menu"><span>•••</span>${esc(c.more)}</button></nav>`;
@@ -736,13 +759,25 @@
           view.querySelectorAll('.simple-window-details').forEach((item) => { item.hidden = true; });
           view.querySelectorAll('[data-simple-action="window-details"]').forEach((item) => item.setAttribute('aria-expanded', 'false'));
           view.querySelectorAll('.simple-window-item').forEach((item) => item.classList.remove('expanded'));
+          state.selectedWindow = null;
           if (panel && opening) {
             panel.hidden = false;
             button.setAttribute('aria-expanded', 'true');
             button.closest('.simple-window-item')?.classList.add('expanded');
             const index = Number(button.dataset.simpleWindowIndex);
-            await hydrateWindowRoute(index, displayRows(verdictForDay())?.[index] || null);
+            const row = displayRows(verdictForDay())?.[index] || null;
+            if (row) {
+              state.selectedWindow = {
+                slug: row.destination?.dest_slug || '',
+                start: row.windowItem?.start || '',
+                end: row.windowItem?.end || '',
+              };
+            }
+            await hydrateWindowRoute(index, row);
           }
+          // La section activites suit la selection sans repeindre la vue, ce
+          // qui refermerait le panneau qu'on vient d'ouvrir.
+          refreshActivities();
         }
         if (action === 'more') {
           const menu = document.getElementById('simple-more-menu');
@@ -778,6 +813,7 @@
         const day = dayButton?.dataset.simpleDay;
         if (day !== undefined) {
           state.activeDay = Number(day);
+          state.selectedWindow = null;
           const selectedKey = dayKey(state.activeDay);
           localStorage.setItem('fable_selected_day', selectedKey);
           window.FABLEDaySelection?.setSelectedDay?.(selectedKey, {persist:true, announce:true});
@@ -826,6 +862,7 @@
       const offset = selectedDayOffset(event.detail?.dateKey || '');
       if (offset === state.activeDay) return;
       state.activeDay = offset;
+      state.selectedWindow = null;
       state.loading = true;
       render();
       loadForecast(bestForDisplayDay()).finally(() => { state.loading = false; render(); });

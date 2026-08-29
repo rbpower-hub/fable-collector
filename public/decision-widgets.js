@@ -6,17 +6,17 @@
 
   const COPY = {
     fr: {
-      duration:'Durée famille continue', wind:'Vent soutenu max', gust:'Rafales max',
+      duration:'Durée famille continue', wind:'Vent soutenu max', gust:'Rafales max', onshore:'Secteur onshore',
       wave:'Houle Hs max', visibility:'Visibilité min', ok:'OK', exceeded:'DÉPASSÉ',
       insufficient:'INSUFFISANT', unavailable:'Détail des contrôles indisponible.',
     },
     en: {
-      duration:'Continuous family duration', wind:'Maximum sustained wind', gust:'Maximum gusts',
+      duration:'Continuous family duration', wind:'Maximum sustained wind', gust:'Maximum gusts', onshore:'Onshore sector',
       wave:'Maximum wave Hs', visibility:'Minimum visibility', ok:'OK', exceeded:'EXCEEDED',
       insufficient:'INSUFFICIENT', unavailable:'Check details unavailable.',
     },
     ar: {
-      duration:'مدة الخروج العائلي المتواصلة', wind:'أقصى رياح مستمرة', gust:'أقصى هبات',
+      duration:'مدة الخروج العائلي المتواصلة', wind:'أقصى رياح مستمرة', gust:'أقصى هبات', onshore:'قطاع الرياح نحو الساحل',
       wave:'أقصى ارتفاع للموج', visibility:'أدنى مدى للرؤية', ok:'مناسب', exceeded:'تجاوز',
       insufficient:'غير كافٍ', unavailable:'تفاصيل الفحوصات غير متاحة.',
     },
@@ -36,6 +36,7 @@
     return {
       duration: pick(rules.family?.window_hours?.min, rules.window_hours?.min, 4),
       wind: pick(family.wind?.family_max_kmh, rules.wind?.family_max_kmh, 22),
+      onshore: pick(family.wind?.onshore_downgrade_kmh, family.wind?.onshore_degrade_kmh, rules.wind?.onshore_degrade_kmh, 22),
       gust: pick(family.gusts?.no_go_min_kmh, rules.overrides?.gusts_hard_nogo_kmh, 30),
       wave: pick(family.waves?.hs_family_max_m, rules.sea?.family_max_hs_m, 0.5),
       visibility: pick(family.visibility_km_min, rules.overrides?.visibility_km_min, 5),
@@ -77,10 +78,13 @@
       blocker.stage === 'duration' ? 0 : null,
     );
     pushMin('duration', copy.duration, validated, pick(destination.required_hours, limits.duration), 'h');
-    pushMax('gust', copy.gust, metric(metrics, 'gust_kmh', 'max_gust_kmh'), limits.gust, 'km/h', 1);
-    pushMax('wind', copy.wind, metric(metrics, 'wind_kmh', 'max_wind_kmh'), limits.wind, 'km/h', 1);
-    pushMax('wave', copy.wave, metric(metrics, 'hs_m', 'max_hs_m'), limits.wave, 'm', 2);
-    let visibility = metric(metrics, 'visibility_km', 'min_visibility_km', 'visibility');
+    const gust = metric(metrics, 'gust_kmh', 'max_gust_kmh', 'max_gust');
+    const wind = metric(metrics, 'wind_kmh', 'max_wind_kmh', 'max_speed');
+    pushMax('gust', copy.gust, gust, limits.gust, 'km/h', 1);
+    if (metrics.any_onshore === true) pushMax('onshore', copy.onshore, wind, limits.onshore, 'km/h', 1);
+    pushMax('wind', copy.wind, wind, limits.wind, 'km/h', 1);
+    pushMax('wave', copy.wave, metric(metrics, 'hs_m', 'max_hs_m', 'hs'), limits.wave, 'm', 2);
+    let visibility = metric(metrics, 'visibility_km', 'min_visibility_km', 'visibility', 'min_vis');
     if (visibility !== null && visibility > 100) visibility /= 1000;
     pushMin('visibility', copy.visibility, visibility, limits.visibility, 'km', 1);
     return result;

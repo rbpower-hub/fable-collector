@@ -89,9 +89,11 @@
     .conditions .line.bad{border-left-color:var(--bad);background:color-mix(in srgb,var(--bad) 6%,var(--pill-bg))}
     .conditions .reason-status{grid-column:1;display:inline-flex;align-items:center;align-self:start;padding:4px 7px;border:1px solid color-mix(in srgb,var(--warn) 58%,var(--br));border-radius:999px;color:var(--warn);font-size:.75rem;font-weight:900;white-space:nowrap}.conditions .line.bad .reason-status{border-color:color-mix(in srgb,var(--bad) 58%,var(--br));color:var(--bad)}
     .conditions .reason-content{grid-column:2;min-width:0}.conditions .reason{font-size:.92rem;font-weight:850;line-height:1.4}.conditions .small{margin-top:5px;color:var(--muted);font-size:.8rem;line-height:1.4}.conditions .reason-count{color:var(--muted);font-size:.78rem;font-weight:750}
-    .decision-checks{grid-column:1/-1;display:grid;gap:9px;margin-top:3px}.decision-check{--check-color:var(--bad)}.decision-check.ok{--check-color:var(--ok)}
-    .decision-check-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:9px;font-size:.76rem;line-height:1.3}.decision-check-head>span{color:var(--muted)}.decision-check-head>strong{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--fg);font-size:.79rem}.decision-check-head>b{padding:3px 6px;border-radius:6px;background:color-mix(in srgb,var(--check-color) 15%,transparent);color:var(--check-color);font-size:.61rem;letter-spacing:.025em}
-    .decision-check-track{height:4px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--muted) 18%,transparent)}.decision-check-track i{display:block;height:100%;border-radius:inherit;background:var(--check-color)}.decision-checks-empty{grid-column:1/-1;margin:3px 0;color:var(--muted);font-size:.78rem}
+    .decision-check-panel{margin-bottom:11px;padding:12px;border:1px solid var(--br);border-radius:13px;background:color-mix(in srgb,var(--card) 68%,var(--pill-bg))}.decision-check-panel-title{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;color:var(--muted);font-size:.74rem;font-weight:800}.decision-check-panel-title strong{color:var(--fg);font-size:.8rem}
+    .decision-checks{grid-column:1/-1;display:grid;gap:12px;margin-top:3px}.decision-check{--check-color:var(--bad)}.decision-check.ok{--check-color:var(--ok)}
+    .decision-check-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:9px;font-size:.82rem;line-height:1.35}.decision-check-head>span{color:var(--muted)}.decision-check-head>strong{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--fg);font-size:.86rem}.decision-check-head>b{padding:4px 7px;border-radius:7px;background:color-mix(in srgb,var(--check-color) 15%,transparent);color:var(--check-color);font-size:.65rem;letter-spacing:.025em}
+    .decision-check-track{height:6px;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--muted) 18%,transparent)}.decision-check-track i{display:block;height:100%;border-radius:inherit;background:var(--check-color)}.decision-checks-empty{grid-column:1/-1;margin:3px 0;color:var(--muted);font-size:.78rem}
+    @media(max-width:520px){.decision-check-head{grid-template-columns:minmax(0,1fr) auto;font-size:.76rem}.decision-check-head>b{grid-column:2}.decision-check-head>strong{font-size:.79rem}}
 
     .table-wrap{overflow:auto;border:1px solid var(--br);border-radius:14px}
     table{width:100%; border-collapse:collapse}
@@ -124,8 +126,10 @@
     .marker-pulse{position:relative;display:grid;width:22px;height:22px;place-items:center;color:var(--accent)}
     .marker-pulse:after{content:"";border-radius:50%;height:40px;width:40px;position:absolute;left:50%;top:50%;margin:-20px 0 0 -20px;animation:pulsate 1.5s ease-out infinite;opacity:0;box-shadow:0 0 1px 2px currentColor;border:3px solid color-mix(in srgb,currentColor 42%,transparent);pointer-events:none}
     @keyframes pulsate{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.2);opacity:0}}
-    .main-port-icon .marker-pulse:after{animation-name:pulsate-main; animation-duration:1.2s; box-shadow:0 0 2px 3px var(--accent); border:3px solid rgba(76,201,240,0.5)}
-    @keyframes pulsate-main{0%{transform:scale(.1);opacity:0}50%{opacity:1}100%{transform:scale(1.5);opacity:0}}
+    .main-port-icon .marker-pulse:after{animation-name:pulsate-shelter;animation-duration:1.35s;box-shadow:0 0 3px 4px var(--accent);border:3px solid rgba(76,201,240,.62)}
+    .main-port-icon .marker-pulse:before{content:'⚓';position:absolute;left:50%;top:50%;z-index:2;display:grid;place-items:center;width:25px;height:25px;margin:-12.5px 0 0 -12.5px;border:2px solid #8fe8ff;border-radius:8px;background:#08131f;color:#8fe8ff;font-size:13px;line-height:1;box-shadow:0 0 0 4px rgba(76,201,240,.18),0 4px 12px #0009;animation:shelter-float 2.2s ease-in-out infinite}.main-port-icon .map-spot-dot{visibility:hidden}
+    @keyframes pulsate-shelter{0%{transform:scale(.25);opacity:.15}60%{opacity:.8}100%{transform:scale(1.65);opacity:0}}
+    @keyframes shelter-float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-2px) rotate(2deg)}}
 
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace}
     .small{font-size:.92rem;color:var(--muted)}
@@ -231,7 +235,7 @@
     .map-destinations{display:flex;gap:6px;padding:0 14px 11px;overflow-x:auto;scrollbar-width:none}.map-destinations::-webkit-scrollbar{display:none}.map-destination{--spot-color:#6d829b;min-height:42px;flex:0 0 auto;padding:7px 11px;border:1px solid var(--map-line);border-radius:10px;background:var(--map-surface-2);color:var(--map-muted);font:inherit;font-size:.75rem;font-weight:800;white-space:nowrap;cursor:pointer}.map-destination::before{content:'';display:inline-block;width:7px;height:7px;margin-inline-end:7px;border-radius:50%;background:var(--spot-color)}.map-destination.go{--spot-color:#0ca30c}.map-destination.watch{--spot-color:#fab219}.map-destination.blocked{--spot-color:#d03b3b}.map-destination[aria-pressed="true"]{border-color:rgba(53,193,232,.7);background:rgba(53,193,232,.16);color:#58d5f5;box-shadow:inset 0 0 0 1px rgba(53,193,232,.25)}
     .map-stage{position:relative;background:#08131f}#map{height:var(--map-h);min-height:300px;margin:0;border:0;border-radius:0;background:#08131f;z-index:0}.map-stage .leaflet-tile-pane{filter:invert(1) hue-rotate(185deg) brightness(.72) saturate(.55) contrast(1.05)}.map-stage .leaflet-control-attribution{background:rgba(8,19,31,.78)!important;color:#6d829b!important;font-size:9px}.map-stage .leaflet-control-attribution a{color:#9db1c8!important}.map-stage .leaflet-control-zoom{border:1px solid var(--map-line)!important;border-radius:10px!important;overflow:hidden}.map-stage .leaflet-control-zoom a{width:44px;height:44px;line-height:44px;border-color:var(--map-line)!important;background:var(--map-surface)!important;color:var(--map-ink)!important}
     .map-toolbar{position:absolute;z-index:500;left:12px;right:12px;bottom:12px;display:flex;pointer-events:none}.map-toolbar .chip{width:100%;padding:9px 11px;border:1px solid var(--map-line);border-radius:12px;background:rgba(8,19,31,.92);color:var(--map-muted);font-size:.76rem;line-height:1.4;box-shadow:0 6px 18px #0006;backdrop-filter:blur(8px)}.map-toolbar .chip strong{color:var(--map-ink)}
-    .map-legend{display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 14px;color:var(--map-muted);font-size:.68rem}.map-legend span::before{content:'';display:inline-block;width:8px;height:8px;margin-inline-end:6px;border-radius:50%;background:#6d829b}.map-legend .home::before,.map-legend .corridor::before{background:#35c1e8}.map-legend .corridor::before{width:17px;height:2px;border-radius:2px;vertical-align:middle}.map-legend .go::before{background:#0ca30c}.map-legend .watch::before{background:#fab219}.map-legend .blocked::before{background:#d03b3b}
+    .map-legend{display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 14px;color:var(--map-muted);font-size:.68rem}.map-legend span::before{content:'';display:inline-block;width:8px;height:8px;margin-inline-end:6px;border-radius:50%;background:#6d829b}.map-legend .home::before,.map-legend .corridor::before{background:#35c1e8}.map-legend .corridor::before,.map-legend .onshore::before{width:17px;height:2px;border-radius:2px;vertical-align:middle}.map-legend .onshore::before{background:#fab219}.map-legend .go::before{background:#0ca30c}.map-legend .watch::before{background:#fab219}.map-legend .blocked::before{background:#d03b3b}
     body.simple-board-mode.simple-map-open #simple-view{display:none!important}body.simple-board-mode.simple-map-open #dashboard-content{display:block!important}body.simple-board-mode.simple-map-open #dashboard-content>.layout-grid,body.simple-board-mode.simple-map-open #fable-activities,body.simple-board-mode.simple-map-open #port-knowledge-card{display:none!important}body.simple-board-mode.simple-map-open #map-card{display:block!important;max-width:760px;margin:0 auto 18px}body.simple-board-mode.simple-map-open .simple-map-back{display:grid!important}
     @media(max-width:600px){.map-card{margin-inline:-2px;border-radius:14px}.map-card-head{padding:11px 11px 8px}.map-destinations{padding:0 11px 9px}.map-destination{min-height:44px}.map-toolbar{left:8px;right:8px;bottom:8px}.map-toolbar .chip{padding:8px 9px;font-size:.7rem}.map-legend{padding:9px 11px}#map{min-height:330px}}
 
@@ -340,7 +344,7 @@
       <div id="map" aria-label="Carte des spots"></div>
       <div class="map-toolbar"><div id="mapSummary" class="chip">⚓ <strong>Carte</strong> · corridor prêt</div></div>
     </div>
-    <div class="map-legend" aria-label="Légende"><span class="home">Port de départ</span><span class="corridor">Corridor</span><span class="go">Fenêtre GO</span><span class="watch">À surveiller</span><span class="blocked">Bloqué</span></div>
+    <div class="map-legend" aria-label="Légende"><span class="home">Bateau abrité · Gammarth</span><span class="corridor">Corridor</span><span class="onshore">Secteur onshore</span><span class="go">Fenêtre GO</span><span class="watch">À surveiller</span><span class="blocked">Bloqué</span></div>
   </section>
 
   <div class="layout-grid threecol">
@@ -385,8 +389,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
-<script src="./decision-widgets.js?v=20260828-mobile-inspired-v1"></script>
-<script src="./simple-view.js?v=20260829-map-first-open-v1" defer></script>
+<script src="./decision-widgets.js?v=20260829-expert-nogo-v1"></script>
+<script src="./simple-view.js?v=20260829-selected-port-v1" defer></script>
 
 <script>
 (async function main() {
@@ -468,6 +472,14 @@
     const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     return dirs[Math.round(((d%360)+360)%360/22.5)%16];
   }
+  function windDescription(value){
+    if(!value || (value.spd==null && value.dir==null)) return '—';
+    const arrows = {N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'};
+    const cardinal = value.dir!=null ? degToCardinal(value.dir) : '';
+    const speed = value.spd!=null ? `${Math.round(value.spd)} km/h` : '';
+    const bearing = value.dir!=null ? `${Math.round(value.dir)}°` : '';
+    return [speed, bearing, cardinal ? `(${arrows[cardinal] || '•'} ${cardinal})` : ''].filter(Boolean).join(' ');
+  }
   // petite haversine
   const R_EARTH = 6371, KM_PER_NM = 1.852;
   const toRad = d=>d*Math.PI/180;
@@ -508,6 +520,44 @@
     }
     const last = points[points.length-1];
     return [last.lat, lonOf(last)];
+  }
+  function onshoreWedges(site){
+    const center = [Number(site?.lat), Number(site?.lon)];
+    const sectors = Array.isArray(site?.onshore_sectors) ? site.onshore_sectors : [];
+    if(!center.every(Number.isFinite) || !sectors.length) return [];
+    const radiusKm = 3;
+    return sectors.map(sector=>{
+      const start = Number(sector?.[0]), end = Number(sector?.[1]);
+      if(!Number.isFinite(start) || !Number.isFinite(end)) return null;
+      const span = ((end - start) + 360) % 360 || 360;
+      const points = [center];
+      const steps = Math.max(4, Math.round(span / 10));
+      for(let i=0; i<=steps; i+=1){
+        const angle = (start + span * i / steps) * Math.PI / 180;
+        points.push([
+          center[0] + (radiusKm / 111) * Math.cos(angle),
+          center[1] + (radiusKm / (111 * Math.cos(center[0] * Math.PI / 180))) * Math.sin(angle),
+        ]);
+      }
+      return points;
+    }).filter(Boolean);
+  }
+  function renderOnshoreSector(site){
+    onshoreLayer.clearLayers();
+    const bounds = [];
+    onshoreWedges(site).forEach(points=>{
+      bounds.push(...points);
+      L.polygon(points,{
+        color:'#fab219',weight:2,opacity:.9,dashArray:'5,5',
+        fillColor:'#fab219',fillOpacity:.09,interactive:false,
+      }).addTo(onshoreLayer);
+    });
+    return bounds.length ? L.latLngBounds(bounds) : null;
+  }
+  function routeAndSectorBounds(routeBounds, sectorBounds){
+    const combined = L.latLngBounds(routeBounds.getSouthWest(), routeBounds.getNorthEast());
+    if(sectorBounds?.isValid()) combined.extend(sectorBounds);
+    return combined;
   }
   
   // ⛵ animate from A→B or B→A; returns a Promise (finishes ~1.3s = 30% slower)
@@ -720,6 +770,33 @@
       label: portNames.join(' → '),
     };
   }
+  function routePlanForWindow(file, item={}){
+    const base = routePlanForFile(file);
+    const oneWay = item?.same_day_round_trip_required === false || item?.trip_mode === 'one_way_multi_day';
+    const originFile = item?.origin_slug || '';
+    const destinationFile = item?.destination_slug || '';
+    if(!base || !oneWay || !originFile || !destinationFile) return base;
+    const segment = base.segments.find(candidate=>(
+      (candidate.originFile === originFile && candidate.destFile === destinationFile) ||
+      (candidate.originFile === destinationFile && candidate.destFile === originFile)
+    ));
+    if(!segment) return base;
+    const forward = segment.originFile === originFile;
+    const points = (forward ? segment.points : [...segment.points].reverse()).map(point=>({...point}));
+    const distanceKm = pathDistanceKm(points);
+    const owner = spotConfig[file] || spotConfig[destinationFile] || spotConfig[originFile];
+    return {
+      ...base,
+      points,
+      segments:[{...segment,originFile,destFile:destinationFile,points}],
+      distance_km:distanceKm,
+      transit:routeTransitHoursForDistance(distanceKm, owner?.transit_speed_kts),
+      port_names:[spotConfig[originFile]?.name,spotConfig[destinationFile]?.name].filter(Boolean),
+      stopover_names:[],waypoint_names:points.slice(1,-1).map(point=>point.name).filter(Boolean),
+      label:`${spotConfig[originFile]?.name || originFile} → ${spotConfig[destinationFile]?.name || destinationFile}`,
+      one_way:true,origin_file:originFile,destination_file:destinationFile,
+    };
+  }
   function routeMetaSummary(plan){
     const copy = mapCopy();
     const bits = [];
@@ -900,9 +977,11 @@
     if(file === homeFile){
       resetMapSummary();
       const home = spotConfig[homeFile];
+      renderOnshoreSector(home);
       map.setView([home.lat, home.lon], 14, {animate:true});
       return true;
     }
+    const sectorBounds = renderOnshoreSector(spotConfig[plan.segments[0]?.originFile || homeFile]);
     const accentToken = isBetaRoute(file) ? '--warn' : '--accent';
     const color = getComputedStyle(document.documentElement).getPropertyValue(accentToken).trim() || '#4cc9f0';
     const lineAB = L.polyline(plan.points.map(point => [point.lat, point.lon]),{
@@ -941,7 +1020,7 @@
       }),
       interactive:false
     }).addTo(corridorLayer);
-    map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
+    map.fitBounds(routeAndSectorBounds(lineAB.getBounds(), sectorBounds), {padding:[30,30]});
     return true;
   }
   function describeRoute(file){
@@ -959,6 +1038,32 @@
       speed_label:formatSpeedSpan(plan.transit.speed_kts),
       anchor_label:corridorLegLabel('anchor'),
       requires_return:corridorRequiresReturn(),
+    };
+  }
+  function describeWindowRoute({file, originFile='', destinationFile='', oneWay=false}={}){
+    const plan = oneWay ? routePlanForWindow(file,{trip_mode:'one_way_multi_day',same_day_round_trip_required:false,origin_slug:originFile,destination_slug:destinationFile}) : null;
+    if(!plan || !oneWay) return describeRoute(file);
+    return {
+      local:false,label:plan.label,distance_km:plan.distance_km,distance_nm:plan.distance_km / KM_PER_NM,
+      transit_label:formatDurationSpan(plan.transit),speed_label:formatSpeedSpan(plan.transit.speed_kts),
+      anchor_label:'',requires_return:false,one_way:true,origin_file:originFile,destination_file:destinationFile,
+    };
+  }
+  async function describeWindow({file, start='', end='', returnFile='', originFile='', destinationFile='', oneWay=false}={}){
+    const route = describeWindowRoute({file,originFile,destinationFile,oneWay});
+    if(!route || route.local) return route;
+    if(oneWay){
+      const departure = start && originFile ? await windAt(originFile,start) : null;
+      const arrival = end && destinationFile ? await windAt(destinationFile,end) : null;
+      return {...route,departure_wind:windDescription(departure),arrival_wind:windDescription(arrival)};
+    }
+    const outbound = start ? await windAt(file, start) : null;
+    const inboundFile = returnFile && spotConfig[returnFile] ? returnFile : homeFile;
+    const inbound = route.requires_return && end ? await windAt(inboundFile, end) : null;
+    return {
+      ...route,
+      outbound_wind:windDescription(outbound),
+      return_wind:route.requires_return ? windDescription(inbound) : '',
     };
   }
   function applySitesNormalized(data){
@@ -1042,6 +1147,7 @@
   L.control.zoom({position:'topleft'}).addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',noWrap:true,maxZoom:18}).addTo(map);
   const corridorLayer = L.layerGroup().addTo(map);
+  const onshoreLayer  = L.layerGroup().addTo(map);
   const spotsLayer    = L.layerGroup().addTo(map);
   let scheduledMapAction = 0;
   function afterMapLayout(action){
@@ -1057,6 +1163,7 @@
     corridorRenderToken += 1;
     setActiveMapFile('');
     corridorLayer.clearLayers();
+    onshoreLayer.clearLayers();
     resetMapSummary();
     const points = currentSpotLatLngs();
     if(!points.length){
@@ -1171,6 +1278,8 @@
       });
     },
     describe(file){ return describeRoute(file); },
+    describeWindowRoute(options){ return describeWindowRoute(options); },
+    describeWindow(options){ return describeWindow(options); },
     invalidate(){ window.setTimeout(()=>map.invalidateSize({pan:false}),60); },
   };
   window.dispatchEvent(new CustomEvent('fable:map-ui-ready'));
@@ -1337,6 +1446,7 @@
        ────────────────────────────────────────────────────────── */
     corridorRenderToken += 1;
     corridorLayer.clearLayers();
+    onshoreLayer.clearLayers();
     
     // Binder une seule fois le handler sur #wins
     if (!winsDiv.dataset.corridorBound) {
@@ -1364,7 +1474,7 @@
       const originFile = homeFile;
       const origin = spotConfig[originFile];
       const dest   = spotConfig[slug];
-      const routePlan = routePlanForFile(slug);
+      const routePlan = routePlanForWindow(slug, record?.seg || {});
       if(!origin || !dest || !routePlan) return;
       const compositeView = compositeStepVisual(slug, record?.seg, routePlan);
       const transitProfile = routePlan.transit;
@@ -1372,9 +1482,11 @@
       const transitBackLabel = transitOutLabel;
       const transitSpeedLabel = formatSpeedSpan(transitProfile.speed_kts);
       const anchorLabel = corridorLegLabel('anchor');
-      const requiresReturn = corridorRequiresReturn();
+      const oneWay = record?.seg?.same_day_round_trip_required === false || record?.seg?.trip_mode === 'one_way_multi_day';
+      const requiresReturn = !oneWay && corridorRequiresReturn();
     
       corridorLayer.clearLayers();
+      const sectorBounds = renderOnshoreSector(spotConfig[routePlan.origin_file || originFile] || origin);
     
       // Clicking home: no corridor, just a local note
       if (slug === originFile) {
@@ -1411,21 +1523,11 @@
       const dkm = routePlan.distance_km;
       const dnm = dkm / KM_PER_NM;
       
-      const wGo  = await windAt(slug, start);      // wind at destination (start)
-      const returnFile = composite?.route_origin || originFile;
-      const wRet = requiresReturn ? await windAt(returnFile, end) : null;  // wind at port (end)
+      const legOriginFile = oneWay ? record?.seg?.origin_slug : slug;
+      const legDestinationFile = oneWay ? record?.seg?.destination_slug : (composite?.route_origin || originFile);
+      const wGo  = await windAt(legOriginFile || slug, start);
+      const wRet = (requiresReturn || oneWay) ? await windAt(legDestinationFile || originFile, end) : null;
       if(renderToken !== corridorRenderToken) return;
-      
-      const arrowFor = c => ({N:'↑',NNE:'↑',NE:'↗',ENE:'↗',E:'→',ESE:'↘',SE:'↘',SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'↙',W:'←',WNW:'↖',NW:'↖',NNW:'↑'})[c] || '•';
-      const windTxt = (o)=>{
-        if(!o || (o.spd==null && o.dir==null)) return '—';
-        const cardinal = o.dir!=null ? degToCardinal(o.dir) : null;
-        const arr  = cardinal ? arrowFor(cardinal) : '';
-        const deg  = o.dir!=null ? ` ${Math.round(o.dir)}°` : '';
-        const lab  = cardinal ? ` ${cardinal}` : '';
-        const spd  = o.spd!=null ? `${Math.round(o.spd)} km/h` : '';
-        return `${spd}${deg}${lab?` (${arr} ${lab})`:''}`.trim();
-      };
       
       // Rich summary inside the selected card (remove any previous)
       document.querySelectorAll('.tripline').forEach(n=>n.remove());
@@ -1443,9 +1545,11 @@
               ? `<div class="row">🧩 <span class="k">Composite</span> <span class="v">Transfert ${escapeHtml(fmtFriendly(composite.transfer_start))} · arrivée relai ${escapeHtml(fmtFriendly(composite.transfer_arrival_latest))} · attente ${escapeHtml(String(composite.staging_hours))} h</span></div>`
               : ''}
           <div class="row">⚓ <span class="k">${escapeHtml(anchorLabel)}</span> <span class="v">fenetre cible sur zone</span></div>
-          <div class="row">🟢 <span class="k">Aller</span> <span class="v">${windTxt(wGo)}</span></div>
-          ${requiresReturn
-            ? `<div class="row">🔵 <span class="k">Retour (${escapeHtml(transitBackLabel)})</span> <span class="v">${windTxt(wRet)}</span></div>`
+          <div class="row">🟢 <span class="k">${oneWay ? 'Départ' : 'Aller'}</span> <span class="v">${windDescription(wGo)}</span></div>
+          ${oneWay
+            ? `<div class="row">🔵 <span class="k">Arrivée</span> <span class="v">${windDescription(wRet)}</span></div>`
+            : requiresReturn
+            ? `<div class="row">🔵 <span class="k">Retour (${escapeHtml(transitBackLabel)})</span> <span class="v">${windDescription(wRet)}</span></div>`
             : `<div class="row">ℹ️ <span class="k">Retour</span> <span class="v">non requis par la règle active</span></div>`}
         </div>
       `);
@@ -1458,7 +1562,7 @@
         `${requiresReturn ? ` · ${escapeHtml(copy.ret)} ${escapeHtml(transitBackLabel)}` : ''}`
       );
       
-      map.fitBounds(lineAB.getBounds(), {padding:[30,30]});
+      map.fitBounds(routeAndSectorBounds(lineAB.getBounds(), sectorBounds), {padding:[30,30]});
       
       // ⛵ animate according to the active corridor rule
       await animateBoat(lineAB, { direction: 1, duration: 1300 });   // Aller
@@ -1511,6 +1615,24 @@
         return str.replace(/^\p{L}/u, ch => ch.toUpperCase());
       });
     if (Array.isArray(reasonsRows) && reasonsRows.length) {
+      const reasonFile = reason => /\(([^)]+\.json)\)\s*$/.exec(reason?.spot || '')?.[1] || null;
+      const primaryReason = reasonsRows.find(reason=>{
+        const file = reasonFile(reason);
+        const destination = file ? (winData?.windows || []).find(item=>item.dest_slug === file) : null;
+        const diagnostic = destination?.diagnostics || {};
+        const reasonText = String(reason?.family || '').trim();
+        return Boolean(file && diagnostic.status === 'blocked' && diagnostic.first_blocker && !/^[✓✅]/.test(reasonText));
+      });
+      const primaryFile = reasonFile(primaryReason);
+      const primaryDiagnostic = primaryFile
+        ? (winData?.windows || []).find(destination=>destination.dest_slug === primaryFile)
+        : null;
+      const primaryChecksHTML = primaryDiagnostic?.diagnostics
+        ? (window.FABLEDecisionWidgets?.checksHtml(primaryDiagnostic,rulesNormalized,LANG) || '')
+        : '';
+      const primaryChecksPanel = primaryChecksHTML
+        ? `<section class="decision-check-panel" aria-label="${escapeHtml(t('reasons_title'))}"><div class="decision-check-panel-title"><strong>${escapeHtml(primaryDiagnostic.dest_name || primaryFile || '')}</strong><span>${escapeHtml(t('reason_blocking'))} · seuils actifs</span></div>${primaryChecksHTML}</section>`
+        : '';
       const rowsHTML = reasonsRows.map(r=>{
       if (r?.composite) {
         const sev = r.composite.severity || 'warn';
@@ -1556,13 +1678,6 @@
       const m = /\(([^)]+\.json)\)\s*$/.exec(r.spot||'');
       const file = m ? m[1] : null;
       const flags = file ? spotFlags.get(file) : null;
-      const diagnosticDestination = file
-        ? (winData?.windows || []).find(destination=>destination.dest_slug === file)
-        : null;
-      const checksHTML = diagnosticDestination?.diagnostics
-        ? (window.FABLEDecisionWidgets?.checksHtml(diagnosticDestination,rulesNormalized,LANG) || '')
-        : '';
-      
       // severity + icon (check original raw)
       let sev = 'warn';
       if (/^[✗🚫]/.test(raw)) sev='bad';
@@ -1575,7 +1690,7 @@
       return `<div class="line ${sev}" title="${cleaned}${scope}${offNote}">
                 <span class="reason-status">${escapeHtml(sev === 'bad' ? t('reason_blocking') : t('reason_watch'))}</span>
                 <div class="reason-content"><div class="reason">${escapeHtml(`${main}${scope}${offNote}`)}</div>
-                <div class="small">${r.spot||''}</div></div>${checksHTML}
+                <div class="small">${r.spot||''}</div></div>
               </div>`;
 
       }).join('');
@@ -1584,7 +1699,7 @@
       const _tmp = document.createElement('div');
       _tmp.innerHTML = rowsHTML;
       _tmp.querySelectorAll('.line.ok').forEach(n=>n.remove());
-      reasonsDiv.innerHTML = _tmp.innerHTML;
+      reasonsDiv.innerHTML = `${primaryChecksPanel}${_tmp.innerHTML}`;
       const count = reasonsDiv.querySelectorAll('.line').length;
       $('#reasons-count').textContent = count ? t('reason_count', count) : '';
     } else {
@@ -1704,7 +1819,10 @@
       const text  = isMain
         ? t('principal_port')
         : (isBetaRoute(file) ? `${mapCopy().beta} · ${routeNote(file)}` : t(`go_popup.${st}`));
-      const marker = L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0}).addTo(spotsLayer).bindPopup(`<b>${s.name}</b><br>${text}`);
+      const marker = L.marker([s.lat,s.lon],{icon:createIcon(color,isMain),zIndexOffset:isMain?1000:0})
+        .addTo(spotsLayer)
+        .bindPopup(`<b>${s.name}</b><br>${isMain ? '⚓ Bateau abrité au port<br>' : ''}${text}`)
+        .bindTooltip(isMain ? `⚓ ${s.name} · bateau abrité` : s.name, {direction:'top',offset:[0,-8]});
       marker.on('click', ()=>{
         if (focusWindowForFile(file)) return;
         if (showRoutePreview(file)) return;

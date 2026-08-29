@@ -194,7 +194,7 @@ const routeCard = await page.evaluate(() => ({
   expertWindows:document.querySelectorAll('.window-line').length,
 }));
 routeCard.errors = errors;
-if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Temps de trajet.*Hyp. vitesse.*Fenêtre cible sur zone/is.test(routeCard.text || '')) throw new Error(`route card is incomplete: ${JSON.stringify(routeCard)}`);
+if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Hyp. vitesse.*Fenêtre cible sur zone.*Durée disponible.*Durée minimale.*Aller.*Retour/is.test(routeCard.text || '')) throw new Error(`route card is incomplete: ${JSON.stringify(routeCard)}`);
 await page.locator('.simple-window-item').nth(1).locator('[data-simple-action="map-window"]').click();
 await page.waitForSelector('body.simple-map-open #map-card', {state:'visible'});
 await page.waitForFunction(() => /Sidi Bou Saïd/i.test(document.getElementById('mapSummary')?.textContent || ''));
@@ -238,10 +238,12 @@ await page.waitForSelector('.simple-window-details:not([hidden])');
 const inlineWindow = await page.evaluate(() => ({
   simpleMode:document.body.classList.contains('simple-board-mode'),
   expanded:document.querySelector('.simple-window-card')?.getAttribute('aria-expanded'),
+  item:document.querySelector('.simple-window-item')?.textContent?.replace(/\s+/g,' ').trim(),
   details:document.querySelector('.simple-window-details')?.textContent?.replace(/\s+/g,' ').trim(),
 }));
 if (!inlineWindow.simpleMode || inlineWindow.expanded !== 'true') throw new Error(`window click left Simple View: ${JSON.stringify(inlineWindow)}`);
-if (!/Durée disponible.*Durée minimale.*Qualité des prévisions/is.test(inlineWindow.details || '')) throw new Error(`inline window details are incomplete: ${inlineWindow.details}`);
+if (!/Qualité des prévisions.*\d+\s*h/is.test(inlineWindow.item || '')) throw new Error(`compact window summary is incomplete: ${JSON.stringify(inlineWindow)}`);
+if (!/Sortie locale depuis le port.*Voir le trajet sur la carte/is.test(inlineWindow.details || '')) throw new Error(`inline window details are incomplete: ${JSON.stringify(inlineWindow)}`);
 await page.locator('[data-simple-action="more"]').click();
 await page.waitForSelector('#simple-more-menu:not([hidden])');
 const moreActions = await page.locator('#simple-more-menu .simple-more-action').count();

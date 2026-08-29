@@ -406,6 +406,7 @@
   /* L'entete annoncait le nombre brut de lignes (49) au-dessus d'une liste de
      cinq. On annonce ce que l'utilisateur peut reellement choisir. */
   function navigationNote(rows) {
+    const c = copy();
     const counts = window.FABLENavigationWindows?.navigationWindowCounts?.(rows);
     if (!counts) return String(rows.length);
     return counts.longTrip
@@ -510,7 +511,7 @@
       // trajets : il affichait 49 pour une journee a 4 sorties.
       const familyText = `${counts.family || 0} ${c.options}`;
       const tripText = counts.longTrip ? ` · ${counts.longTrip} ${c.longTripSlot.toLowerCase()}` : '';
-      const countText = lateCount && !counts.family
+      const countText = lateCount && !counts.family && !counts.longTrip
         ? `${lateCount} ${c.inProgress.toLowerCase()}`
         : `${familyText}${tripText}`;
       const windowText = best ? `${formatTime(best.windowItem.start)}–${formatTime(best.windowItem.end)} · ${countText}` : countText;

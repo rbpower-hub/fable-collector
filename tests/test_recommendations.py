@@ -252,3 +252,24 @@ activities:
     # Une seule heure à 34,9 km/h en fin de fenêtre suffit à tout refuser :
     # la carte doit le dire au lieu d'afficher « aucune activité ».
     assert closest["reason_fr"] == "rafales 35 km/h pour une limite de 28 km/h"
+
+
+def test_nature_content_is_only_published_when_the_pack_sources_it(tmp_path: Path) -> None:
+    """Le bloc nature ne se fabrique pas : sans référence dans le pack, rien.
+
+    Une carte vide vaut mieux qu'une observation inventée pour la remplir.
+    """
+    from fable.recommendations import _nature
+
+    class Pack:
+        ports = {
+            "el-haouaria": {"nature": {"status": "sourced_public_reference",
+                                       "sources": ["AAO BirdLife"],
+                                       "seasons": {"spring": {"headline_fr": "Migration de printemps"}}}},
+            "gammarth-port": {},
+        }
+
+    assert _nature(Pack(), "el-haouaria", "spring")["headline_fr"] == "Migration de printemps"
+    assert _nature(Pack(), "el-haouaria", "summer") == {}
+    assert _nature(Pack(), "gammarth-port", "spring") == {}
+    assert _nature(None, "el-haouaria", "spring") == {}

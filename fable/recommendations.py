@@ -102,6 +102,23 @@ def _angle_in_sectors(angle: Any, sectors: Any) -> bool:
     return False
 
 
+def _opposite_sectors(sectors: Any) -> list[list[float]]:
+    """Secteur du vent de terre : l'onshore tourne de 180 degres.
+
+    On ne prend pas `1 - onshore_share` : un vent parallele a la cote n'est ni
+    onshore ni offshore, et la difference compte pour une petite embarcation.
+    """
+    result = []
+    for sector in sectors if isinstance(sectors, list) else []:
+        if not isinstance(sector, (list, tuple)) or len(sector) != 2:
+            continue
+        low, high = _number(sector[0]), _number(sector[1])
+        if low is None or high is None:
+            continue
+        result.append([(low + 180) % 360, (high + 180) % 360])
+    return result
+
+
 def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict[str, Any]:
     hourly = spot.get("hourly") or {}
     indices = _indices(hourly.get("time") or [], start, end)
@@ -120,9 +137,12 @@ def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict
     # Part des heures ou le vent vient d'un secteur onshore du site : decisif
     # pour la clarte de l'eau et l'abri, jamais pour la securite.
     sectors = ((spot.get("meta") or {}).get("onshore_sectors")) or []
+    offshore_sectors = _opposite_sectors(sectors)
     directions = _values(hourly, "wind_direction_10m", indices)
     onshore_hours = sum(1 for value in directions if _angle_in_sectors(value, sectors))
+    offshore_hours = sum(1 for value in directions if _angle_in_sectors(value, offshore_sectors))
     onshore_share = round(onshore_hours / len(directions), 2) if directions else None
+    offshore_share = round(offshore_hours / len(directions), 2) if directions else None
 
     return {
         "sample_hours": len(indices),
@@ -137,6 +157,7 @@ def _metrics(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict
         "total_precipitation_mm": round(sum(rain), 1) if rain else None,
         "sea_surface_temperature_c": round(sum(sst) / len(sst), 1) if sst else None,
         "onshore_share": onshore_share,
+        "offshore_share": offshore_share,
     }
 
 
@@ -342,6 +363,34 @@ def _knowledge_fishing(pack: KnowledgePack, slug: str, season: str) -> dict[str,
     }
 
 
+def _nature(pack: KnowledgePack | None, slug: str, season: str) -> dict[str, Any]:
+    """Contenu nature d'un port pour la saison en cours.
+
+    Rien n'est produit ici quand le port ne declare pas de bloc `nature` : le
+    pack ne contient que des observations sourcees, et une carte vide vaut
+    mieux qu'un contenu invente pour remplir.
+    """
+    if pack is None:
+        return {}
+    port = pack.ports.get(slug) or {}
+    nature = port.get("nature") or {}
+    current = ((nature.get("seasons") or {}).get(season)) or {}
+    if not current:
+        return {}
+    return {
+        "status": nature.get("status"),
+        "season": season,
+        "headline_fr": current.get("headline_fr"),
+        "headline_en": current.get("headline_en"),
+        "detail_fr": current.get("detail_fr"),
+        "detail_en": current.get("detail_en"),
+        "look_for_fr": current.get("look_for_fr") or [],
+        "notes_fr": nature.get("notes_fr"),
+        "notes_en": nature.get("notes_en"),
+        "sources": nature.get("sources") or [],
+    }
+
+
 def _fmt(value: Any, digits: int = 0, unit: str = "") -> str:
     number = _number(value)
     if number is None:
@@ -361,7 +410,7 @@ def advisories(metrics: dict[str, Any], context: dict[str, Any],
     uv_high = _number(tuning.get("uv_index_high")) or 7.0
     heat_high = _number(tuning.get("apparent_temperature_c_high")) or 38.0
     onshore_high = _number(tuning.get("onshore_share_high")) or 0.5
-    offshore_low = _number(tuning.get("offshore_share_low")) or 0.2
+    offshore_high = _number(tuning.get("offshore_share_high")) or 0.5
     rain_min = _number(tuning.get("precipitation_mm")) or 0.5
 
     notes: list[dict[str, str]] = []
@@ -386,11 +435,16 @@ def advisories(metrics: dict[str, Any], context: dict[str, Any],
             "fr": "Vent de mer sur la majorité de la fenêtre : eau plus trouble et clapot près du bord.",
             "en": "Onshore wind for most of the window: murkier water and chop close to shore.",
         })
-    elif share is not None and share <= offshore_low:
+    offshore = _number(metrics.get("offshore_share"))
+    if offshore is not None and offshore >= offshore_high:
+        # Les deux faces du vent de terre. Taire la derive serait trompeur :
+        # c'est exactement la situation ou l'eau parait la plus engageante.
         notes.append({
             "id": "offshore",
-            "fr": "Vent de terre : plan d’eau lissé le long de la côte, meilleure visibilité sous l’eau.",
-            "en": "Offshore wind: flatter water along the shore and better underwater visibility.",
+            "fr": "Vent de terre : plan d’eau lissé et eau plus claire près du bord, "
+                  "mais il pousse vers le large. Surveiller flotteurs, paddles et petites embarcations.",
+            "en": "Offshore wind: flatter, clearer water near the shore, but it pushes seaward. "
+                  "Keep an eye on floats, paddleboards and small craft.",
         })
     rain = _number(metrics.get("total_precipitation_mm"))
     if rain is not None and rain >= rain_min:
@@ -546,15 +600,27 @@ def _score(
     # Confort : penalise sans jamais bloquer, et seulement si l'activite le declare.
     comfort = activity.get("comfort") or {}
     caveats_fr, caveats_en = [], []
-    for metric_key, limit_key, digits, unit, fr_label, en_label in (
-        ("max_uv_index", "max_uv_index", 1, "", "indice UV", "UV index"),
-        ("max_apparent_temperature_c", "max_apparent_temperature_c", 0, " °C", "ressenti", "feels-like"),
-        ("onshore_share", "max_onshore_share", 2, "", "part de vent de mer", "onshore share"),
+    for metric_key, limit_key, digits, unit, fr_label, en_label, as_share in (
+        ("max_uv_index", "max_uv_index", 1, "", "indice UV", "UV index", False),
+        ("max_apparent_temperature_c", "max_apparent_temperature_c", 0, " °C", "ressenti", "feels-like", False),
+        ("onshore_share", "max_onshore_share", 0, "", "vent de mer", "onshore wind", True),
+        ("offshore_share", "max_offshore_share", 0, "", "vent de terre", "offshore wind", True),
     ):
         value, limit = _number(metrics.get(metric_key)), _number(comfort.get(limit_key))
         if value is None or limit is None or value <= limit:
             continue
         score -= float(comfort.get("penalty", 8))
+        if as_share:
+            # « vent de mer sur 100 % de la fenetre » se lit ; « 1,00 » non.
+            caveats_fr.append(
+                f"{fr_label} sur {_fmt(value * 100, 0, ' %')} de la fenêtre "
+                f"(confort visé : {_fmt(limit * 100, 0, ' %')})"
+            )
+            caveats_en.append(
+                f"{en_label} over {_fmt(value * 100, 0, '%')} of the window "
+                f"(comfort target: {_fmt(limit * 100, 0, '%')})"
+            )
+            continue
         caveats_fr.append(f"{fr_label} {_fmt(value, digits, unit)} au-dessus du confort visé ({_fmt(limit, digits, unit)})")
         caveats_en.append(f"{en_label} {_fmt(value, digits, unit)} above the comfort target")
 
@@ -564,6 +630,10 @@ def _score(
         "label_fr": activity.get("label_fr", activity_id),
         "label_en": activity.get("label_en", activity_id),
         "blocked": False,
+        # Une activite tres tolerante marque mecaniquement un score eleve :
+        # son seuil large rend le ratio valeur/limite petit. Sans ce rang,
+        # l'observation nature passerait devant la peche un jour parfait.
+        "tier": str(activity.get("tier") or "primary"),
         # `score` est borne pour l'affichage, `rank_score` ne l'est pas : deux
         # activites dont les bonus depassent 100 doivent rester departageables.
         "score": round(max(0.0, min(score, 100)), 1),
@@ -688,6 +758,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                 fishing = _knowledge_fishing(pack, slug, season)
             else:
                 fishing = _legacy_fishing(profile, season)
+            nature = _nature(pack, slug, season)
             context = {
                 "periods": _window_periods(start, end, daily),
                 "tide": _tide(spot, start, end),
@@ -706,13 +777,32 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                 (rejected if item.get("blocked") else ranked).append(item)
             # Tri sur le score non ecrete : deux activites a 100 a l'affichage
             # peuvent avoir 107 et 102 en interne, l'ordre doit le refleter.
-            ranked.sort(key=lambda item: (-item["rank_score"], item["activity_id"]))
+            ranked.sort(key=lambda item: (
+                0 if item["tier"] == "primary" else 1,
+                -item["rank_score"],
+                item["activity_id"],
+            ))
             ranked = ranked[: int(ranking.get("max_per_window", 3))]
+            # Les activites principales ecartees, dans l'ordre du depassement le
+            # plus faible : c'est ce qui manquait le moins pour sortir.
+            blocked_primary = []
+            if not any(item["tier"] == "primary" for item in ranked) and rejected:
+                rejected.sort(key=lambda item: item["blockers"][0]["over"])
+                blocked_primary = [
+                    {
+                        "activity_id": item["activity_id"],
+                        "icon": item["icon"],
+                        "label_fr": item["label_fr"],
+                        "label_en": item["label_en"],
+                        "reason_fr": item["reason_fr"],
+                        "reason_en": item["reason_en"],
+                    }
+                    for item in rejected[:2]
+                ]
             if not ranked and rejected:
                 # Fenetre Family GO ou aucune activite ne tient : on publie la
                 # contrainte la plus proche d'etre satisfaite, c'est celle qui
                 # explique le mieux pourquoi la journee est vide.
-                rejected.sort(key=lambda item: item["blockers"][0]["over"])
                 no_activity.append(
                     {
                         "dest_slug": filename,
@@ -722,17 +812,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                         "start": window.get("start"),
                         "end": window.get("end"),
                         "category": window.get("category"),
-                        "closest": [
-                            {
-                                "activity_id": item["activity_id"],
-                                "icon": item["icon"],
-                                "label_fr": item["label_fr"],
-                                "label_en": item["label_en"],
-                                "reason_fr": item["reason_fr"],
-                                "reason_en": item["reason_en"],
-                            }
-                            for item in rejected[:2]
-                        ],
+                        "closest": blocked_primary,
                         "advisories": window_advice,
                     }
                 )
@@ -762,6 +842,8 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                         "periods": context["periods"],
                         "advisories": window_advice,
                         "fishing": fishing,
+                        "nature": nature,
+                        "blocked_primary": blocked_primary,
                         "activities": ranked,
                         "method_note_fr": (
                             "Classement uniquement dans une fenêtre Family GO. "

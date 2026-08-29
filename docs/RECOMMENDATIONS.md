@@ -171,6 +171,84 @@ pour le même lundi. Une seule définition fait foi désormais :
 règle, et `tests/js/navigation-windows.test.mjs` épingle l'égalité entre les
 deux sur une journée mixte.
 
+## Catalogue d'activités
+
+Neuf activités, dont quatre ajoutées à la phase contenu.
+
+| Activité | Vent | Rafales | Hs | Rang |
+|---|---|---|---|---|
+| Escale côtière abritée | 18 | 28 | 0,35 | principal |
+| Baignade familiale | 14 | 22 | 0,25 | principal |
+| Masque et tuba | 13 | 20 | 0,20 | principal |
+| Paddle ou kayak | 15 | 23 | 0,30 | principal |
+| Pêche au fond légère | 18 | 28 | 0,45 | principal |
+| Micro-jig / jig léger | 16 | 26 | 0,40 | principal |
+| Traîne côtière | 20 | 28 | 0,50 | principal |
+| Pêche au leurre souple | 17 | 27 | 0,40 | principal |
+| Observation nature | 20 | 28 | 0,45 | **secondaire** |
+
+`soft-lure` existait comme technique dans le pack sans activité correspondante.
+Un port dont la saison ne listait que le leurre souple ne recevait donc aucune
+activité de pêche, ce qui était le cas d'El Haouaria au printemps et en été.
+
+### Rang principal et secondaire
+
+Le score pénalise le rapport entre la valeur mesurée et la limite de
+l'activité. Une activité tolérante obtient donc mécaniquement un meilleur score
+qu'une activité exigeante dans les mêmes conditions : son rapport est plus
+petit. Sans correctif, l'observation nature passerait devant la pêche un jour
+parfait.
+
+Une activité peut déclarer `tier: secondary`. Le classement place toutes les
+principales avant toutes les secondaires, quel que soit le score. Et une fenêtre
+où seule une activité secondaire passe reste traitée comme une fenêtre sans
+activité principale : elle publie `blocked_primary` avec les activités écartées
+et la limite qui les bloque.
+
+### Vent de terre et vent de mer
+
+`onshore_share` et `offshore_share` sont calculés séparément, à partir des
+secteurs onshore du site et de leur opposé à 180°. Ce n'est pas
+`1 - onshore_share` : un vent parallèle à la côte n'appartient à aucun des deux,
+et la distinction compte pour une petite embarcation.
+
+Les deux vents ne jouent pas dans le même sens selon l'activité :
+
+- pour la baignade, le masque et tuba et la pêche, le **vent de mer** brasse le
+  fond et trouble l'eau ; il pénalise via `comfort.max_onshore_share` ;
+- pour le paddle et le kayak, le **vent de terre** est le piège classique : mer
+  plate et engageante au départ, retour impossible ensuite. Il pénalise via
+  `comfort.max_offshore_share`.
+
+Le conseil de fenêtre sur le vent de terre nomme les deux faces, l'eau lissée et
+la dérive vers le large. Le taire serait trompeur : c'est exactement la
+situation où la mer paraît la plus engageante.
+
+Ces pénalités restent des réserves de confort. Aucune ne retire une activité, et
+le moteur de fenêtres ne modélise pas la dérive : il reste seul juge d'un GO.
+
+## Contenu nature des ports
+
+Un port peut déclarer un bloc `nature`, saisonnier, publié avec la
+recommandation et affiché sous l'activité.
+
+Règle absolue : **rien n'y est écrit sans référence publique vérifiable**. Le
+bloc porte ses `sources`, et le board affiche la première. Un port sans source
+n'a pas de bloc nature, et sa carte reste vide plutôt que remplie d'une
+observation inventée.
+
+Deux ports sont sourcés à ce stade :
+
+- **El Haouaria**, printemps : le Jbel El Haouaria est décrit par l'Association
+  Les Amis des Oiseaux comme le principal point de concentration d'oiseaux de
+  Tunisie pendant la migration de printemps.
+- **Ghar el Melh**, hiver : lagune et delta de la Mejerda, site Ramsar de
+  10 168 ha inscrit le 7 novembre 2007, hivernage et nidification d'oiseaux
+  d'eau.
+
+Les cinq autres ports n'ont pas encore de contenu nature sourcé. Pantelleria
+n'en aura pas : sa politique est `navigation_only_no_leisure_recommendations`.
+
 ## Conseils de confort
 
 `advisories()` produit des remarques bilingues à partir des métriques

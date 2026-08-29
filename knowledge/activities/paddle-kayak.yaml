@@ -1,0 +1,20 @@
+id: paddle-kayak
+icon: "🛶"
+label_fr: "Paddle ou kayak le long de la côte"
+label_en: "Paddle or kayak along the shore"
+status: initial_tunable
+# Une pagaie avance a 4-6 km/h. Au-dela d'une quinzaine de km/h de vent, le
+# retour face au vent devient le facteur limitant, bien avant l'etat de la mer.
+safety:
+  max_wind_kmh: 15
+  max_gust_kmh: 23
+  max_hs_m: 0.30
+  min_tp_s: 3.2
+  min_visibility_km: 8
+comfort:
+  # Le vent de terre est le piege classique de la petite embarcation : mer
+  # plate et engageante au depart, retour impossible ensuite. Il penalise ici
+  # au lieu d'etre presente comme un avantage.
+  max_offshore_share: 0.3
+  max_apparent_temperature_c: 36
+  penalty: 12

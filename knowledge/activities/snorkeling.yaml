@@ -1,0 +1,20 @@
+id: snorkeling
+icon: "🤿"
+label_fr: "Masque et tuba près du bord"
+label_en: "Snorkelling close to shore"
+status: initial_tunable
+# Plus strict que la baignade sur la houle et la visibilite : on regarde vers le
+# fond, tete dans l'eau, et le clapot suffit a rendre la sortie desagreable et a
+# rendre un nageur difficile a repérer depuis le bord.
+safety:
+  max_wind_kmh: 13
+  max_gust_kmh: 20
+  max_hs_m: 0.20
+  min_tp_s: 3.2
+  min_visibility_km: 8
+comfort:
+  # Le vent de mer brasse le sable et la matiere en suspension : l'eau reste
+  # sûre mais on ne voit plus rien, ce qui vide l'activite de son interet.
+  max_onshore_share: 0.4
+  max_uv_index: 8
+  penalty: 12

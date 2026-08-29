@@ -9,3 +9,10 @@ safety:
   max_hs_m: 0.25
   min_tp_s: 3.2
   min_visibility_km: 8
+comfort:
+  # Eau trouble et clapot au bord quand le vent vient de la mer : la baignade
+  # reste possible, la surveillance des enfants devient plus difficile.
+  max_onshore_share: 0.5
+  max_uv_index: 8
+  max_apparent_temperature_c: 38
+  penalty: 10

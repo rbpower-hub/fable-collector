@@ -8,7 +8,7 @@ advisories:
   uv_index_high: 7
   apparent_temperature_c_high: 38
   onshore_share_high: 0.5
-  offshore_share_low: 0.2
+  offshore_share_high: 0.5      # part d'heures en vent de terre
   precipitation_mm: 0.5
 
 ranking:

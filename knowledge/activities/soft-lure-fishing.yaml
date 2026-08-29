@@ -1,0 +1,22 @@
+id: soft-lure-fishing
+icon: "🪱"
+label_fr: "Pêche au leurre souple"
+label_en: "Soft lure fishing"
+status: initial_tunable
+requires_fishing_profile: true
+lunar_sensitive: true
+# La technique `soft-lure` existait dans le pack sans activite correspondante :
+# un port dont la saison ne listait que le leurre souple ne recevait aucune
+# activite de peche. C'est le cas d'El Haouaria au printemps et en ete.
+techniques: [soft-lure]
+safety:
+  max_wind_kmh: 17
+  max_gust_kmh: 27
+  max_hs_m: 0.40
+  min_tp_s: 3.5
+  min_visibility_km: 6
+comfort:
+  # Prospection lente et sensible au contact : un vent de mer soutenu forme une
+  # banniere de ligne et fait perdre le fond.
+  max_onshore_share: 0.6
+  penalty: 6

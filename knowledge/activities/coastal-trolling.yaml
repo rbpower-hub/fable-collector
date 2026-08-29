@@ -12,3 +12,8 @@ safety:
   max_hs_m: 0.50
   min_tp_s: 3.5
   min_visibility_km: 8
+comfort:
+  # La traine se fait a vitesse constante : le clapot de vent de mer casse la
+  # nage des leurres.
+  max_onshore_share: 0.6
+  penalty: 6

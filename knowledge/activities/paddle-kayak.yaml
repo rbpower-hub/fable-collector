@@ -18,3 +18,6 @@ comfort:
   max_offshore_share: 0.3
   max_apparent_temperature_c: 36
   penalty: 12
+# Ces activites supposent d y voir clair et d etre vu : elles ne sont pas
+# proposees sur une fenetre majoritairement nocturne.
+requires_daylight: true

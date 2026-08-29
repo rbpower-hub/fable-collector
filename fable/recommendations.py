@@ -245,6 +245,28 @@ def _window_periods(start: dt.datetime, end: dt.datetime, daily: dict[str, Any],
     return periods
 
 
+def _daylight(daily: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict[str, Any]:
+    """Part de la fenetre situee entre le lever et le coucher du soleil.
+
+    Une fenetre hors horaires peut etre parfaite au sens meteo et courir en
+    pleine nuit. Sans cette mesure, le moteur proposait une baignade familiale
+    et du paddle a une heure du matin, avec 100/100.
+    """
+    sunrise = _aware(daily.get("sunrise"), start)
+    sunset = _aware(daily.get("sunset"), start)
+    if sunrise is None or sunset is None or end <= start:
+        return {"available": False, "share": None, "sunrise": None, "sunset": None}
+    low = max(start, sunrise)
+    high = min(end, sunset)
+    lit = max(0.0, (high - low).total_seconds())
+    return {
+        "available": True,
+        "share": round(lit / (end - start).total_seconds(), 2),
+        "sunrise": sunrise.strftime("%H:%M"),
+        "sunset": sunset.strftime("%H:%M"),
+    }
+
+
 def _tide(spot: dict[str, Any], start: dt.datetime, end: dt.datetime) -> dict[str, Any]:
     """Marnage reel sur la fenetre, quand le niveau de la mer est publie.
 
@@ -559,6 +581,20 @@ def _score(
             "en": f"visibility {_fmt(visibility, 0, ' km')} against a {_fmt(visibility_min, 0, ' km')} minimum",
             "over": (visibility_min / visibility) if visibility else float("inf"),
         })
+    daylight = context.get("daylight") or {}
+    share = _number(daylight.get("share"))
+    if activity.get("requires_daylight") and daylight.get("available") and share is not None:
+        needed = _number(activity.get("min_daylight_share")) or 0.5
+        if share < needed:
+            lit = f"jour de {daylight.get('sunrise')} à {daylight.get('sunset')}"
+            blockers.append({
+                "metric": "daylight_share", "value": share, "limit": needed,
+                "fr": f"fenêtre de nuit ({_fmt(share * 100, 0, ' %')} de jour seulement, {lit})",
+                "en": f"night-time window (only {_fmt(share * 100, 0, '%')} in daylight)",
+                # Le manque de jour prime : c'est une condition d'existence de
+                # l'activite, pas un depassement de seuil parmi d'autres.
+                "over": float("inf"),
+            })
     if blockers:
         # Le depassement le plus large en premier : c'est la contrainte qui
         # decide vraiment, les autres suivraient si on la levait.
@@ -762,6 +798,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
             context = {
                 "periods": _window_periods(start, end, daily),
                 "tide": _tide(spot, start, end),
+                "daylight": _daylight(daily, start, end),
                 "moon": moon,
                 "moon_visible": _moon_visible(daily, start, end),
             }
@@ -839,6 +876,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                             **moon,
                         },
                         "tide": context["tide"],
+                        "daylight": context["daylight"],
                         "periods": context["periods"],
                         "advisories": window_advice,
                         "fishing": fishing,

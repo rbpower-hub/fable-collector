@@ -22,7 +22,7 @@ def test_map_uses_mobile_visual_language_without_portaling_leaflet_dom():
     assert "requestAnimationFrame(()=>requestAnimationFrame" in html
     assert 'class="marker-pulse"' in html
     assert "function onshoreWedges(site)" in html
-    assert "renderOnshoreSector(origin)" in html
+    assert "renderOnshoreSector(spotConfig[routePlan.origin_file || originFile] || origin)" in html
     assert 'class="onshore">Secteur onshore' in html
     assert "@keyframes pulsate-shelter" in html
     assert "Bateau abrité · Gammarth" in html

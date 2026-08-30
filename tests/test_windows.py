@@ -518,3 +518,60 @@ def test_prudent_keeps_its_own_stricter_limits(tmp_path):
     trop_court = load(tmp_path, "Court", "court", hs=0.20, tp=TH.prudent_tp_min - 0.2)
     _, info = hour_ok_for_phase(trop_court, 0, "transit", TH, tier="prudent")
     assert any("@prudent" in reason and reason.startswith("Tp<") for reason in info["reasons"])
+
+
+def test_the_sunset_margin_covers_the_end_of_the_window(tmp_path):
+    """`end_before_sunset_min` est le temps de rentrer, pas un réglage d'affichage.
+
+    `all_in_operating_light` ne recevait que les *débuts* d'heure, alors que la
+    fenêtre court jusqu'à `times[-1] + 1 h`. La marge était donc amputée de la
+    durée de la dernière heure : coucher 19:34, limite 18:34, l'heure de 18:00
+    passait et la fenêtre se terminait à 19:00, soit 34 minutes de marge au lieu
+    de 60.
+    """
+    import datetime as dt
+
+    from fable.window_policy import all_in_operating_light, operating_light_end
+
+    sunset = dt.datetime(2026, 6, 21, 19, 34, tzinfo=TZ)
+
+    class Site:
+        tz = TZ
+        daylight = {"2026-06-21": (dt.datetime(2026, 6, 21, 5, 3, tzinfo=TZ), sunset)}
+
+    site = Site()
+    limite = operating_light_end(site, dt.datetime(2026, 6, 21, 12, tzinfo=TZ), TH)
+    assert limite == sunset - dt.timedelta(minutes=TH.daylight_before_sunset_min)
+
+    def window(first_hour, last_hour):
+        return [dt.datetime(2026, 6, 21, hour, 0, tzinfo=TZ) for hour in range(first_hour, last_hour)]
+
+    # Se termine à 19:00 : 34 minutes de marge, sous les 60 exigées.
+    assert all_in_operating_light(window(13, 19), site, TH) is False
+    # Se termine à 18:00 : 94 minutes de marge.
+    assert all_in_operating_light(window(12, 18), site, TH) is True
+    # La borne exacte est acceptée : une fenêtre finissant à 18:34 tient.
+    exacte = window(12, 18) + [dt.datetime(2026, 6, 21, 17, 34, tzinfo=TZ)]
+    assert all_in_operating_light(exacte, site, TH) is True
+
+    # Toute fenêtre acceptée respecte réellement la marge configurée.
+    for first in range(5, 19):
+        for last in range(first + 1, 20):
+            times = window(first, last)
+            if not times or not all_in_operating_light(times, site, TH):
+                continue
+            fin = times[-1] + dt.timedelta(hours=1)
+            marge = (sunset - fin).total_seconds() / 60
+            assert marge >= TH.daylight_before_sunset_min, (
+                f"fenêtre {first:02d}:00 → {fin:%H:%M} acceptée avec {marge:.0f} min de marge"
+            )
+
+
+def test_an_empty_window_is_never_daylight(tmp_path):
+    from fable.window_policy import all_in_operating_light
+
+    class Site:
+        tz = TZ
+        daylight = {}
+
+    assert all_in_operating_light([], Site(), TH) is False

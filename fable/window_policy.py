@@ -64,8 +64,41 @@ def in_operating_light(site: Site, moment: dt.datetime, th: Thresholds) -> bool:
     return th.family_hour_start <= local.hour < th.family_hour_end
 
 
+def operating_light_end(site: Site, moment: dt.datetime, th: Thresholds) -> dt.datetime | None:
+    """Instant limite de la plage de lumiere sure, pour la date de `moment`.
+
+    Renvoie None quand l'astronomie n'est pas disponible : le repli sur les
+    heures fixes est alors gere par `in_operating_light`.
+    """
+    local = (moment if moment.tzinfo else moment.replace(tzinfo=site.tz)).astimezone(site.tz)
+    pair = site.daylight.get(local.date().isoformat()) if th.daylight_enabled else None
+    if not pair:
+        return None
+    return pair[1] - dt.timedelta(minutes=th.daylight_before_sunset_min)
+
+
 def all_in_operating_light(times: Sequence[dt.datetime], site: Site, th: Thresholds) -> bool:
-    return all(in_operating_light(site, moment, th) for moment in times)
+    """La fenetre entiere tient-elle dans la plage de lumiere sure ?
+
+    `times` porte les *debuts* d'heure ; la fenetre court en realite jusqu'a
+    `times[-1] + 1 h`. Ne tester que les debuts amputait la marge
+    `end_before_sunset_min` de la duree de la derniere heure : avec un coucher
+    a 19:34 et une marge de 60 min, l'heure de 18:00 passait et la fenetre se
+    terminait a 19:00, soit 34 minutes avant le coucher au lieu de 60. Cette
+    marge est le temps de rentrer si quelque chose se passe mal, pas un
+    reglage d'affichage.
+    """
+    if not times:
+        return False
+    if not all(in_operating_light(site, moment, th) for moment in times):
+        return False
+    last = times[-1]
+    end = (last if last.tzinfo else last.replace(tzinfo=site.tz)).astimezone(site.tz) + dt.timedelta(hours=1)
+    limit = operating_light_end(site, last, th)
+    if limit is None:
+        # Repli sur les heures fixes : la fin de fenetre doit rester dans la plage.
+        return end.hour <= th.family_hour_end if end.hour or end.minute else True
+    return end <= limit
 
 
 def shelter_validated(site: Site, metrics: HourMetrics) -> bool:

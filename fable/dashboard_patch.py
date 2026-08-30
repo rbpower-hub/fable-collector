@@ -101,6 +101,7 @@ _PWA_HEAD = """  <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="apple-touch-icon" href="./icons/fable-192.svg" />"""
 
 _FAMILY_VIEW_TAG = '<script src="./family-view.js"></script>'
+_NAVIGATION_CONTEXT_TAG = '<script src="./navigation-context.js?v=20260830-context-v1"></script>'
 _DAY_SELECTION_TAG = '<script type="module" src="./js/day-selection.js"></script>'
 _VERDICT_HERO_TAG = '<script src="./verdict-hero.js"></script>'
 _FAMILY_CONTENT_GATE_TAG = '<script src="./family-content-gate.js"></script>'
@@ -138,6 +139,7 @@ def patch_dashboard_index(path: Path) -> bool:
         patched = patched.replace("</head>", f"{_PWA_HEAD}\n</head>")
 
     tags = (
+        _NAVIGATION_CONTEXT_TAG,
         _FAMILY_VIEW_TAG,
         _DAY_SELECTION_TAG,
         _VERDICT_HERO_TAG,

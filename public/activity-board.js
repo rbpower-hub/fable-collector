@@ -4,8 +4,11 @@
   /* Filtre par port. Le board rendait toutes les recommandations du fichier :
      cliquer un port dans le tableau Expert ne changeait rien, et avec une
      seule recommandation le panneau semblait fige sur Gammarth. */
-  let portFilter = '';
+  let fallbackPortFilter = '';
   let lastPayload = null;
+  const selectedPort = () => window.FABLENavigationContext
+    ? (window.FABLENavigationContext.get?.().port || '')
+    : fallbackPortFilter;
   const esc = (value) => String(value ?? '').replace(
     /[&<>"']/g,
     (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])
@@ -207,6 +210,7 @@
       else (dashboard || document.body).appendChild(card);
     }
     const lang = language();
+    const portFilter = selectedPort();
     const title = lang === 'en' ? '🌊 What to do on the water?' : '🌊 Que faire sur l’eau ?';
     const byWindow = windowIndex(windows);
     const allRecommendations = Array.isArray(data?.recommendations) ? data.recommendations : [];
@@ -280,8 +284,9 @@
 
   function setPortFilter(slug) {
     const next = String(slug || '');
-    if (next === portFilter) return;
-    portFilter = next;
+    if (next === selectedPort()) return;
+    fallbackPortFilter = next;
+    window.FABLENavigationContext?.setPort?.(next, {source:'activity-board'});
     if (lastPayload) render(lastPayload.recommendations, lastPayload.windows);
   }
 
@@ -312,7 +317,11 @@
   /* Le tableau Expert emet le port clique ; le board s'y accroche sans que les
      deux composants aient besoin de se connaitre. */
   window.addEventListener('fable:spot-selected', (event) => {
-    setPortFilter(event.detail?.file || '');
+    if (!window.FABLENavigationContext) setPortFilter(event.detail?.file || '');
+  });
+  window.addEventListener('fable:navigation-context-changed', (event) => {
+    if (!event.detail?.changes?.includes('port')) return;
+    if (lastPayload) render(lastPayload.recommendations, lastPayload.windows);
   });
   document.addEventListener('click', (event) => {
     if (event.target.closest('[data-activity-clear-port]')) {
@@ -324,7 +333,7 @@
   window.FABLEActivityBoard = Object.assign(window.FABLEActivityBoard || {}, {
     refresh,
     setPortFilter,
-    getPortFilter: () => portFilter,
+    getPortFilter: selectedPort,
     tunisDateKey,
     // Exposes pour les tests : ce sont les deux points ou un identifiant brut
     // ou un separateur decimal errone atteindrait l'ecran.

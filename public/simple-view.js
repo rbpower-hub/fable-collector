@@ -11,7 +11,6 @@
     forecast: {},
     recommendations: {},
     activeDay: 0,
-    selectedWindow: null,
     loading: true,
     error: '',
     verdictModule: null,
@@ -251,6 +250,25 @@
     ));
     return [...rows, ...(result?.late_rows || [])];
   }
+  const navigationContext = () => window.FABLENavigationContext?.get?.() || {
+    day:dayKey(state.activeDay), port:'', window:null,
+  };
+  function rowMatchesWindow(row, selected = navigationContext().window) {
+    if (!row || !selected) return false;
+    return (row.destination?.dest_slug || '') === selected.slug
+      && (row.windowItem?.start || '') === selected.start
+      && (row.windowItem?.end || '') === selected.end
+      && String(row.windowItem?.direction || '') === String(selected.direction || '');
+  }
+  function navigationRows(result = verdictForDay()) {
+    const rows = displayRows(result);
+    const selected = navigationContext().window;
+    const selectedIndex = rows.findIndex((row) => rowMatchesWindow(row, selected));
+    if (selectedIndex < 5) return rows.slice(0, 5);
+    // Une selection encore valide ne disparait pas seulement parce que l'ordre
+    // des meilleures fenetres a change pendant un rafraichissement.
+    return [...rows.slice(0, 4), rows[selectedIndex]];
+  }
   function bestForDisplayDay(offset = state.activeDay) {
     const result = verdictForDay(offset);
     return result?.row || result?.late_rows?.[0] || null;
@@ -430,14 +448,19 @@
      Ras Fartass laissait donc les activites sur Gammarth : la carte semblait
      figee alors qu'elle repondait simplement a une autre question. */
   function activityRow() {
-    const selected = state.selectedWindow;
+    const context = navigationContext();
+    const selected = context.window;
     if (selected) {
       const match = displayRows(verdictForDay()).find((row) => (
-        (row.destination?.dest_slug || '') === selected.slug
-        && (row.windowItem?.start || '') === selected.start
-        && (row.windowItem?.end || '') === selected.end
+        rowMatchesWindow(row, selected)
       ));
       if (match) return match;
+    }
+    if (context.port) {
+      const portMatch = displayRows(verdictForDay()).find(
+        (row) => (row.destination?.dest_slug || '') === context.port
+      );
+      if (portMatch) return portMatch;
     }
     return bestForDisplayDay();
   }
@@ -505,9 +528,8 @@
 
   function renderNavigation(result) {
     const c = copy();
-    const actionableRows = result?.rows || [];
-    const rows = displayRows(result);
-    const content = rows.length ? rows.slice(0, 5).map((row, index) => {
+    const rows = navigationRows(result);
+    const content = rows.length ? rows.map((row, index) => {
       const item = row.windowItem;
       const destination = row.destination;
       const tripMode = String(item.trip_mode || destination.trip_mode || '');
@@ -516,7 +538,14 @@
       const offHours = String(row.category || item.category || '').toLowerCase() === 'off_hours';
       const watch = String(row.category || item.category || '').toLowerCase() === 'watch';
       const prudent = String(item.family_tier || destination.family_tier || '').toLowerCase() === 'prudent';
-      const late = index >= actionableRows.length;
+      const late = (result?.late_rows || []).some((candidate) => (
+        candidate === row || rowMatchesWindow(candidate, {
+          slug:row.destination?.dest_slug || '',
+          start:row.windowItem?.start || '',
+          end:row.windowItem?.end || '',
+          direction:row.windowItem?.direction || '',
+        })
+      ));
       const tone = late ? 'in-progress' : longTrip ? 'travel' : offHours ? 'off-hours' : watch ? 'watch' : prudent ? 'prudent' : '';
       const label = late ? c.inProgress : longTrip ? c.longTripSlot : offHours ? c.offHoursSlot : watch ? c.review : prudent ? c.cautious : 'FAMILY GO';
       const origin = item.origin_name || '';
@@ -544,7 +573,8 @@
           : '';
       const status = late ? `<small class="simple-window-status">${esc(c.remaining)} : ${esc(remainingLabel)} · ${esc(c.fullDurationUnavailable)} (${esc(requiredLabel)})</small>` : '';
       const warning = late ? `<p class="simple-window-warning">⚠️ ${esc(c.fullDurationUnavailable)} : ${esc(c.required)} ${esc(requiredLabel)}.</p>` : '';
-      return `<article class="simple-window-item${late ? ' in-progress' : ''}"><button class="simple-window-card" data-simple-action="window-details" data-simple-window-index="${index}" type="button" aria-expanded="false" aria-controls="simple-window-details-${index}"><span class="simple-window-heading"><strong class="simple-window-name">${esc(name)}</strong><span class="simple-window-badge ${tone}">${esc(label)}</span></span><span class="simple-window-quality" data-quality-level="${esc(quality.level)}"><span>${esc(c.forecastQuality)}</span><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong>${esc(quality.label)}</strong></span><small class="simple-window-time">${esc(formatWindowStart(item.start))} → ${esc(formatTime(item.end))} · ${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}${contextDetails ? ` · ${esc(contextDetails)}` : ''}</small>${modelAgreement}${status}<span class="simple-window-arrow" aria-hidden="true">›</span></button><div id="simple-window-details-${index}" class="simple-window-details" hidden>${routeDetails}${late ? `<div class="simple-window-detail"><span>${esc(c.remaining)}</span><strong>${esc(remainingLabel)}</strong></div>` : ''}${warning}<button class="simple-window-map" data-simple-action="map-window" data-simple-window-index="${index}" type="button">🗺️ ${esc(c.showOnMap)}</button></div></article>`;
+      const expanded = rowMatchesWindow(row);
+      return `<article class="simple-window-item${late ? ' in-progress' : ''}${expanded ? ' expanded' : ''}"><button class="simple-window-card" data-simple-action="window-details" data-simple-window-index="${index}" type="button" aria-expanded="${expanded}" aria-controls="simple-window-details-${index}"><span class="simple-window-heading"><strong class="simple-window-name">${esc(name)}</strong><span class="simple-window-badge ${tone}">${esc(label)}</span></span><span class="simple-window-quality" data-quality-level="${esc(quality.level)}"><span>${esc(c.forecastQuality)}</span><span class="quality-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong>${esc(quality.label)}</strong></span><small class="simple-window-time">${esc(formatWindowStart(item.start))} → ${esc(formatTime(item.end))} · ${esc(`${duration.toFixed(duration % 1 ? 1 : 0)} h`)}${contextDetails ? ` · ${esc(contextDetails)}` : ''}</small>${modelAgreement}${status}<span class="simple-window-arrow" aria-hidden="true">›</span></button><div id="simple-window-details-${index}" class="simple-window-details"${expanded ? '' : ' hidden'}>${routeDetails}${late ? `<div class="simple-window-detail"><span>${esc(c.remaining)}</span><strong>${esc(remainingLabel)}</strong></div>` : ''}${warning}<button class="simple-window-map" data-simple-action="map-window" data-simple-window-index="${index}" type="button">🗺️ ${esc(c.showOnMap)}</button></div></article>`;
     }).join('') : `<div class="simple-empty">${esc(c.noWindow)}</div>`;
     return `<section id="simple-navigation" class="simple-panel"><div class="simple-panel-head"><h2>🧭 ${esc(c.windows)} <span class="simple-panel-note">(${esc(dayLabel(dayKey(state.activeDay),state.activeDay))})</span></h2><span class="simple-panel-note">${esc(navigationNote(rows))}</span></div><div class="simple-navigation">${content}</div></section>`;
   }
@@ -612,9 +642,6 @@
   function render() {
     const root = document.getElementById('simple-view');
     if (!root) return;
-    // Un rerender referme les details. La selection associee doit suivre, sinon
-    // les activites continuaient d'afficher un ancien port devenu invisible.
-    state.selectedWindow = null;
     const c = copy();
     const result = verdictForDay();
     const selectedTone = toneForState(result?.state);
@@ -661,6 +688,11 @@
       </div>
       </div>
     </div><div id="simple-more-menu" class="simple-more-menu" hidden><button class="simple-more-action" data-simple-action="conditions" type="button">〽️ ${esc(c.conditionsMenu)}</button><button class="simple-more-action" data-simple-action="activities" type="button">🌊 ${esc(c.activitiesMenu)}</button><button class="simple-more-action" data-simple-action="family" type="button">👨‍👩‍👧 ${esc(c.familyMenu)}</button></div><nav class="simple-bottom-nav" aria-label="${esc(c.enter)}"><button class="simple-nav-action active" data-simple-action="decision" type="button"><span>🏠</span>${esc(c.decision)}</button><button class="simple-nav-action" data-simple-action="days" type="button"><span>📅</span>${esc(c.days)}</button><button class="simple-nav-action" data-simple-action="map" type="button"><span>🗺️</span>${esc(c.map)}</button><button class="simple-nav-action" data-simple-action="more" type="button" aria-expanded="false" aria-controls="simple-more-menu"><span>•••</span>${esc(c.more)}</button></nav>`;
+    const selectedIndex = navigationRows(result).findIndex((row) => rowMatchesWindow(row));
+    if (selectedIndex >= 0) {
+      const selectedRow = navigationRows(result)[selectedIndex];
+      queueMicrotask(() => hydrateWindowRoute(selectedIndex, selectedRow));
+    }
   }
 
   function setMode(mode, persist = true) {
@@ -681,7 +713,8 @@
   }
   async function loadForecast(best) {
     const destinations = state.windows?.windows || [];
-    const slug = best?.destination?.dest_slug || state.windows?.home_slug || destinations[0]?.dest_slug;
+    const slug = best?.destination?.dest_slug || navigationContext().port
+      || state.windows?.home_slug || destinations[0]?.dest_slug;
     if (!slug) { state.forecast = {}; return; }
     try {
       const response = await fetch(slug,{cache:'no-store'});
@@ -691,7 +724,7 @@
   }
   function openFamilyTab(tab) {
     const selectedKey = dayKey(state.activeDay);
-    localStorage.setItem('fable_selected_day', selectedKey);
+    window.FABLENavigationContext?.setDay?.(selectedKey, {source:'simple-open-family'});
     window.FABLEDaySelection?.setSelectedDay?.(selectedKey, {persist:true, announce:false});
     setMode('family', false);
     setTimeout(() => document.querySelector(`[data-family-tab="${tab}"]`)?.click(), 120);
@@ -700,6 +733,13 @@
     const slug = best?.destination?.dest_slug;
     document.body.classList.add('simple-map-open');
     const item = best?.windowItem || {};
+    if (slug && item.start && item.end) {
+      window.FABLENavigationContext?.selectWindow?.({
+        slug, start:item.start, end:item.end, direction:item.direction || '',
+      }, {source:'simple-map'});
+    } else if (slug) {
+      window.FABLENavigationContext?.setPort?.(slug, {source:'simple-map'});
+    }
     // FABLEMapUI waits for two animation frames before measuring Leaflet.
     // The map is hidden until simple-map-open is applied, so measuring it
     // synchronously produces incorrect bounds on the first visit.
@@ -727,7 +767,11 @@
       state.recommendations = recommendationsResponse?.ok ? await recommendationsResponse.json() : {};
       state.rules = rulesResponse?.ok ? await rulesResponse.json() : {};
       if (!windowsResponse.ok || !statusResponse.ok) state.error = 'published-data-unavailable';
-      await loadForecast(bestForDisplayDay());
+      window.FABLENavigationContext?.reconcile?.(state.windows, {
+        validDays:[0, 1, 2].map(dayKey), source:'simple-refresh',
+      });
+      state.activeDay = selectedDayOffset(navigationContext().day || dayKey(0));
+      await loadForecast(activityRow());
     } catch { state.windows = null; state.status = null; state.forecast = {}; state.recommendations = {}; state.rules = {}; state.error = 'network'; }
     state.loading = false;
     render();
@@ -762,24 +806,27 @@
           view.querySelectorAll('.simple-window-details').forEach((item) => { item.hidden = true; });
           view.querySelectorAll('[data-simple-action="window-details"]').forEach((item) => item.setAttribute('aria-expanded', 'false'));
           view.querySelectorAll('.simple-window-item').forEach((item) => item.classList.remove('expanded'));
-          state.selectedWindow = null;
+          const rows = navigationRows(verdictForDay());
+          window.FABLENavigationContext?.clearWindow?.({source:'simple-view'});
           if (panel && opening) {
             panel.hidden = false;
             button.setAttribute('aria-expanded', 'true');
             button.closest('.simple-window-item')?.classList.add('expanded');
             const index = Number(button.dataset.simpleWindowIndex);
-            const row = displayRows(verdictForDay())?.[index] || null;
+            const row = rows[index] || null;
             if (row) {
-              state.selectedWindow = {
+              window.FABLENavigationContext?.selectWindow?.({
                 slug: row.destination?.dest_slug || '',
                 start: row.windowItem?.start || '',
                 end: row.windowItem?.end || '',
-              };
+                direction: row.windowItem?.direction || '',
+              }, {source:'simple-view'});
+              await loadForecast(row);
+              render();
             }
-            await hydrateWindowRoute(index, row);
+          } else {
+            render();
           }
-          // La section activites suit la selection sans repeindre la vue, ce
-          // qui refermerait le panneau qu'on vient d'ouvrir.
           refreshActivities();
         }
         if (action === 'more') {
@@ -797,7 +844,7 @@
         if (action === 'map') openSelectedMap();
         if (action === 'map-window') {
           const index = Number(event.target.closest('[data-simple-window-index]')?.dataset.simpleWindowIndex);
-          const row = displayRows(verdictForDay())?.[index] || null;
+          const row = navigationRows(verdictForDay())?.[index] || null;
           openSelectedMap(row);
         }
         if (action === 'days') document.getElementById('simple-three-days')?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -816,12 +863,11 @@
         const day = dayButton?.dataset.simpleDay;
         if (day !== undefined) {
           state.activeDay = Number(day);
-          state.selectedWindow = null;
           const selectedKey = dayKey(state.activeDay);
-          localStorage.setItem('fable_selected_day', selectedKey);
+          window.FABLENavigationContext?.setDay?.(selectedKey, {source:'simple-view'});
           window.FABLEDaySelection?.setSelectedDay?.(selectedKey, {persist:true, announce:true});
           state.loading = true; render();
-          loadForecast(bestForDisplayDay()).finally(() => {
+          loadForecast(activityRow()).finally(() => {
             state.loading = false; render();
             document.querySelector(`[data-simple-day="${day}"]`)?.focus();
           });
@@ -847,7 +893,9 @@
         view.querySelector(`[data-simple-day="${next}"]`)?.click();
       });
     }
-    state.activeDay = selectedDayOffset(localStorage.getItem('fable_selected_day') || dayKey(0));
+    const initialDay = navigationContext().day || localStorage.getItem('fable_selected_day') || dayKey(0);
+    window.FABLENavigationContext?.setDay?.(initialDay, {source:'simple-start'});
+    state.activeDay = selectedDayOffset(initialDay);
     refresh();
     let savedMode = localStorage.getItem(MODE_KEY);
     if (!localStorage.getItem(SIMPLE_DEFAULT_KEY)) {
@@ -861,11 +909,25 @@
     const updateLanguage = () => setTimeout(() => { document.getElementById('simpleViewBtn').textContent = `✨ ${copy().trySimple}`; render(); }, 0);
     document.getElementById('langToggle')?.addEventListener('click', updateLanguage);
     window.addEventListener('fable:languagechange', updateLanguage);
+    window.addEventListener('fable:navigation-context-changed', (event) => {
+      if (event.detail?.source === 'simple-view' || event.detail?.source === 'simple-map') return;
+      const context = event.detail?.context || navigationContext();
+      const offset = selectedDayOffset(context.day || '');
+      const changes = event.detail?.changes || [];
+      const dayChanged = changes.includes('day') && offset !== state.activeDay;
+      const selectionChanged = changes.includes('port') || changes.includes('window');
+      if (!dayChanged && !selectionChanged) return;
+      if (dayChanged) state.activeDay = offset;
+      state.loading = true;
+      render();
+      loadForecast(activityRow()).finally(() => { state.loading = false; render(); });
+    });
+    // Compatibilite si le module de contexte n'a pas pu etre charge.
     window.addEventListener('fable:day-selected', (event) => {
+      if (window.FABLENavigationContext) return;
       const offset = selectedDayOffset(event.detail?.dateKey || '');
       if (offset === state.activeDay) return;
       state.activeDay = offset;
-      state.selectedWindow = null;
       state.loading = true;
       render();
       loadForecast(bestForDisplayDay()).finally(() => { state.loading = false; render(); });

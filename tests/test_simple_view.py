@@ -7,7 +7,7 @@ def test_dashboard_loads_isolated_simple_view():
     html = (ROOT / "public" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert '<script src="./simple-view.js?v=20260829-selected-port-v1" defer></script>' in html
+    assert '<script src="./simple-view.js?v=20260830-context-v1" defer></script>' in html
     assert "simple-board-mode" in script
     assert "family-board-mode" in script
     assert "expert-board-mode" in script
@@ -66,7 +66,7 @@ def test_simple_navigation_expands_inline_and_more_menu_has_real_actions():
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
     assert 'data-simple-action="window-details"' in script
-    assert 'class="simple-window-details" hidden' in script
+    assert 'class="simple-window-details"${expanded ? \'\' : \' hidden\'}' in script
     assert 'data-simple-action="map-window"' in script
     assert "if (action === 'window-details')" in script
     assert 'id="simple-more-menu"' in script
@@ -97,7 +97,7 @@ def test_simple_navigation_cards_explain_quality_and_open_the_exact_route():
 def test_simple_forecast_keeps_loading_when_a_day_has_no_validated_window():
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert "state.windows?.home_slug || destinations[0]?.dest_slug" in script
+    assert "|| state.windows?.home_slug || destinations[0]?.dest_slug" in script
 
 
 def test_simple_view_keeps_in_progress_windows_visible_without_promoting_them_to_go():
@@ -355,13 +355,14 @@ def test_simple_view_activities_follow_the_expanded_window():
     """
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert "selectedWindow: null" in script
+    assert "const selected = context.window" in script
     assert "function activityRow()" in script
     # Le rendu principal passe par le même sélecteur que le rafraîchissement.
     assert "renderActivities(activityRow())" in script
     assert "function refreshActivities()" in script
-    # Déplier une fenêtre mémorise la destination et ses bornes.
-    assert "state.selectedWindow = {" in script
+    # Déplier une fenêtre publie la destination et ses bornes au contexte commun.
+    assert "FABLENavigationContext?.selectWindow?.({" in script
     assert "slug: row.destination?.dest_slug" in script
-    # Changer de jour oublie la fenêtre dépliée de la journée précédente.
-    assert script.count("state.selectedWindow = null;") >= 3
+    # Changer de jour passe par le contexte, qui invalide une fenêtre incompatible.
+    assert "FABLENavigationContext?.setDay?.(selectedKey" in script
+    assert "FABLENavigationContext?.clearWindow?.({source:'simple-view'})" in script

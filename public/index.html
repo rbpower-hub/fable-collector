@@ -390,7 +390,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="./reasons-debug.js"></script>
 <script src="./decision-widgets.js?v=20260829-expert-nogo-v1"></script>
-<script src="./simple-view.js?v=20260829-selected-port-v1" defer></script>
+<script src="./navigation-context.js?v=20260830-context-v1"></script>
+<script src="./simple-view.js?v=20260830-context-v1" defer></script>
 
 <script>
 (async function main() {
@@ -606,6 +607,7 @@
   let lastWinsKey = new Set();
   let windowRecordIndex = new Map();
   let activeMapFile = '';
+  let suppressWindowLineScroll = false;
   let corridorRenderToken = 0;
 
   const $ = sel => document.querySelector(sel);
@@ -957,7 +959,9 @@
     ));
     const line = exact || (!exactRequested ? candidates[0] : null);
     if(!line) return false;
+    suppressWindowLineScroll = !scroll;
     line.click();
+    suppressWindowLineScroll = false;
     if(scroll) line.scrollIntoView({ block:'nearest', behavior:'smooth' });
     return true;
   }
@@ -1260,13 +1264,14 @@
     const button = event.target.closest('[data-map-file]');
     if(!button) return;
     const file = button.dataset.mapFile;
-    if(!focusWindowForFile(file)) showRoutePreview(file);
+    window.FABLENavigationContext?.setPort?.(file, {source:'map-destination'});
+    if(!showRoutePreview(file)) window.panToFile(file);
   });
   window.FABLEMapUI = {
     open(file){
       afterMapLayout(()=>{
         if(file){
-          if(!focusWindowForFile(file)) showRoutePreview(file);
+          if(!showRoutePreview(file)) window.panToFile(file);
         }else resetMapView({animate:false});
       });
     },
@@ -1281,6 +1286,7 @@
     describeWindowRoute(options){ return describeWindowRoute(options); },
     describeWindow(options){ return describeWindow(options); },
     invalidate(){ window.setTimeout(()=>map.invalidateSize({pan:false}),60); },
+    refresh(){ return updateDashboard(); },
   };
   window.dispatchEvent(new CustomEvent('fable:map-ui-ready'));
   // Tooltip
@@ -1293,6 +1299,29 @@
   });
   
   // ===== Rendu principal =====
+  function expertWindowSegments(destination){
+    const containers = [
+      destination?.long_trip_one_way,
+      destination?.offshore_one_way_beta,
+      destination?.offshore,
+    ].filter(Boolean);
+    const candidates = [
+      ...(destination?.windows || []),
+      ...containers.flatMap(container=>[
+        ...(container.outbound || []).map(item=>({...item,direction:item.direction || 'outbound'})),
+        ...(container.outbound_windows || []).map(item=>({...item,direction:item.direction || 'outbound'})),
+        ...(container.return || []).map(item=>({...item,direction:item.direction || 'return'})),
+        ...(container.returns || []).map(item=>({...item,direction:item.direction || 'return'})),
+        ...(container.return_windows || []).map(item=>({...item,direction:item.direction || 'return'})),
+      ]),
+    ];
+    const unique = new Map();
+    candidates.forEach(item=>{
+      const key = `${item.start || ''}|${item.end || ''}|${item.direction || ''}`;
+      if(item.start && item.end && !unique.has(key)) unique.set(key,item);
+    });
+    return [...unique.values()];
+  }
   async function updateDashboard(){
     $('#dashboard-content').classList.add('updating');
 
@@ -1370,7 +1399,7 @@
 
     windowRecordIndex = new Map();
     const winItems = (winData?.windows || [])
-      .flatMap(dest => (dest.windows||[]).map(seg => {
+      .flatMap(dest => expertWindowSegments(dest).map(seg => {
         const cat = String(seg.category || dest.category || '').toLowerCase();
         const isFamilyDay  = cat ? (cat === 'family')     : isFamilyWindow(seg.start, seg.end);
         const isOffHours = (cat === 'off_hours');
@@ -1406,13 +1435,18 @@
              ${marineWarning}`
           : '';
 
-        const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}`;
+        const key = `${dest.dest_slug||dest.dest_name}|${seg.start}|${seg.end}|${seg.direction||''}`;
         windowRecordIndex.set(key, { dest, seg });
         const compositeView = compositeStepVisual(dest.dest_slug, seg);
         const copy = mapCopy();
+        const directionalGo = seg.direction === 'return'
+          ? (LANG === 'en' ? 'RETURN VALIDATED' : 'RETOUR VALIDÉ')
+          : seg.direction === 'outbound'
+            ? (LANG === 'en' ? 'OUTBOUND VALIDATED' : 'ALLER VALIDÉ')
+            : '';
         const goTxt = compositeView
           ? (isOffHours ? `${copy.compositeGo} (${copy.outsideHours})` : copy.compositeGo)
-          : (isOffHours ? 'GO (hors horaires)' : 'FAMILY GO');
+          : directionalGo || (isOffHours ? 'GO (hors horaires)' : 'FAMILY GO');
         const goCls = 'family';
         nowWinsKey.add(key);
         
@@ -1458,17 +1492,19 @@
       // selection + keep in view
       document.querySelectorAll('.window-line.select').forEach(n=>n.classList.remove('select'));
       cardEl.classList.add('select');
-      if(!document.body.classList.contains('simple-map-open')){
+      if(!document.body.classList.contains('simple-map-open') && !suppressWindowLineScroll){
         cardEl.scrollIntoView({ block:'nearest', behavior:'smooth' });
       }
     
       const slug  = cardEl.dataset.slug;
       const start = cardEl.dataset.start;
       const end   = cardEl.dataset.end;
+      const direction = cardEl.dataset.direction || '';
       if(!slug || !start || !end) return;
+      window.FABLENavigationContext?.selectWindow?.({slug,start,end,direction}, {source:'map-window'});
       const renderToken = ++corridorRenderToken;
       setActiveMapFile(slug);
-      const record = windowRecordIndex.get(`${slug}|${start}|${end}`) || null;
+      const record = windowRecordIndex.get(`${slug}|${start}|${end}|${direction}`) || null;
       const composite = record?.seg?.composite || null;
     
       const originFile = homeFile;
@@ -1824,13 +1860,25 @@
         .bindPopup(`<b>${s.name}</b><br>${isMain ? '⚓ Bateau abrité au port<br>' : ''}${text}`)
         .bindTooltip(isMain ? `⚓ ${s.name} · bateau abrité` : s.name, {direction:'top',offset:[0,-8]});
       marker.on('click', ()=>{
-        if (focusWindowForFile(file)) return;
+        window.FABLENavigationContext?.setPort?.(file, {source:'map-marker'});
         if (showRoutePreview(file)) return;
         window.panToFile(file);
       });
     }
 
-    if(activeMapFile && spotConfig[activeMapFile]) showRoutePreview(activeMapFile);
+    window.FABLENavigationContext?.reconcile?.(winData, {source:'expert-refresh'});
+    const navigation = window.FABLENavigationContext?.get?.() || {};
+    const selectedWindow = navigation.window;
+    if(selectedWindow && focusWindow(selectedWindow.slug, {
+      start:selectedWindow.start,
+      end:selectedWindow.end,
+      direction:selectedWindow.direction || '',
+      scroll:false,
+    })) {
+      // Le clic restaure le corridor valide et son animation.
+    } else if(navigation.port && spotConfig[navigation.port]) {
+      showRoutePreview(navigation.port);
+    } else if(activeMapFile && spotConfig[activeMapFile]) showRoutePreview(activeMapFile);
     else resetMapSummary();
     $('#dashboard-content').classList.remove('updating');
     fitToViewport();
@@ -1849,11 +1897,13 @@
       // Le board des activites ecoute cet evenement pour se limiter au port
       // choisi. Sans lui, cliquer un port ne changeait rien a la carte
       // « Que faire sur l'eau ? ».
-      window.dispatchEvent(new CustomEvent('fable:spot-selected', {detail:{file}}));
-      if (!focusWindowForFile(file)) {
-        if (showRoutePreview(file)) return;
-        window.panToFile(file);
+      if (window.FABLENavigationContext) {
+        window.FABLENavigationContext.setPort(file, {source:'expert-table'});
+      } else {
+        window.dispatchEvent(new CustomEvent('fable:spot-selected', {detail:{file}}));
       }
+      if (showRoutePreview(file)) return;
+      window.panToFile(file);
     }
   });
 

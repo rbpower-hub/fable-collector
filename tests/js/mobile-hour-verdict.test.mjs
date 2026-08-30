@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { parseThresholds, THRESHOLD_FALLBACK } from '../../public/mobile/js/thresholds.js';
-import { classifySeries, isOnshore } from '../../public/mobile/js/hour-verdict.js';
+import { classifySeries, isOnshore, prudentReasons } from '../../public/mobile/js/hour-verdict.js';
 
 const fixturePath = fileURLToPath(new URL('../fixtures/mobile_hours.json', import.meta.url));
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
@@ -63,4 +63,16 @@ test('la plage horaire famille est appliquee sans changer le verdict', () => {
   assert.equal(night.state, 'go');
   assert.equal(night.daylight, false);
   assert.equal(verdicts[0].daylight, true);
+});
+
+test('le profil prudent ne contourne pas un refus mer family', () => {
+  const th = parseThresholds(fixture.meta.rules, null);
+  const metrics = {
+    anyOnshore: false,
+    maxSpeed: 10,
+    maxGust: 18,
+    // Hs reste sous le plafond prudent, mais Tp est trop court pour Family.
+    waveScenarios: [{hs: 0.35, tp: th.tpMinAtLt04 - 0.1}],
+  };
+  assert.ok(prudentReasons(metrics, th).includes(`Tp<${th.tpMinAtLt04}@Hs<0.4`));
 });

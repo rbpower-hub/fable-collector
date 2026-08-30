@@ -91,7 +91,9 @@ def test_tide_prefers_measured_range_over_moon_phase():
 def test_lunar_bonus_falls_back_to_phase_without_tide():
     context = {"tide": {"available": False}, "moon": _moon(0.5), "moon_visible": False}
     bonus, detail_fr, _ = _lunar_or_tidal_bonus(context, {"lunar_max_bonus": 5})
-    assert bonus == 5.0
+    # Une pleine lune sous l'horizon ne peut pas ameliorer le classement du
+    # creneau, meme si sa phase reste une information utile a afficher.
+    assert bonus == 0.0
     assert "pleine lune" in detail_fr
     assert "sous l’horizon" in detail_fr
 
@@ -125,6 +127,18 @@ def test_advisories_report_heat_uv_and_onshore():
     ids = {note["id"] for note in advisories(metrics, {}, {})}
     assert {"uv_high", "heat", "onshore"} <= ids
     assert "rain" not in ids
+
+
+def test_english_measurements_use_decimal_points():
+    notes = advisories(
+        {"max_uv_index": 7.7, "sea_surface_temperature_c": 27.4},
+        {},
+        {},
+    )
+    english = " ".join(note["en"] for note in notes)
+    french = " ".join(note["fr"] for note in notes)
+    assert "7.7" in english and "27.4" in english
+    assert "7,7" in french and "27,4" in french
 
 
 def test_advisory_thresholds_are_configurable():
@@ -204,6 +218,22 @@ def test_score_reports_the_widest_overshoot_as_the_blocking_reason():
     assert item["blockers"][0]["metric"] == "max_gust_kmh"
     assert "rafales 35 km/h pour une limite de 22 km/h" in item["reason_fr"]
     assert len(item["blockers"]) == 2
+
+
+def test_english_score_explains_numeric_margins_too():
+    from fable.recommendations import _score
+
+    item = _score(
+        "family_swim",
+        {
+            "label_fr": "Baignade familiale", "label_en": "Family swim",
+            "safety": {"max_wind_kmh": 14, "max_gust_kmh": 22, "max_hs_m": 0.25},
+        },
+        {"max_wind_kmh": 9.0, "max_gust_kmh": 18.0, "max_hs_m": 0.18},
+        {}, {}, {},
+    )
+    assert "wind 9 km/h against a 14 km/h limit" in item["why_en"]
+    assert "wave height 0.18 m against a 0.25 m limit" in item["why_en"]
 
 
 def test_score_keeps_an_unclipped_rank_score():
@@ -294,6 +324,20 @@ def test_a_night_window_does_not_get_a_swim_recommendation():
     assert allowed["blocked"] is False
 
 
+def test_a_daylight_activity_is_blocked_when_astronomy_is_missing():
+    from fable.recommendations import _score
+
+    swim = {
+        "label_fr": "Baignade familiale", "label_en": "Family swim",
+        "requires_daylight": True,
+        "safety": {"max_wind_kmh": 14, "max_gust_kmh": 22, "max_hs_m": 0.25},
+    }
+    calm = {"max_wind_kmh": 6.0, "max_gust_kmh": 12.0, "max_hs_m": 0.15}
+    item = _score("family_swim", swim, calm, {}, {"daylight": {"available": False}}, {})
+    assert item["blocked"] is True
+    assert item["blockers"][0]["metric"] == "daylight_unavailable"
+
+
 def test_fishing_keeps_its_dawn_window():
     """La pêche au lever du jour reste légitime : seule une activité qui déclare
     `requires_daylight` est écartée."""
@@ -381,6 +425,18 @@ def test_the_cap_serves_distinct_destinations_first():
     ]
     kept = _spread_by_day(items, 2)
     assert {item["dest_slug"] for item in kept} == {"gammarth-port.json", "sidi-bou-said.json"}
+
+
+def test_secondary_activity_does_not_set_window_priority():
+    from fable.recommendations import _best_score
+
+    item = {
+        "activities": [
+            {"tier": "primary", "rank_score": 72},
+            {"tier": "secondary", "rank_score": 99},
+        ]
+    }
+    assert _best_score(item) == 72
 
 
 def test_every_day_of_the_horizon_keeps_a_place():

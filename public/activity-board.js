@@ -92,8 +92,11 @@
     ).join('')}</ul>`;
   }
 
-  function blockedList(data, lang) {
-    const blocked = Array.isArray(data?.no_go) ? data.no_go : [];
+  function blockedList(data, lang, selectedPort = '') {
+    const allBlocked = Array.isArray(data?.no_go) ? data.no_go : [];
+    const blocked = selectedPort
+      ? allBlocked.filter((item) => String(item.dest_slug || '') === selectedPort)
+      : allBlocked;
     if (!blocked.length) return '';
     const heading = lang === 'en' ? 'Why the other spots are out' : 'Pourquoi les autres spots sont exclus';
     return `<div class="activity-note"><b>${heading}</b></div><ul class="activity-blocked">${blocked.map((item) => {
@@ -229,7 +232,7 @@
       const empty = lang === 'en'
         ? 'No compatible activity in a validated Family GO window.'
         : 'Aucune activité compatible dans une fenêtre Family GO validée.';
-      card.innerHTML = `<h3><span>${title}</span></h3>${filterChip}<div class="small">${empty}</div>${blockedList(data, lang)}`;
+      card.innerHTML = `<h3><span>${title}</span></h3>${filterChip}<div class="small">${empty}</div>${blockedList(data, lang, portFilter)}`;
       window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations:[]}}));
       return;
     }
@@ -271,7 +274,7 @@
         : '';
       const dateKey = tunisDateKey(rec.start);
       return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${blockedPrimary(rec, lang)}${adviceList(rec, lang)}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${natureBlock(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
-    }).join('')}</div>${blockedList(data, lang)}`;
+    }).join('')}</div>${blockedList(data, lang, portFilter)}`;
     window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations}}));
   }
 
@@ -294,6 +297,9 @@
       lastPayload = {recommendations, windows};
       render(recommendations, windows);
     } catch {
+      // Ne jamais reutiliser silencieusement un conseil d'une collecte precedente
+      // après l'echec du rafraichissement courant.
+      lastPayload = null;
       render({recommendations:[]}, {});
     }
   }
@@ -318,6 +324,7 @@
   window.FABLEActivityBoard = Object.assign(window.FABLEActivityBoard || {}, {
     refresh,
     setPortFilter,
+    getPortFilter: () => portFilter,
     tunisDateKey,
     // Exposes pour les tests : ce sont les deux points ou un identifiant brut
     // ou un separateur decimal errone atteindrait l'ecran.

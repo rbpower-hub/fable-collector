@@ -55,5 +55,7 @@ test('le filtre par port se pose et se retire', () => {
   // Sans payload charge, l'appel ne doit pas jeter : la vue est simplement
   // rendue au prochain rafraichissement.
   assert.doesNotThrow(() => board.setPortFilter('ras-fartass.json'));
+  assert.equal(board.getPortFilter(), 'ras-fartass.json');
   assert.doesNotThrow(() => board.setPortFilter(''));
+  assert.equal(board.getPortFilter(), '');
 });

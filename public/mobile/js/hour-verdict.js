@@ -150,12 +150,18 @@ export function familyReasons(m, th) {
 
 export function prudentReasons(m, th) {
   const reasons = [];
+  const push = (reason) => {
+    if (!reasons.includes(reason)) reasons.push(reason);
+  };
   if (m.anyOnshore) reasons.push('prudent_onshore');
   if (m.maxSpeed !== null && m.maxSpeed > th.prudentWindMax) reasons.push(`vent>${th.prudentWindMax}@prudent`);
   if (m.maxGust !== null && m.maxGust >= th.prudentGustMax) reasons.push(`rafales>=${th.prudentGustMax}@prudent`);
   const scenarios = m.waveScenarios.filter((s) => s.tp !== null);
   if (scenarios.some((s) => s.hs > th.prudentHsMax)) reasons.push(`Hs>${th.prudentHsMax}@prudent`);
   if (scenarios.some((s) => s.tp < th.prudentTpMin)) reasons.push(`Tp<${th.prudentTpMin}@prudent`);
+  // GO PRUDENT peut assouplir ses propres plafonds, jamais contourner un refus
+  // mer du profil Family. Le fallback mobile doit rester identique au moteur.
+  waveReasons(m, th).forEach(push);
   return reasons;
 }
 

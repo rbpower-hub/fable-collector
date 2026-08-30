@@ -612,6 +612,9 @@
   function render() {
     const root = document.getElementById('simple-view');
     if (!root) return;
+    // Un rerender referme les details. La selection associee doit suivre, sinon
+    // les activites continuaient d'afficher un ancien port devenu invisible.
+    state.selectedWindow = null;
     const c = copy();
     const result = verdictForDay();
     const selectedTone = toneForState(result?.state);

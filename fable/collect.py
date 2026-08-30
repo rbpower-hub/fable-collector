@@ -280,12 +280,6 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
     sea = fetch_marine(lat, lon, tz_name, start_date, end_date, site_deadline, getter=get,
                        model_order=settings.marine_model_order)
     ocean: dict[str, Any] = {"hourly": {}}
-    if settings.include_ocean:
-        try:
-            ocean = fetch_ocean(lat, lon, tz_name, start_date, end_date, site_deadline, getter=get)
-        except Exception as e:  # noqa: BLE001
-            log.info("ocean fetch skipped: %s", e)
-            ocean = {"hourly": {}, "_error": str(e)}
 
     wx_times = (wx.get("hourly") or {}).get("time") or []
     sea_times = (sea.get("hourly") or {}).get("time") or []
@@ -299,10 +293,6 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
     fx_slice = slice_by_indices(wx, published_forecast_keys, keep_wx)
     marine_slice = slice_by_indices(sea, MARINE_KEYS, keep_sea)
     hourly_flat = flatten_hourly_aligned(fx_slice, marine_slice)
-    ocean_times = (ocean.get("hourly") or {}).get("time") or []
-    keep_ocean = indices_in_window(ocean_times, start_local, end_local, tz)
-    ocean_slice = slice_by_indices(ocean, OCEAN_KEYS, keep_ocean) if keep_ocean else {}
-    ocean_keys_attached = attach_on_axis(hourly_flat, ocean_slice, OCEAN_KEYS)
 
     primary_used = wx.get("_model_used", "unknown")
     axis = hourly_flat.get("time") or []
@@ -353,6 +343,21 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
             if marine_series_has_usable_height(primary_aligned):
                 marine_models_out[marine_primary_used] = {"hourly": primary_aligned}
                 marine_attempts.append({"model": marine_primary_used, "status": "published_primary_copy"})
+
+    # Les courants et la temperature de mer enrichissent l'explication, mais ne
+    # doivent jamais consommer le budget reserve aux modeles vent/houle qui
+    # peuvent opposer un veto a une sortie. Cette collecte optionnelle passe donc
+    # apres toutes les sources de securite.
+    if settings.include_ocean:
+        try:
+            ocean = fetch_ocean(lat, lon, tz_name, start_date, end_date, site_deadline, getter=get)
+        except Exception as e:  # noqa: BLE001
+            log.info("ocean fetch skipped: %s", e)
+            ocean = {"hourly": {}, "_error": str(e)}
+    ocean_times = (ocean.get("hourly") or {}).get("time") or []
+    keep_ocean = indices_in_window(ocean_times, start_local, end_local, tz)
+    ocean_slice = slice_by_indices(ocean, OCEAN_KEYS, keep_ocean) if keep_ocean else {}
+    ocean_keys_attached = attach_on_axis(hourly_flat, ocean_slice, OCEAN_KEYS)
 
     e_units = wx.get("hourly_units", {}) or {}
     m_units = sea.get("hourly_units", {}) or {}

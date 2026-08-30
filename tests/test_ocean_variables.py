@@ -8,10 +8,11 @@ la chaîne de repli des modèles de vagues porte la sécurité, elle ne doit jam
 from __future__ import annotations
 
 import datetime as dt
+import inspect
 
 import pytest
 
-from fable.collect import attach_on_axis
+from fable.collect import attach_on_axis, build_site_payload
 from fable.openmeteo import OCEAN_KEYS, fetch_ocean, ocean_url
 
 START = dt.date(2026, 8, 27)
@@ -78,3 +79,11 @@ def test_attach_on_axis_ignores_empty_sources():
     assert attach_on_axis(flat, {}, OCEAN_KEYS) == []
     assert attach_on_axis(flat, {"time": ["12:00"], "sea_surface_temperature": [None]}, OCEAN_KEYS) == []
     assert "sea_surface_temperature" not in flat
+
+
+def test_optional_ocean_fetch_runs_after_all_safety_models():
+    """Une source de confort ne doit pas epuiser le budget vent/houle."""
+    source = inspect.getsource(build_site_payload)
+    ocean = source.index("ocean = fetch_ocean(")
+    assert source.index("models_parallel, parallel_attempts = fetch_parallel_models(") < ocean
+    assert source.index("raw_marine, marine_attempts = fetch_parallel_marine(") < ocean

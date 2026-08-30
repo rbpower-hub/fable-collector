@@ -64,3 +64,18 @@ def test_activity_mutations_are_not_observed_as_feedback():
     script = (ROOT / "public" / "js" / "day-selection.js").read_text(encoding="utf-8")
 
     assert "!target?.closest?.('#fable-activities')" in script
+
+
+def test_navigation_counts_keep_non_family_routes_and_port_filter():
+    script = (ROOT / "public" / "js" / "day-selection.js").read_text(encoding="utf-8")
+
+    assert "categories:['family', 'off_hours', 'watch']" in script
+    assert "navigationWindowBreakdown(rows)" in script
+    assert "FABLEActivityBoard?.getPortFilter?.()" in script
+
+
+def test_failed_activity_refresh_drops_stale_payload():
+    script = (ROOT / "public" / "activity-board.js").read_text(encoding="utf-8")
+
+    catch_body = script.split("} catch {", 1)[1].split("}", 1)[0]
+    assert "lastPayload = null" in catch_body

@@ -468,3 +468,53 @@ def test_decision_policy_does_not_change_existing_navigation_rules():
 
     assert rules_digest(rules) == "75d3a79038f4"
     assert watch["enabled"] is True
+
+
+def test_prudent_never_accepts_a_sea_the_family_tier_refuses(tmp_path):
+    """Le palier prudent élargit le vent, jamais l'état de la mer.
+
+    `hour_ok_for_phase` est un if/elif : la branche prudent sautait entièrement
+    la branche famille, et avec elle la matrice `tp_matrix`. Une heure refusée
+    pour mer courte était donc repêchée par le palier censé être le plus
+    conservateur, et publiée en GO PRUDENT avec, dans ses `cautions`, la règle
+    même qui l'interdisait.
+
+    On vérifie l'invariant sur une grille plutôt qu'une chaîne de raison : le
+    test doit survivre à un réglage des seuils.
+    """
+    inversions = []
+    for index, hs in enumerate((0.15, 0.25, 0.35, 0.40, 0.45, 0.55)):
+        for tp in (3.0, 3.4, 3.8, 4.2, 4.6, 5.5):
+            site = load(tmp_path, f"S{index}{tp}", f"s{index}-{tp}".replace(".", ""), hs=hs, tp=tp)
+            ok_family, _ = hour_ok_for_phase(site, 0, "transit", TH, tier="family")
+            ok_prudent, info = hour_ok_for_phase(site, 0, "transit", TH, tier="prudent")
+            if ok_prudent and not ok_family:
+                inversions.append((hs, tp, info["reasons"]))
+    assert inversions == [], f"le palier prudent accepte une mer refusée par le palier famille : {inversions}"
+
+
+def test_prudent_still_widens_the_wind_envelope(tmp_path):
+    """L'élargissement du vent est voulu et configuré : c'est la raison d'être
+    du palier. Le correctif sur les vagues ne doit pas le supprimer."""
+    milieu = (TH.wind_family_max + TH.prudent_wind_max) / 2
+    assert TH.prudent_wind_max > TH.wind_family_max, "le palier prudent doit élargir le vent"
+
+    site = load(tmp_path, "Sidi Bou Saïd", "sidi-bou-said",
+                wind=milieu, gusts=TH.prudent_gust_max - 2, hs=0.20, tp=6.0)
+    ok_family, info_family = hour_ok_for_phase(site, 0, "transit", TH, tier="family")
+    ok_prudent, _ = hour_ok_for_phase(site, 0, "transit", TH, tier="prudent")
+
+    assert ok_family is False
+    assert any(reason.startswith("vent>=") for reason in info_family["reasons"])
+    assert ok_prudent is True
+
+
+def test_prudent_keeps_its_own_stricter_limits(tmp_path):
+    """Les limites propres au palier prudent restent en vigueur."""
+    trop_haut = load(tmp_path, "Haut", "haut", hs=TH.prudent_hs_max + 0.05, tp=6.0)
+    _, info = hour_ok_for_phase(trop_haut, 0, "transit", TH, tier="prudent")
+    assert any("@prudent" in reason and reason.startswith("Hs>") for reason in info["reasons"])
+
+    trop_court = load(tmp_path, "Court", "court", hs=0.20, tp=TH.prudent_tp_min - 0.2)
+    _, info = hour_ok_for_phase(trop_court, 0, "transit", TH, tier="prudent")
+    assert any("@prudent" in reason and reason.startswith("Tp<") for reason in info["reasons"])

@@ -351,6 +351,14 @@ def hour_ok_for_phase(
             if scenario.get("tp") is not None
         ):
             reasons.append(f"Tp<{th.prudent_tp_min:g}@prudent")
+        # Le palier prudent elargit le vent, jamais l'etat de la mer : il doit
+        # rester un sous-ensemble du palier famille sur les vagues. Sans ces
+        # regles, la matrice Tp n'etait evaluee que dans la branche famille, et
+        # une heure refusee pour mer courte etait repechee par le palier cense
+        # etre le plus conservateur.
+        for reason in standard_wave_reasons(metrics, th, sheltered):
+            if reason not in reasons:
+                reasons.append(reason)
     elif not reasons:
         if metrics.max_speed is not None and metrics.any_onshore and metrics.max_speed > th.onshore_max_ok:
             reasons.append(f"onshore>{int(th.onshore_max_ok)}")

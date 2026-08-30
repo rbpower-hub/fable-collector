@@ -50,9 +50,33 @@ Une fenêtre prudente impose simultanément :
 - vent non onshore sur le site concerné ;
 - confiance au moins `Medium` ;
 - totalité de la fenêtre dans la plage de lumière sécurisée ;
-- départ, phases à destination et retour à Gammarth validés.
+- départ, phases à destination et retour à Gammarth validés ;
+- **toutes les règles de vague du palier standard**, matrice `tp_matrix` comprise.
 
 Le board affiche ces fenêtres en orange avec le badge **FAMILY GO PRUDENT** et un avertissement de confort réduit.
+
+### Le palier prudent élargit le vent, jamais la mer
+
+C'est la règle qui donne son sens au mot « prudent ». Le palier ouvre
+volontairement l'enveloppe de vent — `wind_max_kmh` prudent au-dessus de la
+limite famille — parce qu'un vent un peu plus soutenu reste gérable sur une
+sortie courte et surveillée. Il ne doit **jamais** ouvrir l'enveloppe de mer.
+
+`hour_ok_for_phase` était écrit en `if / elif` : la branche prudent remplaçait
+la branche famille au lieu de s'y ajouter, et sautait donc `standard_wave_reasons`
+avec sa matrice `tp_matrix`. À `Hs = 0,40 m` — la borne exacte où le plafond
+prudent (`> 0,40`) laisse passer et où la bande famille `0,4–0,5` exige 4,2 s —
+une heure refusée pour mer courte était repêchée par le palier censé être le
+plus conservateur, puis publiée en GO PRUDENT avec, rangée dans ses `cautions`,
+la règle même qui l'interdisait.
+
+En cambrure, cela revenait à tolérer en prudent une mer environ 45 % plus raide
+qu'en famille. La branche prudent applique désormais les règles de vague du
+palier standard en plus des siennes.
+
+`tests/test_windows.py::test_prudent_never_accepts_a_sea_the_family_tier_refuses`
+épingle l'invariant sur une grille de couples `Hs × Tp`, et non sur une chaîne
+de raison, pour survivre à un réglage des seuils.
 
 ## Durée adaptative
 

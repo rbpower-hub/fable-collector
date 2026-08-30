@@ -222,6 +222,21 @@ if (!routeMap.animatedBoat || routeMap.pulsingPorts < 2 || !routeMap.portMarkers
 if (routeMap.zoomTargets.length !== 2 || routeMap.zoomTargets.some(({width,height}) => width < 44 || height < 44)) throw new Error(`map zoom controls are too small: ${JSON.stringify(routeMap.zoomTargets)}`);
 if (!routeMap.recenterTarget || routeMap.recenterTarget.width < 44 || routeMap.recenterTarget.height < 44) throw new Error(`map recenter target is too small: ${JSON.stringify(routeMap.recenterTarget)}`);
 if (routeMap.overflow > 2) throw new Error(`route map horizontal overflow: ${routeMap.overflow}px`);
+await page.evaluate(() => window.FABLEMapUI.refresh());
+await page.waitForFunction(() => (
+  document.querySelectorAll('.window-line.select').length === 1
+  && document.querySelectorAll('#map .boat-icon').length === 1
+  && /Sidi Bou Saïd/i.test(document.getElementById('mapSummary')?.textContent || '')
+));
+const restoredRoute = await page.evaluate(() => ({
+  context:window.FABLENavigationContext?.get?.(),
+  selectedWindows:document.querySelectorAll('.window-line.select').length,
+  animatedBoat:document.querySelectorAll('#map .boat-icon').length,
+  summary:document.getElementById('mapSummary')?.textContent?.replace(/\s+/g,' ').trim(),
+}));
+if (restoredRoute.context?.window?.slug !== 'sidi-bou-said.json' || restoredRoute.selectedWindows !== 1 || restoredRoute.animatedBoat !== 1) {
+  throw new Error(`refresh lost the exact navigation context: ${JSON.stringify(restoredRoute)}`);
+}
 await page.locator('#simpleMapBackBtn').click();
 await page.waitForSelector('#simple-view', {state:'visible'});
 

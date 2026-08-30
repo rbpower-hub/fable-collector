@@ -10,13 +10,13 @@ const STORAGE_KEY = 'fable_selected_day';
 const DAY_COUNT = 3;
 
 const state = {
-  selectedKey: null,
   recommendations: [],
   windows: null,
   rules: {},
   syncScheduled: false,
   originalReasonsHtml: null,
 };
+let fallbackSelectedKey = null;
 
 const esc = (value) => String(value ?? '').replace(
   /[&<>"']/g,
@@ -158,10 +158,15 @@ function formatTime(value) {
 }
 
 function selectedKey() {
-  const saved = state.selectedKey || localStorage.getItem(STORAGE_KEY) || '';
+  const shared = window.FABLENavigationContext?.get?.().day;
+  const saved = shared || fallbackSelectedKey || localStorage.getItem(STORAGE_KEY) || '';
   const normalized = normalizeSelectedDay(saved);
-  state.selectedKey = normalized;
-  if (normalized && saved !== normalized) localStorage.setItem(STORAGE_KEY, normalized);
+  fallbackSelectedKey = normalized;
+  if (window.FABLENavigationContext && normalized !== shared) {
+    window.FABLENavigationContext.setDay(normalized, {source:'day-selection-normalize'});
+  } else if (!window.FABLENavigationContext && normalized && saved !== normalized) {
+    localStorage.setItem(STORAGE_KEY, normalized);
+  }
   return normalized;
 }
 
@@ -577,8 +582,12 @@ function scheduleSync() {
 function setSelectedDay(key, {persist = true, announce = true} = {}) {
   const normalized = normalizeSelectedDay(key);
   if (!normalized) return;
-  state.selectedKey = normalized;
-  if (persist) localStorage.setItem(STORAGE_KEY, normalized);
+  fallbackSelectedKey = normalized;
+  if (window.FABLENavigationContext) {
+    window.FABLENavigationContext.setDay(normalized, {
+      source:'day-selection', persistState:persist,
+    });
+  } else if (persist) localStorage.setItem(STORAGE_KEY, normalized);
   syncAll();
   if (announce) {
     window.dispatchEvent(new CustomEvent('fable:day-selected', {
@@ -607,6 +616,9 @@ async function refreshData() {
     state.windows = null;
     state.rules = {};
   }
+  window.FABLENavigationContext?.reconcile?.(state.windows, {
+    validDays:planningDayKeys(), source:'day-selection-refresh',
+  });
   syncAll();
 }
 
@@ -627,19 +639,20 @@ function bindEvents() {
     scheduleSync();
   });
   window.addEventListener('storage', (event) => {
-    if (event.key === STORAGE_KEY) {
-      state.selectedKey = normalizeSelectedDay(event.newValue || '');
-      syncAll();
-    }
     if (event.key === 'lang') syncAll();
   });
+  window.addEventListener('fable:navigation-context-changed', scheduleSync);
 }
 
 function start() {
   installStyles();
   bindEvents();
-  state.selectedKey = normalizeSelectedDay(localStorage.getItem(STORAGE_KEY) || '');
-  localStorage.setItem(STORAGE_KEY, state.selectedKey);
+  fallbackSelectedKey = normalizeSelectedDay(
+    window.FABLENavigationContext?.get?.().day || localStorage.getItem(STORAGE_KEY) || ''
+  );
+  window.FABLENavigationContext?.setDay?.(fallbackSelectedKey, {
+    source:'day-selection-start',
+  });
   const contentObserver = new MutationObserver((mutations) => {
     const meaningful = mutations.some((mutation) => {
       const target = mutation.target?.nodeType === Node.ELEMENT_NODE

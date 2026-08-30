@@ -3,7 +3,10 @@
   const MODE_KEY = 'fable_board_mode';
   const TAB_KEY = 'fable_family_tab';
   const VALID_TABS = new Set(['today', 'activities', 'map', 'details']);
-  const state = { best: null, windowCount: 0, offshoreCount: 0, rules: {} };
+  const state = {
+    best:null, windowCount:0, offshoreCount:0, rules:{},
+    windows:null, recommendations:null, status:null,
+  };
   const TUNIS_TZ = 'Africa/Tunis';
 
   const esc = (value) => String(value ?? '').replace(
@@ -195,6 +198,33 @@
     return window.FABLENavigationWindows?.getDisplayedNavigationWindows(key, data) || [];
   }
 
+  const navigationContext = () => window.FABLENavigationContext?.get?.() || {
+    day:'', port:'', window:null,
+  };
+  function rowMatchesWindow(row, selected = navigationContext().window) {
+    if (!row || !selected) return false;
+    return (row.destination?.dest_slug || '') === selected.slug
+      && (row.windowItem?.start || '') === selected.start
+      && (row.windowItem?.end || '') === selected.end
+      && String(row.windowItem?.direction || '') === String(selected.direction || '');
+  }
+
+  function restoreMapSelection() {
+    const context = navigationContext();
+    if (context.window) {
+      window.FABLEMapUI?.openWindow?.({
+        file:context.window.slug,
+        start:context.window.start,
+        end:context.window.end,
+        direction:context.window.direction || '',
+      });
+    } else if (context.port) {
+      window.FABLEMapUI?.open?.(context.port);
+    } else {
+      window.FABLEMapUI?.invalidate?.();
+    }
+  }
+
   /* Cette vue ne lisait que les fenetres de categorie `family`. Un long trajet
      place hors des heures familiales lui etait donc invisible : la journee
      affichait « 0 creneaux long trajet » pendant que la Vue Simple en annoncait
@@ -303,7 +333,10 @@
       button.setAttribute('aria-selected', active ? 'true' : 'false');
       button.tabIndex = active ? 0 : -1;
     });
-    if (next === 'map') setTimeout(() => { window.dispatchEvent(new Event('resize')); window.FABLEMapUI?.invalidate?.(); }, 100);
+    if (next === 'map') setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      restoreMapSelection();
+    }, 100);
   }
 
   function setMode(mode, persist = true) {
@@ -331,17 +364,27 @@
     return Array.from(document.querySelectorAll('.window-line')).find((element) => (
       element.dataset.slug === best.destination.dest_slug &&
       element.dataset.start === best.windowItem.start &&
-      element.dataset.end === best.windowItem.end
+      element.dataset.end === best.windowItem.end &&
+      element.dataset.direction === String(best.windowItem.direction || '')
     )) || null;
   }
 
   function focusBest(openMap) {
+    if (!state.best) return;
+    const destination = state.best.destination;
+    const item = state.best.windowItem;
+    window.FABLENavigationContext?.selectWindow?.({
+      slug:destination.dest_slug || '',
+      start:item.start || '',
+      end:item.end || '',
+      direction:item.direction || '',
+    }, {source:'family-summary'});
     const element = findWindowElement(state.best);
-    if (!element) return;
     setTab('today');
-    element.scrollIntoView({behavior:'smooth', block:'center'});
+    element?.scrollIntoView({behavior:'smooth', block:'center'});
     if (openMap) {
-      element.click();
+      if (element) element.click();
+      else restoreMapSelection();
       setTimeout(() => setTab('map'), 120);
     }
   }
@@ -350,7 +393,9 @@
     const summary = document.getElementById('family-summary');
     if (!summary) return;
     const c = copy();
-    const selectedDay = window.FABLEDaySelection?.getSelectedDay?.() || tunisDateKey(new Date());
+    const selectedDay = navigationContext().day
+      || window.FABLEDaySelection?.getSelectedDay?.()
+      || tunisDateKey(new Date());
     const displayed = displayedNavigationWindows(selectedDay, windows);
     const coastal = displayed.filter((row) => !isLongTrip(row));
     const offshoreCount = displayed.filter(isLongTrip).length;
@@ -359,7 +404,11 @@
       const tierB = (b.windowItem.family_tier || b.destination.family_tier) === 'prudent' ? 1 : 0;
       return tierA - tierB || new Date(a.windowItem.start) - new Date(b.windowItem.start);
     });
-    state.best = coastal[0] || null;
+    const context = navigationContext();
+    state.best = coastal.find((row) => rowMatchesWindow(row, context.window))
+      || coastal.find((row) => (row.destination?.dest_slug || '') === context.port)
+      || coastal[0]
+      || null;
     state.windowCount = coastal.length;
     state.offshoreCount = offshoreCount;
     const generatedAt = windows?.generated_at || status?.generated_at;
@@ -439,14 +488,21 @@
         fetch('status.json', {cache:'no-store'}),
         fetch('rules.normalized.json', {cache:'no-store'}),
       ]);
+      state.windows = windowsResponse.ok ? await windowsResponse.json() : {};
+      state.recommendations = recommendationsResponse.ok ? await recommendationsResponse.json() : {};
+      state.status = statusResponse.ok ? await statusResponse.json() : {};
       state.rules = rulesResponse.ok ? await rulesResponse.json() : {};
+      window.FABLENavigationContext?.reconcile?.(state.windows, {source:'family-refresh'});
       renderSummary(
-        windowsResponse.ok ? await windowsResponse.json() : {},
-        recommendationsResponse.ok ? await recommendationsResponse.json() : {},
-        statusResponse.ok ? await statusResponse.json() : {},
+        state.windows,
+        state.recommendations,
+        state.status,
         state.rules
       );
     } catch {
+      state.windows = {};
+      state.recommendations = {};
+      state.status = {};
       renderSummary({}, {}, {}, {});
     }
   }
@@ -519,6 +575,16 @@
     // DOMContentLoaded. Refresh immediately when that data reaches the legacy
     // board instead of leaving the Family View empty for up to ten minutes.
     document.addEventListener('fable:dashboard-updated', refreshSummary);
+    window.addEventListener('fable:navigation-context-changed', (event) => {
+      const changes = event.detail?.changes || [];
+      if (!changes.some((key) => ['day', 'port', 'window'].includes(key))) return;
+      if (state.windows) {
+        renderSummary(state.windows, state.recommendations || {}, state.status || {}, state.rules);
+      }
+      if (document.body.dataset.familyTab === 'map' && changes.some((key) => ['port', 'window'].includes(key))) {
+        setTimeout(restoreMapSelection, 0);
+      }
+    });
     setInterval(refreshSummary, 10 * 60 * 1000);
   }
 

@@ -1,6 +1,11 @@
 /* Render recommendations generated only from backend-validated GO windows. */
 (function () {
   const TUNIS_TZ = 'Africa/Tunis';
+  /* Filtre par port. Le board rendait toutes les recommandations du fichier :
+     cliquer un port dans le tableau Expert ne changeait rien, et avec une
+     seule recommandation le panneau semblait fige sur Gammarth. */
+  let portFilter = '';
+  let lastPayload = null;
   const esc = (value) => String(value ?? '').replace(
     /[&<>"']/g,
     (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])
@@ -59,7 +64,7 @@
     const style = document.createElement('style');
     style.id = 'fable-activity-styles';
     style.textContent = `
-      .activity-card{margin-top:16px}.activity-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
+      .activity-card{margin-top:16px}.activity-filter{display:flex;align-items:center;gap:8px;margin:6px 0 10px;padding:6px 10px;border:1px solid var(--br);border-radius:999px;width:fit-content;font-size:.86rem;color:var(--fg)}.activity-filter button{border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;padding:0}.activity-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
       .activity-window{border:1px solid var(--br);border-radius:12px;padding:12px;background:var(--pill-bg)}
       .activity-window.prudent{border-color:var(--warn);background:rgb(from var(--warn) r g b / .08)}
       .activity-window h4{margin:0 0 6px;color:var(--fg);font-size:1rem}.activity-choice{border-top:1px solid var(--br);padding-top:8px;margin-top:8px}
@@ -201,7 +206,19 @@
     const lang = language();
     const title = lang === 'en' ? '🌊 What to do on the water?' : '🌊 Que faire sur l’eau ?';
     const byWindow = windowIndex(windows);
-    const rawRecommendations = Array.isArray(data?.recommendations) ? data.recommendations : [];
+    const allRecommendations = Array.isArray(data?.recommendations) ? data.recommendations : [];
+    const rawRecommendations = portFilter
+      ? allRecommendations.filter((rec) => String(rec.dest_slug || '') === portFilter)
+      : allRecommendations;
+    const filteredName = portFilter
+      ? (allRecommendations.find((rec) => String(rec.dest_slug || '') === portFilter)?.dest_name
+        || portFilter.replace(/\.json$/, ''))
+      : '';
+    const filterChip = portFilter
+      ? `<div class="activity-filter">📍 <b>${esc(filteredName)}</b>`
+        + `<button type="button" data-activity-clear-port>`
+        + `${lang === 'en' ? 'show every port' : 'voir tous les ports'}</button></div>`
+      : '';
     const recommendations = rawRecommendations.filter((rec) => {
       const sourceWindow = byWindow.get(
         [rec.dest_slug || '', rec.start || '', rec.end || ''].join('|')
@@ -212,11 +229,11 @@
       const empty = lang === 'en'
         ? 'No compatible activity in a validated Family GO window.'
         : 'Aucune activité compatible dans une fenêtre Family GO validée.';
-      card.innerHTML = `<h3><span>${title}</span></h3><div class="small">${empty}</div>${blockedList(data, lang)}`;
+      card.innerHTML = `<h3><span>${title}</span></h3>${filterChip}<div class="small">${empty}</div>${blockedList(data, lang)}`;
       window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations:[]}}));
       return;
     }
-    card.innerHTML = `<h3><span>${title}</span></h3><div class="activity-grid">${recommendations.map((rec) => {
+    card.innerHTML = `<h3><span>${title}</span></h3>${filterChip}<div class="activity-grid">${recommendations.map((rec) => {
       const sourceWindow = byWindow.get(
         [rec.dest_slug || '', rec.start || '', rec.end || ''].join('|')
       ) || {};
@@ -258,6 +275,13 @@
     window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations}}));
   }
 
+  function setPortFilter(slug) {
+    const next = String(slug || '');
+    if (next === portFilter) return;
+    portFilter = next;
+    if (lastPayload) render(lastPayload.recommendations, lastPayload.windows);
+  }
+
   async function refresh() {
     try {
       const [recommendationsResponse, windowsResponse] = await Promise.all([
@@ -267,6 +291,7 @@
       if (!recommendationsResponse.ok) throw new Error(String(recommendationsResponse.status));
       const recommendations = await recommendationsResponse.json();
       const windows = windowsResponse.ok ? await windowsResponse.json() : {};
+      lastPayload = {recommendations, windows};
       render(recommendations, windows);
     } catch {
       render({recommendations:[]}, {});
@@ -278,8 +303,21 @@
   window.addEventListener('storage', (event) => {
     if (event.key === 'lang') refresh();
   });
+  /* Le tableau Expert emet le port clique ; le board s'y accroche sans que les
+     deux composants aient besoin de se connaitre. */
+  window.addEventListener('fable:spot-selected', (event) => {
+    setPortFilter(event.detail?.file || '');
+  });
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-activity-clear-port]')) {
+      event.preventDefault();
+      setPortFilter('');
+    }
+  });
+
   window.FABLEActivityBoard = Object.assign(window.FABLEActivityBoard || {}, {
     refresh,
+    setPortFilter,
     tunisDateKey,
     // Exposes pour les tests : ce sont les deux points ou un identifiant brut
     // ou un separateur decimal errone atteindrait l'ecran.

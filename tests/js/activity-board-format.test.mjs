@@ -10,6 +10,7 @@ const sandbox = {
   window: {addEventListener() {}, dispatchEvent() {}, CustomEvent: class {}},
   document: {
     documentElement: {lang: 'fr'},
+    addEventListener() {},
     getElementById: () => null,
     querySelector: () => null,
     createElement: () => ({setAttribute() {}, appendChild() {}, style: {}}),
@@ -45,4 +46,14 @@ test('les intervalles numeriques suivent la locale', () => {
   assert.equal(board.pair(['#10', '#6']), '#10–#6');
   assert.equal(board.pair([4], ' m'), '');
   assert.equal(board.pair(null), '');
+});
+
+test('le filtre par port se pose et se retire', () => {
+  /* Le board rendait toutes les recommandations du fichier : cliquer un port
+     dans le tableau Expert ne changeait rien. Il ecoute desormais la selection. */
+  assert.equal(typeof board.setPortFilter, 'function');
+  // Sans payload charge, l'appel ne doit pas jeter : la vue est simplement
+  // rendue au prochain rafraichissement.
+  assert.doesNotThrow(() => board.setPortFilter('ras-fartass.json'));
+  assert.doesNotThrow(() => board.setPortFilter(''));
 });

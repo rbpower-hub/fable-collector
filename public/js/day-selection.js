@@ -1,7 +1,8 @@
 import {
   getDisplayedNavigationWindows,
+  getNavigationWindowsForDay,
   isLongTripNavigationWindow,
-  navigationWindowCounts,
+  navigationWindowBreakdown,
 } from './navigation-windows.js';
 
 const TUNIS_TZ = 'Africa/Tunis';
@@ -296,7 +297,7 @@ function syncNavigationWindows() {
     if (empty.textContent !== copy().noWindows) empty.textContent = copy().noWindows;
   }
 
-  syncNavigationCounts(displayed);
+  syncNavigationCounts();
 }
 
 function navigationRowKey(row) {
@@ -372,9 +373,15 @@ function renderLongTripLine(line, row) {
     <div class="offshore-note">${esc(text.oneWay)}</div>`;
 }
 
-function syncNavigationCounts(displayed) {
-  const counts = navigationWindowCounts(displayed);
+function syncNavigationCounts() {
   const key = selectedKey();
+  // Les lignes visibles restent volontairement Family-only. Les compteurs, eux,
+  // doivent couvrir toutes les categories : sinon une route longue hors horaires
+  // disparaissait du total dès qu'on changeait de jour.
+  const rows = getNavigationWindowsForDay(key, state.windows, {
+    categories:['family', 'off_hours', 'watch'],
+  });
+  const counts = navigationWindowBreakdown(rows);
   document.querySelectorAll(`[data-nav-family-count="${key}"]`).forEach((node) => {
     if (node.textContent !== String(counts.family)) node.textContent = String(counts.family);
   });
@@ -386,6 +393,9 @@ function syncNavigationCounts(displayed) {
   });
   document.querySelectorAll('[data-nav-selected-long-count]').forEach((node) => {
     if (node.textContent !== String(counts.longTrip)) node.textContent = String(counts.longTrip);
+  });
+  document.querySelectorAll(`[data-nav-offhours-count="${key}"]`).forEach((node) => {
+    if (node.textContent !== String(counts.offHours)) node.textContent = String(counts.offHours);
   });
 }
 
@@ -520,7 +530,10 @@ function syncActivityCards() {
 
   let visibleCount = articles.filter((article) => !article.hidden).length;
   if (visibleCount === 0) {
-    const fallbackRows = coastalWindowsForSelectedDay();
+    const selectedPort = window.FABLEActivityBoard?.getPortFilter?.() || '';
+    const fallbackRows = coastalWindowsForSelectedDay().filter(
+      (row) => !selectedPort || String(row.destination?.dest_slug || '') === selectedPort
+    );
     const distinct = [...new Map(fallbackRows.map((row) => [row.destination?.dest_slug || row.destination?.dest_name, row])).values()];
     if (distinct.length) {
       grid.insertAdjacentHTML('beforeend', distinct.slice(0, 4).map(fallbackActivityHtml).join(''));

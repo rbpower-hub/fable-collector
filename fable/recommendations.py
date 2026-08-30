@@ -523,7 +523,8 @@ def _nature(pack: KnowledgePack | None, slug: str, season: str) -> dict[str, Any
     port = pack.ports.get(slug) or {}
     nature = port.get("nature") or {}
     current = ((nature.get("seasons") or {}).get(season)) or {}
-    if not current:
+    sources = [str(value).strip() for value in nature.get("sources") or [] if str(value).strip()]
+    if not current or not sources:
         return {}
     return {
         "status": nature.get("status"),
@@ -535,15 +536,17 @@ def _nature(pack: KnowledgePack | None, slug: str, season: str) -> dict[str, Any
         "look_for_fr": current.get("look_for_fr") or [],
         "notes_fr": nature.get("notes_fr"),
         "notes_en": nature.get("notes_en"),
-        "sources": nature.get("sources") or [],
+        "sources": sources,
     }
 
 
-def _fmt(value: Any, digits: int = 0, unit: str = "") -> str:
+def _fmt(value: Any, digits: int = 0, unit: str = "", language: str = "fr") -> str:
     number = _number(value)
     if number is None:
         return "—"
-    text = f"{number:.{digits}f}".replace(".", ",")
+    text = f"{number:.{digits}f}"
+    if language != "en":
+        text = text.replace(".", ",")
     return f"{text}{unit}"
 
 
@@ -567,14 +570,14 @@ def advisories(metrics: dict[str, Any], context: dict[str, Any],
         notes.append({
             "id": "uv_high",
             "fr": f"Indice UV {_fmt(uv, 1)} sur la fenêtre : ombre, crème et tee-shirt pour les enfants.",
-            "en": f"UV index {_fmt(uv, 1)} during the window: shade, sunscreen and a rash top for children.",
+            "en": f"UV index {_fmt(uv, 1, language='en')} during the window: shade, sunscreen and a rash top for children.",
         })
     apparent = _number(metrics.get("max_apparent_temperature_c"))
     if apparent is not None and apparent >= heat_high:
         notes.append({
             "id": "heat",
             "fr": f"Ressenti jusqu’à {_fmt(apparent, 0, ' °C')} : eau à bord et pause à l’ombre.",
-            "en": f"Feels like up to {_fmt(apparent, 0, ' °C')}: carry water and plan shade breaks.",
+            "en": f"Feels like up to {_fmt(apparent, 0, ' °C', 'en')}: carry water and plan shade breaks.",
         })
     share = _number(metrics.get("onshore_share"))
     if share is not None and share >= onshore_high:
@@ -599,21 +602,21 @@ def advisories(metrics: dict[str, Any], context: dict[str, Any],
         notes.append({
             "id": "rain",
             "fr": f"Pluie attendue : {_fmt(rain, 1, ' mm')} cumulés sur la fenêtre.",
-            "en": f"Rain expected: {_fmt(rain, 1, ' mm')} over the window.",
+            "en": f"Rain expected: {_fmt(rain, 1, ' mm', 'en')} over the window.",
         })
     sst = _number(metrics.get("sea_surface_temperature_c"))
     if sst is not None:
         notes.append({
             "id": "sst",
             "fr": f"Eau à {_fmt(sst, 1, ' °C')}.",
-            "en": f"Water at {_fmt(sst, 1, ' °C')}.",
+            "en": f"Water at {_fmt(sst, 1, ' °C', 'en')}.",
         })
     tide = context.get("tide") or {}
     if tide.get("available") and _number(tide.get("range_m")) is not None:
         notes.append({
             "id": "tide",
             "fr": f"Marnage {_fmt(tide['range_m'], 2, ' m')} sur la fenêtre, marée {tide.get('trend')}.",
-            "en": f"Tidal range {_fmt(tide['range_m'], 2, ' m')} over the window.",
+            "en": f"Tidal range {_fmt(tide['range_m'], 2, ' m', 'en')} over the window.",
         })
     return notes
 
@@ -635,7 +638,7 @@ def _lunar_or_tidal_bonus(context: dict[str, Any], ranking: dict[str, Any]) -> t
         return (
             round(bonus, 1),
             f"marnage mesuré {_fmt(span, 2, ' m')} ({tide.get('trend')})",
-            f"measured tidal range {_fmt(span, 2, ' m')}",
+            f"measured tidal range {_fmt(span, 2, ' m', 'en')}",
         )
     moon = context.get("moon") or {}
     illumination = _number(moon.get("illumination_pct"))
@@ -644,9 +647,12 @@ def _lunar_or_tidal_bonus(context: dict[str, Any], ranking: dict[str, Any]) -> t
     bonus = min(cap, abs(illumination - 50) / 10)
     label = moon.get("label_fr") or "phase lunaire"
     detail_fr = f"{label.lower()}, illumination {_fmt(illumination, 0, ' %')}"
+    detail_en = f"{moon.get('label_en') or 'moon phase'}, {_fmt(illumination, 0, '%', 'en')} lit"
     if context.get("moon_visible") is False:
         detail_fr += ", lune sous l’horizon pendant la fenêtre"
-    return round(bonus, 1), detail_fr, f"{moon.get('label_en') or 'moon phase'}, {_fmt(illumination, 0, '%')} lit"
+        detail_en += ", moon below the horizon during the window"
+        bonus = 0.0
+    return round(bonus, 1), detail_fr, detail_en
 
 
 def _score(
@@ -673,7 +679,8 @@ def _score(
     # Un depassement n'est plus jete : la carte doit pouvoir dire quelle limite
     # bloque et de combien, comme le fait deja le premier bloqueur d'un NO-GO.
     blockers: list[dict[str, Any]] = []
-    margins = []
+    margins_fr = []
+    margins_en = []
     for metric_key, limit_key, digits, unit, label, label_en in limits:
         value, limit = _number(metrics.get(metric_key)), _number(safety.get(limit_key))
         if value is None or limit is None:
@@ -684,12 +691,19 @@ def _score(
                 "value": value,
                 "limit": limit,
                 "fr": f"{label} {_fmt(value, digits, unit)} pour une limite de {_fmt(limit, digits, unit)}",
-                "en": f"{label_en} {_fmt(value, digits, unit)} against a {_fmt(limit, digits, unit)} limit",
+                "en": (
+                    f"{label_en} {_fmt(value, digits, unit, 'en')} against a "
+                    f"{_fmt(limit, digits, unit, 'en')} limit"
+                ),
                 "over": value / limit if limit else float("inf"),
             })
         else:
             score -= max(0, value / limit - 0.55) * 25
-            margins.append(f"{label} {_fmt(value, digits, unit)} pour une limite de {_fmt(limit, digits, unit)}")
+            margins_fr.append(f"{label} {_fmt(value, digits, unit)} pour une limite de {_fmt(limit, digits, unit)}")
+            margins_en.append(
+                f"{label_en} {_fmt(value, digits, unit, 'en')} against a "
+                f"{_fmt(limit, digits, unit, 'en')} limit"
+            )
     tp, tp_min = _number(metrics.get("min_tp_s")), _number(safety.get("min_tp_s"))
     visibility = _number(metrics.get("min_visibility_km"))
     visibility_min = _number(safety.get("min_visibility_km"))
@@ -697,26 +711,39 @@ def _score(
         blockers.append({
             "metric": "min_tp_s", "value": tp, "limit": tp_min,
             "fr": f"période de vague {_fmt(tp, 1, ' s')} pour un minimum de {_fmt(tp_min, 1, ' s')}",
-            "en": f"wave period {_fmt(tp, 1, ' s')} against a {_fmt(tp_min, 1, ' s')} minimum",
+            "en": (
+                f"wave period {_fmt(tp, 1, ' s', 'en')} against a "
+                f"{_fmt(tp_min, 1, ' s', 'en')} minimum"
+            ),
             "over": (tp_min / tp) if tp else float("inf"),
         })
     if visibility is not None and visibility_min is not None and visibility < visibility_min:
         blockers.append({
             "metric": "min_visibility_km", "value": visibility, "limit": visibility_min,
             "fr": f"visibilité {_fmt(visibility, 0, ' km')} pour un minimum de {_fmt(visibility_min, 0, ' km')}",
-            "en": f"visibility {_fmt(visibility, 0, ' km')} against a {_fmt(visibility_min, 0, ' km')} minimum",
+            "en": (
+                f"visibility {_fmt(visibility, 0, ' km', 'en')} against a "
+                f"{_fmt(visibility_min, 0, ' km', 'en')} minimum"
+            ),
             "over": (visibility_min / visibility) if visibility else float("inf"),
         })
     daylight = context.get("daylight") or {}
     share = _number(daylight.get("share"))
-    if activity.get("requires_daylight") and daylight.get("available") and share is not None:
+    if activity.get("requires_daylight"):
         needed = _number(activity.get("min_daylight_share")) or 0.5
-        if share < needed:
+        if not daylight.get("available") or share is None:
+            blockers.append({
+                "metric": "daylight_unavailable", "value": None, "limit": needed,
+                "fr": "lever et coucher du soleil indisponibles : activité diurne non validable",
+                "en": "sunrise and sunset unavailable: daylight activity cannot be validated",
+                "over": float("inf"),
+            })
+        elif share < needed:
             lit = f"jour de {daylight.get('sunrise')} à {daylight.get('sunset')}"
             blockers.append({
                 "metric": "daylight_share", "value": share, "limit": needed,
                 "fr": f"fenêtre de nuit ({_fmt(share * 100, 0, ' %')} de jour seulement, {lit})",
-                "en": f"night-time window (only {_fmt(share * 100, 0, '%')} in daylight)",
+                "en": f"night-time window (only {_fmt(share * 100, 0, '%', 'en')} in daylight)",
                 # Le manque de jour prime : c'est une condition d'existence de
                 # l'activite, pas un depassement de seuil parmi d'autres.
                 "over": float("inf"),
@@ -738,9 +765,9 @@ def _score(
 
     reasons_fr = ["fenêtre Family GO validée"]
     reasons_en = ["validated Family GO window"]
-    if margins:
-        reasons_fr.append(" · ".join(margins))
-        reasons_en.append("conditions within the activity thresholds")
+    if margins_fr:
+        reasons_fr.append(" · ".join(margins_fr))
+        reasons_en.append(" · ".join(margins_en))
 
     periods = context.get("periods") or []
     preferred = [str(value) for value in fishing.get("preferred_periods") or []]
@@ -779,12 +806,15 @@ def _score(
                 f"(confort visé : {_fmt(limit * 100, 0, ' %')})"
             )
             caveats_en.append(
-                f"{en_label} over {_fmt(value * 100, 0, '%')} of the slot "
-                f"(comfort target: {_fmt(limit * 100, 0, '%')})"
+                f"{en_label} over {_fmt(value * 100, 0, '%', 'en')} of the slot "
+                f"(comfort target: {_fmt(limit * 100, 0, '%', 'en')})"
             )
             continue
         caveats_fr.append(f"{fr_label} {_fmt(value, digits, unit)} au-dessus du confort visé ({_fmt(limit, digits, unit)})")
-        caveats_en.append(f"{en_label} {_fmt(value, digits, unit)} above the comfort target")
+        caveats_en.append(
+            f"{en_label} {_fmt(value, digits, unit, 'en')} above the comfort target "
+            f"({_fmt(limit, digits, unit, 'en')})"
+        )
 
     return {
         "activity_id": activity_id,
@@ -831,7 +861,9 @@ _CATEGORY_RANK = {"family": 0, "off_hours": 1, "watch": 2}
 
 def _best_score(item: dict[str, Any]) -> float:
     activities = item.get("activities") or []
-    return max((float(entry.get("rank_score") or entry.get("score") or 0) for entry in activities), default=0.0)
+    primary = [entry for entry in activities if str(entry.get("tier") or "primary") == "primary"]
+    candidates = primary or activities
+    return max((float(entry.get("rank_score") or entry.get("score") or 0) for entry in candidates), default=0.0)
 
 
 def _day_priority(item: dict[str, Any]) -> tuple[int, float, str]:
@@ -999,7 +1031,9 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                     slot_context = {
                         **context,
                         "periods": _window_periods(slot_start, slot_end, daily),
+                        "tide": _tide(spot, slot_start, slot_end),
                         "daylight": _daylight(daily, slot_start, slot_end),
+                        "moon_visible": _moon_visible(daily, slot_start, slot_end),
                     }
                 item = _score(str(activity_id), activity, slot_metrics, fishing, slot_context, ranking)
                 if not item:

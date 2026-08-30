@@ -282,6 +282,29 @@ def test_a_calm_window_keeps_its_full_span(tmp_path: Path) -> None:
     assert slot["hours"] == 5
 
 
+def test_reduced_slot_recomputes_tide_and_moon_visibility(tmp_path: Path, monkeypatch) -> None:
+    """Les signaux d'un creneau reduit doivent utiliser ses propres bornes."""
+    import fable.recommendations as recommendations
+
+    tide_bounds = []
+    moon_bounds = []
+
+    def fake_tide(_spot, start, end):
+        tide_bounds.append((start.hour, end.hour))
+        return {"available": False}
+
+    def fake_moon(_daily, start, end):
+        moon_bounds.append((start.hour, end.hour))
+        return None
+
+    monkeypatch.setattr(recommendations, "_tide", fake_tide)
+    monkeypatch.setattr(recommendations, "_moon_visible", fake_moon)
+    _gust_case(tmp_path, [9.7, 10.4, 10.8, 13.7, 34.9])
+
+    assert tide_bounds == [(8, 13), (8, 12)]
+    assert moon_bounds == [(8, 13), (8, 12)]
+
+
 def test_nature_content_is_only_published_when_the_pack_sources_it(tmp_path: Path) -> None:
     """Le bloc nature ne se fabrique pas : sans référence dans le pack, rien.
 
@@ -301,3 +324,8 @@ def test_nature_content_is_only_published_when_the_pack_sources_it(tmp_path: Pat
     assert _nature(Pack(), "el-haouaria", "summer") == {}
     assert _nature(Pack(), "gammarth-port", "spring") == {}
     assert _nature(None, "el-haouaria", "spring") == {}
+
+    Pack.ports["unsourced"] = {
+        "nature": {"sources": [], "seasons": {"spring": {"headline_fr": "Sans preuve"}}}
+    }
+    assert _nature(Pack(), "unsourced", "spring") == {}

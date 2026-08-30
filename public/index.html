@@ -1846,6 +1846,10 @@
     if(a){
       e.preventDefault();
       const file = a.dataset.file;
+      // Le board des activites ecoute cet evenement pour se limiter au port
+      // choisi. Sans lui, cliquer un port ne changeait rien a la carte
+      // « Que faire sur l'eau ? ».
+      window.dispatchEvent(new CustomEvent('fable:spot-selected', {detail:{file}}));
       if (!focusWindowForFile(file)) {
         if (showRoutePreview(file)) return;
         window.panToFile(file);

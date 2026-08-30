@@ -116,6 +116,33 @@ La plage Family commence donc trente minutes après le lever du soleil et se ter
 
 Une fenêtre standard techniquement valide mais extérieure à cette plage peut rester publiée comme `off_hours`. Une fenêtre prudente est refusée hors de la plage de lumière sécurisée.
 
+### La marge couvre la fin de la fenêtre, pas seulement son début
+
+`end_before_sunset_min` est une marge opérationnelle : c'est le temps de
+rentrer si quelque chose se passe mal. Elle doit donc porter sur l'instant où
+la sortie se termine.
+
+`all_in_operating_light` ne recevait que les **débuts d'heure**, alors que la
+fenêtre court jusqu'à `times[-1] + 1 h`. La marge était amputée de la durée de
+la dernière heure. Avec un coucher à 19:34 et une marge de 60 minutes, la
+limite calculée tombe à 18:34 : l'heure démarrant à 18:00 passait le test, et
+la fenêtre se terminait à 19:00, soit **34 minutes** de marge réelle. Au pire,
+avec un coucher à 19:01, elle tombait à une minute.
+
+La fonction vérifie désormais que `times[-1] + 1 h` reste inférieur ou égal à
+la limite. Une fenêtre qui finissait trop tard n'est pas supprimée : elle
+bascule en `off_hours`, c'est-à-dire qu'elle reste un vrai créneau météo mais
+cesse d'être présentée comme une sortie familiale.
+
+```
+avant   13:00 → 19:00   categorie family      marge 34 min
+après   13:00 → 19:00   categorie off_hours   marge 34 min
+```
+
+`tests/test_windows.py::test_the_sunset_margin_covers_the_end_of_the_window`
+balaie toutes les fenêtres possibles d'une journée et vérifie qu'aucune fenêtre
+acceptée n'a moins que la marge configurée.
+
 ## Tolérance de mouillage abrité
 
 Les seuils plus tolérants du mouillage ne sont appliqués que si :

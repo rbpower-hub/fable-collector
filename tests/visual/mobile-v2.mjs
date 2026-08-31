@@ -63,7 +63,24 @@ const payloads = {
     dest_slug:'sidi-bou-said.json', dest_name:'Sidi Bou Saïd', required_hours:3, windows:[lateFamily],
   }]},
   'rules.normalized.json': {window_hours:{min:4}, wind:{family_max_kmh:22}, sea:{family_max_hs_m:.5}},
-  'recommendations.json': {generated_at:generated, recommendations:[]},
+  'recommendations.json': {generated_at:generated, recommendations:[{
+    dest_slug:'gammarth-port.json', dest_name:'Gammarth', start:family.start, end:family.end,
+    category:'family', advisories:[], nature:{},
+    activities:[{
+      activity_id:'bottom-fishing', icon:'🎣', tier:'primary', score:91, rank_score:91,
+      label_fr:'Pêche au fond légère', label_en:'Light bottom fishing',
+      why_fr:'vent 9 km/h pour une limite de 18 km/h', why_en:'wind 9 km/h against an 18 km/h limit',
+      caveats_fr:[], caveats_en:[], slot:{partial:false,start:family.start,end:family.end,hours:6,window_hours:6},
+    }],
+    fishing:{
+      species:['Pageot'], techniques:['Pêche au fond légère'], baits:['ver','crevette'], depths_m:[6,18],
+      species_details:[{label_fr:'Pageot',label_en:'Common pandora',targeting:{
+        technique_ids:['bottom-fishing'],natural_baits:['ver','crevette'],artificial_lures:[],
+        terminal_tackle:{hook_sizes:{system:'common_numbering',range:['#6','#2']},leader_mm:[.22,.30],sinker_g:[20,60]},
+      }}],
+      technique_details:[{id:'bottom-fishing',gear:{rigs:['paternoster']}}],
+    },
+  }]},
   'sites.normalized.json': {home:'gammarth-port', sites:[
     {name:'Gammarth', slug:'gammarth-port', path:'gammarth-port.json', lat:36.92, lon:10.31, map_lat:36.92, map_lon:10.31, route_kind:'standard', route_points:[]},
     {name:'Sidi Bou Saïd', slug:'sidi-bou-said', path:'sidi-bou-said.json', lat:36.865, lon:10.351, map_lat:36.865, map_lon:10.351, route_kind:'standard', route_points:[]},
@@ -80,6 +97,13 @@ const payloads = {
       relative_humidity_2m:[65,60,55,70,64,58], cloud_cover:[10,20,35,5,15,25], uv_index:[1,4,7,0,3,6],
       wind_gusts_10m:[18,22,28,15,19,24], wind_direction_10m:[310,320,330,300,310,320],
       wave_height:[.25,.35,.45,.2,.3,.4], wave_period:[5,5,4.8,5.5,5.2,5], visibility:[10000,10000,10000,10000,10000,10000], weather_code:[0,0,1,0,0,1],
+    },
+  },
+  'sidi-bou-said.json': {
+    meta:{generated_at:generated},
+    hourly:{
+      time:forecastTimes, wind_speed_10m:[9,11,13,8,10,12], wind_gusts_10m:[14,17,20,13,16,19],
+      wind_direction_10m:[275,285,300,290,305,320], wave_height:[.2,.25,.3,.18,.25,.32], wave_period:[5,5,5,5,5,5],
     },
   },
   'hourly/gammarth-port.json': {generated_at:generated,version:1,rules_digest:'visual-fixture',dest_slug:'gammarth-port.json',dest_name:'Gammarth',scope:'single_hour_conditions',phase:'transit',is_window_decision:false,hours:hourlyAssessment},
@@ -188,13 +212,20 @@ await page.locator('.simple-window-card').nth(1).click();
 await page.waitForSelector('.simple-window-details:not([hidden])');
 const routeCard = await page.evaluate(() => ({
   text:document.querySelectorAll('.simple-window-item')[1]?.textContent,
+  windFlow:(() => {
+    const flow=document.querySelectorAll('.simple-window-item')[1]?.querySelector('.simple-window-wind-flow');
+    const box=flow?.getBoundingClientRect();
+    return flow && box ? {text:flow.textContent.replace(/\s+/g,' ').trim(),width:box.width,scrollWidth:flow.scrollWidth} : null;
+  })(),
   description:window.FABLEMapUI?.describe?.('sidi-bou-said.json') || null,
   homeDescription:window.FABLEMapUI?.describe?.('gammarth-port.json') || null,
   mapDestinations:Array.from(document.querySelectorAll('.map-destination')).map(node => node.dataset.mapFile),
   expertWindows:document.querySelectorAll('.window-line').length,
 }));
 routeCard.errors = errors;
-if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Hyp. vitesse.*Fenêtre cible sur zone.*Durée disponible.*Durée minimale.*Aller.*Retour/is.test(routeCard.text || '')) throw new Error(`route card is incomplete: ${JSON.stringify(routeCard)}`);
+if (!/2 modèles météo d’accord.*Gammarth.*Sidi Bou Saïd.*Vitesse bateau \(hyp\.\).*Fenêtre cible sur zone.*Durée disponible.*Durée minimale.*Vent sur le trajet.*Aller.*Retour/is.test(routeCard.text || '')) throw new Error(`route card is incomplete: ${JSON.stringify(routeCard)}`);
+if (!routeCard.windFlow || routeCard.windFlow.scrollWidth > routeCard.windFlow.width + 2) throw new Error(`route wind strip overflows at 390 px: ${JSON.stringify(routeCard.windFlow)}`);
+await page.locator('.simple-window-item').nth(1).screenshot({path:path.resolve('visual-artifacts/screenshots/mobile-v2-route.png')});
 await page.locator('.simple-window-item').nth(1).locator('[data-simple-action="map-window"]').click();
 await page.waitForSelector('body.simple-map-open #map-card', {state:'visible'});
 await page.waitForFunction(() => /Sidi Bou Saïd/i.test(document.getElementById('mapSummary')?.textContent || ''));
@@ -248,6 +279,11 @@ const tomorrowRows = await page.locator('.simple-window-card').count();
 if (tomorrowRows !== 1) throw new Error(`tomorrow should have one row, got ${tomorrowRows}`);
 const tomorrowQuality = await page.locator('.simple-confidence').textContent();
 if (!/Qualité des prévisions.*Élevée/is.test(tomorrowQuality || '')) throw new Error(`unexpected GO forecast quality: ${tomorrowQuality}`);
+await page.waitForSelector('#simple-activities .simple-activity');
+const activityCard = await page.locator('#simple-activities').textContent();
+if (!/Pêche au fond légère.*Gammarth.*Idée famille.*Pageot.*montage paternoster.*hameçons #6–#2/is.test(activityCard || '')) throw new Error(`family activity tip is incomplete: ${activityCard}`);
+if (/\d+\s*\/\s*100/.test(activityCard || '')) throw new Error(`activity still exposes an ambiguous numeric score: ${activityCard}`);
+await page.locator('#simple-activities').screenshot({path:path.resolve('visual-artifacts/screenshots/mobile-v2-activity.png')});
 await page.locator('.simple-window-card').click();
 await page.waitForSelector('.simple-window-details:not([hidden])');
 const inlineWindow = await page.evaluate(() => ({

@@ -91,6 +91,8 @@ profiles:
     assert recommendation["dest_slug"] == "gammarth-port.json"
     assert recommendation["fishing"]["species"] == ["pageot"]
     assert recommendation["astronomy"]["illumination_pct"] == 50
+    assert "fenêtre Family GO validée" not in recommendation["activities"][0]["why_fr"]
+    assert "validated Family GO window" not in recommendation["activities"][0]["why_en"]
     assert result["no_go"][0]["dest_slug"] == "blocked.json"
     assert (public / "recommendations.json").exists()
 
@@ -113,6 +115,20 @@ def test_activity_threshold_can_remove_option(tmp_path: Path) -> None:
     )
 
     assert build_recommendations(tmp_path, public)["recommendations"] == []
+
+
+def test_fishing_activity_must_match_the_ports_seasonal_techniques() -> None:
+    """Un profil de pêche ne rend pas toutes les techniques valables partout."""
+    from fable.recommendations import _score
+
+    activity = {
+        "requires_fishing_profile": True,
+        "techniques": ["coastal-trolling"],
+        "safety": {},
+    }
+    fishing = {"species": ["pageot"], "technique_ids": ["bottom-fishing"]}
+
+    assert _score("coastal-trolling", activity, {}, fishing, {}, {}) is None
 
 
 def _minimal_profiles(tmp_path: Path) -> None:

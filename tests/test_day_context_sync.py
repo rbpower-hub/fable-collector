@@ -28,6 +28,19 @@ def test_activity_cards_publish_stable_day_metadata():
     assert 'data-start="${esc(rec.start || \'\')}"' in script
     assert "timeZone:TUNIS_TZ" in script
     assert "fable:activities-rendered" in script
+    assert 'class="activity-port-tabs"' in script
+    assert 'data-activity-port="${esc(slug)}"' in script
+    assert "selectedDay()" in script
+    assert "show every port" not in script
+    assert "voir tous les ports" not in script
+    assert "activity-score" not in script
+
+
+def test_long_trip_activities_are_not_invented_from_a_crossing_window():
+    script = (ROOT / "public" / "activity-board.js").read_text(encoding="utf-8")
+
+    assert "Le créneau publié valide uniquement la traversée" in script
+    assert "fenêtre météo locale distincte" in script
 
 
 def test_off_hours_recommendations_are_not_rendered_as_family_activities():

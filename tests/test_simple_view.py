@@ -92,6 +92,12 @@ def test_simple_navigation_cards_explain_quality_and_open_the_exact_route():
     assert "describeWindowRoute(options){ return describeWindowRoute(options); }" in html
     assert 'class="simple-window-route-meta"' in script
     assert 'data-simple-route-winds="${index}"' in script
+    assert "Vitesse bateau (hyp.)" in script
+    assert "Vent sur le trajet" in script
+    assert 'class="simple-window-wind-flow"' in script
+    assert 'data-simple-wind="${route.one_way ? \'departure\' : \'outbound\'}"' in script
+    assert "setWind(outbound, summary.outbound_wind)" in script
+    assert "Hyp. vitesse" not in script
 
 
 def test_simple_forecast_keeps_loading_when_a_day_has_no_validated_window():
@@ -268,6 +274,9 @@ def test_simple_view_three_day_action_and_safe_activities_are_rendered():
     assert "record.start === best.windowItem.start" in script
     assert "record.end === best.windowItem.end" in script
     assert "Aucune activité compatible dans une fenêtre Famille validée." in script
+    assert "familyActivityTip(item, record)" in script
+    assert "simple-activity-score" not in script
+    assert "Pourquoi ce choix ?" in script
 
 
 def test_daylight_gate_lives_in_the_engine_not_in_the_view():

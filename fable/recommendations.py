@@ -1,4 +1,4 @@
-"""Generate activity and fishing advice only inside validated Family GO windows."""
+"""Generate activity and fishing advice inside publishable weather windows."""
 
 from __future__ import annotations
 
@@ -990,6 +990,12 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
         spot = _json(public / filename)
         profile = profiles.get(slug) or {}
         for window in destination_windows:
+            category = str(window.get("category") or "family").lower()
+            # WATCH est explicitement une aide a la verification, jamais un GO.
+            # Ne pas y publier d'activite evite de transformer une suggestion
+            # de materiel en incitation implicite a sortir.
+            if category == "watch":
+                continue
             start, end = _date(window.get("start")), _date(window.get("end"))
             if start is None or end is None:
                 continue
@@ -1079,7 +1085,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                         or slug,
                         "start": window.get("start"),
                         "end": window.get("end"),
-                        "category": window.get("category"),
+                        "category": category,
                         "closest": blocked_primary,
                         "advisories": window_advice,
                     }
@@ -1115,10 +1121,16 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
                         "blocked_primary": blocked_primary,
                         "activities": ranked,
                         "method_note_fr": (
+                            "Classement dans ce créneau météo favorable hors horaires familiaux. "
+                            "Les réglages de matériel sont indicatifs ; la lune ne neutralise jamais un NO-GO."
+                            if category == "off_hours" else
                             "Classement uniquement dans une fenêtre Family GO. "
                             "Les réglages de matériel sont indicatifs ; la lune ne neutralise jamais un NO-GO."
                         ),
                         "method_note_en": (
+                            "Ranking inside this favourable weather slot outside family hours. "
+                            "Gear ranges are indicative; the moon never overrides a NO-GO."
+                            if category == "off_hours" else
                             "Ranking only inside a Family GO window. Gear ranges are indicative; "
                             "the moon never overrides a NO-GO."
                         ),
@@ -1139,7 +1151,7 @@ def build_recommendations(root: Path, public: Path) -> dict[str, Any]:
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "version": 3 if pack and pack.version >= 2 else (2 if pack else 1),
         "source_windows_generated_at": windows.get("generated_at"),
-        "safety_policy": "recommendations_only_inside_validated_family_go_windows",
+        "safety_policy": "recommendations_only_inside_validated_weather_windows_excluding_watch",
         "profile_status": activity_cfg.get("status", "initial_tunable"),
         "knowledge_pack": pack.public_catalog() if pack else None,
         "recommendations": output,

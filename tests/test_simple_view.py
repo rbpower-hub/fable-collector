@@ -279,6 +279,16 @@ def test_simple_view_three_day_action_and_safe_activities_are_rendered():
     assert "Pourquoi ce choix ?" in script
 
 
+def test_simple_view_labels_out_of_hours_and_watch_slots_truthfully():
+    """Le titre des activites ne doit pas appeler Family GO un autre etat."""
+    script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
+
+    assert "function activityContext(best, c)" in script
+    assert "Créneau météo favorable hors horaires familiaux" in script
+    assert "Créneau à vérifier avant le départ" in script
+    assert "activityContextLabel = activityContext(best, c)" in script
+
+
 def test_daylight_gate_lives_in_the_engine_not_in_the_view():
     """La vue n'est pas le bon endroit pour une regle de securite.
 

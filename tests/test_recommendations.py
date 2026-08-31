@@ -207,7 +207,7 @@ def test_no_go_english_carries_the_same_detail_as_french(tmp_path: Path) -> None
     assert "(at anchor)" in entry["reason_en"]
 
 
-def _gust_case(tmp_path: Path, gusts: list[float]) -> dict:
+def _gust_case(tmp_path: Path, gusts: list[float], category: str = "family") -> dict:
     """Fenêtre 08:00→13:00 dont la fin monte en rafales."""
     public = tmp_path / "public"
     public.mkdir()
@@ -237,7 +237,7 @@ activities:
                             "start": "2026-08-31T08:00:00+01:00",
                             "end": "2026-08-31T13:00:00+01:00",
                             "hours": 5,
-                            "category": "family",
+                            "category": category,
                         }
                     ],
                 }
@@ -289,6 +289,16 @@ def test_a_slot_too_short_still_blocks_and_explains(tmp_path: Path) -> None:
     entry = result["no_activity"][0]
     assert entry["closest"][0]["activity_id"] == "sheltered_stop"
     assert "rafales" in entry["closest"][0]["reason_fr"]
+
+
+def test_watch_window_never_publishes_an_activity_recommendation(tmp_path: Path) -> None:
+    """WATCH signifie verifier, pas suggerer une sortie ou du materiel."""
+    result = _gust_case(tmp_path, [9.7, 10.4, 10.8, 13.7, 14.0], category="watch")
+
+    assert result["recommendations"] == []
+    assert result["safety_policy"] == (
+        "recommendations_only_inside_validated_weather_windows_excluding_watch"
+    )
 
 
 def test_a_calm_window_keeps_its_full_span(tmp_path: Path) -> None:

@@ -36,7 +36,7 @@
     clear:'صافية', partlyCloudy:'قليلة السحب', cloudy:'غائمة', fog:'ضباب', showers:'أمطار أو زخات', storm:'عاصفة رعدية', uvLow:'منخفض', uvModerate:'متوسط', uvHigh:'مرتفع', uvVeryHigh:'مرتفع جداً',
     loading:'جارٍ تحميل التوقعات…', missing:'التوقعات غير متاحة', stale:'البيانات قديمة — تحقّق من النشرة البحرية الرسمية.',
     threshold:'حد العائلة', from:'من', to:'إلى', stable:'مستقر', rising:'في ارتفاع', falling:'في انخفاض', trySimple:'جرّب الوضع المبسّط',
-    activities:'أنشطة مقترحة', noActivities:'لا توجد أنشطة متوافقة مع نافذة عائلية مؤكدة.', activityNote:'ضمن نافذة Family GO المحددة', activityPrimary:'اختيار اليوم', activitySecondary:'إضافة', activityWhy:'لماذا هذا الاختيار؟',
+    activities:'أنشطة مقترحة', noActivities:'لا توجد أنشطة متوافقة مع نافذة عائلية مؤكدة.', noActivitiesOffHours:'لا توجد أنشطة ملائمة خلال هذه الفترة خارج الأوقات العائلية.', noActivitiesWatch:'لا نقترح نشاطاً ما دام هذا التوقيت يحتاج إلى تحقق.', activityNote:'ضمن نافذة Family GO المحددة', activityNoteOffHours:'فترة طقس ملائمة خارج الأوقات العائلية', activityNoteWatch:'هذا التوقيت يتطلب التحقق قبل المغادرة', activityPrimary:'اختيار اليوم', activitySecondary:'إضافة', activityWhy:'لماذا هذا الاختيار؟',
     marineMissing:'بيانات الأمواج غير متاحة — بعض الوجهات غير مؤكدة.',
     offHours:'نافذة خارج الأوقات العائلية متاحة', offHoursDetail:'لا توجد نافذة عائلية كاملة في هذا اليوم، لكن توجد فترة طقس ملائمة خارج الأوقات العائلية.',
     travelOnly:'فترة سفر بحري طويلة متاحة', travelOnlyDetail:'هذه نافذة ملاحة لمسافة طويلة وليست موافقة على خرجة عائلية محلية.',
@@ -56,7 +56,7 @@
     clear:'Clear', partlyCloudy:'Partly cloudy', cloudy:'Cloudy', fog:'Fog', showers:'Rain or showers', storm:'Thunderstorm', uvLow:'Low', uvModerate:'Moderate', uvHigh:'High', uvVeryHigh:'Very high',
     loading:'Loading forecast…', missing:'Forecast unavailable', stale:'Data is out of date — check the official marine bulletin.',
     threshold:'Family limit', from:'from', to:'to', stable:'stable', rising:'rising', falling:'falling', trySimple:'Try Simple View',
-    activities:'Suggested activities', noActivities:'No compatible activity in a validated Family window.', activityNote:'Inside the selected Family GO window', activityPrimary:'Today’s pick', activitySecondary:'To combine', activityWhy:'Why this choice?',
+    activities:'Suggested activities', noActivities:'No compatible activity in a validated Family window.', noActivitiesOffHours:'No compatible activity during this out-of-hours weather slot.', noActivitiesWatch:'No activity is proposed while this slot still requires a check.', activityNote:'Inside the selected Family GO window', activityNoteOffHours:'Favourable weather slot outside family hours', activityNoteWatch:'This slot must be checked before departure', activityPrimary:'Today’s pick', activitySecondary:'To combine', activityWhy:'Why this choice?',
     marineMissing:'Wave data unavailable — some destinations are not confirmed.',
     offHours:'Out-of-hours window available', offHoursDetail:'There is no complete family window on this day, but favourable weather exists outside family hours.',
     travelOnly:'Long-distance navigation slot available', travelOnlyDetail:'This is a long-distance navigation window, not a local family-outing approval.',
@@ -76,7 +76,7 @@
     clear:'Dégagé', partlyCloudy:'Peu nuageux', cloudy:'Couvert', fog:'Brume ou brouillard', showers:'Pluie ou averses', storm:'Orage', uvLow:'Faible', uvModerate:'Modéré', uvHigh:'Élevé', uvVeryHigh:'Très élevé',
     loading:'Chargement des prévisions…', missing:'Prévisions indisponibles', stale:'Données périmées — vérifiez le bulletin maritime officiel.',
     threshold:'Limite famille', from:'de', to:'à', stable:'stable', rising:'en hausse', falling:'en baisse', trySimple:'Essayer la Vue Simple',
-    activities:'Activités conseillées', noActivities:'Aucune activité compatible dans une fenêtre Famille validée.', activityNote:'Dans la fenêtre Family GO sélectionnée', activityPrimary:'Choix du jour', activitySecondary:'En complément', activityWhy:'Pourquoi ce choix ?',
+    activities:'Activités conseillées', noActivities:'Aucune activité compatible dans une fenêtre Famille validée.', noActivitiesOffHours:'Aucune activité compatible pendant ce créneau hors horaires.', noActivitiesWatch:'Aucune activité proposée tant que ce créneau nécessite une vérification.', activityNote:'Dans la fenêtre Family GO sélectionnée', activityNoteOffHours:'Créneau météo favorable hors horaires familiaux', activityNoteWatch:'Créneau à vérifier avant le départ', activityPrimary:'Choix du jour', activitySecondary:'En complément', activityWhy:'Pourquoi ce choix ?',
     marineMissing:'Données de vagues indisponibles — certaines destinations ne sont pas confirmées.',
     offHours:'Fenêtre hors horaires disponible', offHoursDetail:'Aucune fenêtre familiale complète ce jour, mais un créneau météo favorable existe hors horaires familiaux.',
     travelOnly:'Créneau de navigation longue distance', travelOnlyDetail:'Ce créneau concerne une navigation longue distance, pas une validation de sortie familiale locale.',
@@ -521,6 +521,20 @@
       : 'Les conditions respectent les limites de confort de cette activité pendant ce créneau.';
   }
 
+  function activityContext(best, c) {
+    /* Le sous-titre doit reprendre la categorie du creneau affiche. Un
+       creneau hors horaires passe les memes seuils meteo, mais n'est pas un
+       Family GO ; un WATCH n'est jamais une autorisation de sortie. */
+    const category = String(best?.category || best?.windowItem?.category || 'family').toLowerCase();
+    if (category === 'off_hours') {
+      return {note:c.activityNoteOffHours, empty:c.noActivitiesOffHours};
+    }
+    if (category === 'watch') {
+      return {note:c.activityNoteWatch, empty:c.noActivitiesWatch};
+    }
+    return {note:c.activityNote, empty:c.noActivities};
+  }
+
   function renderActivities(best) {
     const c = copy();
     /* La section exigeait une fenetre de categorie `family` des deux cotes.
@@ -528,6 +542,7 @@
        « aucune activite compatible » alors que le moteur en avait calcule pour
        ces fenetres precisement. Le libelle HORS HORAIRES est deja porte par la
        fenetre : masquer son contenu n'apprenait rien a personne. */
+    const activityContextLabel = activityContext(best, c);
     const records = (state.recommendations?.recommendations || []).filter((record) => (
       best &&
       record.dest_slug === best.destination.dest_slug &&
@@ -560,8 +575,8 @@
         ? `<details class="simple-activity-why"><summary>${esc(c.activityWhy)}</summary>${esc(why)}</details>`
         : '';
       return `<article class="simple-activity"><span class="simple-activity-icon" aria-hidden="true">${esc(item.icon || '🌊')}</span><div><strong>${esc(label || c.activities)}</strong>${slotText}<small>${esc(familyActivityTip(item, record))}</small><span class="simple-activity-badge${secondary ? ' secondary' : ''}">${esc(badge)}</span>${rationale}</div></article>`;
-    }).join('') : `<div class="simple-empty">${esc(c.noActivities)}${blockedNote(records, c)}</div>`;
-    return `<section id="simple-activities" class="simple-panel"><div class="simple-panel-head"><h2>🌊 ${esc(c.activities)}</h2><span class="simple-panel-note">${esc(c.activityNote)}</span></div><div class="simple-activities">${content}</div></section>`;
+    }).join('') : `<div class="simple-empty">${esc(activityContextLabel.empty)}${blockedNote(records, c)}</div>`;
+    return `<section id="simple-activities" class="simple-panel"><div class="simple-panel-head"><h2>🌊 ${esc(c.activities)}</h2><span class="simple-panel-note">${esc(activityContextLabel.note)}</span></div><div class="simple-activities">${content}</div></section>`;
   }
   /* L'entete annoncait le nombre brut de lignes (49) au-dessus d'une liste de
      cinq. On annonce ce que l'utilisateur peut reellement choisir. */

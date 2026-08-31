@@ -180,6 +180,7 @@ const initial = await page.evaluate(() => ({
   hourlyChart:Boolean(document.querySelector('.hourly-chart-svg')),
   compactTimeline:Boolean(document.querySelector('#simple-timeline .simple-timeline')),
   compactCharts:document.querySelectorAll('#simple-conditions .simple-chart').length,
+  activityNote:document.querySelector('#simple-activities .simple-panel-note')?.textContent?.replace(/\s+/g,' ').trim(),
   overflow:document.documentElement.scrollWidth - document.documentElement.clientWidth,
 }));
 if (!/hors horaires/i.test(initial.title || '')) throw new Error(`unexpected title: ${initial.title}`);
@@ -203,6 +204,7 @@ if (!/Qualité des prévisions.*Moyenne/i.test(initial.qualityText || '')) throw
 if (!initial.legacyFamilyHidden) throw new Error('legacy Family verdict or planning is visible in Simple View');
 if (initial.hourlyChart) throw new Error('the 72-hour explorer is still visible in Simple View');
 if (!initial.compactTimeline || initial.compactCharts < 2) throw new Error(`compact timeline or trends are missing: ${JSON.stringify(initial)}`);
+if (!/hors horaires/i.test(initial.activityNote || '') || /Family GO/i.test(initial.activityNote || '')) throw new Error(`off-hours activities have an inaccurate context label: ${initial.activityNote}`);
 if (hourlyRequests !== 0) throw new Error(`Simple View still fetched ${hourlyRequests} hourly explorer payload(s)`);
 if (initial.overflow > 2) throw new Error(`horizontal overflow: ${initial.overflow}px`);
 

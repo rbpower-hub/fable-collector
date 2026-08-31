@@ -59,3 +59,20 @@ test('le filtre par port se pose et se retire', () => {
   assert.doesNotThrow(() => board.setPortFilter(''));
   assert.equal(board.getPortFilter(), '');
 });
+
+test('le conseil famille utilise la cible, le montage et les hameçons du port', () => {
+  const tip = board.familyTip(
+    {activity_id:'bottom-fishing'},
+    {fishing:{
+      species_details:[{label_fr:'Pageot', targeting:{
+        technique_ids:['bottom-fishing'], natural_baits:['ver', 'crevette'],
+        terminal_tackle:{hook_sizes:{system:'common_numbering', range:['#6', '#2']}},
+      }}],
+      technique_details:[{id:'bottom-fishing', gear:{rigs:['paternoster']}}],
+    }},
+    'fr',
+  );
+  assert.match(tip, /Pageot/);
+  assert.match(tip, /montage paternoster/);
+  assert.match(tip, /hameçons #6–#2/);
+});

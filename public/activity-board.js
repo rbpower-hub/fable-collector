@@ -9,6 +9,7 @@
   const selectedPort = () => window.FABLENavigationContext
     ? (window.FABLENavigationContext.get?.().port || '')
     : fallbackPortFilter;
+  const selectedDay = () => window.FABLENavigationContext?.get?.().day || '';
   const esc = (value) => String(value ?? '').replace(
     /[&<>"']/g,
     (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])
@@ -61,19 +62,59 @@
   const pair = (value, suffix = '') => (
     Array.isArray(value) && value.length === 2 ? `${num(value[0])}–${num(value[1])}${suffix}` : ''
   );
+  const activityTechnique = (activityId) => ({
+    'bottom-fishing':'bottom-fishing',
+    'soft-lure-fishing':'soft-lure',
+    'light-jigging':'light-jigging',
+    'coastal-trolling':'coastal-trolling',
+  })[activityId] || '';
+
+  function familyTip(item, rec, lang) {
+    const profile = rec.fishing || {};
+    const techniqueId = activityTechnique(item.activity_id);
+    const fish = (profile.species_details || []).find((candidate) => (
+      !techniqueId || (candidate.targeting?.technique_ids || []).includes(techniqueId)
+    ));
+    const technique = (profile.technique_details || []).find((candidate) => candidate.id === techniqueId);
+    if (fish && techniqueId) {
+      const targeting = fish.targeting || {};
+      const tackle = targeting.terminal_tackle || {};
+      const target = esc(lang === 'en' ? fish.label_en : fish.label_fr);
+      const rig = humanList(technique?.gear?.rigs || profile.rigs, 1);
+      const bait = humanList(targeting.natural_baits?.length ? targeting.natural_baits : profile.baits, 2);
+      const lure = humanList(targeting.artificial_lures, 1);
+      const hooks = tackle.hook_sizes?.system === 'not_applicable' ? '' : pair(tackle.hook_sizes?.range);
+      const parts = [];
+      if (rig) parts.push(lang === 'en' ? `start with a ${rig} rig` : `commencez avec un montage ${rig}`);
+      if (bait || lure) parts.push(lang === 'en' ? `try ${bait || lure}` : `essayez ${bait || lure}`);
+      if (hooks) parts.push(lang === 'en' ? `hooks ${hooks}` : `hameçons ${hooks}`);
+      const practical = parts.length ? ` ; ${parts.join(', ')}.` : '.';
+      return lang === 'en'
+        ? `Family idea: look for ${target || 'the seasonal target'}${practical}`
+        : `Idée famille : cherchez ${target || 'la cible de saison'}${practical}`;
+    }
+    const nature = rec.nature || {};
+    const natureText = lang === 'en' ? nature.detail_en : nature.detail_fr;
+    if (natureText) return esc(natureText);
+    const advice = (rec.advisories || [])[0];
+    if (advice) return esc(lang === 'en' ? advice.en : advice.fr);
+    return lang === 'en'
+      ? 'Conditions match the comfort limits for this activity during this slot.'
+      : 'Les conditions respectent les limites de confort de cette activité pendant ce créneau.';
+  }
 
   function installStyles() {
     if (document.getElementById('fable-activity-styles')) return;
     const style = document.createElement('style');
     style.id = 'fable-activity-styles';
     style.textContent = `
-      .activity-card{margin-top:16px}.activity-filter{display:flex;align-items:center;gap:8px;margin:6px 0 10px;padding:6px 10px;border:1px solid var(--br);border-radius:999px;width:fit-content;font-size:.86rem;color:var(--fg)}.activity-filter button{border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;font:inherit;padding:0}.activity-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
+      .activity-card{margin-top:16px}.activity-heading-note{margin:4px 0 10px;color:var(--muted);font-size:.84rem}.activity-port-tabs{display:flex;gap:7px;margin:6px 0 12px;padding-bottom:2px;overflow-x:auto;scrollbar-width:thin}.activity-port-tab{flex:0 0 auto;min-height:36px;padding:7px 10px;border:1px solid var(--br);border-radius:999px;background:var(--pill-bg);color:var(--muted);font:inherit;font-size:.82rem;font-weight:800;cursor:pointer}.activity-port-tab[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--pill-bg));color:var(--fg)}.activity-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
       .activity-window{border:1px solid var(--br);border-radius:12px;padding:12px;background:var(--pill-bg)}
       .activity-window.prudent{border-color:var(--warn);background:rgb(from var(--warn) r g b / .08)}
       .activity-window h4{margin:0 0 6px;color:var(--fg);font-size:1rem}.activity-choice{border-top:1px solid var(--br);padding-top:8px;margin-top:8px}
-      .activity-choice:first-of-type{border-top:0}.activity-score{float:right;border:1px solid var(--br);border-radius:999px;padding:1px 7px;color:var(--ok);font-weight:800;font-size:.8rem}
+      .activity-choice:first-of-type{border-top:0}.activity-tip{margin-top:5px;color:var(--fg);font-size:.88rem;line-height:1.45}.activity-rationale{margin-top:6px;color:var(--muted);font-size:.8rem}.activity-rationale summary{cursor:pointer}
       .activity-meta{font-size:.88rem;color:var(--muted);margin-top:4px;line-height:1.45}.activity-note{margin-top:10px;font-size:.82rem;color:var(--muted)}
-      .fish-intel,.nature-intel{margin-top:8px;padding:8px;border:1px dashed var(--br);border-radius:9px}.activity-choice.secondary .activity-score{color:var(--muted)}.secondary-badge{display:inline-block;margin-left:5px;padding:1px 6px;border:1px solid var(--br);border-radius:999px;font-size:.72rem;color:var(--muted)}.fish-intel b{color:var(--fg)}
+      .fish-intel,.nature-intel{margin-top:8px;padding:8px;border:1px dashed var(--br);border-radius:9px}.secondary-badge{display:inline-block;margin-left:5px;padding:1px 6px;border:1px solid var(--br);border-radius:999px;font-size:.72rem;color:var(--muted)}.fish-intel b{color:var(--fg)}
       .intel-badge,.prudent-badge{display:inline-block;margin-left:5px;padding:1px 6px;border:1px solid var(--br);border-radius:999px;font-size:.72rem}
       .intel-badge{color:var(--muted)}.prudent-badge{color:var(--warn);border-color:var(--warn)}
       .prudent-warning{margin-top:8px;color:var(--warn);font-size:.84rem;line-height:1.4}
@@ -83,6 +124,7 @@
       .activity-blocked{margin-top:10px;display:flex;flex-direction:column;gap:6px}
       .activity-blocked li{list-style:none;font-size:.86rem;color:var(--muted);line-height:1.45;border-left:0;padding:6px 0 0;border-top:1px solid var(--br)}
       .activity-blocked li:first-child{border-top:0;padding-top:0}.activity-blocked b{color:var(--fg)}
+      .activity-navigation-only{padding:12px;border:1px dashed var(--warn);border-radius:12px;background:color-mix(in srgb,var(--warn) 7%,var(--pill-bg));color:var(--muted);line-height:1.5}.activity-navigation-only b{color:var(--fg)}
     `;
     document.head.appendChild(style);
   }
@@ -210,37 +252,57 @@
       else (dashboard || document.body).appendChild(card);
     }
     const lang = language();
-    const portFilter = selectedPort();
     const title = lang === 'en' ? '🌊 What to do on the water?' : '🌊 Que faire sur l’eau ?';
+    const headingNote = lang === 'en'
+      ? 'Suggestions for the selected port, inside a validated Family GO window.'
+      : 'Suggestions pour le port sélectionné, dans une fenêtre Family GO validée.';
     const byWindow = windowIndex(windows);
     const allRecommendations = Array.isArray(data?.recommendations) ? data.recommendations : [];
-    const rawRecommendations = portFilter
-      ? allRecommendations.filter((rec) => String(rec.dest_slug || '') === portFilter)
-      : allRecommendations;
-    const filteredName = portFilter
-      ? (allRecommendations.find((rec) => String(rec.dest_slug || '') === portFilter)?.dest_name
-        || portFilter.replace(/\.json$/, ''))
-      : '';
-    const filterChip = portFilter
-      ? `<div class="activity-filter">📍 <b>${esc(filteredName)}</b>`
-        + `<button type="button" data-activity-clear-port>`
-        + `${lang === 'en' ? 'show every port' : 'voir tous les ports'}</button></div>`
-      : '';
-    const recommendations = rawRecommendations.filter((rec) => {
+    const dayFilter = selectedDay();
+    const dayRecommendations = allRecommendations.filter((rec) => {
       const sourceWindow = byWindow.get(
         [rec.dest_slug || '', rec.start || '', rec.end || ''].join('|')
       ) || {};
-      return String(rec.category || sourceWindow.category || 'family').toLowerCase() === 'family';
+      return String(rec.category || sourceWindow.category || 'family').toLowerCase() === 'family'
+        && (!dayFilter || tunisDateKey(rec.start) === dayFilter);
     });
+    const navigationOnly = (Array.isArray(data?.navigation_only) ? data.navigation_only : [])
+      .filter((item) => !dayFilter || tunisDateKey(item.start) === dayFilter);
+    const optionMap = new Map();
+    dayRecommendations.forEach((rec) => optionMap.set(
+      String(rec.dest_slug || ''), rec.dest_name || String(rec.dest_slug || '').replace(/\.json$/, '')
+    ));
+    navigationOnly.forEach((item) => optionMap.set(
+      String(item.dest_slug || ''), item.dest_name || String(item.dest_slug || '').replace(/\.json$/, '')
+    ));
+    optionMap.delete('');
+    const requestedPort = selectedPort();
+    const portFilter = optionMap.has(requestedPort) ? requestedPort : (optionMap.keys().next().value || requestedPort);
+    const portTabs = optionMap.size
+      ? `<div class="activity-port-tabs" role="group" aria-label="${esc(lang === 'en' ? 'Destination' : 'Destination')}">${[...optionMap].map(([slug, name]) => (
+          `<button type="button" class="activity-port-tab" data-activity-port="${esc(slug)}" aria-pressed="${slug === portFilter}">📍 ${esc(name)}</button>`
+        )).join('')}</div>`
+      : '';
+    const recommendations = dayRecommendations.filter(
+      (rec) => String(rec.dest_slug || '') === portFilter
+    );
     if (!recommendations.length) {
-      const empty = lang === 'en'
-        ? 'No compatible activity in a validated Family GO window.'
-        : 'Aucune activité compatible dans une fenêtre Family GO validée.';
-      card.innerHTML = `<h3><span>${title}</span></h3>${filterChip}<div class="small">${empty}</div>${blockedList(data, lang, portFilter)}`;
+      const transit = navigationOnly.find((item) => String(item.dest_slug || '') === portFilter);
+      const empty = transit
+        ? `<div class="activity-navigation-only"><b>${esc(transit.dest_name || portFilter)}</b><br>${esc(lang === 'en'
+            ? 'The published slot validates the crossing only. Local swimming, anchoring or fishing at arrival will appear only after a separate local weather window is validated.'
+            : 'Le créneau publié valide uniquement la traversée. Baignade, mouillage ou pêche à l’arrivée apparaîtront seulement après validation d’une fenêtre météo locale distincte.')}</div>`
+        : `<div class="small">${esc(lang === 'en'
+            ? 'No compatible activity in a validated Family GO window.'
+            : 'Aucune activité compatible dans une fenêtre Family GO validée.')}</div>`;
+      card.innerHTML = `<h3><span>${title}</span></h3><div class="activity-heading-note">${esc(headingNote)}</div>${portTabs}${empty}${blockedList(data, lang, portFilter)}`;
       window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations:[]}}));
       return;
     }
-    card.innerHTML = `<h3><span>${title}</span></h3>${filterChip}<div class="activity-grid">${recommendations.map((rec) => {
+    const methodNote = lang === 'en'
+      ? 'Ranking follows the safety decision. Gear is indicative; season, moon and tide refine the choice but never override a NO-GO.'
+      : 'Le classement vient après la décision de sécurité. Le matériel est indicatif ; saison, lune et marée affinent le choix sans jamais neutraliser un NO-GO.';
+    card.innerHTML = `<h3><span>${title}</span></h3><div class="activity-heading-note">${esc(headingNote)}</div>${portTabs}<div class="activity-grid">${recommendations.map((rec) => {
       const sourceWindow = byWindow.get(
         [rec.dest_slug || '', rec.start || '', rec.end || ''].join('|')
       ) || {};
@@ -266,7 +328,11 @@
                 : `${slot.hours} h sur les ${slot.window_hours} h de la fenêtre`
             }</div>`
           : '';
-        return `<div class="activity-choice${secondary ? ' secondary' : ''}"><span class="activity-score">${Math.round(item.score)}/100</span><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b>${badge}${slotRow}<div class="activity-meta">${esc(lang === 'en' ? item.why_en : item.why_fr)}</div>${caveatRows}</div>`;
+        const why = lang === 'en' ? item.why_en : item.why_fr;
+        const rationale = why
+          ? `<details class="activity-rationale"><summary>${lang === 'en' ? 'Why this choice?' : 'Pourquoi ce choix ?'}</summary>${esc(why)}</details>`
+          : '';
+        return `<div class="activity-choice${secondary ? ' secondary' : ''}"><b>${esc(item.icon)} ${esc(lang === 'en' ? item.label_en : item.label_fr)}</b>${badge}${slotRow}<div class="activity-tip">${familyTip(item, rec, lang)}</div>${rationale}${caveatRows}</div>`;
       }).join('');
       const prudentBadge = prudent
         ? `<span class="prudent-badge">${lang === 'en' ? 'PRUDENT GO' : 'GO PRUDENT'}</span>`
@@ -277,8 +343,8 @@
             : (sourceWindow.caution_fr || 'Confort réduit. Surveiller le renforcement et prévoir un retour anticipé.'))}</div>`
         : '';
       const dateKey = tunisDateKey(rec.start);
-      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${blockedPrimary(rec, lang)}${adviceList(rec, lang)}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${natureBlock(rec, lang)}${astronomy(rec, lang)}<div class="activity-note">${esc(lang === 'en' ? rec.method_note_en : rec.method_note_fr)}</div></article>`;
-    }).join('')}</div>${blockedList(data, lang, portFilter)}`;
+      return `<article class="activity-window ${prudent ? 'prudent' : ''}" data-slug="${esc(rec.dest_slug || '')}" data-start="${esc(rec.start || '')}" data-end="${esc(rec.end || '')}" data-category="${esc(category)}" data-family-day-key="${esc(dateKey)}"><h4>${esc(rec.dest_name)} · ${esc(dateTime(rec.start))} → ${esc(timeOnly(rec.end))}${prudentBadge}</h4>${prudentWarning}${choices}${blockedPrimary(rec, lang)}${adviceList(rec, lang)}${fishing(rec, lang)}${fishIntelligence(rec, lang)}${natureBlock(rec, lang)}${astronomy(rec, lang)}</article>`;
+    }).join('')}</div><div class="activity-note">${esc(methodNote)}</div>${blockedList(data, lang, portFilter)}`;
     window.dispatchEvent(new CustomEvent('fable:activities-rendered', {detail:{recommendations}}));
   }
 
@@ -320,13 +386,14 @@
     if (!window.FABLENavigationContext) setPortFilter(event.detail?.file || '');
   });
   window.addEventListener('fable:navigation-context-changed', (event) => {
-    if (!event.detail?.changes?.includes('port')) return;
+    if (!event.detail?.changes?.some((change) => change === 'port' || change === 'day')) return;
     if (lastPayload) render(lastPayload.recommendations, lastPayload.windows);
   });
   document.addEventListener('click', (event) => {
-    if (event.target.closest('[data-activity-clear-port]')) {
+    const port = event.target.closest('[data-activity-port]');
+    if (port) {
       event.preventDefault();
-      setPortFilter('');
+      setPortFilter(port.dataset.activityPort || '');
     }
   });
 
@@ -339,5 +406,6 @@
     // ou un separateur decimal errone atteindrait l'ecran.
     humanize,
     pair,
+    familyTip,
   });
 })();

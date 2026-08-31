@@ -763,8 +763,11 @@ def _score(
             "blockers": blockers,
         }
 
-    reasons_fr = ["fenêtre Family GO validée"]
-    reasons_en = ["validated Family GO window"]
+    # La validation Family GO appartient a la fenetre et sera annoncee une
+    # seule fois par le panneau. La repeter devant chaque activite noyait le
+    # conseil utile et donnait l'impression d'une liste generique.
+    reasons_fr: list[str] = []
+    reasons_en: list[str] = []
     if margins_fr:
         reasons_fr.append(" · ".join(margins_fr))
         reasons_en.append(" · ".join(margins_en))

@@ -19,10 +19,10 @@ from . import USER_AGENT
 from .util import enable_utf8_stdio
 
 DEFAULT_BASE = "https://rbpower-hub.github.io/fable-collector"
-# The collector targets an hourly refresh, but GitHub Actions and Pages can add
-# significant queue/deployment latency. Alert only after roughly two missed
-# refresh opportunities rather than on a small transient delay.
-MAX_AGE_MIN = 150
+# The public dashboard rejects data after 95 minutes. Start recovery before
+# that user-visible deadline: the healthcheck confirms the failure for two
+# minutes, then leaves enough time for collection and Pages propagation.
+MAX_AGE_MIN = 75
 # The workflow is polled every 20 minutes, but GitHub can delay scheduled
 # events. A 35-minute guard leaves a full 60-minute safety margin before the
 # dashboard's 95-minute fail-safe freshness limit.

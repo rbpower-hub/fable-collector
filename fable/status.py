@@ -168,26 +168,27 @@ def final_check(public: Path, expected_spots: list[str]) -> list[str]:
                 if not isinstance(reference, dict) or not reference.get("path"):
                     continue
                 relative = Path(str(reference["path"]))
+                display_path = relative.as_posix()
                 if relative.is_absolute() or ".." in relative.parts:
-                    problems.append(f"invalid hourly assessment path: {relative}")
+                    problems.append(f"invalid hourly assessment path: {display_path}")
                     continue
                 hourly_path = public / relative
                 if not hourly_path.exists() or hourly_path.stat().st_size == 0:
-                    problems.append(f"missing or empty hourly assessment: {relative}")
+                    problems.append(f"missing or empty hourly assessment: {display_path}")
                     continue
                 try:
                     payload = json.loads(hourly_path.read_text(encoding="utf-8"))
                     hours = payload.get("hours") or []
                     expected_count = reference.get("count")
                     if not isinstance(hours, list):
-                        problems.append(f"invalid hourly assessment hours: {relative}")
+                        problems.append(f"invalid hourly assessment hours: {display_path}")
                     elif expected_count != len(hours):
                         problems.append(
-                            f"hourly assessment count mismatch in {relative}: "
+                            f"hourly assessment count mismatch in {display_path}: "
                             f"expected {expected_count}, found {len(hours)}"
                         )
                 except Exception as exc:  # noqa: BLE001
-                    problems.append(f"unparsable hourly assessment {relative}: {exc}")
+                    problems.append(f"unparsable hourly assessment {display_path}: {exc}")
         except Exception as exc:  # noqa: BLE001
             problems.append(f"unparsable windows.json: {exc}")
     return problems

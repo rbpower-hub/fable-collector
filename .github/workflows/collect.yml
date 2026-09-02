@@ -29,7 +29,11 @@ on:
         required: false
 
   schedule:
-    - cron: "7,27,47 * * * *"
+    # GitHub peut retarder ou supprimer des evenements `schedule`. Plusieurs
+    # occasions decalees de cinq minutes rendent la collecte resiliente a ces
+    # pertes ; le schedule_guard ci-dessous conserve une vraie collecte toutes
+    # les 35 minutes au plus et les autres runs s'arretent en quelques secondes.
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"
     - cron: "23 3 * * 0"
 
   push:

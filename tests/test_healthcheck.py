@@ -9,8 +9,9 @@ def test_status_age_minutes_uses_embedded_timezone():
     assert healthcheck.status_age_minutes(status, now=now) == 30.0
 
 
-def test_default_health_age_allows_transient_pages_delay():
-    assert healthcheck.MAX_AGE_MIN == 150
+def test_default_health_age_starts_recovery_before_dashboard_is_stale():
+    assert healthcheck.MAX_AGE_MIN == 75
+    assert healthcheck.MAX_AGE_MIN < 95
 
 
 def test_schedule_guard_refreshes_before_dashboard_can_turn_stale():

@@ -93,8 +93,9 @@ jobs:
         env:
           FABLE_BASE_URL: "https://rbpower-hub.github.io/fable-collector"
           # GitHub scheduled events can be delayed or dropped. Refresh as soon
-          # as a usable trigger arrives after 35 minutes so a skipped trigger
-          # cannot push the 60-minute feed beyond its 95-minute stale limit.
+          # as a usable trigger arrives after 35 minutes. A delay is reported
+          # after 95 minutes and remains well separated from the six-hour hard
+          # stale safety limit.
           FABLE_MIN_INTERVAL_MIN: "35"
           FABLE_EVENT_NAME: ${{ github.event_name }}
           FABLE_EVENT_SCHEDULE: ${{ github.event.schedule }}

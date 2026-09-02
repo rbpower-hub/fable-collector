@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {navigationVerdictForDay} from '../../public/js/navigation-verdicts.js';
+import {freshnessState, navigationVerdictForDay} from '../../public/js/navigation-verdicts.js';
 
 const now = new Date('2026-08-02T05:00:00Z');
 const fresh = {generated_at:'2026-08-02T04:30:00Z', cadence_minutes:60};
@@ -24,6 +24,32 @@ test('stale data has priority and neutralizes navigation rows', () => {
   const result = verdict({windows:[{dest_slug:'gammarth.json', windows:[strict]}]}, stale);
   assert.equal(result.state, 'STALE');
   assert.equal(result.rows.length, 0);
+});
+
+test('a delayed refresh warns before the published hard stale deadline', () => {
+  const status = {
+    generated_at:'2026-08-02T02:00:00Z',
+    cadence_minutes:60,
+    refresh_due_after:'2026-08-02T03:35:00Z',
+    stale_after:'2026-08-02T08:00:00Z',
+  };
+  const state = freshnessState(status, now);
+  assert.equal(state.fresh, true);
+  assert.equal(state.delayed, true);
+  assert.equal(state.warning_min, 95);
+  assert.equal(state.limit_min, 360);
+  assert.equal(verdict({windows:[{dest_slug:'gammarth.json', windows:[strict]}]}, status).state, 'GO_FAMILY');
+});
+
+test('the published six-hour deadline remains a hard safety gate', () => {
+  const status = {
+    generated_at:'2026-08-01T22:00:00Z',
+    cadence_minutes:60,
+    refresh_due_after:'2026-08-01T23:35:00Z',
+    stale_after:'2026-08-02T04:00:00Z',
+  };
+  assert.equal(freshnessState(status, now).fresh, false);
+  assert.equal(verdict({windows:[{dest_slug:'gammarth.json', windows:[strict]}]}, status).state, 'STALE');
 });
 
 test('strict family GO wins over an earlier prudent slot', () => {

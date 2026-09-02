@@ -28,10 +28,13 @@ def test_status_flags_missing_spots(tmp_path):
     st = build_status(tmp_path, TZ, expected_spots=["gammarth-port.json", "sidi-bou-said.json"])
     assert st["missing_spots"] == ["sidi-bou-said.json"]
     assert st["build_ok"] is False
-    # stale_after = generated + cadence + leeway
+    # A scheduler delay becomes visible at 95 min, while the hard safety gate
+    # stays aligned with the slowest routinely refreshed forecast sources.
     gen = dt.datetime.fromisoformat(st["generated_at"])
+    refresh_due = dt.datetime.fromisoformat(st["refresh_due_after"])
     stale = dt.datetime.fromisoformat(st["stale_after"])
-    assert (stale - gen) == dt.timedelta(minutes=95)
+    assert (refresh_due - gen) == dt.timedelta(minutes=95)
+    assert (stale - gen) == dt.timedelta(hours=6)
 
 
 def test_status_html_contains_client_side_freshness(tmp_path):
@@ -41,6 +44,7 @@ def test_status_html_contains_client_side_freshness(tmp_path):
     build_status_html(tmp_path, st)
     html = (tmp_path / "status.html").read_text(encoding="utf-8")
     assert "Date.now()" in html          # freshness judged in the browser, not at build
+    assert "ACTUALISATION RETARDÉE" in html
     assert "OBSOLÈTE" in html
 
 

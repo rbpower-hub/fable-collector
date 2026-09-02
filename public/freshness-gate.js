@@ -7,7 +7,7 @@
 
   const freshnessState = window.FABLEFreshness?.freshnessState || ((status, referenceIso = null) => {
     const cadence = Number(status?.cadence_minutes);
-    const limit_min = Number.isFinite(cadence) && cadence > 0
+    const legacy_limit_min = Number.isFinite(cadence) && cadence > 0
       ? cadence + LEEWAY_MIN
       : FALLBACK_LIMIT_MIN;
     const reference = referenceIso || status?.generated_at || null;
@@ -15,7 +15,17 @@
     const age_min = Number.isFinite(timestamp)
       ? Math.max(0, (Date.now() - timestamp) / 60000)
       : Infinity;
-    return {fresh: Number.isFinite(age_min) && age_min <= limit_min, age_min, limit_min};
+    const staleAt = status?.stale_after ? new Date(status.stale_after).getTime() : NaN;
+    const refreshDueAt = status?.refresh_due_after
+      ? new Date(status.refresh_due_after).getTime() : NaN;
+    const limit_min = Number.isFinite(timestamp) && Number.isFinite(staleAt)
+      ? Math.max(legacy_limit_min, (staleAt - timestamp) / 60000)
+      : legacy_limit_min;
+    const warning_min = Number.isFinite(timestamp) && Number.isFinite(refreshDueAt)
+      ? Math.max(0, (refreshDueAt - timestamp) / 60000)
+      : legacy_limit_min;
+    const fresh = Number.isFinite(age_min) && age_min <= limit_min;
+    return {fresh, delayed:fresh && age_min > warning_min, age_min, warning_min, limit_min};
   });
 
   window.FABLEFreshness = Object.assign(window.FABLEFreshness || {}, {freshnessState});
@@ -41,12 +51,14 @@
 
   function copy() {
     return language() === 'en' ? {
+      delayedBanner: (date) => `⚠️ Automatic refresh is delayed. Forecast from ${date}; verify observations before departure.`,
       banner: (date) => `⚠️ Data from ${date}. The board is no longer reliable — do not depart on this basis.`,
       eyebrow: 'Safety lock',
       title: 'Stale data — do not rely on this board',
       detail: (date) => `Last usable update: ${date}. Wait for a fresh collection before planning an outing.`,
       badge: 'STALE DATA',
     } : {
+      delayedBanner: (date) => `⚠️ Actualisation automatique retardée. Prévision du ${date} ; vérifiez les observations avant le départ.`,
       banner: (date) => `⚠️ Données du ${date}. Le tableau n'est plus fiable — ne pas partir sur cette base.`,
       eyebrow: 'Verrou de sécurité',
       title: 'Données périmées — ne pas se fier au tableau',
@@ -61,6 +73,7 @@
     style.id = 'fable-freshness-styles';
     style.textContent = `
       .stale-data-banner{margin:0 0 12px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--bad) 70%,var(--br));border-radius:11px;background:color-mix(in srgb,var(--bad) 13%,var(--card));color:var(--fg);font-weight:800;line-height:1.4}
+      .stale-data-banner.delayed{border-color:color-mix(in srgb,var(--warn) 70%,var(--br));background:color-mix(in srgb,var(--warn) 11%,var(--card))}
       .go.stale,.family-badge.stale,.family-day-state.stale{filter:grayscale(1);opacity:.62;text-decoration:line-through;background:color-mix(in srgb,var(--muted) 24%,var(--pill-bg))!important;color:var(--muted)!important;border-color:var(--muted)!important}
       body.fable-data-stale .window-line{border-color:color-mix(in srgb,var(--muted) 55%,var(--br))}
       body.fable-data-stale .window-line .small{opacity:.78}
@@ -81,11 +94,11 @@
     });
   }
 
-  function setBanner(stale, status) {
+  function setBanner(state, status) {
     const card = document.querySelector('.card.wins');
     if (!card) return;
     let banner = card.querySelector('.stale-data-banner');
-    if (!stale) {
+    if (state === 'fresh') {
       banner?.remove();
       return;
     }
@@ -96,7 +109,12 @@
       const wins = card.querySelector('#wins');
       card.insertBefore(banner, wins || card.firstChild);
     }
-    const message = copy().banner(formatDate(status?.generated_at));
+    banner.classList.toggle('delayed', state === 'delayed');
+    banner.setAttribute('role', state === 'stale' ? 'alert' : 'status');
+    const text = copy();
+    const message = state === 'stale'
+      ? text.banner(formatDate(status?.generated_at))
+      : text.delayedBanner(formatDate(status?.generated_at));
     if (banner.textContent !== message) banner.textContent = message;
   }
 
@@ -143,10 +161,12 @@
     currentStatus = status || null;
     const state = freshnessState(currentStatus);
     const stale = !state.fresh;
+    const freshness = stale ? 'stale' : state.delayed ? 'delayed' : 'fresh';
     document.body.classList.toggle('fable-data-stale', stale);
-    document.body.dataset.freshnessState = stale ? 'stale' : 'fresh';
+    document.body.classList.toggle('fable-data-delayed', freshness === 'delayed');
+    document.body.dataset.freshnessState = freshness;
     setBadgeState(stale);
-    setBanner(stale, currentStatus);
+    setBanner(freshness, currentStatus);
     setStaleHero(stale, currentStatus);
     window.dispatchEvent(new CustomEvent('fable:freshness', {detail: state}));
   }

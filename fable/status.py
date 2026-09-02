@@ -20,9 +20,14 @@ from . import __version__
 
 log = logging.getLogger("fable.status")
 
-# Collection cadence promise (hourly) + scheduling leeway.
+# Collection cadence promise (hourly), expected-delay warning, and hard safety
+# cutoff. Forecast models used by FABLE update every 3-12 hours depending on
+# the atmospheric or wave source. A missed GitHub cron must therefore be
+# visible after 95 minutes without falsely making a two-hour forecast unusable.
 CADENCE_MIN = 60
 LEEWAY_MIN = 35
+REFRESH_DUE_MIN = CADENCE_MIN + LEEWAY_MIN
+STALE_AFTER_MIN = 6 * 60
 
 
 def build_catalog(public: Path, tz: ZoneInfo) -> dict[str, Any]:
@@ -57,7 +62,8 @@ def build_status(public: Path, tz: ZoneInfo, expected_spots: list[str] | None = 
         "generated_at": now.isoformat(),
         "collector_version": __version__,
         "cadence_minutes": CADENCE_MIN,
-        "stale_after": (now + dt.timedelta(minutes=CADENCE_MIN + LEEWAY_MIN)).isoformat(),
+        "refresh_due_after": (now + dt.timedelta(minutes=REFRESH_DUE_MIN)).isoformat(),
+        "stale_after": (now + dt.timedelta(minutes=STALE_AFTER_MIN)).isoformat(),
         "expected_spots": expected_spots or [],
         "missing_spots": missing,
         "build_ok": not missing,
@@ -88,12 +94,16 @@ La fraîcheur est évaluée par votre navigateur, pas au moment du build.</p>
 </div>
 <script>
  var gen = new Date("{generated_at}");
- var limitMs = ({cadence} + {leeway}) * 60000;
+ var warningMs = {refresh_due} * 60000;
+ var limitMs = {stale_after} * 60000;
  var age = Date.now() - gen.getTime();
  var v = document.getElementById('verdict');
  var mins = Math.round(age/60000);
- if (age <= limitMs) {{
+ if (age <= warningMs) {{
    v.innerHTML = '<span class="ok">✅ FRAIS</span> — âge : ' + mins + ' min';
+ }} else if (age <= limitMs) {{
+   v.innerHTML = '<span style="color:#fbbf24">⚠️ ACTUALISATION RETARDÉE</span> — âge : ' +
+                 mins + ' min ; prévision encore exploitable avec prudence';
  }} else {{
    v.innerHTML = '<span class="ko">❌ OBSOLÈTE</span> — âge : ' + mins +
                  ' min (pipeline probablement arrêté, vérifier GitHub Actions)';
@@ -111,6 +121,8 @@ def build_status_html(public: Path, status: dict[str, Any]) -> None:
         generated_at=status["generated_at"],
         cadence=status.get("cadence_minutes", CADENCE_MIN),
         leeway=LEEWAY_MIN,
+        refresh_due=REFRESH_DUE_MIN,
+        stale_after=STALE_AFTER_MIN,
         rows=rows,
         version=status.get("collector_version", __version__),
     )

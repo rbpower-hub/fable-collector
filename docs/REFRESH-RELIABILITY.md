@@ -4,8 +4,9 @@
 
 Le bandeau `Données périmées` provient de la fraîcheur publiée, tandis qu’un
 workflow rouge peut aussi échouer avant l’exécution de FABLE. Le healthcheck
-serveur lance maintenant la récupération dès 75 minutes afin de garder une
-marge avant la limite publique de 95 minutes.
+serveur lance la récupération dès 75 minutes. À 95 minutes, l'interface signale
+une actualisation retardée sans effacer les verdicts ; le verrou de sécurité
+neutralise les GO lorsque la collecte dépasse six heures.
 
 GitHub peut retarder ou supprimer des événements planifiés sans mettre le
 workflow en erreur. Une seule matinée a ainsi présenté plus de trois heures
@@ -42,7 +43,8 @@ contrôles négatifs.
 ## Ce qui ne change pas
 
 - la cadence publiée reste 60 minutes ;
-- le seuil client de données périmées reste géré indépendamment par le board ;
+- le board distingue l'actualisation retardée (95 minutes) des données
+  réellement périmées (six heures) ;
 - le healthcheck serveur déclenche une récupération à 75 minutes ;
 - le board continue à neutraliser tous les GO lorsque les données sont périmées ;
 - aucun seuil météo n’est modifié par ce correctif.

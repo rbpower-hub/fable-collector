@@ -10,12 +10,21 @@ const CONFIDENCE_RANK = {high: 3, medium: 2, low: 1};
 export function freshnessState(status, now = new Date()) {
   const current = now instanceof Date ? now : new Date(now);
   const cadence = Number(status?.cadence_minutes);
-  const limit_min = Number.isFinite(cadence) && cadence > 0 ? cadence + 35 : 95;
   const generated = status?.generated_at ? new Date(status.generated_at) : null;
   const age_min = generated && Number.isFinite(generated.getTime())
     ? Math.max(0, (current.getTime() - generated.getTime()) / 60000)
     : Infinity;
-  return {fresh: Number.isFinite(age_min) && age_min <= limit_min, age_min, limit_min};
+  const publishedStale = status?.stale_after ? new Date(status.stale_after) : null;
+  const publishedRefreshDue = status?.refresh_due_after ? new Date(status.refresh_due_after) : null;
+  const legacy_limit_min = Number.isFinite(cadence) && cadence > 0 ? cadence + 35 : 95;
+  const limit_min = generated && publishedStale && Number.isFinite(publishedStale.getTime())
+    ? Math.max(legacy_limit_min, (publishedStale.getTime() - generated.getTime()) / 60000)
+    : legacy_limit_min;
+  const warning_min = generated && publishedRefreshDue && Number.isFinite(publishedRefreshDue.getTime())
+    ? Math.max(0, (publishedRefreshDue.getTime() - generated.getTime()) / 60000)
+    : legacy_limit_min;
+  const fresh = Number.isFinite(age_min) && age_min <= limit_min;
+  return {fresh, delayed:fresh && age_min > warning_min, age_min, warning_min, limit_min};
 }
 
 function confidenceRank(row) {

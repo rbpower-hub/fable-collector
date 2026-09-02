@@ -18,7 +18,10 @@ name: Healthcheck (fable-collector)
 
 "on":
   schedule:
-    - cron: "53 * * * *" # garde-fou horaire, décalé du collecteur principal
+    # Le garde-fou est lui aussi redondant : un unique cron horaire peut etre
+    # omis par GitHub exactement au moment ou la collecte principale a besoin
+    # de sa relance de secours.
+    - cron: "1,16,31,46 * * * *"
   workflow_dispatch: {}
 
 permissions:

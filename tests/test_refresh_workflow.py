@@ -41,9 +41,9 @@ def test_refresh_polling_and_fail_safe_freshness_remain_bounded():
     health = (ROOT / "fable" / "healthcheck.py").read_text(encoding="utf-8")
     status = (ROOT / "fable" / "status.py").read_text(encoding="utf-8")
 
-    assert 'cron: "7,27,47 * * * *"' in text
+    assert 'cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"' in text
     assert 'FABLE_MIN_INTERVAL_MIN: "35"' in text
-    assert "MAX_AGE_MIN = 150" in health
+    assert "MAX_AGE_MIN = 75" in health
     assert "LEEWAY_MIN = 35" in status
 
 
@@ -60,7 +60,7 @@ def test_healthcheck_confirms_failures_and_routes_semantic_results():
     close_incident = steps["Close recovered healthcheck incident"]
     fail_job = steps["Fail job if persistently unhealthy"]
 
-    assert workflow["on"]["schedule"][0]["cron"] == "53 * * * *"
+    assert workflow["on"]["schedule"][0]["cron"] == "1,16,31,46 * * * *"
     assert workflow["permissions"]["actions"] == "write"
     assert job["env"]["HEALTHCHECK_ATTEMPTS"] == "3"
     assert job["env"]["HEALTHCHECK_DELAY_SECONDS"] == "60"

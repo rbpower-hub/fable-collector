@@ -4,11 +4,19 @@
 
 Le bandeau `Données périmées` provient de la fraîcheur publiée, tandis qu’un
 workflow rouge peut aussi échouer avant l’exécution de FABLE. Le healthcheck
-serveur considère actuellement `status.json` périmé au-delà de 150 minutes,
-soit environ deux occasions de rafraîchissement manquées avec la latence du
-scheduler et de GitHub Pages.
+serveur lance maintenant la récupération dès 75 minutes afin de garder une
+marge avant la limite publique de 95 minutes.
 
-Le workflow interroge la production à 7, 27 et 47 minutes de chaque heure. Lorsqu’une collecte est nécessaire, le build et le déploiement utilisaient chacun le groupe de concurrence `pages` avec `cancel-in-progress: true`.
+GitHub peut retarder ou supprimer des événements planifiés sans mettre le
+workflow en erreur. Une seule matinée a ainsi présenté plus de trois heures
+entre deux déclenchements pourtant configurés trois fois par heure. Le
+collecteur dispose maintenant de douze occasions décalées par heure ; son
+garde-fou n'autorise toujours une vraie collecte que lorsque les données ont
+au moins 35 minutes. Le healthcheck possède quatre occasions par heure au lieu
+d'une seule.
+
+Lorsqu’une collecte est nécessaire, le build et le déploiement utilisaient
+chacun le groupe de concurrence `pages` avec `cancel-in-progress: true`.
 
 Si une collecte ou la propagation GitHub Pages dépassait l’intervalle avant le déclenchement suivant, le nouveau run pouvait annuler le run actif. Pendant une période lente, cette logique pouvait répéter les annulations et empêcher la production d’être rafraîchie.
 
@@ -35,7 +43,7 @@ contrôles négatifs.
 
 - la cadence publiée reste 60 minutes ;
 - le seuil client de données périmées reste géré indépendamment par le board ;
-- le healthcheck serveur reste bloquant au-delà de 150 minutes ;
+- le healthcheck serveur déclenche une récupération à 75 minutes ;
 - le board continue à neutraliser tous les GO lorsque les données sont périmées ;
 - aucun seuil météo n’est modifié par ce correctif.
 

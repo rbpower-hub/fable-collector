@@ -359,8 +359,8 @@
   async function refresh() {
     try {
       const [recommendationsResponse, windowsResponse] = await Promise.all([
-        fetch('recommendations.json', {cache:'no-store'}),
-        fetch('windows.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('recommendations.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('windows.json', {cache:'no-store'}),
       ]);
       if (!recommendationsResponse.ok) throw new Error(String(recommendationsResponse.status));
       const recommendations = await recommendationsResponse.json();

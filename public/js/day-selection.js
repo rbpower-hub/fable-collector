@@ -599,9 +599,9 @@ function setSelectedDay(key, {persist = true, announce = true} = {}) {
 async function refreshData() {
   try {
     const [recommendationsResponse, windowsResponse, rulesResponse] = await Promise.all([
-      fetch('recommendations.json', {cache: 'no-store'}),
-      fetch('windows.json', {cache: 'no-store'}),
-      fetch('rules.normalized.json', {cache: 'no-store'}),
+      (window.FABLEData?.fetch || fetch)('recommendations.json', {cache: 'no-store'}),
+      (window.FABLEData?.fetch || fetch)('windows.json', {cache: 'no-store'}),
+      (window.FABLEData?.fetch || fetch)('rules.normalized.json', {cache: 'no-store'}),
     ]);
     const recommendationPayload = recommendationsResponse.ok ? await recommendationsResponse.json() : {};
     state.recommendations = Array.isArray(recommendationPayload?.recommendations)

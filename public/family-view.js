@@ -483,10 +483,10 @@
   async function refreshSummary() {
     try {
       const [windowsResponse, recommendationsResponse, statusResponse, rulesResponse] = await Promise.all([
-        fetch('windows.json', {cache:'no-store'}),
-        fetch('recommendations.json', {cache:'no-store'}),
-        fetch('status.json', {cache:'no-store'}),
-        fetch('rules.normalized.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('windows.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('recommendations.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('status.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('rules.normalized.json', {cache:'no-store'}),
       ]);
       state.windows = windowsResponse.ok ? await windowsResponse.json() : {};
       state.recommendations = recommendationsResponse.ok ? await recommendationsResponse.json() : {};

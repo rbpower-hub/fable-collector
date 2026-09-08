@@ -49,7 +49,7 @@
 
   async function loadJson(path) {
     try {
-      const response = await fetch(path, {cache: 'no-store'});
+      const response = await (window.FABLEData?.fetch || fetch)(path, {cache: 'no-store'});
       return response.ok ? {ok: true, data: await response.json()} : {ok: false, data: null};
     } catch {
       return {ok: false, data: null};

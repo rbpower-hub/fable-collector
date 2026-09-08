@@ -8,7 +8,7 @@ window.FABLE = window.FABLE || {};
 
   async function loadJSON(path) {
     try {
-      const response = await fetch(path, { cache: "no-store" });
+      const response = await (window.FABLEData?.fetch || fetch)(path, { cache: "no-store" });
       if (!response.ok) throw new Error(String(response.status));
       return await response.json();
     } catch {

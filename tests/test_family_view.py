@@ -27,7 +27,7 @@ def test_family_view_defaults_to_family_and_preserves_user_choice():
 def test_family_view_summary_uses_backend_decisions():
     script = (ROOT / "public" / "family-view.js").read_text(encoding="utf-8")
 
-    assert "fetch('windows.json'" in script
+    assert "(window.FABLEData?.fetch || fetch)('windows.json'" in script
     assert "diagnostics.first_blocker" in script
     assert "tripMode === 'one_way_multi_day'" in script
     assert "recommendations.json" in script

@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.3.1 — Fiabilité de la collecte et des connexions
+- Requêtes JSON partagées, délai limite incluant le corps de réponse et nouvelle tentative sur les erreurs transitoires.
+- Rafraîchissement automatique des vues mobile et simple, reprise après coupure réseau et suppression des caches d'échecs.
+- Vue experte alignée sur les échéances publiées ; contrôle de l'âge réel des fichiers de ports et des fenêtres.
+- Healthcheck laissé terminer et watchdog indépendant fourni avec un timer systemd, à activer sur un hôte externe.
+- Versions du package et du collecteur synchronisées ; analyse et instructions dans `RELIABILITY-AUDIT-2026-09-08.md`.
+
 ## Non publié
 - **Marge avant le coucher du soleil rétablie sur la fin de fenêtre** : `all_in_operating_light` ne testait que les débuts d'heure, alors que la fenêtre court jusqu'à `times[-1] + 1 h`. La marge `end_before_sunset_min` était donc amputée de la durée de la dernière heure : coucher 19:34, limite 18:34, l'heure de 18:00 passait et la fenêtre se terminait à 19:00, soit 34 minutes de marge au lieu de 60. Une fenêtre qui finit trop tard bascule maintenant en `off_hours` au lieu d'être présentée comme une sortie familiale.
 - **Inversion de sécurité corrigée sur le palier prudent** : `hour_ok_for_phase` étant écrit en `if / elif`, la branche prudent remplaçait la branche famille au lieu de s'y ajouter, et sautait la matrice `tp_matrix`. À `Hs = 0,40 m`, une heure refusée par le palier famille pour mer courte était repêchée par le palier prudent et publiée en GO PRUDENT, avec la règle qui l'interdisait rangée dans ses `cautions`. Le palier prudent applique désormais les règles de vague du palier standard en plus des siennes. L'élargissement voulu de l'enveloppe de vent est conservé.

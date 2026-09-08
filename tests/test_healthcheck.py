@@ -1,6 +1,30 @@
 import datetime as dt
 
+import pytest
+
 from fable import healthcheck
+
+
+@pytest.mark.parametrize('timestamp', ['2026-09-08T12:00:00', '2026-09-09T12:00:00+00:00'])
+def test_invalid_collection_clock_cannot_skip_refresh(timestamp):
+    with pytest.raises(ValueError):
+        healthcheck.status_age_minutes(
+            {'generated_at': timestamp}, now=dt.datetime.fromisoformat('2026-09-08T12:00:00+00:00'),
+        )
+
+
+def test_new_status_cannot_hide_old_spot_or_windows(monkeypatch):
+    documents = {
+        'status.json': {'generated_at': '2026-09-08T12:00:00+00:00', 'build_ok': True},
+        'sites.normalized.json': {'sites': [{'path': 'port.json'}]},
+        'port.json': {'meta': {'generated_at': '2026-09-08T08:00:00+00:00'},
+                      'hourly': {'time': list(range(72))}},
+        'windows.json': {'generated_at': '2026-09-08T08:00:00+00:00', 'windows': []},
+    }
+    monkeypatch.setattr(healthcheck, '_get', lambda url: documents[url.rsplit('/', 1)[-1]])
+    problems = healthcheck.check_live(now=dt.datetime.fromisoformat('2026-09-08T12:05:00+00:00'))
+    assert any('port.json: stale' in problem for problem in problems)
+    assert any('windows.json: stale' in problem for problem in problems)
 
 
 def test_status_age_minutes_uses_embedded_timezone():

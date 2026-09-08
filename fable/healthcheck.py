@@ -49,9 +49,14 @@ def _get(url: str, timeout: int = 20) -> Any:
 
 
 def status_age_minutes(status: dict[str, Any], now: dt.datetime | None = None) -> float:
-    gen = dt.datetime.fromisoformat(str(status["generated_at"]))
-    current = now or dt.datetime.now(gen.tzinfo or dt.timezone.utc)
-    return (current - gen).total_seconds() / 60.0
+    gen = dt.datetime.fromisoformat(str(status["generated_at"]).replace("Z", "+00:00"))
+    if gen.tzinfo is None:
+        raise ValueError("generated_at must include a timezone")
+    current = now or dt.datetime.now(dt.timezone.utc)
+    age = (current - gen).total_seconds() / 60.0
+    if age < -5:
+        raise ValueError("generated_at is in the future")
+    return age
 
 
 def live_status_age_minutes(base_url: str = DEFAULT_BASE, now: dt.datetime | None = None) -> float:
@@ -90,6 +95,8 @@ def check_live(
         age_min = status_age_minutes(status, now=now)
         if age_min > max_age_min:
             problems.append(f"status.json is stale: {age_min:.0f} min old (max {max_age_min})")
+        if status.get("build_ok") is False or status.get("missing_spots"):
+            problems.append("status.json reports an incomplete build")
     except Exception as e:  # noqa: BLE001
         problems.append(f"status.json unreachable/unparsable: {e}")
         status = {}
@@ -108,6 +115,9 @@ def check_live(
     for spot in expected:
         try:
             d = _get(f"{base}/{spot}")
+            age_min = status_age_minutes(d.get("meta") or {}, now=now)
+            if age_min > max_age_min:
+                problems.append(f"{spot}: stale collection ({age_min:.0f} min old)")
             pts = len((d.get("hourly") or {}).get("time") or [])
             if pts < MIN_HOURLY_POINTS:
                 problems.append(f"{spot}: only {pts} hourly points (<{MIN_HOURLY_POINTS})")
@@ -117,6 +127,8 @@ def check_live(
     # 4) windows.json sane
     try:
         w = _get(f"{base}/windows.json")
+        if status_age_minutes(w, now=now) > max_age_min:
+            problems.append("windows.json: stale collection")
         if "windows" not in w:
             problems.append("windows.json: missing 'windows' key")
         else:

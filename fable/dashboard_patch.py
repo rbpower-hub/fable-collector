@@ -40,11 +40,19 @@ _SAFE_WINDOWS_ASSIGNMENT = "\n    const winData = windows;"
 _OLD_IS_FRESH = """  const isFresh = (entry,genIso) => { const T=180; if(!entry) return false; if(typeof entry.fresh==='boolean') return entry.fresh; if(entry.modified){const age=(Date.now()-new Date(entry.modified))/60000; if(isFinite(age)) return age<=T;} if(genIso){const age=(Date.now()-new Date(genIso))/60000; if(isFinite(age)) return age<=T;} return false; };"""
 _NEW_FRESHNESS_HELPERS = """  const freshnessState = (status, referenceIso=null) => {
     const cadence = Number(status?.cadence_minutes);
-    const limit_min = Number.isFinite(cadence) && cadence > 0 ? cadence + 35 : 95;
+    const legacy_limit_min = Number.isFinite(cadence) && cadence > 0 ? cadence + 35 : 95;
     const reference = referenceIso || status?.generated_at || null;
     const timestamp = reference ? new Date(reference).getTime() : NaN;
     const age_min = Number.isFinite(timestamp) ? Math.max(0, (Date.now() - timestamp) / 60000) : Infinity;
-    return { fresh: Number.isFinite(age_min) && age_min <= limit_min, age_min, limit_min };
+    const generated = new Date(status?.generated_at || '').getTime();
+    const deadline = new Date(status?.stale_after || '').getTime();
+    const refreshDue = new Date(status?.refresh_due_after || '').getTime();
+    const limit_min = Number.isFinite(deadline) && Number.isFinite(generated)
+      ? Math.max(legacy_limit_min, (deadline - generated) / 60000) : legacy_limit_min;
+    const warning_min = Number.isFinite(refreshDue) && Number.isFinite(generated)
+      ? Math.max(0, (refreshDue - generated) / 60000) : legacy_limit_min;
+    const fresh = Number.isFinite(age_min) && age_min <= limit_min;
+    return { fresh, delayed:fresh && age_min > warning_min, age_min, warning_min, limit_min };
   };
   window.FABLEFreshness = Object.assign(window.FABLEFreshness || {}, { freshnessState });
   const isFresh = (entry,status) => freshnessState(status, entry?.modified || status?.generated_at).fresh;"""
@@ -134,6 +142,9 @@ def patch_dashboard_index(path: Path) -> bool:
     patched = patched.replace("isFresh(entry,gen)", "isFresh(entry,status)")
     patched = _KIOSK_RE.sub(_EXPLICIT_KIOSK, patched, count=1)
     patched = patched.replace(_OLD_COUNTDOWN, _NEW_COUNTDOWN)
+    client_tag = '<script src="./data-client.js"></script>'
+    if client_tag not in patched:
+        patched = patched.replace('</head>', f'{client_tag}\n</head>')
 
     if '<link rel="manifest" href="./manifest.webmanifest" />' not in patched:
         patched = patched.replace("</head>", f"{_PWA_HEAD}\n</head>")

@@ -1,6 +1,7 @@
 /** Mobile_view — point d'entree. Trois ecrans, un seul jeu de donnees. */
 
-import { loadCatalog, loadHourlyAssessment, loadSpot } from './data.js';
+import { clearCache, loadCatalog, loadHourlyAssessment, loadSpot } from './data.js';
+import { freshnessState } from '../../js/navigation-verdicts.js';
 import { parseThresholds } from './thresholds.js';
 import { classifySeries } from './hour-verdict.js';
 import {
@@ -124,6 +125,10 @@ async function navigate(view, options = {}) {
 async function paint() {
   app.dataset.busy = 'true';
   try {
+    const status = state.catalog?.status;
+    if (!freshnessState(status).fresh || status?.build_ok === false) {
+      throw new Error('Données anciennes ou indisponibles. Nouvelle tentative automatique dans une minute.');
+    }
     const rows = await rowsFor(state.spotSlug);
     const entry = state.catalog.spots.find((item) => item.slug === state.spotSlug);
     viewHost.textContent = '';
@@ -221,10 +226,22 @@ function renderTopbar() {
   );
 }
 
-async function boot() {
+let refreshPromise = null;
+function boot() {
+  if (!refreshPromise) refreshPromise = refreshData().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
+async function refreshData() {
   try {
+    clearCache();
     state.catalog = await loadCatalog();
-    state.spotSlug = state.catalog.homeSlug ?? state.catalog.spots[0]?.slug ?? null;
+    state.rowsBySlug.clear();
+    state.verdicts.clear();
+    state.th = null;
+    if (!state.catalog.spots.some(item => item.slug === state.spotSlug)) {
+      state.spotSlug = state.catalog.homeSlug ?? state.catalog.spots[0]?.slug ?? null;
+    }
     readHash();
     if (!state.spotSlug) throw new Error('aucun spot publié');
     renderTopbar();
@@ -233,6 +250,9 @@ async function boot() {
     await computeVerdicts();
     if (state.view === 'carte') await paint();
   } catch (error) {
+    state.catalog = null;
+    state.rowsBySlug.clear();
+    state.verdicts.clear();
     viewHost.textContent = '';
     viewHost.append(h('div', { class: 'fb-error', text: `Chargement impossible : ${error.message}` }));
   }
@@ -245,3 +265,6 @@ window.addEventListener('hashchange', () => {
 });
 
 boot();
+setInterval(boot, 60 * 1000);
+window.addEventListener('online', boot);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) boot(); });

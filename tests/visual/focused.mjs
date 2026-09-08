@@ -205,7 +205,7 @@ async function execute(browser, scenario) {
   }, {locale: scenario.locale, theme: scenario.theme});
 
   const payloads = payloadsFor(scenario.state);
-  await page.route('**/*.json', async (route) => {
+  await page.route(/\.json(?:\?|$)/, async (route) => {
     const file = new URL(route.request().url()).pathname.split('/').pop();
     if (file === 'windows.json' && scenario.state === 'missing-windows') {
       await route.fulfill({status: 404, contentType: 'application/json', body: '{"error":"missing"}'});

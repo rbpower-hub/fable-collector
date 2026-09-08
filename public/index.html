@@ -616,7 +616,7 @@
   const t = (path,...args)=>{const d=I18N[LANG]||I18N.fr; const v=path.split('.').reduce((o,k)=>(o||{})[k],d); return typeof v==='function'?v(...args):(v??path);};
   const fmtLocal = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
   const fmtFriendly = iso => iso ? new Date(iso).toLocaleString(LOCALES[LANG]||'fr-FR',{weekday:'long',hour:'numeric',minute:'2-digit',hour12:false}) : '';
-  const fetchJSON = async (path) => { try{ const r=await fetch(path,{cache:'no-store'}); return r.ok? r.json(): null; }catch{ return null; }};
+  const fetchJSON = async (path) => { try{ const r=await (window.FABLEData?.fetch || fetch)(path,{cache:'no-store'}); return r.ok? await r.json(): null; }catch{ return null; }};
   const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const mapCopy = ()=> LANG==='en'
     ? { hint:'click a window, a spot or the radar row to show the corridor', corridor:'Corridor', transit:'Transit', anchor:'Anchor', ret:'Return', local:'Local departure', speed:'Assumed speed', knots:'kt', beta:'Beta route', preview:'Route preview', goDisabled:'GO engine not active yet', legs:'legs', leg:'Leg', via:'via', go:'GO', compositeGo:'Composite GO', step1:'Leg 1', step2:'Leg 2', relayArrival:'relay arrival', targetWindow:'target window', waiting:'wait', relay:'relay', outsideHours:'after hours' }
@@ -1322,7 +1322,20 @@
     });
     return [...unique.values()];
   }
-  async function updateDashboard(){
+  let dashboardRefresh = null;
+  function updateDashboard(){
+    if (!dashboardRefresh) {
+      dashboardRefresh = renderDashboard().catch(error => {
+        console.error('Dashboard refresh failed', error);
+      }).finally(() => {
+        $('#dashboard-content').classList.remove('updating');
+        dashboardRefresh = null;
+      });
+    }
+    return dashboardRefresh;
+  }
+  window.addEventListener('online', updateDashboard);
+  async function renderDashboard(){
     $('#dashboard-content').classList.add('updating');
 
     const [status, windows, liveSitesConfig, liveRulesConfig] = await Promise.all([

@@ -332,8 +332,8 @@
   async function refreshStatus() {
     try {
       const [statusResponse, windowsResponse] = await Promise.all([
-        fetch('status.json', {cache:'no-store'}),
-        fetch('windows.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('status.json', {cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('windows.json', {cache:'no-store'}),
       ]);
       statusPayload = statusResponse.ok ? await statusResponse.json() : null;
       windowsPayload = windowsResponse.ok ? await windowsResponse.json() : null;

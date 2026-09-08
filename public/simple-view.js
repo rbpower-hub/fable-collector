@@ -798,7 +798,7 @@
       || state.windows?.home_slug || destinations[0]?.dest_slug;
     if (!slug) { state.forecast = {}; return; }
     try {
-      const response = await fetch(slug,{cache:'no-store'});
+      const response = await (window.FABLEData?.fetch || fetch)(slug,{cache:'no-store'});
       state.forecast = response.ok ? await response.json() : {};
       if (!response.ok) state.error = 'forecast-unavailable';
     } catch { state.forecast = {}; state.error = 'forecast-network'; }
@@ -833,15 +833,20 @@
       document.getElementById('map-card')?.scrollIntoView({block:'start'});
     }, 100);
   }
-  async function refresh() {
+  let refreshPromise = null;
+  function refresh() {
+    if (!refreshPromise) refreshPromise = refreshData().finally(() => { refreshPromise = null; });
+    return refreshPromise;
+  }
+  async function refreshData() {
     state.loading = true; state.error = ''; render();
     try {
       state.verdictModule ||= await import('./js/verdict.js');
       const [windowsResponse, statusResponse, recommendationsResponse, rulesResponse] = await Promise.all([
-        fetch('windows.json',{cache:'no-store'}),
-        fetch('status.json',{cache:'no-store'}),
-        fetch('recommendations.json',{cache:'no-store'}).catch(() => null),
-        fetch('rules.normalized.json',{cache:'no-store'}).catch(() => null),
+        (window.FABLEData?.fetch || fetch)('windows.json',{cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('status.json',{cache:'no-store'}),
+        (window.FABLEData?.fetch || fetch)('recommendations.json',{cache:'no-store'}).catch(() => null),
+        (window.FABLEData?.fetch || fetch)('rules.normalized.json',{cache:'no-store'}).catch(() => null),
       ]);
       state.windows = windowsResponse.ok ? await windowsResponse.json() : null;
       state.status = statusResponse.ok ? await statusResponse.json() : null;
@@ -986,6 +991,9 @@
     }
     if (!savedMode || savedMode === SIMPLE_MODE) setTimeout(() => setMode(SIMPLE_MODE, false), 0);
     document.addEventListener('fable:dashboard-updated', refresh);
+    setInterval(refresh, 60 * 1000);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
     window.addEventListener('fable:map-ui-ready', render);
     const updateLanguage = () => setTimeout(() => { document.getElementById('simpleViewBtn').textContent = `✨ ${copy().trySimple}`; render(); }, 0);
     document.getElementById('langToggle')?.addEventListener('click', updateLanguage);

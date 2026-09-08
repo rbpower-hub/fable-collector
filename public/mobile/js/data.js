@@ -5,12 +5,13 @@ const cache = new Map();
 
 async function getJson(path, { optional = false } = {}) {
   if (cache.has(path)) return cache.get(path);
-  const promise = fetch(`${BASE}${path}`, { cache: 'no-store' })
+  const promise = (window.FABLEData?.fetch || fetch)(`${BASE}${path}`, { cache: 'no-store' })
     .then((response) => {
       if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
       return response.json();
     })
     .catch((error) => {
+      if (cache.get(path) === promise) cache.delete(path);
       if (optional) return null;
       throw error;
     });
@@ -28,7 +29,7 @@ export async function loadCatalog() {
     getJson('rules.normalized.json'),
     getJson('sites.normalized.json'),
     getJson('windows.json', { optional: true }),
-    getJson('status.json', { optional: true }),
+    getJson('status.json'),
   ]);
 
   const byPath = new Map();

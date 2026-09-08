@@ -25,7 +25,7 @@
 
   async function json(path) {
     try {
-      const response = await fetch(path, {cache: 'no-store'});
+      const response = await (window.FABLEData?.fetch || fetch)(path, {cache: 'no-store'});
       return response.ok ? await response.json() : null;
     } catch {
       return null;

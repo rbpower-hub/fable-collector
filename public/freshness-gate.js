@@ -182,7 +182,7 @@
 
   async function refresh() {
     try {
-      const response = await fetch('status.json', {cache: 'no-store'});
+      const response = await (window.FABLEData?.fetch || fetch)('status.json', {cache: 'no-store'});
       apply(response.ok ? await response.json() : null);
     } catch {
       apply(null);

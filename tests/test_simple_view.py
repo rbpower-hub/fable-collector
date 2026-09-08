@@ -139,10 +139,10 @@ def test_three_day_selector_precedes_and_controls_all_selected_day_widgets():
 def test_simple_view_refreshes_from_published_dashboard_contract():
     script = (ROOT / "public" / "simple-view.js").read_text(encoding="utf-8")
 
-    assert "fetch('windows.json'" in script
-    assert "fetch('status.json'" in script
-    assert "fetch('recommendations.json'" in script
-    assert "fetch('rules.normalized.json'" in script
+    assert "(window.FABLEData?.fetch || fetch)('windows.json'" in script
+    assert "(window.FABLEData?.fetch || fetch)('status.json'" in script
+    assert "(window.FABLEData?.fetch || fetch)('recommendations.json'" in script
+    assert "(window.FABLEData?.fetch || fetch)('rules.normalized.json'" in script
     assert "document.addEventListener('fable:dashboard-updated', refresh)" in script
 
 

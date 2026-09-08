@@ -129,7 +129,7 @@ await page.route('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', route => rou
 await page.route('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', route => route.fulfill({
   status:200, contentType:'text/css', path:path.resolve('node_modules/leaflet/dist/leaflet.css'),
 }));
-await page.route('**/*.json', async (route) => {
+await page.route(/\.json(?:\?|$)/, async (route) => {
   const pathname = new URL(route.request().url()).pathname;
   const basename = pathname.split('/').pop();
   const file = pathname.includes('/hourly/') ? `hourly/${basename}` : basename;

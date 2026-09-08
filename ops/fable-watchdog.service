@@ -1,0 +1,16 @@
+[Unit]
+Description=Check Fable production and recover missed collections
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fable
+WorkingDirectory=/opt/fable-collector
+EnvironmentFile=/etc/fable-watchdog.env
+ExecStart=/usr/bin/python3 -m fable.watchdog --dispatch
+TimeoutStartSec=300
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

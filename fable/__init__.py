@@ -7,5 +7,5 @@ outing windows, and ranks compatible marine and fishing activities.
 © RB Power Consulting. All rights reserved.
 """
 
-__version__ = "3.3.0"
+__version__ = "3.3.1"
 USER_AGENT = f"fable-collector/{__version__} (+github actions)"

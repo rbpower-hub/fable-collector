@@ -34,6 +34,7 @@ jobs:
 
       - name: Dashboard JavaScript syntax
         run: |
+          node --check public/data-client.js
           node --check public/activity-board.js
           node --check public/arabic-locale.js
           node --check public/family-view.js

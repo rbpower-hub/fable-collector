@@ -28,6 +28,34 @@ ASTRONOMY_ENDPOINT = "https://api.open-meteo.com/v1/astronomy"
 HTTP_TIMEOUT_S = int(os.getenv("FABLE_HTTP_TIMEOUT_S", "10"))
 HTTP_RETRIES = int(os.getenv("FABLE_HTTP_RETRIES", "1"))
 
+# Grid-cell selection for the forecast API.
+#
+# Open-Meteo defaults to `land`: it picks a land cell whose elevation is close
+# to the requested point. On FABLE's coastal spots that land cell carries
+# over-land friction and convective gusts. Measured on 2026-10-02 (ICON,
+# daytime hours, three days): gust factor 2.0 to 2.9 instead of 1.4 to 1.8,
+# 35 of 39 hours vetoed as squalls at Gammarth instead of 0, and sustained
+# wind 6 to 9 km/h below the adjacent sea cell at Gammarth and Sidi Bou Said.
+# FABLE judges conditions on the water, so every forecast request asks for a
+# sea cell. FABLE_CELL_SELECTION=land|nearest exists for diagnostics only.
+# The marine API already defaults to sea cells and is left unchanged.
+FORECAST_CELL_SELECTIONS = ("land", "sea", "nearest")
+DEFAULT_CELL_SELECTION = "sea"
+
+
+def resolve_cell_selection(value: str | None) -> str:
+    """Return a valid Open-Meteo `cell_selection`, falling back to sea."""
+    candidate = (value or "").strip().lower()
+    if not candidate:
+        return DEFAULT_CELL_SELECTION
+    if candidate not in FORECAST_CELL_SELECTIONS:
+        log.warning("unknown cell_selection %r, using %s", value, DEFAULT_CELL_SELECTION)
+        return DEFAULT_CELL_SELECTION
+    return candidate
+
+
+FORECAST_CELL_SELECTION = resolve_cell_selection(os.getenv("FABLE_CELL_SELECTION"))
+
 FORECAST_KEYS = [
     "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m",
     "weather_code", "visibility", "surface_pressure", "precipitation",
@@ -128,10 +156,14 @@ def default_getter(retry: int = HTTP_RETRIES, timeout: int = HTTP_TIMEOUT_S) -> 
 # ---------------------------------------------------------------------------
 def forecast_url(lat: float, lon: float, model: str | None, tz_name: str,
                  start: dt.date, end: dt.date, hourly_keys: list[str] | None = None,
-                 include_daily: bool = True, include_extras: bool = False) -> str:
+                 include_daily: bool = True, include_extras: bool = False,
+                 cell_selection: str | None = None) -> str:
     hk = list(hourly_keys or FORECAST_KEYS)
     if include_extras:
         hk += [k for k in EXTRA_HOURLY if k not in hk]
+    selection = FORECAST_CELL_SELECTION if cell_selection is None else cell_selection
+    if selection not in FORECAST_CELL_SELECTIONS:
+        raise ValueError(f"cell_selection must be one of {FORECAST_CELL_SELECTIONS}, got {selection!r}")
     params = {
         "latitude": f"{lat:.5f}",
         "longitude": f"{lon:.5f}",
@@ -139,6 +171,7 @@ def forecast_url(lat: float, lon: float, model: str | None, tz_name: str,
         "timezone": tz_name,
         "timeformat": "iso8601",
         "wind_speed_unit": "kmh",
+        "cell_selection": selection,
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
     }
@@ -236,6 +269,26 @@ def normalize_hourly_keys(payload: dict[str, Any]) -> dict[str, Any]:
                 break
     payload["hourly"] = normalized
     return payload
+
+
+def grid_cell(payload: Any) -> dict[str, Any] | None:
+    """Grid cell actually used by Open-Meteo for a response.
+
+    `latitude`/`longitude` are the centre of the selected model cell, not the
+    requested point; `elevation` is the elevation Open-Meteo used for
+    downscaling. Publishing them makes a drift back to land cells visible.
+    """
+    if not isinstance(payload, dict):
+        return None
+    lat, lon = payload.get("latitude"), payload.get("longitude")
+    if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+        return None
+    elevation = payload.get("elevation")
+    return {
+        "latitude": float(lat),
+        "longitude": float(lon),
+        "elevation": float(elevation) if isinstance(elevation, (int, float)) else None,
+    }
 
 
 def has_non_null(arr: list) -> bool:

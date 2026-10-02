@@ -22,6 +22,7 @@ from .astro import attach_daily_best_effort, needs_daily_backfill
 from .config import SitesConfig, load_rules, load_sites, rules_digest, rules_path
 from .openmeteo import (
     EXTRA_HOURLY,
+    FORECAST_CELL_SELECTION,
     FORECAST_KEYS,
     MARINE_KEYS,
     OCEAN_KEYS,
@@ -33,6 +34,7 @@ from .openmeteo import (
     fetch_marine,
     fetch_ocean,
     first_series,
+    grid_cell,
     has_wind_arrays,
     marine_series_has_usable_height,
     marine_series_is_all_zero,
@@ -225,7 +227,7 @@ def fetch_parallel_models(lat: float, lon: float, tz_name: str, start: dt.date, 
         if time.monotonic() > site_deadline - 1.5:
             attempts.append({"model": m, "status": "budget_exceeded"})
             continue
-        status, url = "unknown", None
+        status, url, cell = "unknown", None, None
         try:
             from .openmeteo import forecast_url  # local import to ease test monkeypatching
             url = forecast_url(lat, lon, m, tz_name, start, end, hourly_keys=FORECAST_KEYS, include_daily=False)
@@ -245,9 +247,13 @@ def fetch_parallel_models(lat: float, lon: float, tz_name: str, start: dt.date, 
                 continue
             models_out[m] = {"hourly": aligned}
             status = "ok"
+            cell = grid_cell(p)
         except Exception as e:  # noqa: BLE001
             status = f"exception:{e.__class__.__name__}"
-        attempts.append({"model": m, "status": status, "url": url})
+        attempt = {"model": m, "status": status, "url": url}
+        if cell:
+            attempt["grid"] = cell
+        attempts.append(attempt)
     return models_out, attempts
 
 
@@ -393,6 +399,7 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
                     "endpoint": "https://api.open-meteo.com/v1/forecast",
                     "model_order": settings.model_order,
                     "model_used": primary_used,
+                    "cell_selection": FORECAST_CELL_SELECTION,
                     "units": e_units,
                     "parallel_models": list(models_parallel.keys()),
                     "extras_model_used": wx.get("_extras_model_used"),
@@ -421,6 +428,10 @@ def build_site_payload(site: dict[str, Any], settings: Settings, rules: dict[str
                 "marine_non_null_counts": non_null_count(marine_slice, MARINE_KEYS),
                 "forecast_primary_model": primary_used,
                 "forecast_primary_key": "ecmwf",  # historical alias kept for compat
+                "forecast_grid": {
+                    "cell_selection": FORECAST_CELL_SELECTION,
+                    "primary": grid_cell(wx),
+                },
                 "marine_error": sea.get("_error"),
                 "kept_indices": {
                     "forecast": keep_wx[:6] + (["..."] if len(keep_wx) > 6 else []),

@@ -88,7 +88,7 @@ DEFAULT_RULES: dict[str, Any] = {
     "window_hours": {"min": 4, "max": 6},
     "http": {
         "disable_astronomy_http": True,
-        "model_order": "icon_seamless,gfs_seamless,ecmwf_ifs04,default",
+        "model_order": "icon_seamless,gfs_seamless,ecmwf_ifs025,default",
         "marine_model_order": "meteofrance_wave,ncep_gfswave025,ecmwf_wam025,default",
         "marine_parallel_models": "ncep_gfswave025,ecmwf_wam025",
     },

@@ -4,7 +4,7 @@
 Probe Open-Meteo models quickly (full vs safe varsets), plus Marine.
 Usage:
   python scripts/probe_models.py --lat 36.9203 --lon 10.2846 --hours 72 --tz Africa/Tunis \
-    --models icon_seamless,gfs_seamless,ecmwf_ifs04,default --timeout 10 --retries 1
+    --models icon_seamless,gfs_seamless,ecmwf_ifs025,default --timeout 10 --retries 1
 """
 
 import argparse, json, sys, time, random, urllib.request
@@ -39,7 +39,7 @@ def main():
     ap.add_argument("--lon", type=float, required=True)
     ap.add_argument("--hours", type=int, default=72)
     ap.add_argument("--tz", default="Africa/Tunis")
-    ap.add_argument("--models", default="icon_seamless,gfs_seamless,ecmwf_ifs04,default")
+    ap.add_argument("--models", default="icon_seamless,gfs_seamless,ecmwf_ifs025,default")
     ap.add_argument("--timeout", type=int, default=10)
     ap.add_argument("--retries", type=int, default=1)
     args = ap.parse_args()

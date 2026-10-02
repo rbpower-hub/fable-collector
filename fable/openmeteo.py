@@ -93,8 +93,16 @@ KEY_SYNONYMS = {
 }
 
 # Models officially accepted by Open-Meteo `models=` parameter.
+#
+# ECMWF IFS: `ecmwf_ifs04` (0.4 deg) returns all-null wind series at
+# Open-Meteo (verified 2026-10-02); every production run logged it as
+# `no_wind_arrays`, so FABLE silently ran on two wind models instead of three.
+# `ecmwf_ifs025` (0.25 deg) returns data. The legacy name is kept as an alias
+# of the new one so an old FABLE_* override cannot drop ECMWF again.
+RETIRED_MODEL_IDS = {"ecmwf_ifs04": "ecmwf_ifs025"}
 MODEL_ALIASES = {
-    "ecmwf_ifs04": ["ecmwf_ifs04"],
+    "ecmwf_ifs025": ["ecmwf_ifs025"],
+    "ecmwf_ifs04": ["ecmwf_ifs025"],
     "icon_seamless": ["icon_seamless"],
     "gfs_seamless": ["gfs_seamless"],
     "default": ["default", None],  # None => omit ?models= (API chooses)

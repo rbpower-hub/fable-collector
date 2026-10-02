@@ -45,8 +45,8 @@ def settings():
     s.tz_name = TZ_NAME
     s.window_hours = 48
     s.start_iso = START.isoformat()
-    s.model_order = ["icon_seamless", "gfs_seamless", "ecmwf_ifs04", "default"]
-    s.parallel_models = ["ecmwf_ifs04", "icon_seamless", "gfs_seamless"]
+    s.model_order = ["icon_seamless", "gfs_seamless", "ecmwf_ifs025", "default"]
+    s.parallel_models = ["ecmwf_ifs025", "icon_seamless", "gfs_seamless"]
     return s
 
 

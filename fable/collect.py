@@ -58,12 +58,12 @@ class Settings:
     only_sites: set | None = field(default_factory=lambda: csv_to_slug_set(os.getenv("FABLE_ONLY_SITES", "")))
     model_order: list[str] = field(default_factory=lambda: [
         m.strip() for m in os.getenv(
-            "FABLE_MODEL_ORDER", "icon_seamless,gfs_seamless,ecmwf_ifs04,default"
+            "FABLE_MODEL_ORDER", "icon_seamless,gfs_seamless,ecmwf_ifs025,default"
         ).split(",") if m.strip()
     ])
     parallel_models: list[str] = field(default_factory=lambda: [
         m.strip() for m in os.getenv(
-            "FABLE_PARALLEL_MODELS", "ecmwf_ifs04,icon_seamless,gfs_seamless"
+            "FABLE_PARALLEL_MODELS", "ecmwf_ifs025,icon_seamless,gfs_seamless"
         ).split(",") if m.strip()
     ])
     marine_model_order: list[str] = field(default_factory=lambda: [

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.2 : Vent lu sur la mer et ECMWF rétabli
+- **Cellules de grille marines** : chaque requête de prévision Open-Meteo envoie `cell_selection=sea`. Sans ce paramètre, l'API retient une cellule terrestre : à Gammarth, 35 heures diurnes sur 39 étaient rejetées pour « grains » (facteur de rafale 2,55) et le vent soutenu ICON était sous-estimé de 6 km/h (9 km/h à Sidi Bou Saïd), mesures du 2 octobre 2026. La sélection et la cellule réellement utilisée sont publiées dans `meta.sources.ecmwf_open_meteo.cell_selection` et `meta.debug.forecast_grid`.
+- **ECMWF rétabli** : `ecmwf_ifs04` renvoyait des séries vides à chaque collecte ; il est remplacé par `ecmwf_ifs025`. L'ancien nom reste un alias du nouveau. Un test échoue si un modèle de vent configuré est retiré ou inconnu, workflow compris.
+- **Alerte modèle muet** : `status.json` publie `model_warnings` pour tout modèle de vent parallèle sans données. Information seulement, `build_ok` n'est pas modifié.
+- **Seuils inchangés** : aucune règle de décision n'est modifiée. Effet attendu : moins de faux vetos « grains », vent soutenu plus élevé et plus réaliste sur les spots côtiers.
+
 ## 3.3.1 — Fiabilité de la collecte et des connexions
 - Requêtes JSON partagées, délai limite incluant le corps de réponse et nouvelle tentative sur les erreurs transitoires.
 - Rafraîchissement automatique des vues mobile et simple, reprise après coupure réseau et suppression des caches d'échecs.

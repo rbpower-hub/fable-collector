@@ -153,7 +153,7 @@ jobs:
           FABLE_ONLY_SITES: ${{ inputs.only_sites || '' }}
           FABLE_HTTP_RETRIES: "3"
           FABLE_HTTP_TIMEOUT_S: "12"
-          FABLE_PARALLEL_MODELS: "icon_seamless,gfs_seamless,ecmwf_ifs04"
+          FABLE_PARALLEL_MODELS: "icon_seamless,gfs_seamless,ecmwf_ifs025"
           FABLE_PARALLEL_TIMEOUT_S: "12"
           FABLE_INCLUDE_EXTRAS: "1"
           FABLE_ASTRAL_FALLBACK: "1"

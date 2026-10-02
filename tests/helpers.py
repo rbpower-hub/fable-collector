@@ -73,7 +73,7 @@ def make_spot_json(name: str, slug: str, start: dt.datetime, hours: int, *,
         "tp": [tp] * hours,
     }
     models = {}
-    model_names = ["icon_seamless", "gfs_seamless", "ecmwf_ifs04"][:n_models]
+    model_names = ["icon_seamless", "gfs_seamless", "ecmwf_ifs025"][:n_models]
     for i, model_name in enumerate(model_names):
         models[model_name] = {"hourly": {
             "time": axis,

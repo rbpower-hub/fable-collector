@@ -466,7 +466,10 @@ def test_decision_policy_does_not_change_existing_navigation_rules():
     rules = load_rules()
     watch = rules.pop("decision_policy")["watch"]
 
-    assert rules_digest(rules) == "75d3a79038f4"
+    # 2026-10-02: only http.model_order changed (ecmwf_ifs04 -> ecmwf_ifs025,
+    # a data source, not a threshold). With the old model order the digest is
+    # the previous pin, 75d3a79038f4.
+    assert rules_digest(rules) == "4326768497dd"
     assert watch["enabled"] is True
 
 

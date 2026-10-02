@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import urllib.request
 
 # -------- Config par défaut (modifiable en CLI) --------
-DEFAULT_MODELS = ["ecmwf_ifs04","icon_seamless","gfs_seamless","default"]
+DEFAULT_MODELS = ["ecmwf_ifs025","icon_seamless","gfs_seamless","default"]
 
 # Jeu "collector-like"
 ECMWF_KEYS = [
@@ -21,7 +21,7 @@ MARINE_KEYS = ["wave_height","wave_period","swell_wave_height","swell_wave_perio
 
 # Modèles réellement acceptés par /v1/forecast
 MODEL_ALIASES = {
-    "ecmwf_ifs04":  ["ecmwf_ifs04"],
+    "ecmwf_ifs025": ["ecmwf_ifs025"],
     "icon_seamless":["icon_seamless"],
     "gfs_seamless": ["gfs_seamless"],
     "default":      ["default", None],

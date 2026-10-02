@@ -97,3 +97,43 @@ def test_final_check_validates_hourly_assessment_reference(tmp_path):
     )
     problems = final_check(tmp_path, ["gammarth-port.json"])
     assert not any("hourly assessment" in problem for problem in problems)
+
+
+def _spot_with_attempts(tmp_path, name, attempts):
+    (tmp_path / name).write_text(json.dumps({
+        "meta": {"debug": {"parallel_attempts": attempts}},
+        "hourly": {"time": [f"t{i}" for i in range(48)]},
+    }), encoding="utf-8")
+
+
+def test_status_reports_wind_models_that_return_no_data(tmp_path):
+    dead = {"model": "ecmwf_ifs04", "status": "no_wind_arrays"}
+    _spot_with_attempts(tmp_path, "gammarth-port.json", [
+        {"model": "gfs_seamless", "status": "ok"},
+        dead,
+        {"model": "icon_seamless", "status": "published_primary_copy"},
+    ])
+    _spot_with_attempts(tmp_path, "kelibia.json", [{"model": "gfs_seamless", "status": "ok"}, dead])
+    build_catalog(tmp_path, TZ)
+
+    st = build_status(tmp_path, TZ, expected_spots=["gammarth-port.json", "kelibia.json"])
+
+    assert st["model_warnings"] == [
+        {"model": "ecmwf_ifs04", "status": "no_wind_arrays", "spots": ["gammarth-port.json", "kelibia.json"]},
+    ]
+    assert st["build_ok"] is True  # informational, never blocks publication
+    published = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    assert published["model_warnings"] == st["model_warnings"]
+
+
+def test_status_has_no_model_warning_when_every_model_delivers(tmp_path):
+    _spot_with_attempts(tmp_path, "gammarth-port.json", [
+        {"model": "gfs_seamless", "status": "ok"},
+        {"model": "ecmwf_ifs025", "status": "ok"},
+        {"model": "icon_seamless", "status": "published_primary_copy"},
+    ])
+    build_catalog(tmp_path, TZ)
+
+    st = build_status(tmp_path, TZ, expected_spots=["gammarth-port.json", "missing.json"])
+
+    assert st["model_warnings"] == []

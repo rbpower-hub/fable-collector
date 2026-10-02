@@ -46,6 +46,44 @@ def build_catalog(public: Path, tz: ZoneInfo) -> dict[str, Any]:
     return catalog
 
 
+# Parallel wind-model attempt statuses that mean "this model delivered data".
+WIND_MODEL_OK_STATUSES = {"ok", "published_primary_copy"}
+
+
+def wind_model_warnings(public: Path, spots: list[str]) -> list[dict[str, Any]]:
+    """Configured wind models that returned no usable data, grouped by status.
+
+    Informational only: it never changes `build_ok`, because the decision
+    engine already treats missing models conservatively. It exists so that a
+    model silently returning nothing (as `ecmwf_ifs04` did for months) shows up
+    in status.json instead of only in each spot's debug block. Marine models
+    are left out on purpose: GFS-Wave is routinely land-masked at some coastal
+    points and would turn this into permanent noise.
+    """
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for spot in spots:
+        path = public / spot
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        attempts = (((payload.get("meta") or {}).get("debug") or {}).get("parallel_attempts")) or []
+        for attempt in attempts:
+            status = str(attempt.get("status") or "unknown")
+            model = str(attempt.get("model") or "unknown")
+            if status in WIND_MODEL_OK_STATUSES:
+                continue
+            grouped.setdefault((model, status), []).append(spot)
+    warnings = [
+        {"model": model, "status": status, "spots": sorted(found)}
+        for (model, status), found in sorted(grouped.items())
+    ]
+    for warning in warnings:
+        log.warning("wind model %s returned no data (%s) for %d spot(s)",
+                    warning["model"], warning["status"], len(warning["spots"]))
+    return warnings
+
+
 def build_status(public: Path, tz: ZoneInfo, expected_spots: list[str] | None = None,
                  now: dt.datetime | None = None) -> dict[str, Any]:
     now = now or dt.datetime.now(tz)
@@ -67,6 +105,7 @@ def build_status(public: Path, tz: ZoneInfo, expected_spots: list[str] | None = 
         "expected_spots": expected_spots or [],
         "missing_spots": missing,
         "build_ok": not missing,
+        "model_warnings": wind_model_warnings(public, expected_spots or []),
         "files": files,
     }
     (public / "status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
